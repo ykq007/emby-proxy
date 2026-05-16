@@ -12,861 +12,125 @@ const SVG_COPY = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2
 const SVG_TG = `<svg viewBox="0 0 24 24" style="width:20px;height:20px;margin-right:8px;fill:#0088cc;"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>`;
 
 const CSS_COMMON = `
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
-
-    :root {
-        color-scheme: light;
-        --bg: #fff7ee;
-        --bg-2: #fff0db;
-        --bg-3: #ffe2c2;
-        --card: rgba(255, 252, 246, 0.88);
-        --card-strong: rgba(255, 248, 236, 0.98);
-        --text: #1f1724;
-        --text-sec: #6f6474;
-        --muted: #8d8194;
-        --border: rgba(122, 86, 66, 0.16);
-        --shadow: 0 12px 32px rgba(124, 92, 74, 0.10), 0 2px 8px rgba(124, 92, 74, 0.05);
-        --shadow-hover: 0 22px 44px rgba(124, 92, 74, 0.16), 0 8px 18px rgba(124, 92, 74, 0.08);
-        --primary: #e85d39;
-        --primary-hover: #d84c27;
-        --primary-2: #ffb057;
-        --accent: #45b48e;
-        --mint: #dff5ea;
-        --gold: #f6c85f;
-        --rose: #f5b2b3;
-        --input-bg: rgba(255, 248, 239, 0.96);
-        --chip-bg: rgba(255, 255, 255, 0.7);
-        --ring: rgba(232, 93, 57, 0.18);
-        --glass: rgba(255, 255, 255, 0.45);
+    :root { 
+        --primary: #0071e3; 
+        --primary-hover: #005cbf;
+        --bg: #f5f5f7; 
+        --card: #ffffff; 
+        --text: #1d1d1f; 
+        --text-sec: #86868b;
+        --border: #d2d2d7; 
+        --radius-card: 16px;
     }
-
+    
     body.dark {
-        color-scheme: dark;
-        --bg: #141018;
-        --bg-2: #1a1320;
-        --bg-3: #231925;
-        --card: rgba(28, 22, 35, 0.88);
-        --card-strong: rgba(34, 26, 42, 0.96);
-        --text: #f7f0ff;
-        --text-sec: #b8adbf;
-        --muted: #93889f;
-        --border: rgba(255, 224, 198, 0.10);
-        --shadow: 0 14px 42px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.20);
-        --shadow-hover: 0 24px 56px rgba(0, 0, 0, 0.42), 0 10px 24px rgba(0, 0, 0, 0.24);
-        --primary: #ff8d6a;
-        --primary-hover: #ff7a53;
-        --primary-2: #ffc15c;
-        --accent: #68d1ab;
-        --mint: rgba(60, 99, 79, 0.22);
-        --gold: #f7d06c;
-        --rose: rgba(182, 78, 92, 0.30);
-        --input-bg: rgba(43, 34, 51, 0.96);
-        --chip-bg: rgba(255, 255, 255, 0.06);
-        --ring: rgba(255, 141, 106, 0.22);
-        --glass: rgba(255, 255, 255, 0.04);
+        --primary: #0a84ff; 
+        --primary-hover: #0071e3;
+        --bg: #000000; 
+        --card: #1c1c1e; 
+        --text: #f5f5f7; 
+        --text-sec: #98989d;
+        --border: #38383a;
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; -webkit-text-size-adjust: 100%; transition: background-color 0.3s, color 0.3s; }
+    .container { max-width: 1200px; margin: 0 auto; width: 100%; min-height: 90vh; display: flex; flex-direction: column;}
+    .content-wrap { flex: 1; }
+    input, select, button, textarea { font-family: inherit; outline: none; font-size: 15px; }
+    
+    .card { background: var(--card); padding: 24px; border-radius: var(--radius-card); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--border); transition: 0.3s; }
+    
+    #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 9999; backdrop-filter: blur(10px); text-align: center; max-width: 90vw; word-wrap: break-word; }
+    #toast.show { top: 20px; }
 
-    html { scroll-behavior: smooth; }
-
-    body {
-        margin: 0;
-        min-height: 100vh;
-        padding: 24px;
-        background:
-            radial-gradient(circle at top left, rgba(255, 165, 102, 0.20), transparent 30%),
-            radial-gradient(circle at top right, rgba(69, 180, 142, 0.18), transparent 28%),
-            linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
-        color: var(--text);
-        font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        -webkit-text-size-adjust: 100%;
-        transition: background-color 0.35s ease, color 0.25s ease;
-        position: relative;
-        overflow-x: hidden;
-    }
-
-    body.app-page::before,
-    body.app-page::after {
-        content: '';
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-    }
-
-    body.app-page::before {
-        background:
-            linear-gradient(120deg, rgba(255,255,255,0.16), transparent 34%),
-            linear-gradient(240deg, rgba(232,93,57,0.05), transparent 28%),
-            radial-gradient(circle at 15% 20%, rgba(255, 176, 87, 0.13), transparent 20%),
-            radial-gradient(circle at 85% 12%, rgba(69, 180, 142, 0.12), transparent 18%);
-        mix-blend-mode: screen;
-        opacity: 0.75;
-    }
-
-    body.app-page::after {
-        background-image:
-            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-        background-size: 28px 28px;
-        opacity: 0.22;
-    }
-
-    body.login-page {
-        display: grid;
-        place-items: center;
-        min-height: 100vh;
-        padding: 20px;
-    }
-
-    .container {
-        max-width: 1440px;
-        margin: 0 auto;
-        width: 100%;
-        position: relative;
-        z-index: 1;
-    }
-
-    .page-shell {
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-    }
-
-    .content-wrap {
-        display: grid;
-        grid-template-columns: repeat(12, minmax(0, 1fr));
-        gap: 18px;
-    }
-
-    .content-wrap > .header,
-    .content-wrap > .card,
-    .content-wrap > .shelf {
-        min-width: 0;
-    }
-
-    .header,
-    .card,
-    .emby-card,
-    .login-box,
-    #dashboardModal .card {
-        border: 1px solid var(--border);
-        box-shadow: var(--shadow);
-        background: var(--card);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-    }
-
-    .header.hero-shell {
-        grid-column: 1 / -1;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        padding: 28px;
-        border-radius: 28px;
-        background:
-            radial-gradient(circle at top left, rgba(255, 176, 87, 0.18), transparent 26%),
-            radial-gradient(circle at top right, rgba(69, 180, 142, 0.14), transparent 24%),
-            linear-gradient(135deg, var(--card-strong), var(--glass));
-        position: relative;
-        overflow: hidden;
-    }
-
-    .header.hero-shell::after {
-        content: '';
-        position: absolute;
-        inset: auto -24px -42px auto;
-        width: 220px;
-        height: 220px;
-        background: radial-gradient(circle, rgba(232, 93, 57, 0.18), transparent 68%);
-        pointer-events: none;
-    }
-
-    .header.hero-shell h1 {
-        margin: 0;
-        font-size: clamp(24px, 3vw, 36px) !important;
-        line-height: 1.1;
-        letter-spacing: -0.03em;
-        font-family: 'Fraunces', 'Outfit', serif;
-    }
-
-    .header.hero-shell .actions-wrapper {
-        justify-content: flex-end;
-    }
-
-    .header.hero-shell .btn-submit {
-        border-radius: 999px;
-        padding-inline: 18px;
-    }
-
-    .card,
-    .login-box {
-        border-radius: 24px;
-    }
-
-    .shelf {
-        grid-column: span 6;
-        padding: 22px;
-        position: relative;
-        overflow: hidden;
-        background:
-            linear-gradient(180deg, rgba(255,255,255,0.04), transparent 34%),
-            var(--card);
-    }
-
-    .shelf::before {
-        content: '';
-        position: absolute;
-        inset: 0 auto auto 0;
-        height: 4px;
-        width: 100%;
-        background: linear-gradient(90deg, var(--primary), var(--primary-2), var(--accent));
-        opacity: 0.86;
-    }
-
-    #updateAlert,
-    #cf-trace-card,
-    .shelf:has(#dnsStatus),
-    .shelf:has(#addForm),
-    .shelf:has(#list-grid) {
-        grid-column: 1 / -1;
-    }
-
-    .shelf:has(#cf-mode-select),
-    .shelf:has(#codeArea) {
-        grid-column: span 6;
-    }
-
-    .shelf:hover,
-    .emby-card:hover,
-    .login-box:hover {
-        box-shadow: var(--shadow-hover);
-    }
-
-    input, select, button, textarea {
-        font-family: inherit;
-        outline: none;
-        font-size: 14px;
-        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-    }
-
-    input:focus, select:focus, textarea:focus {
-        border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
-        box-shadow: 0 0 0 4px var(--ring);
-    }
-
-    textarea, input[type='text'], input[type='password'], input[type='url'], select {
-        width: 100%;
-        min-height: 44px;
-        border-radius: 14px;
-        border: 1px solid var(--border);
-        background: var(--input-bg);
-        color: var(--text);
-        padding: 12px 14px;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    }
-
-    textarea { resize: vertical; line-height: 1.55; }
-
-    ::placeholder { color: var(--muted); }
-
-    .toolbar {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-bottom: 20px;
-        align-items: center;
-    }
-
-    .btn-submit,
-    .btn-edit,
-    .btn-del,
-    .btn-dns,
-    .icon-btn {
-        border: none;
-        cursor: pointer;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    .btn-submit {
-        min-height: 44px;
-        padding: 10px 18px;
-        border-radius: 14px;
-        color: white;
-        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-        box-shadow: 0 10px 22px rgba(232, 93, 57, 0.22);
-    }
-
-    .btn-submit:hover { transform: translateY(-1px); }
-    .btn-submit:active { transform: translateY(0) scale(0.98); }
-    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-    .btn-edit,
-    .btn-del,
-    .btn-dns,
-    .icon-btn {
-        min-height: 36px;
-        border-radius: 12px;
-        padding: 8px 12px;
-        color: var(--text);
-        background: var(--chip-bg);
-        border: 1px solid var(--border);
-    }
-
-    .btn-edit { color: var(--accent); }
-    .btn-del { color: #ff6a63; }
-    .btn-dns { color: var(--primary); }
-
-    .btn-edit:hover,
-    .btn-del:hover,
-    .btn-dns:hover,
-    .icon-btn:hover {
-        transform: translateY(-1px);
-        border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
-    }
-
-    .icon-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        width: 32px;
-        height: 32px;
-        background: transparent;
-    }
-
-    .table-wrapper {
-        width: 100%;
-        border-radius: 20px;
-        border: 1px solid var(--border);
-        overflow: hidden;
-        background: var(--card-strong);
-        box-shadow: var(--shadow);
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-    }
-
-    th, td {
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--border);
-        font-size: 14px;
-        vertical-align: middle;
-    }
-
-    th {
-        color: var(--text-sec);
-        font-size: 12px;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        background: linear-gradient(180deg, rgba(255,255,255,0.06), transparent);
-        white-space: nowrap;
-    }
-
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .btn-submit { padding: 12px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: 0.2s; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
+    .btn-submit:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 113, 227, 0.3); }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    
+    .table-wrapper { width: 100%; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--card); }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+    th { color: var(--text-sec); font-weight: 600; background: rgba(120,120,120,0.05); }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+    tr:hover td { background-color: rgba(120,120,120,0.03); }
+    
+    .action-group { display: inline-flex; gap: 8px; background: rgba(120,120,120,0.05); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
+    .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: none; background: var(--card); cursor: pointer; color: var(--text); padding: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); transition: 0.2s; flex-shrink: 0; font-size:16px; }
+    .icon-btn:hover { color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .icon-btn svg { width: 15px; height: 15px; fill: currentColor; }
+    
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+    
+    .btn-edit { padding: 8px 14px; background: var(--card); color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
+    .btn-del { padding: 8px 14px; background: var(--card); color: #ff3b30; border: 1px solid #ff3b30; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
+    .btn-dns { padding: 8px 14px; background: var(--card); color: #34c759; border: 1px solid #34c759; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; white-space: nowrap; }
+    .btn-dns:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .badge,
-    .ping-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        min-height: 28px;
-        padding: 5px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--chip-bg);
-        color: var(--text);
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1;
-    }
+    .ip-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+    .secret-text { font-family: monospace; letter-spacing: 2px; color: var(--text-sec); }
+    
+    .dynamic-url { display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
+    .actual-text.dynamic-url { white-space: normal; max-width: 100%; overflow: visible; text-align: left !important; word-break: break-all; font-size: 13px; font-family: monospace; color: var(--primary); letter-spacing: normal; }
+    .url-list-item { background: var(--bg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-top: 6px; word-break: break-all; line-height: 1.4; color: var(--text); font-family: -apple-system, sans-serif; letter-spacing: normal; text-align: left; }
+    .url-list-item:first-child { margin-top: 0; }
 
-    .ping-badge {
-        background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--primary) 12%, transparent));
-        color: var(--accent);
-    }
+    body.dark input, body.dark select, body.dark textarea { background: #1c1c1e; color: #f5f5f7; border: 1px solid #38383a; }
 
-    .badge strong,
-    .ping-badge strong { font-family: 'Outfit', sans-serif; }
+    .search-input { padding: 10px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; width: 260px; transition: 0.3s; }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.15); }
 
-    .flex-responsive {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        align-items: center;
-    }
+    .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; margin-top: 20px; }
+    .emby-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 14px; transition: 0.3s; position: relative; }
+    .emby-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.06); transform: translateY(-2px); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+    .card-title-group { display: flex; align-items: center; gap: 12px; }
+    .emby-icon { font-size: 28px; background: rgba(120,120,120,0.05); border-radius: 10px; padding: 6px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
+    .info-row { display: flex; align-items: flex-start; justify-content: space-between; font-size: 13px; }
+    .info-label { color: var(--text-sec); font-weight: 500; min-width: 65px; margin-top: 4px; }
+    .card-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); }
 
-    .w-full-mobile { width: auto; }
+    .ping-badge { color: var(--text-sec); cursor: pointer; padding: 4px 10px; background: rgba(120,120,120,0.05); border-radius: 6px; font-size: 13px; font-weight: 500; transition: 0.2s; border: 1px solid transparent; user-select: none; }
+    .ping-badge:hover { border-color: var(--border); background: var(--card); box-shadow: 0 2px 6px rgba(0,0,0,0.05); color: var(--primary); }
 
-    .action-group {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
+    .icon-item { cursor: pointer; padding: 6px; border-radius: 8px; border: 1px solid transparent; display: flex; justify-content: center; align-items: center; transition: 0.2s; background: var(--bg); height: 44px; }
+    .icon-item:hover { border-color: var(--primary) !important; box-shadow: 0 2px 8px rgba(0,113,227,0.2); transform: scale(1.05); }
+    #iconGrid::-webkit-scrollbar { width: 6px; }
+    #iconGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    .info-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
-        padding: 10px 12px;
-        border-radius: 16px;
-        background: color-mix(in srgb, var(--input-bg) 90%, transparent);
-        border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    }
+    /* 拖拽排序核心适配样式 */
+    .emby-card.sortable-ghost { opacity: 0.4; }
+    .emby-card.sortable-drag { cursor: grabbing !important; }
+    .drag-handle { cursor: grab; padding-right: 10px; font-size: 18px; color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
+    .drag-handle:active { cursor: grabbing; color: var(--primary); }
 
-    .info-label {
-        color: var(--text-sec);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
-    }
-
-    .secret-text,
-    .dynamic-url {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 12px;
-        color: var(--text);
-        word-break: break-all;
-    }
-
-    .dynamic-url {
-        background: var(--input-bg);
-        border: 1px dashed var(--border);
-        border-radius: 999px;
-        padding: 6px 10px;
-    }
-
-    .drag-handle {
-        cursor: grab;
-        user-select: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-        color: var(--text-sec);
-        background: var(--chip-bg);
-        border: 1px solid var(--border);
-    }
-
-    .emby-card {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding: 18px;
-        border-radius: 26px;
-        background:
-            radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 26%),
-            linear-gradient(180deg, color-mix(in srgb, var(--card-strong) 92%, transparent), var(--card));
-        position: relative;
-        overflow: hidden;
-    }
-
-    .emby-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    }
-
-    .card-header,
-    .card-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .card-title-group {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 0;
-    }
-
-    .card-footer {
-        padding-top: 4px;
-        border-top: 1px solid var(--border);
-    }
-
-    .emby-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        overflow: hidden;
-        border-radius: 16px;
-        background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
-        border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-    }
-
-    .node-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-        gap: 16px;
-    }
-
-    .route-item {
-        min-height: 100%;
-    }
-
-    .route-item .poster-shell {
-        display: grid;
-        grid-template-columns: minmax(74px, 112px) minmax(0, 1fr);
-        gap: 14px;
-        align-items: stretch;
-    }
-
-    .route-item .poster-visual {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 14px;
-        border-radius: 22px;
-        background:
-            radial-gradient(circle at top, rgba(255,255,255,0.10), transparent 56%),
-            linear-gradient(180deg, color-mix(in srgb, var(--primary) 18%, transparent), color-mix(in srgb, var(--accent) 14%, transparent));
-        border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-    }
-
-    .route-item .poster-band {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-    }
-
-    .route-item .poster-art {
-        width: 100%;
-        min-height: 120px;
-        padding: 14px;
-        border-radius: 20px;
-        background:
-            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.28), transparent 28%),
-            linear-gradient(135deg, rgba(232,93,57,0.95), rgba(255,176,87,0.85) 48%, rgba(69,180,142,0.82));
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
-    }
-
-    .route-item .poster-art img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 14px;
-    }
-
-    .route-item .poster-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-width: 0;
-    }
-
-    .route-item .poster-title {
-        font-size: 18px;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1.15;
-        word-break: break-word;
-    }
-
-    .route-item .poster-subtitle {
-        font-size: 12px;
-        color: var(--text-sec);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-
-    .route-item .poster-strip {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-
-    .route-item .strip-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        min-height: 34px;
-        padding: 7px 10px;
-        border-radius: 999px;
-        background: var(--chip-bg);
-        border: 1px solid var(--border);
-        font-size: 12px;
-        color: var(--text-sec);
-    }
-
-    .route-item .strip-chip strong {
-        color: var(--text);
-        font-weight: 700;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-
-    .route-item .poster-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .route-item .poster-actions {
-        gap: 10px;
-        justify-content: flex-end;
-    }
-
-    .route-item .poster-actions .btn-edit,
-    .route-item .poster-actions .btn-del {
-        min-width: 76px;
-    }
-
-    .search-input {
-        min-width: 180px;
-    }
-
-    .icon-item {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        background: var(--chip-bg);
-        cursor: pointer;
-        transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .icon-item:hover {
-        transform: translateY(-1px);
-        border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-        box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-    }
-
-    .url-list-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 10px 12px;
-        border-radius: 14px;
-        background: var(--input-bg);
-        border: 1px solid var(--border);
-    }
-
-    #toast {
-        position: fixed;
-        top: -80px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(24, 18, 31, 0.95);
-        color: #fff7ee;
-        padding: 12px 18px;
-        border-radius: 999px;
-        font-size: 14px;
-        font-weight: 600;
-        transition: top 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
-        z-index: 9999;
-        box-shadow: 0 18px 32px rgba(0,0,0,0.22);
-        text-align: center;
-        max-width: min(92vw, 720px);
-        word-wrap: break-word;
-    }
-
-    body.dark #toast {
-        background: rgba(247, 240, 255, 0.96);
-        color: #22192a;
-    }
-
-    #toast.show { top: 18px; }
-
-    #dashboardModal {
-        background: rgba(20, 16, 24, 0.62) !important;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        padding: 20px !important;
-    }
-
-    #dashboardModal .card {
-        max-width: 1120px;
-        margin: 28px auto;
-        background: var(--card-strong);
-        border-radius: 28px;
-        padding: 22px;
-    }
-
-    #dashboardModal h2 {
-        letter-spacing: -0.02em;
-    }
-
-    #dashboardModal canvas {
-        max-width: 100%;
-    }
-
-    .actual-text {
-        font-size: 12px;
-        color: var(--text-sec);
-    }
-
-    .ip-checkbox {
-        accent-color: var(--primary);
-        width: 16px;
-        height: 16px;
-    }
-
-    .node-grid .route-item,
-    .route-item {
-        transform: translateY(0);
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .route-item:hover {
-        transform: translateY(-2px);
-    }
-
-    .sortable-ghost {
-        opacity: 0.5;
-    }
-
-    .sortable-drag {
-        transform: rotate(1deg);
-        box-shadow: var(--shadow-hover);
-    }
-
-    .w-full-mobile { max-width: none; }
-
-    @media (max-width: 1180px) {
-        .content-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .header.hero-shell { padding: 22px; }
-    }
-
-    @media (max-width: 900px) {
-        body { padding: 16px; }
-        .content-wrap,
-        .shell-grid {
-            grid-template-columns: 1fr;
-        }
-        .header.hero-shell {
-            flex-direction: column;
-        }
-        .header.hero-shell .actions-wrapper {
-            width: 100%;
-            justify-content: flex-start;
-        }
-        .shelf,
-        .header.hero-shell,
-        #updateAlert,
-        #cf-trace-card,
-        .shelf:has(#dnsStatus),
-        .shelf:has(#addForm),
-        .shelf:has(#list-grid),
-        .shelf:has(#cf-mode-select),
-        .shelf:has(#codeArea) {
-            grid-column: 1 / -1;
-        }
-        .route-item .poster-shell {
-            grid-template-columns: 1fr;
-        }
-        .node-grid {
-            grid-template-columns: 1fr;
-        }
-        .toolbar,
-        .flex-responsive,
-        .action-group,
-        .card-header,
-        .card-footer,
-        .header.hero-shell,
-        .route-item .poster-strip {
-            align-items: stretch;
-        }
-        .route-item .poster-actions {
-            justify-content: stretch;
-        }
-        .w-full-mobile { width: 100%; }
-        .search-input { min-width: 0; }
-        th, td { padding: 12px 10px; }
-    }
-
-    @media (max-width: 680px) {
-        .container { width: 100%; }
-        .header.hero-shell h1 { font-size: 24px !important; }
-        .shelf { padding: 18px; border-radius: 22px; }
-        .btn-submit,
-        .btn-edit,
-        .btn-del,
-        .btn-dns,
-        .icon-btn { width: 100%; justify-content: center; }
-        .action-group .icon-btn { width: 32px; }
-        .table-wrapper,
-        table,
-        thead,
-        tbody,
-        th,
-        td,
-        tr { display: block; width: 100%; }
+    /* 响应式移动端适配 */
+    @media (max-width: 768px) {
+        body { padding: 12px; }
+        .card { padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+        .header h1 { font-size: 22px; }
+        .toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+        .toolbar > * { width: 100%; display: flex; justify-content: center; }
+        .search-input { width: 100%; }
+        .node-grid { grid-template-columns: 1fr; }
+        .table-wrapper { border: none; background: transparent; overflow: visible; }
+        table, thead, tbody, th, td, tr { display: block; width: 100%; }
         thead { display: none; }
-        tr { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--card-strong); }
-        td { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; text-align: right; border-bottom: 1px solid var(--border); }
+        tr { margin-bottom: 16px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: hidden; }
+        td { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; gap: 12px; min-height: 50px; }
         td:last-child { border-bottom: none; }
-        td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            color: var(--text-sec);
-            flex-shrink: 0;
-            margin-right: auto;
-            text-align: left;
-            font-size: 13px;
-        }
-        #dashboardModal { padding: 0 !important; }
-        #dashboardModal .card {
-            margin: 0 !important;
-            padding: 18px 14px !important;
-            min-height: 100vh;
-            border-radius: 0;
-            border: none;
-        }
-        #dashboardModal h2 {
-            font-size: 20px;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        #dashboardModal h2 > div {
-            width: 100%;
-            justify-content: space-between;
-        }
-        #addForm .flex-responsive > input,
-        #addForm .flex-responsive > select,
-        #addForm .flex-responsive > button {
-            width: 100%;
-            flex: 1 1 100%;
-        }
-        .route-item .poster-band,
-        .route-item .poster-meta {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        .route-item .poster-actions {
-            width: 100%;
-        }
+        td[colspan] { justify-content: center; text-align: center; }
+        td[colspan]::before { display: none !important; }
+        td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; }
+        
+        #dashboardModal { padding: 10px !important; }
+        #dashboardModal .card { margin: 10px auto !important; padding: 16px !important; box-sizing: border-box; }
+        #dashboardModal h2 { font-size: 18px; flex-direction: column; align-items: flex-start; }
+        #dashboardModal h2 span { font-size: 12px; }
     }
-
 `;
-
 
 const LOGIN_UI = `
 <!DOCTYPE html>
@@ -877,149 +141,21 @@ const LOGIN_UI = `
     <title>系统授权</title>
     <style>
         ${CSS_COMMON}
-        body.login-page {
-            overflow: hidden;
-        }
-        body.login-page::before,
-        body.login-page::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-        }
-        body.login-page::before {
-            background:
-                radial-gradient(circle at 20% 20%, rgba(255, 176, 87, 0.24), transparent 24%),
-                radial-gradient(circle at 80% 15%, rgba(69, 180, 142, 0.18), transparent 22%),
-                linear-gradient(135deg, rgba(255,255,255,0.10), transparent 45%);
-        }
-        body.login-page::after {
-            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 28px 28px;
-            opacity: 0.18;
-        }
-        .login-scene {
-            width: 100%;
-            max-width: 980px;
-            display: grid;
-            grid-template-columns: 1.05fr 0.95fr;
-            gap: 22px;
-            align-items: center;
-            position: relative;
-            z-index: 1;
-        }
-        .login-brand {
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .login-kicker {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            width: fit-content;
-            padding: 8px 12px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: var(--chip-bg);
-            color: var(--text-sec);
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-        .login-brand h1 {
-            margin: 0;
-            font-family: 'Fraunces', serif;
-            font-size: clamp(36px, 5vw, 58px);
-            line-height: 0.95;
-            letter-spacing: -0.04em;
-        }
-        .login-brand p {
-            margin: 0;
-            color: var(--text-sec);
-            font-size: 15px;
-            line-height: 1.75;
-            max-width: 38ch;
-        }
-        .login-flags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .login-flags span {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            min-height: 34px;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: var(--chip-bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .login-box.login-card {
-            padding: 28px;
-            background:
-                radial-gradient(circle at top right, rgba(255,255,255,0.10), transparent 34%),
-                linear-gradient(180deg, color-mix(in srgb, var(--card-strong) 90%, transparent), var(--card));
-        }
-        .login-box.login-card h2 {
-            font-size: 28px;
-            margin-bottom: 10px;
-            font-family: 'Fraunces', serif;
-        }
-        .login-box.login-card p {
-            font-size: 14px;
-            line-height: 1.7;
-        }
-        .login-box.login-card .login-input-wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            margin-top: 18px;
-        }
-        .login-box.login-card input {
-            text-align: left;
-            font-size: 15px;
-            padding: 14px 16px;
-        }
-        .login-box.login-card button {
-            width: 100%;
-            padding: 14px 16px;
-            font-size: 15px;
-            border-radius: 14px;
-        }
-        @media (max-width: 900px) {
-            .login-scene { grid-template-columns: 1fr; }
-        }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; padding: 16px; margin: 0; background: #f0f2f5; }
+        .login-box { background: var(--card); padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); text-align: center; width: 100%; max-width: 360px; }
+        .login-box h2 { margin: 0 0 24px 0; font-size: 22px; font-weight: 600; }
+        .login-box input { width: 100%; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; }
+        .login-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.15); }
+        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; }
     </style>
 </head>
-<body class="login-page">
+<body>
     <div id="toast"></div>
-    <main class="login-scene">
-        <section class="login-brand">
-            <div class="login-kicker">🎞️ Media Library Console</div>
-            <h1>私有反代后台</h1>
-            <p>像翻看片库一样管理路由、测速、部署与 DNS。请输入管理员密钥继续进入。</p>
-            <div class="login-flags">
-                <span>🔒 仅授权访问</span>
-                <span>🎬 播放库视图</span>
-                <span>⚡ 云端调度</span>
-            </div>
-        </section>
-        <div class="login-box login-card">
-            <h2>安全中心</h2>
-            <p>请输入管理员密钥以继续访问</p>
-            <div class="login-input-wrap">
-                <input type="password" id="tokenInput" placeholder="密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
-                <button class="btn-submit" onclick="login()">验 证 登 录</button>
-            </div>
-        </div>
-    </main>
+    <div class="login-box">
+        <h2>安全中心</h2>
+        <input type="password" id="tokenInput" placeholder="请输入密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
+        <button onclick="login()">验 证 登 录</button>
+    </div>
     <script>
         function showToast(msg) {
             const t = document.getElementById('toast');
@@ -1035,9 +171,7 @@ const LOGIN_UI = `
     </script>
 </body>
 </html>
-
 `;
-
 
 const HTML_UI = `
 <!DOCTYPE html>
@@ -1050,77 +184,75 @@ const HTML_UI = `
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="app-page">
+<body>
     <div id="toast"></div>
     
-    <div id="dashboardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);">
-        <div class="card shelf" style="max-width: 1000px; margin: 40px auto; position:relative;">
-            <button onclick="closeDashboard()" style="position:absolute; top:16px; right:16px; font-size:20px; background:var(--input-bg); border-radius:8px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ef4444'; this.style.borderColor='#ef4444'" onmouseout="this.style.color='var(--text-sec)'; this.style.borderColor='var(--border)'">✖</button>
+    <div id="dashboardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
+        <div class="card" style="max-width: 1000px; margin: 40px auto; position:relative; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <button onclick="closeDashboard()" style="position:absolute; top:20px; right:20px; font-size:24px; background:none; border:none; cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ff3b30'" onmouseout="this.style.color='var(--text-sec)'">✖</button>
             
             <h2 style="margin-top:0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size:24px;">📊</span> 数据大屏 <span style="font-size:13px; font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
+                    📊 数据大屏 <span style="font-size:14px; font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
                 </div>
-                <div style="font-size: 13px; background: var(--input-bg); color: var(--text); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; gap: 12px; flex-wrap: wrap; font-weight:500;">
-                    <span> 今天: <strong id="trafficToday" style="color:var(--primary)">加载中...</strong></span>
-                    <span>1周内: <strong id="traffic7d" style="color:var(--primary)">加载中...</strong></span>
-                    <span>1月内: <strong id="traffic30d" style="color:var(--primary)">加载中...</strong></span>
+                <div style="font-size: 13px; background: rgba(0,113,227,0.1); color: var(--primary); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(0,113,227,0.2); display: flex; gap: 15px; flex-wrap: wrap;">
+                    <span> 今天: <strong id="trafficToday">加载中...</strong></span>
+                    <span>1周内: <strong id="traffic7d">加载中...</strong></span>
+                    <span>1月内: <strong id="traffic30d">加载中...</strong></span>
                 </div>
             </h2>
             
-            <div class="flex-responsive" style="margin-top:20px; align-items: stretch;">
-                <div style="flex: 2; min-width: 300px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--input-bg);">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top:20px;">
+                <div style="flex: 2; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03);">
                     <canvas id="trendChart"></canvas>
                 </div>
-                <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--input-bg); display: flex; justify-content: center; align-items: center;">
+                <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03); display: flex; justify-content: center; align-items: center;">
                     <canvas id="locationChart"></canvas>
                 </div>
             </div>
             
-            <h3 style="margin-top: 32px; margin-bottom:16px; display:flex; align-items:center; gap:8px; font-size: 16px;">🕵️ 最新独立播放记录 <span style="font-size:12px; color:var(--text-sec); font-weight:normal;">(仅拦截 PlaybackInfo)</span></h3>
+            <h3 style="margin-top: 30px; margin-bottom:16px;">🕵️ 最新独立播放记录 <span style="font-size:12px; color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
             <div class="table-wrapper">
                 <table style="width: 100%;">
-                    <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识</th></tr></thead>
-                    <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center; padding: 30px; color:var(--text-sec);">数据分析引擎计算中...</td></tr></tbody>
+                    <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识 (User-Agent)</th></tr></thead>
+                    <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center; padding: 30px;">加载数据中...</td></tr></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div class="container page-shell">
-        <div id="updateAlert" class="card" style="display: none; border-left: 4px solid #10b981; background-color: var(--input-bg); margin-top: 16px;">
-            <div class="flex-responsive" style="justify-content: space-between;">
+    <div class="container">
+    <div id="updateAlert" class="card" style="display: none; border-left: 4px solid #34c759; background-color: rgba(52, 199, 89, 0.05); margin-top: 20px;">
+            <div style="display:flex; justify-content: space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                 <div>
-                    <h3 style="margin:0; color: #10b981; font-size: 16px; display:flex; align-items:center; gap:6px;">✨ 发现新版本！</h3>
-                    <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-sec);" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</p>
+                    <h3 style="margin:0; color: #34c759; font-size: 16px;">✨ 发现新版本！</h3>
+                    <p style="margin: 5px 0 0 0; font-size: 13px; color: var(--text-sec);" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</p>
                 </div>
-                <button onclick="doOnlineUpdate()" id="onlineUpdateBtn" class="btn-submit w-full-mobile" style="background: #10b981;">🚀 一键拉取并升级</button>
+                <button onclick="doOnlineUpdate()" id="onlineUpdateBtn" style="background: #34c759; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">🚀 一键拉取并升级</button>
             </div>
         </div>
-        
-        <div id="cf-trace-card" class="card flex-responsive" style="margin-bottom: 20px; justify-content: space-between; font-size: 14px; margin-top: 20px;">
+    <div id="cf-trace-card" style="background: rgba(120,120,120,0.05); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; font-size: 14px; gap: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-top: 20px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 24px; background:var(--input-bg); border: 1px solid var(--border); border-radius:10px; padding:8px;">📍</div>
+                <div style="font-size: 24px;">📍</div>
                 <div>
-                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px; font-weight:500;">访客入口 (地区与机房)</div>
-                    <div id="trace-entry" style="font-weight:600; color:var(--text); font-family: monospace; font-size: 14px;">雷达扫描中...</div>
+                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px;">访客入口 (地区与机房)</div>
+                    <div id="trace-entry" style="font-weight:600; color:var(--text); font-family: monospace; font-size: 15px;">雷达扫描中...</div>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 24px; background:var(--input-bg); border: 1px solid var(--border); border-radius:10px; padding:8px;">🚀</div>
+                <div style="font-size: 24px;">🚀</div>
                 <div>
-                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px; font-weight:500;">Worker 实际落地机房</div>
-                    <div id="trace-egress" style="font-weight:600; color:#10b981; font-family: monospace; font-size: 14px;">雷达扫描中...</div>
+                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px;">Worker 实际落地机房</div>
+                    <div id="trace-egress" style="font-weight:600; color:#34c759; font-family: monospace; font-size: 15px;">雷达扫描中...</div>
                 </div>
             </div>
-        </div>
-        
-        <div class="card shelf" style="margin-bottom: 20px;">
-            <div style="font-weight: 600; margin-bottom: 16px; font-size: 15px; display:flex; align-items:center; gap:6px;">⚙️ Worker 调度模式与区域设置</div>
-            <div class="flex-responsive">
-                <select id="cf-mode-select" onchange="handleModeChange()" class="w-full-mobile" style="flex: 1;">
+        </div><div style="background: rgba(120,120,120,0.05); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; margin-top: 20px;">
+            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px;">⚙️ Worker 调度模式与区域设置</div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                
+                <select id="cf-mode-select" onchange="handleModeChange()" style="flex: 1; min-width: 180px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
                     <option value='{"mode":"smart"}'>🤖 智能调度 (Smart Placement)</option>
-                    <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认近)</option>
+                    <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认离访客近)</option>
                     <optgroup label="📍 指定云厂商物理机房落地">
                         <option value="aws">☁️ AWS (亚马逊云)</option>
                         <option value="gcp">☁️ GCP (谷歌云)</option>
@@ -1129,58 +261,60 @@ const HTML_UI = `
                     <option value="custom">✏️ 手动输入区域代码...</option>
                 </select>
 
-                <select id="cf-region-select" class="w-full-mobile" style="display: none; flex: 1.5;"></select>
-                <input type="text" id="cf-custom-input" class="w-full-mobile" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none; flex: 1.5;">
+                <select id="cf-region-select" style="display: none; flex: 1.5; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+                </select>
+
+                <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none; flex: 1.5; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
                 
-                <button onclick="updatePlacement()" class="btn-submit w-full-mobile">提交修改</button>
+                <button onclick="updatePlacement()" style="background: #007aff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">
+                    提交修改
+                </button>
             </div>
-            <div id="place-status" style="margin-top: 10px; font-size: 12px; color: var(--text-sec);">后台全自动安全调度，不暴露任何私钥</div>
+            <div id="place-status" style="margin-top: 10px; font-size: 13px; color: var(--text-sec); font-weight: 600;">后台全自动安全调度，不暴露任何私钥</div>
         </div>
-        
-        <div class="content-wrap shell-grid">
-            <div class="header hero-shell" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap:wrap; gap:16px;">
-                <h1 style="margin: 0; font-size: 24px; font-weight:700; display:flex; align-items:center; gap: 10px; width: 100%;">
+        <div class="content-wrap">
+            <div class="header" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap:wrap; gap:16px;">
+                <h1 style="margin: 0; font-size: 26px; display:flex; align-items:center; gap: 10px;">
                     私有调度与反代核心
-                    <button id="themeToggle" onclick="toggleDarkMode()" style="background:transparent;border:none;font-size:18px;cursor:pointer;padding:6px;border-radius:8px; margin-left: auto;" title="切换深色模式">🌙</button>
+                    <button id="themeToggle" onclick="toggleDarkMode()" style="background:transparent;border:none;font-size:24px;cursor:pointer;padding:0;" title="切换深色模式">🌙</button>
                 </h1>
-                <div class="actions-wrapper" style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
-                    <div style="font-size: 12px; font-weight: 500; padding: 8px 12px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px;" title="设备到云端真实往返延迟">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; transition: 0.3s;" id="rttDot"></span>
-                        <span style="color: var(--text-sec);">RTT: </span><span id="rttValue" style="font-family: monospace; width: 45px; text-align: right; color: var(--text);">测算中</span>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+                    <div style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 10px; background: rgba(120,120,120,0.08); border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);" title="你的设备到云端边缘节点的真实往返延迟">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#34c759; box-shadow: 0 0 6px #34c759; transition: 0.3s;" id="rttDot"></span>
+                        <span style="color: var(--text-sec);">RTT: </span><span id="rttValue" style="font-family: monospace; font-size: 14px; width: 45px; text-align: right;">测算中</span>
                     </div>
                     
-                    <button class="btn-submit" onclick="openDashboard()" style="background: #10b981; color: white;">📊 数据大屏</button>
-                    <button class="btn-submit" style="background: var(--input-bg); color: #ef4444; border: 1px solid var(--border);" onclick="logout()">退出</button>
+                    <button class="btn-submit" onclick="openDashboard()" style="background: #34c759; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">📊 数据大屏</button>
+                    <button class="logout-btn" style="background: #ff3b30; color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 16px; cursor: pointer;" onclick="logout()">退出系统</button>
                 </div>
             </div>
 
-            <div class="card shelf" style="border-left: 4px solid #ef4444;">
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:16px; font-weight:600; color: #ef4444; display:flex; align-items:center; gap:6px;">🚀 覆盖 Worker 核心代码</h2>
-                </div>
-                <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 12px;">⚠️ 警告：提交错误的代码会导致面板 500 崩溃。</div>
-                <textarea id="codeArea" rows="4" placeholder="方式一：粘贴代码全文..." style="width: 100%; font-family: monospace; resize: vertical; font-size:12px;"></textarea>
-                <div class="flex-responsive" style="margin-top:12px;">
-                    <span style="font-size:13px; font-weight:500; color:var(--text-sec);">或方式二：</span>
-                    <input type="file" id="fileInput" accept=".js" class="w-full-mobile" style="font-size:13px; padding: 8px; max-width:220px; min-height: unset;">
-                    <button class="btn-submit w-full-mobile" id="deployBtn" onclick="deployWorker()" style="background: #ef4444; margin-left: auto;">🔥 部署重启</button>
-                </div>
-            </div>
-
-            <div class="card shelf">
+            <div class="card" style="border-left: 4px solid #ff3b30;">
+    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0; font-size:18px; color: #ff3b30;">🚀 一键覆盖/更新 Worker 核心层代码</h2>
+    </div>
+    <div style="font-size: 13px; color: var(--text-sec); margin-bottom: 12px;">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
+    <textarea id="codeArea" rows="6" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..." style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card); font-size:12px;"></textarea>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <span style="font-size:14px; font-weight:bold;">或 方式二：</span>
+        <input type="file" id="fileInput" accept=".js" style="font-size:14px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background:var(--bg);">
+        <button class="btn-submit" id="deployBtn" onclick="deployWorker()" style="background: #ff3b30; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2); margin-left: auto;">🔥 立即覆盖部署并重启节点</button>
+    </div>
+</div>
+            <div class="card">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px; font-weight:600; display:flex; align-items:center; gap:6px;">⚡ 专属线路测速与动态 DNS</h2>
+                    <h2 style="margin:0; font-size:18px;">⚡ 专属线路测速与动态 DNS 解析</h2>
                 </div>
                 
-                <div style="background: var(--input-bg); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div style="font-size: 12px; font-weight: 500; color: var(--text-sec); margin-bottom: 8px;">📡 当前域名 DNS 解析：</div>
+                <div style="background: rgba(120,120,120,0.05); padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px;">
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px;">📡 当前域名生效的 DNS 解析：</div>
                     <div id="dnsStatus" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <span style="color:var(--text-sec); font-size: 13px;">加载中...</span>
+                        <span style="color:#888; font-size: 14px;">加载中...</span>
                     </div>
                 </div>
 
-                <div class="toolbar" style="background:var(--input-bg); padding:12px; border-radius:12px; border:1px solid var(--border);">
-                    <select id="ipType" class="w-full-mobile" style="font-weight: 500;">
+                <div class="toolbar">
+                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card);">
                         <option value="all">🌐 综合混合源</option>
                         <option value="电信">🔵 电信专属</option>
                         <option value="联通">🟠 联通专属</option>
@@ -1190,30 +324,30 @@ const HTML_UI = `
                         <option value="优选">🌟 顶尖优选库</option>
                     </select>
 
-                    <button class="btn-submit w-full-mobile" id="btnFetchRemote" onclick="fetchRemoteAndTest()">🌍 提取并测速</button>
-                    <button class="btn-submit w-full-mobile" onclick="batchTcpPing()" style="background: #f59e0b; color: white;">🌐 去 ITDog</button>
-                    <button class="btn-submit w-full-mobile" onclick="clearTest()" style="background: var(--card); color: var(--text); border: 1px solid var(--border);">🗑️ 清空</button>
+                    <button class="btn-submit" id="btnFetchRemote" onclick="fetchRemoteAndTest()">🌍 提取预设源并测速</button>
+                    <button class="btn-submit" onclick="batchTcpPing()" style="background: #ff9500; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.2);">🌐 复制去 ITDog</button>
+                    <button class="btn-submit" onclick="clearTest()" style="background: #8e8e93; box-shadow: 0 4px 12px rgba(142, 142, 147, 0.2);">🗑️ 清空列表</button>
                 </div>
 
-                <div style="background: var(--input-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div class="flex-responsive" style="margin-bottom: 12px;">
-                        <input type="text" id="customApiUrl" class="w-full-mobile" value="https://ip.v2too.top/api/nodes" placeholder="自定义 API 链接" style="flex: 1;">
-                        <button class="btn-submit w-full-mobile" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()" style="background: #0ea5e9;">🌐 拉取 API</button>
+                <div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="填入自定义 JSON 或 文本 API 链接" style="flex: 1; min-width: 200px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background:var(--card);">
+                        <button class="btn-submit" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()" style="background: #32ade6; box-shadow: 0 4px 12px rgba(50, 173, 230, 0.2);">🌐 拉取 API 并测速</button>
                     </div>
 
-                    <textarea id="customIps" rows="2" placeholder="粘贴 IP 或优选域名" style="width: 100%; font-family: monospace; resize: vertical; margin-bottom: 12px;"></textarea>
+                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4、IPv6 或 优选域名 (支持混杂文本，自动提取)" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card);"></textarea>
                     
-                    <div class="flex-responsive">
-                        <button class="btn-submit w-full-mobile" id="btnTestCustom" onclick="testCustomIPs()" style="background: var(--primary);">🧪 测试节点</button>
-                        <button class="btn-submit w-full-mobile" id="btnDirectCname" onclick="directSubmitCname()" style="background: #8b5cf6;">🔗 直推 CNAME</button>
-                        <div style="width: 100%; height: 1px; background: var(--border); margin: 4px 0; display:none;"></div>
-                        <button class="btn-submit w-full-mobile" id="btnTop3Dns" onclick="updateTop3ToDns()" style="background: #ec4899;">🌟 更新 TOP3 DNS</button>
-                        <button class="btn-submit w-full-mobile" id="btnSelectedDns" onclick="updateSelectedToDns()" style="background: #10b981;">☑️ 提交选中 DNS</button>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-submit" id="btnTestCustom" onclick="testCustomIPs()" style="background: #5856d6; box-shadow: 0 4px 12px rgba(88, 86, 214, 0.2);">🧪 测试粘贴的节点</button>
+                        <button class="btn-submit" id="btnDirectCname" onclick="directSubmitCname()" style="background: #af52de; box-shadow: 0 4px 12px rgba(175, 82, 222, 0.2);">🔗 直推 CNAME (免测速)</button>
+                        <div style="width: 100%; height: 1px; background: var(--border); margin: 4px 0;"></div>
+                        <button class="btn-submit" id="btnTop3Dns" onclick="updateTop3ToDns()" style="background: #ff2d55; box-shadow: 0 4px 12px rgba(255, 45, 85, 0.2);">🌟 更新 TOP3 至 DNS</button>
+                        <button class="btn-submit" id="btnSelectedDns" onclick="updateSelectedToDns()" style="background: #34c759; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">☑️ 提交选中节点至 DNS</button>
                     </div>
                 </div>
                 
-                <div id="statusText" style="line-height: 1.5; font-size: 13px; color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: var(--input-bg); border-radius: 8px; border-left: 3px solid #10b981;">
-                    💡 测速完成后，勾选节点提交至 DNS 自动分发。
+                <div id="statusText" style="line-height: 1.6; font-size: 14px; color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: rgba(52, 199, 89, 0.1); border-radius: 10px; border-left: 4px solid #34c759;">
+                    💡 测速完成后，可勾选复选框自由组合，点击【提交选中节点至 DNS】自动分发。
                 </div>
 
                 <div class="table-wrapper">
@@ -1221,35 +355,35 @@ const HTML_UI = `
                         <thead>
                             <tr>
                                 <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
-                                <th>节点</th>
-                                <th>延迟</th>
-                                <th>状态</th>
-                                <th>归属</th>
-                                <th>操作</th>
+                                <th>专属节点 (点击复制)</th>
+                                <th>预估延迟</th>
+                                <th>连通状态</th>
+                                <th>记录类型/归属地</th>
+                                <th>单节点操作</th>
                             </tr>
                         </thead>
                         <tbody id="testTableBody">
-                            <tr><td colspan="6" style="text-align:center;color:var(--text-sec); padding:30px;">暂无数据</td></tr>
+                            <tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             
-            <div class="card shelf">
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px; font-weight:600;">部署 / 编辑节点</h2>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn-submit" onclick="exportConfig()" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border); padding: 8px 12px; font-size: 12px; min-height:unset;">📦 导出</button>
-                        <button class="btn-submit" onclick="importConfig()" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border); padding: 8px 12px; font-size: 12px; min-height:unset;">📥 导入</button>
+            <div class="card">
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                    <h2 style="margin:0; font-size:18px;">部署 / 编辑反代节点</h2>
+                    <div>
+                        <button class="btn-submit" onclick="exportConfig()" style="background:#5856d6; padding: 8px 16px; font-size: 13px;">📦 导出配置</button>
+                        <button class="btn-submit" onclick="importConfig()" style="background:#ff9500; padding: 8px 16px; font-size: 13px;">📥 导入配置</button>
                     </div>
                 </div>
                 
                 <form id="addForm" style="display: flex; flex-direction: column; gap: 16px;">
-                    <div class="flex-responsive">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                         <input type="hidden" id="oldPrefix" value="">
-                        <input type="text" id="remark" class="w-full-mobile" placeholder="备注 (如: Misaka)" style="flex: 1;" required>
-                        <input type="text" id="prefix" class="w-full-mobile" placeholder="短路径 (如: misaka)" style="flex: 1;" required>
-                        <select id="mode" class="w-full-mobile" style="flex: 1;">
+                        <input type="text" id="remark" placeholder="节点备注 (如: Misaka服)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;" required>
+                        <input type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;" required>
+                        <select id="mode" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;">
                             <option value="off">保守 (抹除IP)</option>
                             <option value="realip_only">严格 (透传IP)</option>
                             <option value="dual">兼容 (双重透传)</option>
@@ -1257,84 +391,95 @@ const HTML_UI = `
                         </select>
                     </div>
 
-                    <div class="flex-responsive">
-                        <div style="position: relative; flex: 2; display: flex; width:100%;">
-                            <div style="display:flex; gap:10px; align-items:center; background:var(--input-bg); padding:10px 14px; border-radius:8px; border:1px solid var(--border); flex: 1; cursor: pointer; transition:0.2s; min-height:44px;" onclick="toggleIconPicker(event)" id="iconSelectBtn">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <div style="position: relative; flex: 2; display: flex;">
+                            <div style="display:flex; gap:10px; align-items:center; background:var(--card); padding:10px 16px; border-radius:10px; border:1px solid var(--border); flex: 1; cursor: pointer; transition:0.2s;" onclick="toggleIconPicker(event)" id="iconSelectBtn">
                                 <img id="iconPreview" src="" style="width:24px;height:24px;display:none;border-radius:4px;object-fit:cover;">
                                 <span id="iconDefault" style="font-size:20px;line-height:1;">🎬</span>
-                                <span id="iconSelectText" style="flex:1; color: var(--text-sec); font-size:13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">选择图标...</span>
+                                <span id="iconSelectText" style="flex:1; color: var(--text-sec); font-size:14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">点击选择图标 (默认 🎬)</span>
                                 <input type="hidden" id="iconUrl" value="">
                             </div>
                             
-                            <div id="iconPickerPanel" style="display:none; position: absolute; top: calc(100% + 8px); left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: var(--shadow-hover); z-index: 100; flex-direction: column; gap: 10px;">
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="text" id="customIconUrlInput" placeholder="自定义库链接..." style="flex: 1; padding: 8px 10px; min-height:unset;">
-                                    <button type="button" onclick="setCustomIconLibrary()" class="btn-submit" style="padding: 8px 12px; min-height:unset;">加载</button>
-                                    <button type="button" onclick="resetIconLibrary()" class="btn-submit" style="padding: 8px 12px; background: var(--input-bg); color:var(--text); border:1px solid var(--border); min-height:unset;">默认</button>
+                            <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                    <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); font-size: 13px; color: var(--text);">
+                                    <button type="button" onclick="setCustomIconLibrary()" style="padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap;">加载</button>
+                                    <button type="button" onclick="resetIconLibrary()" style="padding: 8px 12px; background: #8e8e93; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap;">默认库</button>
                                 </div>
-                                <input type="text" id="iconSearch" placeholder="🔍 搜索名称..." style="padding: 10px 12px; width: 100%; min-height:unset;" onkeyup="filterIcons()">
-                                <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; overflow-y: auto; max-height: 200px; padding-right: 4px;">
-                                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: 12px; padding:10px;">加载中...</div>
+                                <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); width: 100%; font-size: 14px; color: var(--text);" onkeyup="filterIcons()">
+                                <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
+                                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: 13px;">加载图标库中...</div>
                                 </div>
                             </div>
                         </div>
-                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; cursor:pointer; color:var(--text);">
-                            <input type="checkbox" id="nodeCache" class="ip-checkbox" checked> 缓存
+                        <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; cursor:pointer;">
+                            <input type="checkbox" id="nodeCache" class="ip-checkbox" checked>
+                            开启海报及静态资源缓存
                         </label>
-                        <button type="submit" id="submitBtn" class="btn-submit w-full-mobile" style="flex: 1;">保存部署</button>
+                        <button type="submit" id="submitBtn" class="btn-submit" style="flex: 1; padding: 14px 20px;">保存部署</button>
                     </div>
 
-                    <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
-                        <div style="font-size: 13px; font-weight: 500; color: var(--text-sec); margin-bottom: 12px;">服务器线路地址</div>
+                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 12px;">服务器线路配置 (支持魔改分离版推流，支持无限条备用线路)</div>
                         <div id="targetInputs" style="display: flex; flex-direction: column; gap: 10px;">
-                            <input type="url" class="target-input" placeholder="主线路 (http://...)" required oninput="handleTargetInputs()">
-                            <input type="url" class="target-input" placeholder="备用线路 1 (选填)" oninput="handleTargetInputs()">
+                            <input type="url" class="target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" required oninput="handleTargetInputs()">
+                            <input type="url" class="target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" oninput="handleTargetInputs()">
                         </div>
                     </div>
 
-                    <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
-                        <div style="font-size: 13px; font-weight: 500; color: var(--text-sec); margin-bottom: 8px;">自定义请求头 (一行一个)</div>
-                        <textarea id="customHeaders" rows="2" placeholder="Header-Name: value" style="font-family: monospace; font-size: 12px;"></textarea>
+                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 4px;">分离后端地址 (可选)</div>
+                        <div id="backendStatusHint" style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。</div>
+                        <input type="url" id="backendUrlInput" placeholder="例如: http://1.1.1.1:8096 或 https://api.example.com" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;">
+                    </div>
+
+                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 4px;">🔧 自定义请求头 (Custom Headers)</div>
+                        <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">每行一条，格式：<code style="background:rgba(120,120,120,0.1);padding:1px 6px;border-radius:4px;">Header-Name: value</code>，留空则不添加</div>
+                        <textarea id="customHeaders" rows="3" placeholder="Authorization: Bearer xxxxx&#10;X-Custom-Token: mytoken" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); font-family: monospace; font-size: 13px; resize: vertical; color: var(--text);"></textarea>
                     </div>
                 </form>
             </div>
 
-            <div class="card shelf">
-                <div class="flex-responsive" style="justify-content: space-between; margin-bottom: 20px;">
-                    <h2 style="margin:0; font-size:18px; font-weight:600;">已反代媒体库</h2>
-                    <div class="flex-responsive" style="gap:8px;">
-                        <button class="btn-submit w-full-mobile" onclick="pingAllNodes()" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border); min-height:unset; padding:8px 12px; font-size:12px;">⚡ 测速</button>
-                        <button id="btnPurge" class="btn-submit w-full-mobile" onclick="purgeCache()" style="background:var(--input-bg); color:#ef4444; border:1px solid #ef4444; min-height:unset; padding:8px 12px; font-size:12px;">🧹 刷新全站海报</button>
-                        <input type="text" id="searchNode" class="search-input w-full-mobile" placeholder="🔍 搜索..." onkeyup="filterNodesList()" style="min-height:36px; padding:8px 12px; width:160px;">
+            <div class="card">
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                    <h2 style="margin:0; font-size:18px;">已反代的媒体库</h2>
+                    <div style="display: flex; gap: 10px; align-items:center; flex-wrap: wrap;">
+                        <button class="btn-submit" onclick="pingAllNodes()" style="background:#32ade6; padding: 10px 14px; font-size: 13px;">⚡ 全局测速</button>
+                        <button id="btnPurge" class="btn-submit" onclick="purgeCache()" style="background:#ff2d55; padding: 10px 14px; font-size: 13px;">🧹 刷新全站海报</button>
+                        <input type="text" id="searchNode" class="search-input" placeholder="🔍 搜索备注或后缀查找..." onkeyup="filterNodesList()">
                     </div>
                 </div>
-                
-                <div class="flex-responsive" style="background: var(--input-bg); padding: 12px 16px; border-radius: 12px; border: 1px dashed var(--border); margin-bottom: 16px;">
-                    <label style="cursor: pointer; font-weight: 500; font-size:13px; display: flex; align-items: center; gap: 6px;">
-                        <input type="checkbox" id="selectAllNodes" onchange="toggleSelectAll(this)" style="width: 16px; height: 16px; accent-color: var(--primary);"> 
-                        全选
-                    </label>
-                    <div style="width: 1px; height: 16px; background: var(--border); display:none;"></div> 
-                    <select id="batch-mode-select" class="w-full-mobile" style="font-weight: 500; min-height:36px; padding:6px 10px; flex:1;">
-                        <option value="">🔄 读取中...</option>
-                    </select>
-                    <button onclick="batchUpdateModes()" class="btn-submit w-full-mobile" style="min-height:36px; padding:6px 12px; font-size:13px;">🚀 批量应用</button>
-                    <span id="batch-status" style="font-size: 12px; font-weight: 500;"></span>
-                </div>
-                
+                <div style="background: rgba(0, 122, 255, 0.05); padding: 12px 20px; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 20px; margin-top: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <label style="cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="selectAllNodes" onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; accent-color: var(--primary);"> 
+                全选节点
+            </label>
+            
+            <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
+                <option value="">🔄 读取模式中...</option>
+            </select>
+
+            <button onclick="batchUpdateModes()" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,113,227,0.2);">
+                🚀 批量应用模式
+            </button>
+
+            <span id="batch-status" style="font-size: 13px; font-weight: 600;"></span>
+        </div>
                 <div id="list-grid" class="node-grid">
-                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px; font-size:13px;">读取数据中...</div>
+                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
                 </div>
             </div>
             
         </div>
         
-        <div style="text-align: center; padding-top: 20px; padding-bottom: 30px;">
-            <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 500; display: inline-flex; align-items: center; padding: 10px 20px; background: var(--card); border-radius: 20px; border: 1px solid var(--border); font-size: 13px; transition:0.2s;">
-                ${SVG_TG} 联系作者
+        <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
+            <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: 14px; border: 1px solid var(--border);">
+                ${SVG_TG}
+                联系作者 MakkaPakkaOvO
             </a>
-            <div style="margin-top: 16px; font-size: 12px; color: var(--text-sec); line-height: 1.5; max-width: 500px; margin-left: auto; margin-right: auto; padding: 0 16px;">
-                免责声明: 本项目仅供学习测试，请遵守法律法规。使用者承担全部责任。
+            <div style="margin-top: 20px; font-size: 12px; color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
+                <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
             </div>
         </div>
     </div>
@@ -1351,8 +496,8 @@ const HTML_UI = `
 
         // 设置 Chart.js 响应暗色模式
         function updateChartColors() {
-            Chart.defaults.color = document.body.classList.contains('dark') ? '#94a3b8' : '#64748b';
-            Chart.defaults.borderColor = document.body.classList.contains('dark') ? '#334155' : '#e2e8f0';
+            Chart.defaults.color = document.body.classList.contains('dark') ? '#98989d' : '#86868b';
+            Chart.defaults.borderColor = document.body.classList.contains('dark') ? '#38383a' : '#d2d2d7';
         }
 
         // =====================================
@@ -1381,8 +526,11 @@ const HTML_UI = `
                 }
             }
             
-            let top5Html = '<h3 style="margin-top: 24px; margin-bottom:12px; font-size:15px;">🏆 今日流量 TOP 5</h3><div style="background: var(--input-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
+            let top5Html = '<h3 style="margin-top: 30px; margin-bottom:16px;">🏆 今日节点流量消耗 TOP 5</h3><div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
             
+            // ==========================================
+            // 🚀 核心优化：听你的天才思路！直接去网页现有的卡片里“抓取”数据，绝不等待变量！
+            // ==========================================
             const domCards = document.querySelectorAll('.route-item');
             let scrapedNodes = [];
             
@@ -1395,9 +543,11 @@ const HTML_UI = `
                 }
 
                 let bandwidth = '0 B';
+                // 遍历卡片里所有的文本，找出带有流量单位的那个文本
                 const spans = card.querySelectorAll('span');
                 spans.forEach(span => {
                     const txt = span.innerText || '';
+                    // 匹配例如: 1.5 GB, 500 MB, 0 B (双斜杠防转义丢失)
                     if (/^[\\d\\.]+\\s*(TB|GB|MB|KB|B)$/i.test(txt.trim())) {
                         bandwidth = txt.trim();
                     }
@@ -1406,32 +556,37 @@ const HTML_UI = `
                 scrapedNodes.push({ prefix: prefix, remark: remark, todayBandwidth: bandwidth });
             });
 
+            // 用抓取下来的真实数据直接计算 TOP 5
             if (scrapedNodes.length > 0) {
                 const validNodes = scrapedNodes.filter(r => parseTrafficToBytes(r.todayBandwidth) > 0);
                 const top5 = validNodes.sort((a, b) => parseTrafficToBytes(b.todayBandwidth) - parseTrafficToBytes(a.todayBandwidth)).slice(0, 5);
                 
                 if (top5.length > 0) {
-                    top5Html += '<ul style="margin:0; padding-left: 20px; line-height: 2; font-size: 13px; color: var(--text);">';
+                    top5Html += '<ul style="margin:0; padding-left: 20px; line-height: 2; font-size: 14px; color: var(--text);">';
                     top5.forEach((r, idx) => {
-                        const rankColor = idx === 0 ? '#ef4444' : (idx === 1 ? '#f59e0b' : (idx === 2 ? '#eab308' : 'var(--text-sec)'));
-                        top5Html += \`<li><strong style="color:\${rankColor};">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) - <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
+                        const rankColor = idx === 0 ? '#ff3b30' : (idx === 1 ? '#ff9500' : (idx === 2 ? '#ffcc00' : 'var(--text-sec)'));
+                        top5Html += \`<li><strong style="color:\${rankColor}; font-size: 15px;">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) —— 消耗: <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
                     });
                     top5Html += '</ul>';
                 } else {
-                    top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">今日暂无流量</div>';
+                    top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">今日暂无节点产生流量</div>';
                 }
             } else {
-                top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">暂无节点</div>';
+                top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">主页暂无节点卡片</div>';
             }
             top5Html += '</div>';
             
+            // 瞬间把 TOP 5 写入网页！
             top5Container.innerHTML = top5Html;
 
 
-            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px; color:var(--text-sec); font-size:13px;">数据拉取中...</td></tr>';
-            document.getElementById('trafficToday').innerText = '...';
-            document.getElementById('traffic7d').innerText = '...';
-            document.getElementById('traffic30d').innerText = '...';
+            // ==========================================
+            // 🌟 正常加载下面的图表数据 (带有10秒防卡死超时保护)
+            // ==========================================
+            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px;">数据分析引擎计算中...</td></tr>';
+            document.getElementById('trafficToday').innerText = '拉取中...';
+            document.getElementById('traffic7d').innerText = '拉取中...';
+            document.getElementById('traffic30d').innerText = '拉取中...';
 
             try {
                 const controller = new AbortController();
@@ -1457,9 +612,9 @@ const HTML_UI = `
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [{ label: '播放 (次)', data: counts, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }]
+                        datasets: [{ label: '有效播放 (次)', data: counts, borderColor: '#0071e3', backgroundColor: 'rgba(0,113,227,0.1)', fill: true, tension: 0.3 }]
                     },
-                    options: { responsive: true, plugins: { title: { display: true, text: '7天播放趋势', font: {size: 14, family: 'Inter'} } } }
+                    options: { responsive: true, plugins: { title: { display: true, text: '过去 7 天全站播放并发趋势', font: {size: 16} } } }
                 });
 
                 const locLabels = data.locations.map(i => i.country === 'CN' ? '中国大陆' : (i.country || '未知'));
@@ -1470,33 +625,33 @@ const HTML_UI = `
                     type: 'doughnut',
                     data: {
                         labels: locLabels,
-                        datasets: [{ data: locCounts, backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ec4899', '#94a3b8'], borderWidth: 0 }]
+                        datasets: [{ data: locCounts, backgroundColor: ['#34c759', '#0071e3', '#ff9500', '#af52de', '#ff2d55', '#8e8e93'], borderWidth: 0 }]
                     },
-                    options: { responsive: true, plugins: { title: { display: true, text: '访客来源', font: {size: 14, family: 'Inter'} } } }
+                    options: { responsive: true, plugins: { title: { display: true, text: '独立访客来源地占比', font: {size: 16} } } }
                 });
 
                 const tbody = document.getElementById('logTableBody');
                 tbody.innerHTML = '';
                 if(data.recents.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px; color:var(--text-sec); font-size:13px;">暂无日志记录</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px;">暂无日志记录</td></tr>';
                 } else {
                     data.recents.forEach(log => {
                         const tr = document.createElement('tr');
                         const isChina = log.country === 'CN';
                         tr.innerHTML = \`
-                            <td data-label="时间" style="font-size:12px; white-space:nowrap;">\${log.timestamp}</td>
-                            <td data-label="节点"><span class="badge" style="color:var(--primary); border-color:var(--primary); background:transparent;">\${log.prefix}</span></td>
-                            <td data-label="IP" style="font-family:monospace; font-size:12px; color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
-                            <td data-label="归属地"><span class="badge" style="border-color:\${isChina ? '#10b981' : '#f59e0b'}; color:\${isChina ? '#10b981' : '#f59e0b'}; background:transparent;">\${isChina ? '中国大陆' : (log.country || 'Unk')}</span></td>
-                            <td data-label="设备 (UA)" style="font-size:12px; color:var(--text-sec); word-break: break-all; text-align: right;" title="\${log.ua}">\${log.ua}</td>
+                            <td data-label="访问时间" style="font-size:12px; white-space:nowrap;">\${log.timestamp}</td>
+                            <td data-label="目标节点"><span class="badge" style="background:rgba(0,113,227,0.1);color:var(--primary);">\${log.prefix}</span></td>
+                            <td data-label="真实 IP" style="font-family:monospace; font-size:13px; color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
+                            <td data-label="归属地"><span class="badge" style="background:\${isChina ? 'rgba(52,199,89,0.1)' : 'rgba(255,149,0,0.1)'}; color:\${isChina ? '#34c759' : '#ff9500'};">\${isChina ? '中国大陆' : (log.country || 'Unknown')}</span></td>
+                            <td data-label="设备标识 (UA)" style="font-size:12px; color:var(--text-sec); word-break: break-all; white-space: normal; text-align: right; line-height: 1.4;" title="\${log.ua}">\${log.ua}</td>
                         \`;
                         tbody.appendChild(tr);
                     });
                 }
 
             } catch (e) {
-                const errMsg = e.name === 'AbortError' ? '超时' : e.message;
-                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:#ef4444; padding: 30px;">拉取失败: \${errMsg}</td></tr>\`;
+                const errMsg = e.name === 'AbortError' ? '网络超时，CF 接口拥堵，请稍后重试' : e.message;
+                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:#ff3b30; padding: 30px;">独立图表数据拉取失败: \${errMsg}</td></tr>\`;
             }
         }
 
@@ -1504,7 +659,7 @@ const HTML_UI = `
 
         async function loadIcons(forceUrl = null) {
             const grid = document.getElementById('iconGrid');
-            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: 12px; text-align: center; padding: 10px;">加载中...</div>';
+            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: 13px; text-align: center;">加载图标库中...</div>';
             const targetUrl = forceUrl || localStorage.getItem('custom_icon_url') || DEFAULT_ICON_URL;
             const urlInput = document.getElementById('customIconUrlInput');
             if (urlInput) urlInput.value = targetUrl === DEFAULT_ICON_URL ? '' : targetUrl;
@@ -1521,23 +676,23 @@ const HTML_UI = `
                 }
                 renderIconGrid('');
             } catch(e) { 
-                grid.innerHTML = '<div style="grid-column: 1/-1; color: #ef4444; font-size: 12px; text-align: center;">加载失败</div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; color: #ff3b30; font-size: 13px; text-align: center;">获取图标库失败，请检查链接或网络状态</div>';
             }
         }
 
         function setCustomIconLibrary() {
             const url = document.getElementById('customIconUrlInput').value.trim();
-            if (!url) return showToast('⚠️ 请输入链接');
-            if (!url.startsWith('http')) return showToast('⚠️ 链接非法');
+            if (!url) return showToast('⚠️ 请输入图标库 JSON 链接');
+            if (!url.startsWith('http')) return showToast('⚠️ 请输入合法的 URL');
             localStorage.setItem('custom_icon_url', url);
-            showToast('⏳ 加载中...');
+            showToast('⏳ 正在加载自定义图标库...');
             loadIcons(url);
         }
 
         function resetIconLibrary() {
             localStorage.removeItem('custom_icon_url');
             document.getElementById('customIconUrlInput').value = '';
-            showToast('🔄 恢复默认');
+            showToast('🔄 已恢复默认图标库');
             loadIcons(DEFAULT_ICON_URL);
         }
 
@@ -1545,10 +700,10 @@ const HTML_UI = `
             const grid = document.getElementById('iconGrid');
             const lowerFilter = filterText.toLowerCase();
             const filtered = globalIcons.filter(item => (item.name || '').toLowerCase().includes(lowerFilter));
-            let html = \`<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="默认图标"><span style="font-size:20px;">🎬</span></div>\`;
+            let html = \`<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="使用默认图标"><span style="font-size:22px;">🎬</span></div>\`;
             filtered.forEach(item => {
                 html += \`<div class="icon-item" onclick="selectIcon('\${item.url}', '\${item.name}')" title="\${item.name}">
-                            <img src="\${item.url}" loading="lazy" style="width: 24px; height: 24px; object-fit: contain; border-radius: 4px;">
+                            <img src="\${item.url}" loading="lazy" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
                         </div>\`;
             });
             grid.innerHTML = html;
@@ -1572,7 +727,7 @@ const HTML_UI = `
                 text.textContent = name; text.style.color = 'var(--text)';
             } else {
                 preview.src = ''; preview.style.display = 'none'; def.style.display = 'block';
-                text.textContent = '选择图标...'; text.style.color = 'var(--text-sec)';
+                text.textContent = '点击选择图标 (默认 🎬)'; text.style.color = 'var(--text-sec)';
             }
             document.getElementById('iconPickerPanel').style.display = 'none';
         }
@@ -1600,16 +755,16 @@ const HTML_UI = `
         }
 
         async function purgeCache() {
-            if(!confirm('确定清理 Cloudflare 海报和静态缓存吗？\\n清理后可能短暂加载缓慢。')) return;
+            if(!confirm('确定要清理 Cloudflare 节点的全站海报和静态缓存吗？\\n\\n清理后可能导致短时间的加载缓慢。')) return;
             const btn = document.getElementById('btnPurge');
             const originalText = btn.textContent;
-            btn.textContent = '⏳ 清理中...'; btn.disabled = true;
+            btn.textContent = '⏳ 正在清理...'; btn.disabled = true;
             try {
                 const res = await fetch('/api/purge-cache', { method: 'POST' });
                 const data = await res.json();
-                if(data.success) showToast('✅ 缓存清理成功！');
-                else showToast('❌ 失败: ' + data.error);
-            } catch(e) { showToast('❌ 请求错误'); } finally { btn.textContent = originalText; btn.disabled = false; }
+                if(data.success) showToast('✅ 缓存清理成功，新海报已生效！');
+                else showToast('❌ 清理失败: ' + data.error);
+            } catch(e) { showToast('❌ 网络请求错误'); } finally { btn.textContent = originalText; btn.disabled = false; }
         }
 
         function filterNodesList() {
@@ -1628,6 +783,7 @@ const HTML_UI = `
             if (lastInput.value.trim() !== '') {
                 const newInput = document.createElement('input');
                 newInput.type = 'url'; newInput.className = 'target-input';
+                newInput.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
                 newInput.oninput = handleTargetInputs;
                 container.appendChild(newInput);
             }
@@ -1637,15 +793,15 @@ const HTML_UI = `
                 if (currentInputs[i].value.trim() === '') { emptyCount++; if (emptyCount > 1) currentInputs[i].remove(); } else { break; }
             }
             container.querySelectorAll('.target-input').forEach((inp, idx) => {
-                inp.placeholder = idx === 0 ? "主线路 (http://...)" : \`备用线路 \${idx} (选填)\`;
+                inp.placeholder = idx === 0 ? "主线路地址 (如: http://1.1.1.1:8096)" : \`备用线路 \${idx} (选填，主源挂掉时触发)\`;
             });
         }
 
         function resetTargetInputs() {
             const container = document.getElementById('targetInputs');
             container.innerHTML = \`
-                <input type="url" class="target-input" placeholder="主线路 (http://...)" required oninput="handleTargetInputs()">
-                <input type="url" class="target-input" placeholder="备用线路 1 (选填)" oninput="handleTargetInputs()">
+                <input type="url" class="target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" required oninput="handleTargetInputs()">
+                <input type="url" class="target-input" placeholder="备用线路 1 (选填)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" oninput="handleTargetInputs()">
             \`;
         }
 
@@ -1657,7 +813,7 @@ const HTML_UI = `
                     const arr = JSON.parse(decodeURIComponent(el.getAttribute('data-val')));
                     let html = '';
                     arr.forEach((t, i) => {
-                        const tag = i === 0 ? '<span style="color:#10b981;font-weight:bold;">[主]</span>' : '<span style="color:#f59e0b;font-weight:bold;">[备]</span>';
+                        const tag = i === 0 ? '<span style="color:#34c759;font-weight:bold;">[主]</span>' : '<span style="color:#ff9500;font-weight:bold;">[备]</span>';
                         html += \`<div class="url-list-item">\${tag} \${t}</div>\`;
                     });
                     el.innerHTML = html;
@@ -1677,14 +833,14 @@ const HTML_UI = `
                 const data = await res.json();
                 if(data.ms >= 0) {
                     pingEl.textContent = data.ms + ' ms';
-                    pingEl.style.color = data.ms < 200 ? '#10b981' : (data.ms < 500 ? 'var(--primary)' : '#f59e0b');
-                } else { pingEl.textContent = '超时'; pingEl.style.color = '#ef4444'; }
-            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = '#ef4444'; }
+                    pingEl.style.color = data.ms < 200 ? '#34c759' : (data.ms < 500 ? 'var(--primary)' : '#ff9500');
+                } else { pingEl.textContent = '断连/超时'; pingEl.style.color = '#ff3b30'; }
+            } catch(e) { pingEl.textContent = '测速异常'; pingEl.style.color = '#ff3b30'; }
         }
 
         function pingAllNodes() {
-            if (proxyNodesForPing.length === 0) return showToast('⚠️ 无节点');
-            showToast('⚡ 全局测速中...');
+            if (proxyNodesForPing.length === 0) return showToast('⚠️ 没有可供测速的反代节点');
+            showToast('⚡ 正在对所有节点发起测速...');
             proxyNodesForPing.forEach((node, offset) => { setTimeout(() => pingTarget(node.idx, node.url), offset * 200); });
         }
 
@@ -1694,7 +850,7 @@ const HTML_UI = `
                 const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = 'emby_proxy_backup.json'; a.click();
-                URL.revokeObjectURL(url); showToast('✅ 导出成功');
+                URL.revokeObjectURL(url); showToast('✅ 配置已导出');
             } catch (e) { showToast('❌ 导出失败'); }
         }
 
@@ -1707,8 +863,8 @@ const HTML_UI = `
                         const routes = JSON.parse(event.target.result);
                         const res = await fetch('/api/routes/import', { method: 'POST', body: JSON.stringify(routes) });
                         const result = await res.json();
-                        if (result.success) { showToast('✅ 导入成功'); load(); } else throw new Error(result.error);
-                    } catch (err) { showToast('❌ 失败: ' + err.message); }
+                        if (result.success) { showToast('✅ 配置导入成功'); load(); } else throw new Error(result.error);
+                    } catch (err) { showToast('❌ 导入失败: ' + err.message); }
                 };
                 reader.readAsText(file);
             };
@@ -1718,15 +874,16 @@ const HTML_UI = `
         async function load() {
             try {
                 const res = await fetch('/api/routes');
-                if (!res.ok) throw new Error('请求失败');
+                if (!res.ok) throw new Error('请求失败，请检查环境配置');
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
+                // 🌟 新增：把节点流量数据存进全局内存，供大屏瞬间读取！
                 window.globalRoutesData = data;
 
                 const container = document.getElementById('list-grid');
                 if(data.length === 0) {
-                    container.innerHTML = '<div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px; font-size:13px;">暂无节点，请部署。</div>';
+                    container.innerHTML = '<div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">暂无配置任何反代节点，请先部署一个。</div>';
                     return;
                 }
                 
@@ -1739,69 +896,90 @@ const HTML_UI = `
                     const targets = r.target.split(',').map(s => s.trim()).filter(Boolean);
                     const mainTarget = targets[0]; 
                     
-                    const remarkName = r.remark || '未命名';
-                    const lastPlay = r.last_play ? r.last_play : '-';
+                    const remarkName = r.remark || '未命名媒体库';
+                    const lastPlay = r.last_play ? r.last_play : '暂无播放记录';
                     
-                    const iconHtml = r.icon ? \`<img src="\${r.icon}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;">\` : '🎬';
+                    const iconHtml = r.icon ? \`<img src="\${r.icon}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;">\` : '🎬';
                     const encodedTargets = encodeURIComponent(JSON.stringify(targets));
                     
+                    // 🌟 接收后端传来的：单节点独立宽带与请求统计数据
                     const todayBw = r.todayBandwidth || '0 B';
                     const totalReqs = r.totalReqs || r.todayReqs || 0;
+                    const backendMode = r.backend_mode || 'auto';
+                    const backendUrl = r.backend_url || '';
+                    const backendStatus = backendUrl ? (backendMode === 'manual' ? '手动后端' : '自动已检测') : '自动检测中';
+                    const backendColor = backendUrl ? (backendMode === 'manual' ? '#ff9500' : '#34c759') : 'var(--text-sec)';
 
                     proxyNodesForPing.push({ idx: idx, url: mainTarget });
 
                     container.innerHTML += \`
-                    <div class="emby-card route-item media-card" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}">
-                        <div class="poster-shell">
-                            <div class="poster-visual">
-                                <div class="poster-band">
-                                    <div class="drag-handle" title="长按拖拽">☰</div>
-                                    <input type="checkbox" class="node-cb ip-checkbox" value="\${r.prefix}">
-                                    <span class="badge">\${modeNames[r.mode] || '未知'}</span>
-                                </div>
-                                <div class="poster-art" style="display:flex; align-items:center; justify-content:center;">
-                                    <div class="emby-icon" style="width:100%; height:100%; min-height:120px; font-size:42px;">\${iconHtml}</div>
+                    <div class="emby-card route-item" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}" data-backend-url="\${backendUrl.replace(/"/g, '&quot;')}" data-backend-mode="\${backendMode}">
+                        <div class="card-header">
+                            <div class="card-title-group" style="display: flex; align-items: center; gap: 10px;">
+                                <div class="drag-handle" title="长按拖拽排序" style="margin: 0; display: flex; align-items: center;">☰</div>
+                                <input type="checkbox" class="node-cb" value="\${r.prefix}" style="width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--primary); flex-shrink: 0;">
+                                <div class="emby-icon" style="margin: 0; display: flex; align-items: center;">\${iconHtml}</div>
+                                <div>
+                                    <div style="font-weight: 600; font-size: 16px; color: var(--text);">\${remarkName}</div>
+                                    <div style="font-size: 13px; color: var(--text-sec); margin-top:2px;">/\${r.prefix}</div>
                                 </div>
                             </div>
-                            <div class="poster-meta">
-                                <div class="poster-copy">
-                                    <div class="poster-title">\${remarkName}</div>
-                                    <div class="poster-subtitle">/\${r.prefix}</div>
-                                    <div class="actual-text">最后活跃：\${lastPlay}</div>
-                                </div>
+                            <div style="display:flex; align-items:center;">
+                                <span class="badge" style="background: rgba(0,113,227,0.1); color: var(--primary);">\${modeNames[r.mode] || '未知'}</span>
                             </div>
                         </div>
 
-                        <div class="poster-strip">
-                            <span class="strip-chip">今日流量 <strong>\${todayBw}</strong></span>
-                            <span class="strip-chip">播放 <strong>\${r.todayReqs} / \${totalReqs}</strong></span>
-                            <span class="strip-chip">海报缓存 <strong style="color:\${r.cache_img !== 'off' ? '#10b981' : '#f59e0b'};">\${r.cache_img !== 'off' ? '开启' : '关闭'}</strong></span>
+                        <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div style="display:flex; flex-direction: column; gap: 4px;">
+                                <span style="font-size:12px; color:var(--text-sec);">⬇️ 今日产生总流量</span>
+                                <span style="font-size:16px; font-weight:700; color:var(--primary);">\${todayBw}</span>
+                            </div>
+                            <div style="display:flex; flex-direction: column; gap: 4px; text-align: right;">
+                                <span style="font-size:12px; color:var(--text-sec);">📺 播放次数 (今日/累计)</span>
+                                <span style="font-size:16px; font-weight:700; color:#ff9500;">\${r.todayReqs} / \${totalReqs} 次</span>
+                            </div>
                         </div>
 
-                        <div class="poster-details" style="display:flex; flex-direction:column; gap:10px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
                             <div class="info-row">
-                                <span class="info-label">直达链接</span>
-                                <div class="action-group" style="justify-content:flex-end; flex:1;">
+                                <span class="info-label">直达链接:</span>
+                                <div class="action-group" style="flex:1; justify-content: flex-end; margin-left: 10px; align-items: flex-start;">
                                     <span id="p-\${idx}" data-val="\${proxyUrl}" class="secret-text dynamic-url">••••••••</span>
-                                    <button class="icon-btn" onclick="toggleVis('p-\${idx}')" style="width:26px;height:26px;">${SVG_EYE}</button>
-                                    <button class="icon-btn" onclick="copyTxt('\${proxyUrl}')" style="width:26px;height:26px;">${SVG_COPY}</button>
+                                    <button class="icon-btn" style="margin-top: 2px;" onclick="toggleVis('p-\${idx}')" title="查看明文">${SVG_EYE}</button>
+                                    <button class="icon-btn" style="margin-top: 2px;" onclick="copyTxt('\${proxyUrl}')" title="复制链接">${SVG_COPY}</button>
                                 </div>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">源站线路</span>
-                                <div class="action-group" style="justify-content:flex-end; flex:1;">
+                                <span class="info-label">源站线路:</span>
+                                <div class="action-group" style="flex:1; justify-content: flex-end; margin-left: 10px; align-items: flex-start;">
                                     <div id="t-\${idx}" data-val="\${encodedTargets}" class="secret-text dynamic-url">••••••••</div>
-                                    <button class="icon-btn" onclick="toggleVis('t-\${idx}', true)" style="width:26px;height:26px;">${SVG_EYE}</button>
+                                    <button class="icon-btn" style="margin-top: 2px;" onclick="toggleVis('t-\${idx}', true)" title="查看明文">${SVG_EYE}</button>
                                 </div>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">节点延迟</span>
-                                <span id="ping-\${idx}" class="ping-badge" onclick="pingTarget(\${idx}, '\${mainTarget}')">测速中...</span>
+                                <span class="info-label">分离后端:</span>
+                                <span style="color:\${backendColor}; font-weight:600; font-size:13px; word-break:break-all; flex:1; text-align:right;">\${backendStatus}\${backendUrl ? ' · ' + backendUrl : ''}</span>
                             </div>
+                            <div class="info-row">
+                                <span class="info-label">节点延迟:</span>
+                                <span id="ping-\${idx}" class="ping-badge" onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">海报缓存:</span>
+                                <span style="color:\${r.cache_img !== 'off' ? '#34c759' : '#ff9500'}; font-weight:600;">\${r.cache_img !== 'off' ? '✅ 已开启' : '❌ 已关闭'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">最后活跃:</span>
+                                <span style="color:var(--text-sec);">\${lastPlay}</span>
+                            </div>
+                            \${r.custom_headers ? \`<div class="info-row">
+                                <span class="info-label">自定义头:</span>
+                                <span style="color:#34c759; font-size:12px; font-family:monospace; word-break:break-all; flex:1; text-align:right;">\${r.custom_headers.split('\\n').filter(Boolean).map(l => \`<span style="display:inline-block;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:4px;padding:1px 6px;margin:2px;">\${l.split(':')[0].trim()}</span>\`).join('')}</span>
+                            </div>\` : ''}
                         </div>
 
-                        <div class="card-footer poster-actions">
-                            <button class="btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}', \${JSON.stringify(r.custom_headers || '')})">编辑</button>
+                        <div class="card-footer">
+                            <button class="btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}')">编辑配置</button>
                             <button class="btn-del" onclick="del('\${r.prefix}')">删除</button>
                         </div>
                     </div>\`;
@@ -1814,11 +992,9 @@ const HTML_UI = `
                 if (sortableInstance) sortableInstance.destroy();
                 sortableInstance = Sortable.create(container, {
                     handle: '.drag-handle',
-                    animation: 200,
-                    delay: 150, 
+                    animation: 150,
+                    delay: 200, 
                     delayOnTouchOnly: true,
-                    ghostClass: 'sortable-ghost',
-                    dragClass: 'sortable-drag',
                     onEnd: async function () {
                         const items = [];
                         container.querySelectorAll('.route-item').forEach((row, index) => {
@@ -1827,23 +1003,31 @@ const HTML_UI = `
                         });
                         try {
                             await fetch('/api/routes/reorder', { method: 'POST', body: JSON.stringify(items) });
-                            showToast('✅ 排序保存');
-                        } catch(e) { showToast('❌ 保存失败'); }
+                            showToast('✅ 排序已保存');
+                        } catch(e) { showToast('❌ 排序保存失败'); }
                     }
                 });
 
             } catch (err) {
-                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:#ef4444; font-size:13px; grid-column: 1 / -1; padding: 20px;">⚠️ \${err.message}</div>\`;
+                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:#ff3b30; font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
             }
         }
 
-        function editNode(prefix, targetStr, mode, remark, icon, cacheImg, customHeaders) {
+        function editNode(prefix, targetStr, mode, remark, icon, cacheImg) {
             document.getElementById('oldPrefix').value = prefix;
             document.getElementById('remark').value = remark;
             document.getElementById('prefix').value = prefix;
             document.getElementById('mode').value = mode || 'off';
             document.getElementById('nodeCache').checked = (cacheImg !== 'off');
-            document.getElementById('customHeaders').value = customHeaders || '';
+            // Read custom_headers from the card's data attribute to avoid inline escaping issues
+            const card = document.querySelector(\`.route-item[data-prefix="\${prefix}"]\`);
+            document.getElementById('customHeaders').value = card ? (card.getAttribute('data-custom-headers') || '') : '';
+            const backendMode = card ? (card.getAttribute('data-backend-mode') || 'auto') : 'auto';
+            const backendUrl = card ? (card.getAttribute('data-backend-url') || '') : '';
+            document.getElementById('backendUrlInput').value = backendMode === 'manual' ? backendUrl : '';
+            document.getElementById('backendStatusHint').textContent = backendUrl
+                ? (backendMode === 'manual' ? '当前使用手动后端；修改或清空后保存即可变更模式。' : '已自动检测到: ' + backendUrl + '。留空保存会继续保持自动模式。')
+                : '留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。';
             
             if (icon) {
                 const foundItem = globalIcons.find(i => i.url === icon);
@@ -1860,18 +1044,20 @@ const HTML_UI = `
             
             targets.forEach((url) => {
                 const inp = document.createElement('input');
-                inp.type = 'url'; inp.className = 'target-input w-full-mobile'; inp.value = url;
+                inp.type = 'url'; inp.className = 'target-input'; inp.value = url;
+                inp.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
                 inp.oninput = handleTargetInputs;
                 container.appendChild(inp);
             });
             
             const emptyInp = document.createElement('input');
-            emptyInp.type = 'url'; emptyInp.className = 'target-input w-full-mobile';
+            emptyInp.type = 'url'; emptyInp.className = 'target-input';
+            emptyInp.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
             emptyInp.oninput = handleTargetInputs;
             container.appendChild(emptyInp);
             
             handleTargetInputs(); 
-            window.scrollTo({ top: document.getElementById('addForm').offsetTop - 20, behavior: 'smooth' });
+            window.scrollTo({ top: document.getElementById('addForm').offsetTop - 100, behavior: 'smooth' });
         }
 
         document.getElementById('addForm').onsubmit = async (e) => {
@@ -1883,6 +1069,8 @@ const HTML_UI = `
             const icon = document.getElementById('iconUrl').value;
             const cache_img = document.getElementById('nodeCache').checked ? 'on' : 'off';
             const custom_headers = document.getElementById('customHeaders').value.trim();
+            const backend_url = document.getElementById('backendUrlInput').value.trim().replace(/\\/$/g, '');
+            const backend_mode = backend_url ? 'manual' : 'auto';
 
             const inputs = document.querySelectorAll('.target-input');
             let targetsArray = [];
@@ -1892,35 +1080,37 @@ const HTML_UI = `
             });
             const target = targetsArray.join(',');
             
-            if (!target) return showToast('❌ 请填线路');
+            if (!target) return showToast('❌ 请至少填写一个主线路地址');
 
             try {
                 const res = await fetch('/api/routes', { 
                     method: 'POST', 
-                    body: JSON.stringify({oldPrefix, prefix, target, mode, remark, icon, cache_img, custom_headers})
+                    body: JSON.stringify({oldPrefix, prefix, target, mode, remark, icon, cache_img, custom_headers, backend_url, backend_mode})
                 });
                 const data = await res.json();
-                if(!data.success) throw new Error(data.error || '失败');
+                if(!data.success) throw new Error(data.error || '部署失败');
                 
                 document.getElementById('addForm').reset();
                 document.getElementById('oldPrefix').value = ''; 
                 selectIcon('', '默认 🎬');
                 document.getElementById('nodeCache').checked = true;
                 document.getElementById('customHeaders').value = '';
+                document.getElementById('backendUrlInput').value = '';
+                document.getElementById('backendStatusHint').textContent = '留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。';
                 document.getElementById('submitBtn').textContent = '保存部署'; 
                 resetTargetInputs(); 
                 
-                showToast('✅ 部署成功');
+                showToast(data.warning ? ('⚠️ 已保存: ' + data.warning) : '✅ 节点部署成功');
                 load();
             } catch(err) {
-                showToast('❌ ' + err.message);
+                showToast('❌ 保存失败: ' + err.message);
             }
         };
 
         async function del(prefix) {
-            if(confirm('确定删除 /' + prefix + ' ?')) {
+            if(confirm('确定删除节点 /' + prefix + ' ?')) {
                 await fetch('/api/routes?prefix=' + prefix, { method: 'DELETE' });
-                showToast('🗑️ 已移除');
+                showToast('🗑️ 节点已移除');
                 load();
             }
         }
@@ -1946,26 +1136,26 @@ const HTML_UI = `
                     ips.push(ip);
                 }
             });
-            if (ips.length === 0) return showToast('⚠️ 提取节点！');
+            if (ips.length === 0) return showToast('⚠️ 请先提取节点！');
             navigator.clipboard.writeText(ips.join('\\n')).then(() => {
-                showToast('✅ 跳转中...');
-                setTimeout(() => { window.open('https://www.itdog.cn/batch_tcping/', '_blank'); }, 1000);
+                showToast('✅ 节点已复制，即将跳转 ITDog...');
+                setTimeout(() => { window.open('https://www.itdog.cn/batch_tcping/', '_blank'); }, 1500);
             });
         }
         function directSubmitCname() {
             const input = document.getElementById('customIps').value.trim();
-            if (!input) return showToast('⚠️ 粘贴域名');
+            if (!input) return showToast('⚠️ 请先在文本框内粘贴您的优选域名');
             const domainRegex = /\\b([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}\\b/g;
             const matchedDomains = input.match(domainRegex) || [];
             const realDomains = matchedDomains.filter(d => !/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(d));
-            if (realDomains.length === 0) return showToast('⚠️ 格式错');
-            if(!confirm(\`提取到：\\n\${realDomains.join('\\n')}\\n\\n确定 CNAME？\`)) return;
+            if (realDomains.length === 0) return showToast('⚠️ 没有提取到合法的域名格式，请检查输入！');
+            if(!confirm(\`✨ 提取到以下域名：\\n\${realDomains.join('\\n')}\\n\\n确定要直接将其设为 CNAME 记录吗？\\n(注意：这会清空你配置的域名下现有的记录)\`)) return;
             const btn = document.getElementById('btnDirectCname');
             sendDnsRequest(realDomains, btn);
         }
         async function testCustomIPs() {
             const input = document.getElementById('customIps').value;
-            if (!input.trim()) return showToast('⚠️ 粘贴 IP');
+            if (!input.trim()) return showToast('⚠️ 请先在输入框粘贴 IP 或优选域名');
             const ipv4Regex = /\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b/g;
             const ipv6Regex = /(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}|(?:[A-F0-9]{1,4}:)*:[A-F0-9]{1,4}(?::[A-F0-9]{1,4})*/gi;
             const domainRegex = /\\b([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}\\b/g;
@@ -1978,67 +1168,69 @@ const HTML_UI = `
                 if (ip.length > 7 && ip.includes(':') && !ip.startsWith('::1')) { extractedIps.push(ip.startsWith('[') ? ip : \`[\${ip}]\`); }
             });
             extractedIps = [...new Set(extractedIps)];
-            if (extractedIps.length === 0) return showToast('⚠️ 格式错');
+            if (extractedIps.length === 0) return showToast('⚠️ 未识别到合法的 IP 或 域名格式');
             const btn = document.getElementById('btnTestCustom');
             const tbody = document.getElementById('testTableBody');
             btn.disabled = true; btn.textContent = '⏳ 测试中...';
             if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = '';
-            showToast(\`✅ 提取 \${extractedIps.length} 个\`);
+            showToast(\`✅ 提取到 \${extractedIps.length} 个节点，开始测速校验\`);
             const promises = [];
             extractedIps.forEach(ip => {
                 const tr = document.createElement('tr');
                 tr.className = 'test-row';
                 tr.innerHTML = \`
-                    <td data-label="选择" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                    <td data-label="节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')">\${ip}</strong></td>
-                    <td data-label="延迟" class="latency" data-ms="9999" style="font-weight: 500; color: var(--text-sec);">测算中</td>
-                    <td data-label="状态" class="speed" style="color: var(--text-sec);">-</td>
-                    <td data-label="归属" class="loc" style="color: var(--text-sec); font-size:12px;">等待解析</td>
-                    <td data-label="操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                    <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                    <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                    <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
+                    <td data-label="连通状态" class="speed" style="color: #888;">-</td>
+                    <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                    <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                 tbody.insertBefore(tr, tbody.firstChild);
                 promises.push(doLocalPing(ip, tr, '自定义节点'));
             });
             await Promise.all(promises);
             sortTableByLatency(tbody);
             document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
-            btn.disabled = false; btn.textContent = '🧪 测试节点';
+            btn.disabled = false; btn.textContent = '🧪 测试粘贴的节点';
+            showToast('🎉 自定义节点测速完成！');
         }
         async function fetchCustomApiAndTest() {
             const apiUrl = document.getElementById('customApiUrl').value.trim();
-            if (!apiUrl) return showToast('⚠️ 填入链接');
+            if (!apiUrl) return showToast('⚠️ 请先填入自定义 API 链接');
             const btn = document.getElementById('btnFetchCustomApi');
             const tbody = document.getElementById('testTableBody');
             const statusTxt = document.getElementById('statusText');
-            btn.disabled = true; btn.textContent = '⏳ 拉取...';
-            statusTxt.innerHTML = \`正在抓取...\`;
+            btn.disabled = true; btn.textContent = '⏳ 拉取中...';
+            statusTxt.innerHTML = \`正在从自定义 API 抓取数据...\`;
             if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = ''; 
             try {
                 const res = await fetch(\`/api/get-custom-api-ips?url=\${encodeURIComponent(apiUrl)}\`);
                 const data = await res.json();
-                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 返回空'); return; }
-                showToast(\`✅ 抽取 \${data.ips.length} 个\`);
-                btn.textContent = '⚡ 测速...';
+                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 自定义 API 返回为空'); return; }
+                showToast(\`✅ 提取 \${data.totalCount} 个节点，抽取 \${data.ips.length} 个测速\`);
+                btn.textContent = '⚡ 测速中...';
                 const promises = [];
                 data.ips.forEach(ip => {
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="选择" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')">\${ip}</strong></td>
-                        <td data-label="延迟" class="latency" data-ms="9999" style="font-weight: 500; color: var(--text-sec);">测算中</td>
-                        <td data-label="状态" class="speed" style="color: var(--text-sec);">-</td>
-                        <td data-label="归属" class="loc" style="color: var(--text-sec); font-size:12px;">等待解析</td>
-                        <td data-label="操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                        <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                        <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
+                        <td data-label="连通状态" class="speed" style="color: #888;">-</td>
+                        <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                        <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
-                    promises.push(doLocalPing(ip, tr, 'API'));
+                    promises.push(doLocalPing(ip, tr, '自定义 API'));
                 });
                 await Promise.all(promises);
                 sortTableByLatency(tbody);
                 document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
                 document.getElementById('selectAll').checked = false;
-                statusTxt.innerHTML = \`✅ 完毕\`;
-            } catch (err) { showToast('❌ 失败'); } 
-            finally { btn.disabled = false; btn.textContent = '🌐 拉取 API'; }
+                showToast('🎉 自定义 API 测速完成！');
+                statusTxt.innerHTML = \`✅ 测速完毕！您可以自由组合更新 DNS。\`;
+            } catch (err) { showToast('❌ 拉取失败'); } 
+            finally { btn.disabled = false; btn.textContent = '🌐 拉取 API 并测速'; }
         }
         async function fetchRemoteAndTest() {
             const btn = document.getElementById('btnFetchRemote');
@@ -2046,26 +1238,26 @@ const HTML_UI = `
             const statusTxt = document.getElementById('statusText');
             const type = document.getElementById('ipType').value;
             const typeText = document.getElementById('ipType').options[document.getElementById('ipType').selectedIndex].text;
-            btn.disabled = true; btn.textContent = '⏳ 提取...';
-            statusTxt.innerHTML = \`拉取 \${typeText}...\`;
+            btn.disabled = true; btn.textContent = '⏳ 正在提取节点...';
+            statusTxt.innerHTML = \`正在拉取 <strong>\${typeText}</strong> 数据...\`;
             if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = ''; 
             try {
                 const res = await fetch(\`/api/get-remote-ips?type=\${encodeURIComponent(type)}\`);
                 const data = await res.json();
-                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 未获取'); return; }
-                showToast(\`✅ 抽取 \${data.ips.length} 个\`);
-                btn.textContent = '⚡ 测速...';
+                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 未获取到该类型 IP'); return; }
+                showToast(\`✅ 成功提取 \${data.totalCount} 个可用 IP，抽取 \${data.ips.length} 个测速\`);
+                btn.textContent = '⚡ 本地测速中...';
                 const promises = [];
                 data.ips.forEach(ip => {
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="选择" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')">\${ip}</strong></td>
-                        <td data-label="延迟" class="latency" data-ms="9999" style="font-weight: 500; color: var(--text-sec);">测算中</td>
-                        <td data-label="状态" class="speed" style="color: var(--text-sec);">-</td>
-                        <td data-label="归属" class="loc" style="color: var(--text-sec); font-size:12px;">等待解析</td>
-                        <td data-label="操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                        <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                        <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
+                        <td data-label="连通状态" class="speed" style="color: #888;">-</td>
+                        <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                        <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
                     promises.push(doLocalPing(ip, tr, typeText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '')));
                 });
@@ -2073,20 +1265,21 @@ const HTML_UI = `
                 sortTableByLatency(tbody);
                 document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
                 document.getElementById('selectAll').checked = false;
-                statusTxt.innerHTML = \`✅ 完毕\`;
-            } catch (err) { showToast('❌ 失败'); } 
-            finally { btn.disabled = false; btn.textContent = '🌍 提取并测速'; }
+                showToast('🎉 测速完成！');
+                statusTxt.innerHTML = \`✅ 测速完毕！\`;
+            } catch (err) { showToast('❌ 拉取或测速失败'); } 
+            finally { btn.disabled = false; btn.textContent = '🌍 提取预设源并测速'; }
         }
         function clearTest() {
-            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sec); padding:30px;">暂无数据</td></tr>';
-            document.getElementById('statusText').textContent = '已清空';
+            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>';
+            document.getElementById('statusText').textContent = '列表已清空。';
             document.getElementById('selectAll').checked = false;
         }
         function markTimeout(latTd, spdTd, tr) {
-            latTd.textContent = '超时'; latTd.setAttribute('data-ms', 9999); latTd.style.color = '#ef4444';
-            spdTd.textContent = '❌ 超时'; spdTd.style.color = '#ef4444';
+            latTd.textContent = '超时抛弃'; latTd.setAttribute('data-ms', 9999); latTd.style.color = '#ff3b30';
+            spdTd.textContent = '❌ 超时 (>2000ms)'; spdTd.style.color = '#ff3b30';
             const cb = tr.querySelector('.row-checkbox');
-            if(cb) { cb.disabled = true; }
+            if(cb) { cb.disabled = true; cb.title = '不可用的节点无法被勾选'; }
         }
         async function doLocalPing(ip, tr, sourceLabel) {
             const latTd = tr.querySelector('.latency');
@@ -2095,10 +1288,10 @@ const HTML_UI = `
             const queryIp = ip.replace(/[\\[\\]]/g, '');
             const isIPv6 = ip.includes(':'); 
             const isDomain = /[a-zA-Z]/.test(queryIp) && !isIPv6;
-            if (isDomain) { locTd.innerHTML = \`<span class="badge" style="color:#8b5cf6; border-color:#8b5cf6; background:transparent;">CN</span> \${sourceLabel}\`;
+            if (isDomain) { locTd.innerHTML = \`<span class="badge" style="background:rgba(175,82,222,0.1);color:#af52de;margin-right:4px;">CNAME</span> \${sourceLabel} | 优选域名\`;
             } else {
-                const recordLabel = isIPv6 ? '<span class="badge" style="color:#0ea5e9; border-color:#0ea5e9; background:transparent;">A6</span>' : '<span class="badge" style="color:#3b82f6; border-color:#3b82f6; background:transparent;">A4</span>';
-                fetch(\`https://api.ip.sb/geoip/\${queryIp}\`).then(res => res.json()).then(data => locTd.innerHTML = \`\${recordLabel} \${data.country || '?'}\`).catch(() => locTd.innerHTML = \`\${recordLabel} ?\`);
+                const recordLabel = isIPv6 ? '<span class="badge" style="background:rgba(50,173,230,0.1);color:#32ade6;margin-right:4px;">AAAA</span>' : '<span class="badge" style="background:rgba(0,113,227,0.1);color:#0071e3;margin-right:4px;">A记录</span>';
+                fetch(\`https://api.ip.sb/geoip/\${queryIp}\`).then(res => res.json()).then(data => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | \${data.country || '未知'}\`).catch(() => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | 解析失败\`);
             }
             const start = performance.now();
             const controller = new AbortController();
@@ -2117,10 +1310,10 @@ const HTML_UI = `
             } catch (err) { clearTimeout(timeoutId); if (err.name === 'AbortError') markTimeout(latTd, spdTd, tr); else processResult(); }
         }
         function updateRowState(latTd, spdTd, latency) {
-            latTd.textContent = latency + 'ms'; latTd.setAttribute('data-ms', latency);
-            if (latency < 300) { latTd.style.color = '#10b981'; spdTd.textContent = '🚀 优'; spdTd.style.color = '#10b981'; } 
-            else if (latency <= 500) { latTd.style.color = 'var(--primary)'; spdTd.textContent = '✅ 良'; spdTd.style.color = 'var(--primary)'; } 
-            else { latTd.style.color = '#f59e0b'; spdTd.textContent = '⚠️ 差'; spdTd.style.color = '#f59e0b'; }
+            latTd.textContent = latency + ' ms'; latTd.setAttribute('data-ms', latency);
+            if (latency < 300) { latTd.style.color = '#34c759'; spdTd.textContent = '🚀 极佳'; spdTd.style.color = '#34c759'; } 
+            else if (latency <= 500) { latTd.style.color = 'var(--primary)'; spdTd.textContent = '✅ 正常'; spdTd.style.color = 'var(--primary)'; } 
+            else { latTd.style.color = '#ff9500'; spdTd.textContent = '⚠️ 较高'; spdTd.style.color = '#ff9500'; }
         }
         function sortTableByLatency(tbody) {
             const rows = Array.from(tbody.querySelectorAll('.test-row'));
@@ -2133,24 +1326,24 @@ const HTML_UI = `
         }
         async function sendDnsRequest(ips, btnElement) {
             const originalText = btnElement.textContent;
-            btnElement.textContent = '🔄 更新...'; btnElement.disabled = true;
+            btnElement.textContent = '🔄 更新 DNS 中...'; btnElement.disabled = true;
             try {
                 const res = await fetch('/api/update-dns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ips }) });
                 const data = await res.json();
-                if(data.success) { showToast(data.message); btnElement.textContent = '✅ 成功'; loadDNS(); } 
-                else { showToast('❌ ' + (data.error || '')); btnElement.textContent = originalText; }
-            } catch(e) { showToast('❌ 网络异常'); btnElement.textContent = originalText; } 
-            finally { setTimeout(() => { if(btnElement.textContent === '✅ 成功') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
+                if(data.success) { showToast(data.message); btnElement.textContent = '✅ 更新成功'; loadDNS(); } 
+                else { showToast('❌ 错误: ' + (data.error || '')); btnElement.textContent = originalText; }
+            } catch(e) { showToast('❌ 网络异常，请重试'); btnElement.textContent = originalText; } 
+            finally { setTimeout(() => { if(btnElement.textContent === '✅ 更新成功') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
         }
         function updateSingleDns(ip, btnElement) {
-            if(!confirm(\`解析到：\${ip} \\n覆盖全部？\`)) return;
+            if(!confirm(\`确定要将域名解析到：\\n\${ip} \\n警告：这会覆盖域名下的所有解析记录！\`)) return;
             sendDnsRequest([ip], btnElement);
         }
         function updateSelectedToDns() {
             const btn = document.getElementById('btnSelectedDns');
             const ips = getSelectedIps();
-            if (ips.length === 0) return showToast('⚠️ 请勾选');
-            if(!confirm(\`更新 \${ips.length} 个节点？\`)) return;
+            if (ips.length === 0) return showToast('⚠️ 请先勾选您想使用的节点');
+            if(!confirm(\`将应用勾选的 \${ips.length} 个节点：\\n\${ips.join('\\n')}\\n确定更新 DNS 记录吗？\`)) return;
             sendDnsRequest(ips, btn);
         }
         function updateTop3ToDns() {
@@ -2162,8 +1355,8 @@ const HTML_UI = `
                 if(ms < 2000) topIps.push(rows[i].querySelector('.ip-text').textContent);
                 if(topIps.length === 3) break;
             }
-            if(topIps.length === 0) return showToast('⚠️ 无节点');
-            if(!confirm(\`更新最快 \${topIps.length} 个？\`)) return;
+            if(topIps.length === 0) return showToast('⚠️ 没找到可用节点，请先测速');
+            if(!confirm(\`将为您分发当前最快的 \${topIps.length} 个节点：\\n\${topIps.join('\\n')}\\n确定更新 DNS 记录吗？\`)) return;
             sendDnsRequest(topIps, btn);
         }
         async function loadDNS() {
@@ -2171,10 +1364,10 @@ const HTML_UI = `
                 const res = await fetch('/api/get-dns'); const data = await res.json(); const container = document.getElementById('dnsStatus');
                 if (data.success && data.result) {
                     const records = data.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-                    if (records.length === 0) container.innerHTML = '<span class="badge">暂无记录</span>';
-                    else container.innerHTML = records.map(r => \`<span class="badge">\${r.type} | \${r.content}</span>\`).join('');
-                } else container.innerHTML = \`<span class="badge" style="color:#ef4444; border-color:#ef4444;">\${data.error || '失败'}</span>\`;
-            } catch (e) { document.getElementById('dnsStatus').innerHTML = '<span class="badge" style="color:#ef4444; border-color:#ef4444;">异常</span>'; }
+                    if (records.length === 0) container.innerHTML = '<span class="badge" style="background:rgba(255,149,0,0.1);color:#ff9500;">暂无解析记录</span>';
+                    else container.innerHTML = records.map(r => \`<span class="badge" style="background:rgba(0,113,227,0.1);color:var(--primary);border:1px solid rgba(0,113,227,0.2);">\${r.type} | \${r.content}</span>\`).join('');
+                } else container.innerHTML = \`<span class="badge" style="background:rgba(255,59,48,0.1);color:#ff3b30;">\${data.error || '获取失败'}</span>\`;
+            } catch (e) { document.getElementById('dnsStatus').innerHTML = '<span class="badge" style="background:rgba(255,59,48,0.1);color:#ff3b30;">网络异常</span>'; }
         }
         
         function logout() {
@@ -2204,18 +1397,18 @@ const HTML_UI = `
                 
                 // 根据延迟改变呼吸灯颜色
                 if (rtt < 80) {
-                    dotEl.style.background = '#10b981'; dotEl.style.boxShadow = '0 0 10px #10b981';
-                    rttEl.style.color = '#10b981';
+                    dotEl.style.background = '#34c759'; dotEl.style.boxShadow = '0 0 8px #34c759';
+                    rttEl.style.color = '#34c759';
                 } else if (rtt < 200) {
-                    dotEl.style.background = '#f59e0b'; dotEl.style.boxShadow = '0 0 10px #f59e0b';
-                    rttEl.style.color = '#f59e0b';
+                    dotEl.style.background = '#ff9500'; dotEl.style.boxShadow = '0 0 8px #ff9500';
+                    rttEl.style.color = '#ff9500';
                 } else {
-                    dotEl.style.background = '#ef4444'; dotEl.style.boxShadow = '0 0 10px #ef4444';
-                    rttEl.style.color = '#ef4444';
+                    dotEl.style.background = '#ff3b30'; dotEl.style.boxShadow = '0 0 8px #ff3b30';
+                    rttEl.style.color = '#ff3b30';
                 }
             } catch (e) {
                 document.getElementById('rttValue').textContent = '断连';
-                document.getElementById('rttDot').style.background = '#ef4444';
+                document.getElementById('rttDot').style.background = '#ff3b30';
             }
         }
         
@@ -2243,8 +1436,8 @@ const HTML_UI = `
                     
                     // 核心逻辑：如果入口和落地机房不一致，显示高亮提示（智能调度触发）
                     if (data.entryColo !== egressText && egressText !== '探测中...' && egressText !== '获取失败') {
-                        egressElem.style.color = '#f59e0b'; // 变成橘黄色警示
-                        egressElem.innerText += ' (智能回源)';
+                        egressElem.style.color = '#ff9500'; // 变成橘黄色警示
+                        egressElem.innerText += ' (智能放置/回源)';
                     }
                 }
             } catch(e) {
@@ -2336,8 +1529,8 @@ const HTML_UI = `
             } else if (modeVal === 'custom') {
                 var customVal = document.getElementById('cf-custom-input').value;
                 if (!customVal || customVal.trim() === '') {
-                    statusElem.innerText = "❌ 请填写区域代码（如 gcp:asia-east2）";
-                    statusElem.style.color = "#ef4444";
+                    statusElem.innerText = "❌ 请填写自定义区域代码（如 gcp:asia-east2）";
+                    statusElem.style.color = "#ff3b30";
                     return;
                 }
                 placementPayload = { region: customVal.trim() };
@@ -2345,8 +1538,8 @@ const HTML_UI = `
                 placementPayload = JSON.parse(modeVal);
             }
 
-            statusElem.innerText = "⏳ 提交中...";
-            statusElem.style.color = "#f59e0b";
+            statusElem.innerText = "⏳ 正在提交请求，请稍候...";
+            statusElem.style.color = "#ff9500";
             
             try {
                 var res = await fetch('/api/placement', {
@@ -2357,14 +1550,14 @@ const HTML_UI = `
                 var data = await res.json();
                 if (data.success) {
                     statusElem.innerText = "✅ " + data.msg;
-                    statusElem.style.color = "#10b981";
+                    statusElem.style.color = "#34c759";
                 } else {
                     statusElem.innerText = "❌ " + data.msg;
-                    statusElem.style.color = "#ef4444";
+                    statusElem.style.color = "#ff3b30";
                 }
             } catch(e) {
                 statusElem.innerText = "❌ 网络错误: " + e.message;
-                statusElem.style.color = "#ef4444";
+                statusElem.style.color = "#ff3b30";
             }
         }
     // 🚀 魔法功能：自动继承现有的模式选项 (增强稳定版)
@@ -2390,14 +1583,14 @@ const HTML_UI = `
             const selectedPrefixes = Array.from(document.querySelectorAll('.node-cb:checked')).map(cb => cb.value);
 
             if (selectedPrefixes.length === 0) {
-                statusElem.innerText = "⚠️ 请勾选";
-                statusElem.style.color = "#f59e0b";
+                statusElem.innerText = "⚠️ 请先打勾需要修改的节点！";
+                statusElem.style.color = "#ff9500";
                 return;
             }
 
-            if (!confirm("确定修改 " + selectedPrefixes.length + " 个节点？")) return;
+            if (!confirm("确定要将勾选的 " + selectedPrefixes.length + " 个节点切换为该模式吗？")) return;
 
-            statusElem.innerText = "⏳ 修改中...";
+            statusElem.innerText = "⏳ 正在多线程并发修改节点...";
             statusElem.style.color = "var(--primary)";
 
             try {
@@ -2421,17 +1614,17 @@ const HTML_UI = `
                     });
                     
                     if (!postRes.ok) {
-                        throw new Error("节点 " + r.prefix + " 失败");
+                        throw new Error("节点 " + r.prefix + " 保存失败");
                     }
                 }));
                 
-                statusElem.innerText = "✅ 成功！";
-                statusElem.style.color = "#10b981";
+                statusElem.innerText = "✅ 批量修改成功！";
+                statusElem.style.color = "#34c759";
                 setTimeout(() => location.reload(), 1000); 
 
             } catch (e) {
                 statusElem.innerText = "❌ 失败: " + e.message;
-                statusElem.style.color = "#ef4444";
+                statusElem.style.color = "#ff3b30";
             }
         }
     async function deployWorker() {
@@ -2443,13 +1636,13 @@ const HTML_UI = `
                 codeContent = await file.text();
             }
             if (!codeContent.trim()) {
-                alert('⚠️ 请粘贴代码或选文件');
+                alert('⚠️ 失败：请先粘贴代码，或者选择一个 .js 文件！');
                 return;
             }
-            if (!confirm('🚨 警告：覆盖错误代码会 500！\\n确定？')) return;
+            if (!confirm('🚨 危险操作确认 🚨\\n\\n你即将强行覆盖当前 Worker 的代码。\\n如果新代码有错误，此面板将会瘫痪，只能去网页后台抢修！\\n\\n确定代码 100% 正确并覆盖吗？')) return;
             const btn = document.getElementById('deployBtn');
             const originalText = btn.innerText;
-            btn.innerText = '⏳ 部署中...';
+            btn.innerText = '⏳ 正在与 Cloudflare 通信并部署...';
             btn.disabled = true;
             btn.style.opacity = '0.7';
             try {
@@ -2460,10 +1653,10 @@ const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('🎉 成功！' + data.msg);
+                    alert('🎉 成功！' + data.msg + '\\n\\n点击确定后页面将自动刷新。');
                     window.location.reload(); 
                 } else {
-                    alert('❌ 失败：\\n' + JSON.stringify(data.error));
+                    alert('❌ 部署失败：\\n' + JSON.stringify(data.error));
                 }
             } catch (e) {
                 alert('🚨 异常：\\n' + e.message);
@@ -2494,7 +1687,7 @@ const HTML_UI = `
                     const latestVersion = versionMatch[1];
                     if (latestVersion !== CURRENT_VERSION) {
                         document.getElementById('updateAlert').style.display = 'block';
-                        document.getElementById('updateMsg').innerText = '当前: v' + CURRENT_VERSION + ' | 最新: v' + latestVersion;
+                        document.getElementById('updateMsg').innerText = '当前版本: v' + CURRENT_VERSION + ' | 发现最新版本: v' + latestVersion + ' (Github)';
                     }
                 }
             } catch (e) {
@@ -2503,10 +1696,10 @@ const HTML_UI = `
         }
 
         async function doOnlineUpdate() {
-            if (!confirm('🚀 确定拉取最新版并覆盖吗？')) return;
+            if (!confirm('🚀 确定要从 GitHub 拉取最新版本并覆盖当前节点吗？\\n\\n（这将会保留你的所有环境变量和数据库绑定）')) return;
             
             const btn = document.getElementById('onlineUpdateBtn');
-            btn.innerText = '⏳ 升级中...';
+            btn.innerText = '⏳ 正在拉取并部署...';
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
@@ -2519,7 +1712,7 @@ const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('🎉 在线更新成功！');
+                    alert('🎉 在线更新成功！\\n\\n点击确定后页面将自动刷新，畅享新版本！');
                     window.location.reload(); 
                 } else {
                     alert('❌ 更新失败：\\n' + JSON.stringify(data.error));
@@ -2527,7 +1720,7 @@ const HTML_UI = `
             } catch (e) {
                 alert('🚨 异常：\\n' + e.message);
             } finally {
-                btn.innerText = '🚀 升级';
+                btn.innerText = '🚀 一键拉取并升级';
                 btn.disabled = false;
                 btn.style.opacity = '1';
             }
@@ -2543,6 +1736,163 @@ const HTML_UI = `
 // ==========================================
 // 2. 后端 Worker 主逻辑处理区 (核心故障转移 + TG Bot播报 + 智能流量拉取)
 // ==========================================
+
+function normalizeBackendOrigin(value) {
+    try {
+        const u = new URL((value || '').trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+        return u.origin;
+    } catch (e) {
+        return '';
+    }
+}
+
+function isEmbyInfoPayload(data) {
+    if (!data || typeof data !== 'object') return false;
+    const embyKeys = ['ServerName', 'Version', 'ProductName', 'OperatingSystem', 'Id'];
+    return embyKeys.some(key => Object.prototype.hasOwnProperty.call(data, key));
+}
+
+async function validateEmbyBackend(candidateUrl, frontendTarget = '', proxyOrigin = '') {
+    const backendOrigin = normalizeBackendOrigin(candidateUrl);
+    if (!backendOrigin) return { valid: false, reason: '后端地址不是有效的 http(s) URL' };
+
+    try {
+        const frontendOrigin = frontendTarget ? new URL(frontendTarget).origin : '';
+        if (frontendOrigin && backendOrigin === frontendOrigin) return { valid: false, reason: '候选地址与前端地址相同' };
+        if (proxyOrigin && backendOrigin === proxyOrigin) return { valid: false, reason: '候选地址是当前 Worker 地址' };
+    } catch (e) { }
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(backendOrigin + '/System/Info/Public', {
+            headers: { 'Accept': 'application/json', 'User-Agent': 'EmbyProxyBackendDetector/1.0' },
+            signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return { valid: false, reason: `公共信息接口返回 HTTP ${res.status}` };
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('json')) return { valid: false, reason: '公共信息接口不是 JSON 响应' };
+        const data = await res.json();
+        if (!isEmbyInfoPayload(data)) return { valid: false, reason: '公共信息接口不像 Emby 服务' };
+        return { valid: true, url: backendOrigin };
+    } catch (e) {
+        return { valid: false, reason: '公共信息接口验证失败: ' + (e?.message || '未知错误') };
+    }
+}
+
+function isTextLikeForBackendDetection(contentType, pathLower) {
+    return contentType.includes('text/html') ||
+        contentType.includes('javascript') ||
+        contentType.includes('json') ||
+        pathLower.endsWith('.m3u8') ||
+        contentType.includes('mpegurl');
+}
+
+function extractBackendCandidateOrigins(text, frontendOrigins, proxyOrigin) {
+    const candidates = new Set();
+    if (!text) return [];
+    const urls = text.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
+    urls.forEach(raw => {
+        const trail = raw.match(/[.,;)]+$/)?.[0] || '';
+        const clean = trail ? raw.slice(0, -trail.length) : raw;
+        const origin = normalizeBackendOrigin(clean);
+        if (!origin) return;
+        if (frontendOrigins.has(origin) || origin === proxyOrigin) return;
+        candidates.add(origin);
+    });
+    return Array.from(candidates);
+}
+
+function persistDetectedBackend(ctx, env, prefix, candidates, frontendTarget, proxyOrigin) {
+    if (!ctx || !ctx.waitUntil || !env.DB || !prefix || !candidates.length) return;
+    ctx.waitUntil((async () => {
+        for (const candidate of candidates) {
+            const validation = await validateEmbyBackend(candidate, frontendTarget, proxyOrigin);
+            if (!validation.valid) continue;
+            await env.DB.prepare(`
+                UPDATE routes
+                SET backend_url = ?, backend_mode = 'auto'
+                WHERE prefix = ? AND IFNULL(backend_mode, 'auto') = 'auto'
+            `).bind(validation.url, prefix).run();
+            break;
+        }
+    })());
+}
+
+function shouldRouteToBackend(pathname, search) {
+    const pathLower = pathname.toLowerCase();
+    const searchLower = (search || '').toLowerCase();
+    if (searchLower.includes('api_key=') || searchLower.includes('x-emby-token=')) return true;
+    if (pathLower === '/socket' || pathLower === '/websocket' || pathLower.includes('/socket.io/')) return true;
+    if (pathLower.includes('/playbackinfo')) return true;
+    if (/^\/(system|users|items|sessions|devices|videos|audio|livestreams|playlists|artists|albums|genres|studios|persons|channels|shows|library|sync|notifications|scheduledtasks|displaypreferences|quickconnect|branding|plugins)(\/|$)/i.test(pathname)) return true;
+    if (/^\/emby(\/|$)/i.test(pathname)) return true;
+    if (/\/(images|stream|hls|dash)(\/|$|\?)/i.test(pathLower)) return true;
+    return false;
+}
+
+function isMediaStreamRequest(pathname, search) {
+    const pathLower = pathname.toLowerCase();
+    const searchLower = (search || '').toLowerCase();
+    if (searchLower.includes('static=true') || searchLower.includes('mediasourceid=')) return true;
+    if (/^\/(videos|audio|livestreams)(\/|$)/i.test(pathname)) return true;
+    if (/\/(stream|hls|dash)(\/|$|\?)/i.test(pathLower)) return true;
+    if (/\.(mkv|mp4|m4v|mov|avi|wmv|flv|webm|ts|m2ts|mp3|m4a|aac|flac|wav|ogg|opus)(\?|$)/i.test(pathLower)) return true;
+    return false;
+}
+
+function shouldRequestUncompressed(pathname, search) {
+    const pathLower = pathname.toLowerCase();
+    if (pathLower.includes('/playbackinfo')) return true;
+    if (/\/system\/info(\/public)?$/i.test(pathLower)) return true;
+    if (pathLower.endsWith('.m3u8')) return true;
+    if (pathLower === '/' || pathLower.endsWith('/')) return true;
+    if (/\/web(\/|$)/i.test(pathname)) return true;
+    if (/\.(html|js|json|webmanifest)(\?|$)/i.test(pathLower)) return true;
+    return false;
+}
+
+function rewriteEmbyWebRootPaths(text, safePrefix) {
+    if (!safePrefix || !text) return text;
+    let rewritten = text;
+    // Emby app route content lives under /web, but some bundles reference it as root absolute.
+    rewritten = rewritten.replace(/contentPath:"\/(?!web\/|emby\/|System\/|Users\/|Items\/|Videos\/|Audio\/|Sessions\/|Devices\/|LiveStreams\/|socket|websocket)([^"]+)"/g, `contentPath:"${safePrefix}/web/$1"`);
+    rewritten = rewritten.replace(/contentPath:'\/(?!web\/|emby\/|System\/|Users\/|Items\/|Videos\/|Audio\/|Sessions\/|Devices\/|LiveStreams\/|socket|websocket)([^']+)'/g, `contentPath:'${safePrefix}/web/$1'`);
+    rewritten = rewritten.replace(/"start_url"\s*:\s*"\/web\/index\.html"/g, `"start_url":"${safePrefix}/web/index.html"`);
+    return rewritten;
+}
+
+function prepareTextResponseHeaders(headers) {
+    headers.delete("Content-Length");
+    headers.delete("Content-Encoding");
+    headers.delete("Transfer-Encoding");
+}
+
+function proxifyAbsoluteUrl(value, proxyOrigin, safePrefix) {
+    return proxyOrigin + safePrefix + '/' + encodeURIComponent(value);
+}
+
+async function fetchWithResponseTimeout(request, timeoutMs) {
+    if (!timeoutMs || timeoutMs <= 0) return fetch(request);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const timedRequest = new Request(request, { signal: controller.signal });
+        return await fetch(timedRequest);
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function proxifyPlaybackUrl(value, proxyOrigin, safePrefix) {
+    if (!value || typeof value !== 'string') return value;
+    if (value.startsWith(proxyOrigin)) return value;
+    if (/^https?:\/\//i.test(value)) return proxifyAbsoluteUrl(value, proxyOrigin, safePrefix);
+    if (value.startsWith('/')) return proxyOrigin + safePrefix + value;
+    return value;
+}
 
 // 用于向 Cloudflare 获取对应时间段的总流量 (支持北京时间今日、近7天、近30天)
 async function getCFTraffic(env, type) {
@@ -3159,11 +2509,21 @@ export default {
         if (url.pathname === '/api/routes/import' && request.method === 'POST') {
             if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
             try {
+                await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN mode TEXT DEFAULT 'off'`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN remark TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN last_play TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN icon TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN cache_img TEXT DEFAULT 'on'`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
                 const routes = await request.json();
                 for (const r of routes) {
                     if (r.prefix && r.target) {
-                        await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                            .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '').run();
+                        await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, backend_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                            .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.backend_mode || 'auto').run();
                     }
                 }
                 return Response.json({ success: true });
@@ -3185,6 +2545,8 @@ export default {
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN cache_img TEXT DEFAULT 'on'`); } catch (e) { }
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`); } catch (e) { }
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`); } catch (e) { }
+            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
+            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
 
             // 数据防爆清理策略：自动清理过去 7 天的精细日志
             try { await env.DB.exec(`DELETE FROM visitor_logs WHERE timestamp < datetime('now', '-7 days')`); } catch (e) { }
@@ -3260,18 +2622,35 @@ export default {
 
             if (request.method === 'POST') {
                 const data = await request.json(); let currentSortOrder = 0;
+                const rawBackendUrl = (data.backend_url || '').trim().replace(/\/+$/g, '');
+                const cleanBackendUrl = rawBackendUrl ? normalizeBackendOrigin(rawBackendUrl) : '';
+                if (rawBackendUrl && !cleanBackendUrl) return Response.json({ success: false, error: '分离后端地址必须是有效的 http(s) URL' });
+                const requestedBackendMode = cleanBackendUrl ? 'manual' : 'auto';
+                let storedBackendUrl = cleanBackendUrl;
+                let storedBackendMode = requestedBackendMode;
+
                 if (data.oldPrefix && data.oldPrefix !== data.prefix) {
                     const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
-                    if (oldRow) currentSortOrder = oldRow.sort_order;
+                    if (oldRow) {
+                        currentSortOrder = oldRow.sort_order;
+                    }
                     await env.DB.prepare('DELETE FROM routes WHERE prefix = ?').bind(data.oldPrefix).run();
                 } else {
                     const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.prefix).first();
-                    if (oldRow) currentSortOrder = oldRow.sort_order;
+                    if (oldRow) {
+                        currentSortOrder = oldRow.sort_order;
+                    }
                 }
 
-                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '').run();
-                return Response.json({ success: true });
+                let backendWarning = '';
+                if (storedBackendMode === 'manual' && storedBackendUrl) {
+                    const validation = await validateEmbyBackend(storedBackendUrl, data.target);
+                    if (!validation.valid) backendWarning = validation.reason || '后端地址未通过 Emby 公共信息验证，已按手动配置保存';
+                }
+
+                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, backend_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', storedBackendUrl, storedBackendMode).run();
+                return Response.json({ success: true, warning: backendWarning });
             }
 
             if (request.method === 'DELETE') {
@@ -3283,8 +2662,8 @@ export default {
         // ==========================================
         // 2.6 核心反代与调度引擎
         // ==========================================
-        let targetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
-        let customHeadersRaw = '';
+        let targetUrls = []; let frontendTargetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
+        let customHeadersRaw = ''; let backendUrl = ''; let backendMode = 'auto'; let routeToBackend = false;
         const decodedPath = decodeURIComponent(url.pathname); let matchedPrefix = null;
         let proxyOrigin = new URL(request.url).origin;
 
@@ -3296,20 +2675,51 @@ export default {
 
             try {
                 if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers FROM routes WHERE prefix = ?`);
-                const route = await stmt.bind(prefix).first();
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
+                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
+                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, backend_url, backend_mode FROM routes WHERE prefix = ?`);
+                let route = await stmt.bind(prefix).first();
+                let effectivePrefix = prefix;
+                let escapedWebPath = '';
+                if (!route) {
+                    try {
+                        const referer = request.headers.get('Referer') || '';
+                        const refUrl = referer ? new URL(referer) : null;
+                        const refParts = refUrl && refUrl.origin === proxyOrigin ? decodeURIComponent(refUrl.pathname).split('/') : [];
+                        const refPrefix = refParts[1] || '';
+                        if (refPrefix && refParts[2] === 'web') {
+                            const refRoute = await stmt.bind(refPrefix).first();
+                            if (refRoute) {
+                                route = refRoute;
+                                effectivePrefix = refPrefix;
+                                escapedWebPath = decodedPath.startsWith('/web/') ? decodedPath : '/web' + decodedPath;
+                            }
+                        }
+                    } catch (e) { }
+                }
                 if (!route) return new Response(`404: Node not found`, { status: 404 });
 
                 currentMode = route.mode || 'off'; enableCache = (route.cache_img !== 'off');
-                matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
+                matchedPrefix = effectivePrefix; remainingPath = escapedWebPath || ('/' + pathParts.slice(2).join('/'));
                 targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
+                frontendTargetUrls = [...targetUrls];
                 customHeadersRaw = route.custom_headers || '';
+                backendUrl = normalizeBackendOrigin(route.backend_url || '');
+                backendMode = route.backend_mode || 'auto';
 
                 if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
             } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
         }
 
         if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
+
+        if (matchedPrefix && backendUrl && remainingPath && shouldRouteToBackend(remainingPath, url.search)) {
+            const frontendOrigins = new Set(frontendTargetUrls.map(t => normalizeBackendOrigin(t)).filter(Boolean));
+            if (!frontendOrigins.has(backendUrl) && backendUrl !== proxyOrigin) {
+                routeToBackend = true;
+                targetUrls = [backendUrl, ...targetUrls.filter(t => normalizeBackendOrigin(t) !== backendUrl)];
+            }
+        }
 
         // ==========================================
         // 2.7 防爆型精准日志拦截 (修复统计虚高：仅拦截点火请求)
@@ -3346,11 +2756,18 @@ export default {
             bodyBuffer = await request.clone().arrayBuffer();
         }
 
-        let finalResponse = null; let lastError = null;
+        let finalResponse = null; let finalTargetUrl = null; let lastError = null;
 
         for (let i = 0; i < targetUrls.length; i++) {
             const targetUrlStr = targetUrls[i] + remainingPath + url.search; const targetUrl = new URL(targetUrlStr);
+            const usingDetectedBackend = routeToBackend && normalizeBackendOrigin(targetUrls[i]) === backendUrl;
+            const hasFailoverTarget = i < targetUrls.length - 1;
             const newHeaders = new Headers(request.headers); newHeaders.set("Host", targetUrl.host);
+            const requiresTextRewrite = shouldRequestUncompressed(targetUrl.pathname, targetUrl.search || url.search);
+            if (requiresTextRewrite) {
+                // 只有需要改写文本响应时才禁用上游压缩；普通媒体库 JSON 和视频流保持源站压缩/直传，避免拖慢加载。
+                newHeaders.delete("Accept-Encoding");
+            }
 
             const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(',')[0].trim();
             newHeaders.delete("cf-connecting-ip"); newHeaders.delete("cf-ipcountry"); newHeaders.delete("cf-ray");
@@ -3363,6 +2780,23 @@ export default {
                 newHeaders.delete("X-Forwarded-Proto"); newHeaders.delete("X-Forwarded-Host");
                 newHeaders.set("Origin", targetUrl.origin); newHeaders.set("Referer", targetUrl.origin + "/");
                 if (realIp) { newHeaders.set("X-Real-IP", realIp); newHeaders.set("X-Forwarded-For", realIp); }
+            }
+
+            if (usingDetectedBackend) {
+                newHeaders.set("Host", targetUrl.host);
+                if (newHeaders.has("Origin")) newHeaders.set("Origin", targetUrl.origin);
+                const referer = newHeaders.get("Referer") || "";
+                const refererIsFrontend = frontendTargetUrls.map(t => normalizeBackendOrigin(t)).filter(Boolean).some(origin => referer.startsWith(origin));
+                if (referer.startsWith(proxyOrigin) || refererIsFrontend) {
+                    newHeaders.set("Referer", targetUrl.origin + "/");
+                }
+            }
+
+            if (!usingDetectedBackend) {
+                const origin = newHeaders.get("Origin") || "";
+                if (origin === proxyOrigin) newHeaders.set("Origin", targetUrl.origin);
+                const referer = newHeaders.get("Referer") || "";
+                if (referer.startsWith(proxyOrigin)) newHeaders.set("Referer", targetUrl.origin + "/");
             }
 
             // 🌟 应用节点自定义请求头 (格式: Key: Value，每行一条)
@@ -3389,10 +2823,42 @@ export default {
             }
 
             try {
-                const modifiedRequest = new Request(targetUrl, fetchInit); const response = await fetch(modifiedRequest);
+                const modifiedRequest = new Request(targetUrl, fetchInit);
+                const responseTimeoutMs = usingDetectedBackend && hasFailoverTarget ? 4500 : 0;
+                let response = await fetchWithResponseTimeout(modifiedRequest, responseTimeoutMs);
+                let responseTargetUrl = targetUrl;
+                const shouldFollowMediaRedirect = request.headers.has("Range") || isMediaStreamRequest(targetUrl.pathname, targetUrl.search || url.search);
+                if ((request.method === 'GET' || request.method === 'HEAD') && shouldFollowMediaRedirect) {
+                    for (let redirectCount = 0; redirectCount < 4 && [301, 302, 303, 307, 308].includes(response.status); redirectCount++) {
+                        const redirectLocation = response.headers.get('Location');
+                        if (!redirectLocation) break;
+                        const redirectedUrl = new URL(redirectLocation, responseTargetUrl);
+                        const redirectHeaders = new Headers(newHeaders);
+                        redirectHeaders.set("Host", redirectedUrl.host);
+                        if (redirectHeaders.has("Origin")) redirectHeaders.set("Origin", redirectedUrl.origin);
+                        const redirectReferer = redirectHeaders.get("Referer") || "";
+                        if (redirectReferer.startsWith(proxyOrigin) || redirectReferer.startsWith(responseTargetUrl.origin)) {
+                            redirectHeaders.set("Referer", redirectedUrl.origin + "/");
+                        }
+                        const redirectInit = { method: request.method, headers: redirectHeaders, redirect: 'manual' };
+                        responseTargetUrl = redirectedUrl;
+                        response = await fetchWithResponseTimeout(new Request(redirectedUrl, redirectInit), 0);
+                    }
+                }
                 if (response.status === 502 || response.status === 503 || response.status === 504) { lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`); continue; }
-                finalResponse = response; break;
-            } catch (err) { lastError = err; continue; }
+                finalResponse = response; finalTargetUrl = responseTargetUrl; break;
+            } catch (err) {
+                const timedOut = err?.name === 'AbortError';
+                lastError = timedOut ? new Error(`Node ${i + 1} timed out after upstream response wait`) : err;
+                if (usingDetectedBackend && backendMode === 'auto' && ctx && ctx.waitUntil && env.DB && matchedPrefix) {
+                    ctx.waitUntil(env.DB.prepare(`
+                        UPDATE routes
+                        SET backend_url = ''
+                        WHERE prefix = ? AND IFNULL(backend_mode, 'auto') = 'auto' AND backend_url = ?
+                    `).bind(matchedPrefix, backendUrl).run());
+                }
+                continue;
+            }
         }
 
         if (!finalResponse) return new Response("Worker Proxy Failover Exhausted. All nodes failed. Last Error: " + (lastError?.message || 'Unknown Error'), { status: 502 });
@@ -3408,57 +2874,175 @@ export default {
         // ==========================================
         if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
             const location = responseHeaders.get('Location');
-            if (location && /^https?:\/\//i.test(location)) {
-                // 🎯 补回 encodeURIComponent，防止播放器解析重定向头时发疯
-                responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
+            if (location) {
+                try {
+                    const resolved = new URL(location, finalTargetUrl || targetUrls[0]);
+                    const frontendOriginsForRedirect = new Set((frontendTargetUrls.length ? frontendTargetUrls : targetUrls).map(t => normalizeBackendOrigin(t)).filter(Boolean));
+                    if (matchedPrefix && frontendOriginsForRedirect.has(resolved.origin)) {
+                        responseHeaders.set('Location', `${proxyOrigin}${safePrefix}${resolved.pathname}${resolved.search}${resolved.hash}`);
+                    } else if (/^https?:\/\//i.test(resolved.href)) {
+                        // 🎯 补回 encodeURIComponent，防止播放器解析重定向头时发疯
+                        responseHeaders.set('Location', `${proxyOrigin}${safePrefix}/${encodeURIComponent(resolved.href)}`);
+                    }
+                } catch (e) { }
             }
         }
 
         responseHeaders.set('Access-Control-Allow-Origin', '*');
 
         // ==========================================
-        // 2.10 响应体重写 (接管 PlaybackInfo 与 M3U8)
+        // 2.10 响应体重写 (PlaybackInfo / M3U8 / 前后端分离自动兼容)
         // ==========================================
 
-        if (finalResponse.status === 200 && responseHeaders.get("content-type")?.includes("json") && url.pathname.toLowerCase().includes("playbackinfo")) {
+        // 🌟 前后端分离核心：前端 origin 已知，响应体里出现的其他 origin 就是泄露的后端地址
+        let frontendOrigin = '';
+        const frontendOrigins = new Set((frontendTargetUrls.length ? frontendTargetUrls : targetUrls).map(t => normalizeBackendOrigin(t)).filter(Boolean));
+        try { frontendOrigin = normalizeBackendOrigin((frontendTargetUrls[0] || targetUrls[0] || '')); } catch (e) { }
+
+        // 通用 URL 改写：把非前端、非代理自身的绝对 URL 都套上代理前缀
+        // 正则只匹配到合法 URL 字符结束（不吃引号、空白、括号、逗号、分号）
+        function rewriteBackendUrls(text, allowedOrigins = null) {
+            return text.replace(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g, matched => {
+                // 去掉尾部可能被误匹配的标点
+                const trail = matched.match(/[.,;)]+$/)?.[0] || '';
+                const clean = trail ? matched.slice(0, -trail.length) : matched;
+                try {
+                    const u = new URL(clean);
+                    const allowed = !allowedOrigins || allowedOrigins.has(u.origin);
+                    if (allowed && !frontendOrigins.has(u.origin) && u.origin !== proxyOrigin) {
+                        return proxifyAbsoluteUrl(clean, proxyOrigin, safePrefix) + trail;
+                    }
+                } catch (e) { }
+                return matched;
+            });
+        }
+
+        const contentType = responseHeaders.get("content-type") || '';
+        const pathLower = url.pathname.toLowerCase();
+
+        // 判断是否需要做响应体重写，避免对不需要处理的请求读取 body
+        const needsJsonPlayback = finalResponse.status === 200 && contentType.includes("json") && pathLower.includes("playbackinfo");
+        const needsSystemInfo = finalResponse.status === 200 && contentType.includes("json") && /\/system\/info(\/public)?$/i.test(pathLower);
+        const needsM3u8 = finalResponse.status === 200 && pathLower.endsWith('.m3u8');
+        const needsHtmlJs = finalResponse.status === 200 && frontendOrigin && (
+            contentType.includes('text/html') || contentType.includes('javascript')
+        );
+        const declaredLength = Number(responseHeaders.get("content-length") || "0");
+        const backendDetectionPath = remainingPath || url.pathname;
+        const isBackendApiResponse = shouldRouteToBackend(backendDetectionPath, url.search);
+        const needsBackendDetection = finalResponse.status === 200 && matchedPrefix && backendMode !== 'manual' &&
+            !isBackendApiResponse && isTextLikeForBackendDetection(contentType, pathLower) && declaredLength <= 1048576;
+
+        if (needsJsonPlayback || needsSystemInfo || needsM3u8 || needsHtmlJs || needsBackendDetection) {
             try {
-                let clonedRes = finalResponse.clone();
-                let data = await clonedRes.json();
-                let modified = false;
-                if (data && data.MediaSources) {
-                    data.MediaSources.forEach(source => {
-                        ['DirectStreamUrl', 'TranscodingUrl'].forEach(key => {
-                            if (source[key] && source[key].startsWith('http')) {
-                                // 🎯 统一使用 safePrefix，杜绝 ReferenceError 导致重写崩溃
-                                source[key] = proxyOrigin + safePrefix + '/' + source[key];
+                const bodyText = await finalResponse.text();
+                if (needsBackendDetection && bodyText.length <= 1048576) {
+                    const candidates = extractBackendCandidateOrigins(bodyText, frontendOrigins, proxyOrigin);
+                    persistDetectedBackend(ctx, env, matchedPrefix, candidates, frontendTargetUrls[0] || targetUrls[0] || '', proxyOrigin);
+                }
+
+                // ① PlaybackInfo：重写 DirectStreamUrl / TranscodingUrl
+                if (needsJsonPlayback) {
+                    try {
+                        const data = JSON.parse(bodyText);
+                        let modified = false;
+                        if (data && data.MediaSources) {
+                            data.MediaSources.forEach(source => {
+                                ['DirectStreamUrl', 'TranscodingUrl', 'LiveStreamUrl', 'HlsUrl', 'DashUrl'].forEach(key => {
+                                    const rewritten = proxifyPlaybackUrl(source[key], proxyOrigin, safePrefix);
+                                    if (rewritten !== source[key]) {
+                                        source[key] = rewritten;
+                                        modified = true;
+                                    }
+                                });
+                                if (source.MediaStreams) {
+                                    source.MediaStreams.forEach(stream => {
+                                        ['DeliveryUrl', 'Url'].forEach(key => {
+                                            const rewritten = proxifyPlaybackUrl(stream[key], proxyOrigin, safePrefix);
+                                            if (rewritten !== stream[key]) {
+                                                stream[key] = rewritten;
+                                                modified = true;
+                                            }
+                                        });
+                                    });
+                                }
+                            });
+                        }
+                        if (modified) {
+                            prepareTextResponseHeaders(responseHeaders);
+                            return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                        }
+                    } catch (e) { console.log("PlaybackInfo 重写失败:", e.message); }
+                }
+
+                // ② System/Info(/Public)：前后端分离场景下把 Address/LocalAddress 指向代理
+                if (needsSystemInfo) {
+                    try {
+                        const data = JSON.parse(bodyText);
+                        let modified = false;
+                        ['Address', 'LocalAddress', 'WanAddress', 'RemoteAddress', 'ManualAddress'].forEach(key => {
+                            if (data[key] && data[key].startsWith('http') && !data[key].startsWith(proxyOrigin)) {
+                                data[key] = proxyOrigin + safePrefix;
                                 modified = true;
                             }
                         });
-                    });
+                        ['LocalAddresses', 'RemoteAddresses'].forEach(key => {
+                            if (Array.isArray(data[key])) {
+                                data[key] = [proxyOrigin + safePrefix];
+                                modified = true;
+                            }
+                        });
+                        if (modified) {
+                            prepareTextResponseHeaders(responseHeaders);
+                            return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                        }
+                    } catch (e) { console.log("System/Info 重写失败:", e.message); }
                 }
-                if (modified) {
-                    responseHeaders.delete("Content-Length");
-                    return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                }
-            } catch (e) {
-                // 别再隐式吞报错了，如果出问题，可以在 Worker 日志里看得到
-                console.log("PlaybackInfo JSON 重写失败:", e.message);
-            }
-        }
 
-        // 🚀 处理 M3U8 播放列表中的真实视频切片链接
-        if (finalResponse.status === 200 && url.pathname.toLowerCase().endsWith('.m3u8')) {
-            try {
-                let clonedRes = finalResponse.clone();
-                let text = await clonedRes.text();
-                if (text.includes('http://') || text.includes('https://')) {
-                    // 🎯 同样修复变量名
-                    let modifiedText = text.replace(/(https?:\/\/[^\s]+)/g, proxyOrigin + safePrefix + '/$1');
-                    responseHeaders.delete("Content-Length");
-                    return new Response(modifiedText, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                // ③ M3U8 播放列表
+                if (needsM3u8) {
+                    if (bodyText.includes('http://') || bodyText.includes('https://')) {
+                        const rewritten = rewriteBackendUrls(bodyText);
+                        prepareTextResponseHeaders(responseHeaders);
+                        return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                    }
                 }
+
+                // ④ HTML / JS：检测并改写泄露的后端地址
+                if (needsHtmlJs) {
+                    const webPathRewritten = rewriteEmbyWebRootPaths(bodyText, safePrefix);
+                    if (webPathRewritten !== bodyText) {
+                        prepareTextResponseHeaders(responseHeaders);
+                        return new Response(webPathRewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                    }
+                    // 只改写已知后端，避免把 CDN、帮助链接等外部 URL 当成后端代理。
+                    const urls = bodyText.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
+                    const knownBackendOrigins = new Set([backendUrl].filter(Boolean));
+                    const hasLeakedBackend = knownBackendOrigins.size > 0 && urls.some(u => {
+                        try { const o = new URL(u).origin; return knownBackendOrigins.has(o); } catch (e) { return false; }
+                    });
+                    if (hasLeakedBackend) {
+                        const rewritten = rewriteBackendUrls(bodyText, knownBackendOrigins);
+                        prepareTextResponseHeaders(responseHeaders);
+                        return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                    }
+                }
+
+                if (contentType.includes('json')) {
+                    const jsonPathRewritten = rewriteEmbyWebRootPaths(bodyText, safePrefix);
+                    if (jsonPathRewritten !== bodyText) {
+                        prepareTextResponseHeaders(responseHeaders);
+                        return new Response(jsonPathRewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+                    }
+                }
+
+                // 没有命中任何重写逻辑，原样返回已读取的文本
+                prepareTextResponseHeaders(responseHeaders);
+                return new Response(bodyText, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+
             } catch (e) {
-                console.log("M3U8 重写失败:", e.message);
+                console.log("响应体重写异常:", e.message);
+                // 出错时降级：直接透传原始响应
             }
         }
 
