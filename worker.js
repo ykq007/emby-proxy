@@ -1,6 +1,6 @@
-// VERSION: 2.0.6
+// VERSION: 2.0.7
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.0.6";
+const CURRENT_VERSION = "2.0.7";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -106,6 +106,184 @@ const CSS_COMMON = `
     .drag-handle { cursor: grab; padding-right: 10px; font-size: 18px; color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
     .drag-handle:active { cursor: grabbing; color: var(--primary); }
 
+    /* ============================================================
+       UI Suggestions v2.0.7 — 4-tier button system, dropdown menus,
+       Headers Editor, sectioned deploy form. All rules below this
+       banner are additive; legacy .btn-submit and emoji buttons
+       elsewhere in the panel are intentionally left untouched.
+       ============================================================ */
+
+    /* --- 4-tier button system --- */
+    .btn-tier {
+        padding: 9px 16px; border-radius: 10px; border: 1px solid var(--border);
+        background: var(--card); color: var(--text);
+        font: inherit; font-size: 13px; font-weight: 600;
+        cursor: pointer; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 6px;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn-tier:hover { background: rgba(120,120,120,0.06); border-color: var(--text-sec); }
+    .btn-tier:active { transform: translateY(0); }
+    .btn-tier:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-tier svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .btn-tier.is-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-tier.is-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .btn-tier.is-success { background: #34c759; color: #fff; border-color: #34c759; }
+    .btn-tier.is-success:hover { filter: brightness(0.95); }
+    .btn-tier.is-danger  { background: #ff3b30; color: #fff; border-color: #ff3b30; }
+    .btn-tier.is-danger:hover  { filter: brightness(0.95); }
+    .btn-tier.is-ghost   { background: transparent; border-color: transparent; color: var(--text-sec); }
+    .btn-tier.is-ghost:hover { color: var(--text); background: rgba(120,120,120,0.07); }
+    .btn-tier.is-sm { padding: 6px 12px; font-size: 12px; }
+    .v-sep { width: 1px; height: 22px; background: var(--border); align-self: center; }
+
+    /* --- Generic dropdown menu --- */
+    .menu-wrap { position: relative; display: inline-flex; }
+    .menu {
+        position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px;
+        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 6px;
+        display: none; flex-direction: column; gap: 2px; z-index: 200;
+    }
+    .menu.open { display: flex; }
+    .menu button {
+        display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px;
+        border: none; background: transparent; color: var(--text); font: inherit; font-size: 13px;
+        text-align: left; cursor: pointer; width: 100%;
+    }
+    .menu button:hover { background: rgba(120,120,120,0.07); }
+    .menu button.danger { color: #ff3b30; }
+    .menu button.danger:hover { background: rgba(255,59,48,0.08); }
+    .menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; opacity: 0.6; }
+    .menu svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* --- iOS-style switch (scoped to .ios-switch to avoid collisions) --- */
+    .ios-switch { width: 38px; height: 22px; background: var(--border); border-radius: 999px; position: relative; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+    .ios-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+    .ios-switch.on { background: #34c759; }
+    .ios-switch.on::after { left: 18px; }
+
+    /* --- Sectioned form (.a-* family) --- */
+    .a-form { display: flex; flex-direction: column; gap: 22px; }
+    .a-fieldset { display: flex; flex-direction: column; gap: 10px; }
+    .a-fieldset-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .a-field-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
+    .a-field-aux { font-size: 12px; color: var(--text-sec); }
+    .a-input, .a-select {
+        padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
+        background: var(--card); color: var(--text); font: inherit; font-size: 14px;
+        outline: none; width: 100%; transition: 0.15s;
+    }
+    .a-input:focus, .a-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.12); }
+    .a-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .a-row.two { grid-template-columns: 1fr 1fr; }
+    .a-upstream-row { display: flex; gap: 8px; align-items: center; }
+    .a-tag-pri, .a-tag-bk {
+        width: 48px; flex-shrink: 0; padding: 5px 0; border-radius: 7px;
+        text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    }
+    .a-tag-pri { background: rgba(0,113,227,0.1); color: var(--primary); }
+    .a-tag-bk  { background: rgba(120,120,120,0.1); color: var(--text-sec); }
+    .a-add-row {
+        align-self: flex-start;
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 12px; border: 1px dashed var(--border); border-radius: 8px;
+        background: transparent; color: var(--text-sec); font-weight: 600; cursor: pointer;
+        font: inherit; font-size: 13px;
+    }
+    .a-add-row:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.04); }
+    .a-add-row svg { width: 13px; height: 13px; }
+    .a-card-pick, .a-toggle-row {
+        display: flex; gap: 12px; align-items: center; padding: 12px 14px;
+        border: 1px solid var(--border); border-radius: 10px; background: var(--card); cursor: pointer;
+        min-height: 60px;
+    }
+    .a-card-pick:hover { border-color: var(--primary); }
+    .a-toggle-row { user-select: none; }
+    .a-footer {
+        display: flex; justify-content: space-between; align-items: center; gap: 10px;
+        padding-top: 18px; border-top: 1px solid var(--border); margin-top: 4px;
+        flex-wrap: wrap;
+    }
+    .a-footer .a-footer-aux { color: var(--text-sec); font-size: 12px; }
+
+    /* --- Headers Editor --- */
+    .hed { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: rgba(120,120,120,0.025); }
+    .hed-head { display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: 8px; align-items: center; padding: 0 4px 8px 4px; font-size: 10px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
+    .hed-list { display: flex; flex-direction: column; gap: 6px; }
+    .hed-row {
+        display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: 8px;
+        align-items: center; padding: 4px; border-radius: 8px;
+        transition: background 0.15s;
+    }
+    .hed-row.dragging { opacity: 0.35; }
+    .hed-row.disabled .hed-k, .hed-row.disabled .hed-v { opacity: 0.45; }
+    .hed-row:hover { background: rgba(120,120,120,0.05); }
+    .hed-handle { cursor: grab; color: var(--text-sec); opacity: 0.5; text-align: center; user-select: none; font-size: 13px; line-height: 1; padding: 8px 0; }
+    .hed-handle:active { cursor: grabbing; }
+    .hed-k, .hed-v {
+        width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+        border-radius: 8px; background: var(--card); color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+        outline: none; transition: 0.15s;
+    }
+    .hed-k:focus, .hed-v:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.12); }
+    .hed-v-wrap { position: relative; }
+    .hed-v-wrap .mask-btn {
+        position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+        width: 28px; height: 28px; border: none; background: transparent;
+        color: var(--text-sec); cursor: pointer; border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .hed-v-wrap .mask-btn:hover { color: var(--primary); background: rgba(0,113,227,0.08); }
+    .hed-v-wrap .mask-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .hed-del {
+        width: 32px; height: 32px; border: 1px solid transparent; border-radius: 8px;
+        background: transparent; color: var(--text-sec); cursor: pointer;
+        display: flex; align-items: center; justify-content: center; font-size: 14px;
+        transition: 0.15s; justify-self: center;
+    }
+    .hed-del:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.06); }
+    .hed-del svg { width: 12px; height: 12px; }
+    .hed-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 10px; }
+    .hed-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-sec); }
+    .hed-meta .dot { width: 6px; height: 6px; background: #34c759; border-radius: 50%; box-shadow: 0 0 6px #34c759; }
+    .hed-empty { text-align: center; padding: 26px 20px; color: var(--text-sec); font-size: 13px; border: 1px dashed var(--border); border-radius: 10px; }
+    .templates { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .templates-label { font-size: 12px; color: var(--text-sec); margin-right: 4px; }
+    .chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+        background: rgba(120,120,120,0.08); color: var(--text-sec); border: 1px solid var(--border);
+        cursor: pointer; transition: 0.15s; font-family: inherit;
+    }
+    .chip:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.06); }
+    .chip-curl { color: var(--primary); border-color: rgba(0,113,227,0.3); background: rgba(0,113,227,0.06); }
+
+    /* --- cURL modal (separate from #dashboardModal) --- */
+    .curl-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .curl-modal-bg.show { display: flex; }
+    .curl-modal { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 90%; max-width: 540px; }
+    .curl-modal h3 { margin: 0 0 6px 0; font-size: 16px; }
+    .curl-modal p  { margin: 0 0 12px 0; font-size: 13px; color: var(--text-sec); }
+    .curl-modal textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; resize: vertical; min-height: 120px; outline: none; }
+    .curl-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
+    /* --- Mobile tweaks for the new components --- */
+    @media (max-width: 768px) {
+        .a-row, .a-row.two { grid-template-columns: 1fr; }
+        .hed-head { display: none; }
+        .hed-row { grid-template-columns: 18px 1fr 36px 28px; grid-template-rows: auto auto; gap: 6px; padding: 8px 4px; }
+        .hed-row .hed-handle { grid-row: 1 / 3; }
+        .hed-row .hed-k { grid-column: 2 / 5; }
+        .hed-row .hed-v-wrap { grid-column: 2 / 3; grid-row: 2; }
+        .hed-row .ios-switch { grid-column: 3 / 4; grid-row: 2; }
+        .hed-row .hed-del { grid-column: 4 / 5; grid-row: 2; }
+        .a-footer { flex-direction: column-reverse; align-items: stretch; }
+        .a-footer .a-footer-actions { display: flex; gap: 10px; }
+        .a-footer .a-footer-actions .btn-tier { flex: 1; justify-content: center; }
+    }
+
     /* iOS-style mobile adaptation
        References the Mobile Adaptation prototype: bottom-sheet modals,
        large title + status pills, sticky bottom CTA, ≥44pt tap targets. */
@@ -209,7 +387,6 @@ const CSS_COMMON = `
         }
         #addForm > div:nth-of-type(2) { flex-direction: column; align-items: stretch !important; }
         #addForm > div:nth-of-type(2) > * { width: 100%; }
-        #addForm #customHeaders { font-size: 13px; }
 
         /* Speed-test toolbar buttons stack with primary highlighted */
         #addForm + div .toolbar { flex-direction: column; }
@@ -336,7 +513,22 @@ const HTML_UI = `
 </head>
 <body>
     <div id="toast"></div>
-    
+
+    <!-- Shared SVG sprite (UI Suggestions v2.0.7) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+            <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+            <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></symbol>
+        </defs>
+    </svg>
+
     <div id="dashboardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
         <div class="card" style="max-width: 1000px; margin: 40px auto; position:relative; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
             <button onclick="closeDashboard()" style="position:absolute; top:20px; right:20px; font-size:24px; background:none; border:none; cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ff3b30'" onmouseout="this.style.color='var(--text-sec)'">✖</button>
@@ -464,36 +656,41 @@ const HTML_UI = `
                 </div>
 
                 <div class="toolbar">
-                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card);">
-                        <option value="all">🌐 综合混合源</option>
-                        <option value="电信">🔵 电信专属</option>
-                        <option value="联通">🟠 联通专属</option>
-                        <option value="移动">🟢 移动专属</option>
-                        <option value="多线">🟣 多线BGP</option>
-                        <option value="ipv6">🚀 IPv6节点</option>
-                        <option value="优选">🌟 顶尖优选库</option>
+                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background:var(--card);">
+                        <option value="all">综合混合源</option>
+                        <option value="电信">电信专属</option>
+                        <option value="联通">联通专属</option>
+                        <option value="移动">移动专属</option>
+                        <option value="多线">多线 BGP</option>
+                        <option value="ipv6">IPv6 节点</option>
+                        <option value="优选">顶尖优选库</option>
                     </select>
 
-                    <button class="btn-submit" id="btnFetchRemote" onclick="fetchRemoteAndTest()">🌍 提取预设源并测速</button>
-                    <button class="btn-submit" onclick="batchTcpPing()" style="background: #ff9500; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.2);">🌐 复制去 ITDog</button>
-                    <button class="btn-submit" onclick="clearTest()" style="background: #8e8e93; box-shadow: 0 4px 12px rgba(142, 142, 147, 0.2);">🗑️ 清空列表</button>
+                    <button type="button" class="btn-tier is-primary" id="btnFetchRemote" onclick="fetchRemoteAndTest()">提取预设源并测速</button>
+                    <button type="button" class="btn-tier" id="btnTestCustom" onclick="testCustomIPs()">测试粘贴节点</button>
+                    <button type="button" class="btn-tier" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()">拉取 API</button>
+
+                    <span class="v-sep"></span>
+
+                    <button type="button" class="btn-tier is-success" id="btnSelectedDns" onclick="updateSelectedToDns()">提交选中至 DNS</button>
+
+                    <span class="v-sep"></span>
+
+                    <div class="menu-wrap">
+                        <button type="button" class="btn-tier" onclick="toggleMenu(this)">更多 <svg><use href="#i-chevron"/></svg></button>
+                        <div class="menu">
+                            <button type="button" onclick="batchTcpPing(); closeAllMenus();">复制去 ITDog</button>
+                            <button type="button" id="btnDirectCname" onclick="directSubmitCname(); closeAllMenus();">直推 CNAME (免测速)</button>
+                            <button type="button" id="btnTop3Dns" onclick="updateTop3ToDns(); closeAllMenus();">更新 TOP3 至 DNS</button>
+                            <hr/>
+                            <button type="button" class="danger" onclick="clearTest(); closeAllMenus();">清空列表</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;">
-                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="填入自定义 JSON 或 文本 API 链接" style="flex: 1; min-width: 200px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background:var(--card);">
-                        <button class="btn-submit" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()" style="background: #32ade6; box-shadow: 0 4px 12px rgba(50, 173, 230, 0.2);">🌐 拉取 API 并测速</button>
-                    </div>
-
-                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4、IPv6 或 优选域名 (支持混杂文本，自动提取)" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card);"></textarea>
-                    
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn-submit" id="btnTestCustom" onclick="testCustomIPs()" style="background: #5856d6; box-shadow: 0 4px 12px rgba(88, 86, 214, 0.2);">🧪 测试粘贴的节点</button>
-                        <button class="btn-submit" id="btnDirectCname" onclick="directSubmitCname()" style="background: #af52de; box-shadow: 0 4px 12px rgba(175, 82, 222, 0.2);">🔗 直推 CNAME (免测速)</button>
-                        <div style="width: 100%; height: 1px; background: var(--border); margin: 4px 0;"></div>
-                        <button class="btn-submit" id="btnTop3Dns" onclick="updateTop3ToDns()" style="background: #ff2d55; box-shadow: 0 4px 12px rgba(255, 45, 85, 0.2);">🌟 更新 TOP3 至 DNS</button>
-                        <button class="btn-submit" id="btnSelectedDns" onclick="updateSelectedToDns()" style="background: #34c759; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">☑️ 提交选中节点至 DNS</button>
-                    </div>
+                <div style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                    <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
                 </div>
                 
                 <div id="statusText" style="line-height: 1.6; font-size: 14px; color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: rgba(52, 199, 89, 0.1); border-radius: 10px; border-left: 4px solid #34c759;">
@@ -520,67 +717,131 @@ const HTML_UI = `
             </div>
             
             <div class="card">
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px;">部署 / 编辑反代节点</h2>
+                <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                     <div>
-                        <button class="btn-submit" onclick="exportConfig()" style="background:#5856d6; padding: 8px 16px; font-size: 13px;">📦 导出配置</button>
-                        <button class="btn-submit" onclick="importConfig()" style="background:#ff9500; padding: 8px 16px; font-size: 13px;">📥 导入配置</button>
+                        <h2 style="margin:0; font-size:19px; letter-spacing:-0.01em;">部署反代节点</h2>
+                        <div style="color:var(--text-sec); font-size:13px; margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
+                    </div>
+                    <div class="menu-wrap">
+                        <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>配置工具 <svg><use href="#i-chevron"/></svg></button>
+                        <div class="menu">
+                            <button type="button" onclick="exportConfig(); closeAllMenus();"><svg><use href="#i-download"/></svg>导出当前配置</button>
+                            <button type="button" onclick="importConfig(); closeAllMenus();"><svg><use href="#i-upload"/></svg>导入配置</button>
+                        </div>
                     </div>
                 </div>
-                
-                <form id="addForm" style="display: flex; flex-direction: column; gap: 16px;">
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <input type="hidden" id="oldPrefix" value="">
-                        <input type="text" id="remark" placeholder="节点备注 (如: Misaka服)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;" required>
-                        <input type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;" required>
-                        <select id="mode" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background:var(--card); flex: 1;">
-                            <option value="off">保守 (抹除IP)</option>
-                            <option value="realip_only">严格 (透传IP)</option>
-                            <option value="dual">兼容 (双重透传)</option>
-                            <option value="strict">强力 (防403)</option>
-                        </select>
-                    </div>
 
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                        <div style="position: relative; flex: 2; display: flex;">
-                            <div style="display:flex; gap:10px; align-items:center; background:var(--card); padding:10px 16px; border-radius:10px; border:1px solid var(--border); flex: 1; cursor: pointer; transition:0.2s;" onclick="toggleIconPicker(event)" id="iconSelectBtn">
-                                <img id="iconPreview" src="" style="width:24px;height:24px;display:none;border-radius:4px;object-fit:cover;">
-                                <span id="iconDefault" style="font-size:20px;line-height:1;">🎬</span>
-                                <span id="iconSelectText" style="flex:1; color: var(--text-sec); font-size:14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">点击选择图标 (默认 🎬)</span>
-                                <input type="hidden" id="iconUrl" value="">
-                            </div>
-                            
-                            <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
-                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                                    <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); font-size: 13px; color: var(--text);">
-                                    <button type="button" onclick="setCustomIconLibrary()" style="padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap;">加载</button>
-                                    <button type="button" onclick="resetIconLibrary()" style="padding: 8px 12px; background: #8e8e93; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; white-space: nowrap;">默认库</button>
-                                </div>
-                                <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); width: 100%; font-size: 14px; color: var(--text);" onkeyup="filterIcons()">
-                                <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
-                                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: 13px;">加载图标库中...</div>
-                                </div>
-                            </div>
+                <form id="addForm" class="a-form">
+                    <input type="hidden" id="oldPrefix" value="">
+
+                    <!-- 1. 基础信息 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">基础信息</span>
+                            <span class="a-field-aux">备注用于显示，前缀决定访问路径</span>
                         </div>
-                        <label style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; cursor:pointer;">
-                            <input type="checkbox" id="nodeCache" class="ip-checkbox" checked>
-                            开启海报及静态资源缓存
-                        </label>
-                        <button type="submit" id="submitBtn" class="btn-submit" style="flex: 1; padding: 14px 20px;">保存部署</button>
-                    </div>
-
-                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
-                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 12px;">服务器线路配置 (支持魔改分离版推流，支持无限条备用线路)</div>
-                        <div id="targetInputs" style="display: flex; flex-direction: column; gap: 10px;">
-                            <input type="url" class="target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" required oninput="handleTargetInputs()">
-                            <input type="url" class="target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" oninput="handleTargetInputs()">
+                        <div class="a-row">
+                            <input class="a-input" type="text" id="remark" placeholder="节点备注 (如: Misaka服)" required>
+                            <input class="a-input" type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" required>
+                            <select class="a-select" id="mode">
+                                <option value="off">保守 (抹除IP)</option>
+                                <option value="realip_only">严格 (透传IP)</option>
+                                <option value="dual">兼容 (双重透传)</option>
+                                <option value="strict">强力 (防403)</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
-                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 4px;">🔧 自定义请求头 (Custom Headers)</div>
-                        <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">每行一条，格式：<code style="background:rgba(120,120,120,0.1);padding:1px 6px;border-radius:4px;">Header-Name: value</code>，留空则不添加</div>
-                        <textarea id="customHeaders" rows="3" placeholder="Authorization: Bearer xxxxx&#10;X-Custom-Token: mytoken" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); font-family: monospace; font-size: 13px; resize: vertical; color: var(--text);"></textarea>
+                    <!-- 2. 上游线路 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">上游线路</span>
+                            <span class="a-field-aux">主源失败时按顺序回退到备用，支持魔改分离版推流</span>
+                        </div>
+                        <div id="targetInputs" style="display:flex; flex-direction:column; gap:8px;">
+                            <div class="a-upstream-row">
+                                <span class="a-tag-pri">主源</span>
+                                <input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
+                            </div>
+                            <div class="a-upstream-row">
+                                <span class="a-tag-bk">备 1</span>
+                                <input type="url" class="a-input target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" oninput="handleTargetInputs()">
+                            </div>
+                        </div>
+                        <button type="button" class="a-add-row" onclick="addBackupLine()"><svg><use href="#i-plus"/></svg>添加备用线路</button>
+                    </div>
+
+                    <!-- 3. 自定义请求头 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">自定义请求头</span>
+                            <span class="a-field-aux">转发到上游时附加，<span id="hed-count">0</span> 条已启用</span>
+                        </div>
+                        <div class="hed" id="hed-editor">
+                            <div class="hed-head">
+                                <span></span><span>Header</span><span>Value</span>
+                                <span style="text-align:center">启用</span><span></span>
+                            </div>
+                            <div class="hed-list" id="hed-list"></div>
+                            <div class="hed-footer">
+                                <button type="button" class="a-add-row" onclick="HeadersEditor.addRow()"><svg><use href="#i-plus"/></svg>添加请求头</button>
+                                <div class="hed-meta"><span class="dot"></span><span>自动忽略空行 / 注释 (#) / 重复键</span></div>
+                            </div>
+                            <div class="templates">
+                                <span class="templates-label">常用模板：</span>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Authorization','Bearer ')">+ Authorization</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Cookie','')">+ Cookie</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Emby-Token','')">+ X-Emby-Token</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Forwarded-For','')">+ X-Forwarded-For</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('User-Agent','')">+ User-Agent</button>
+                                <button type="button" class="chip chip-curl" onclick="HeadersEditor.openCurlModal()">粘贴 cURL...</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. 显示 & 缓存 -->
+                    <div class="a-fieldset">
+                        <span class="a-field-label">显示 &amp; 缓存</span>
+                        <div class="a-row two">
+                            <div style="position: relative;">
+                                <div class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn">
+                                    <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:8px;object-fit:cover;">
+                                    <span id="iconDefault" style="font-size:24px;line-height:1;">🎬</span>
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-size:13px; font-weight:600;">节点图标</div>
+                                        <div id="iconSelectText" style="font-size:11px; color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
+                                    </div>
+                                    <input type="hidden" id="iconUrl" value="">
+                                </div>
+                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); font-size: 13px; color: var(--text);">
+                                        <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">加载</button>
+                                        <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">默认库</button>
+                                    </div>
+                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); width: 100%; font-size: 14px; color: var(--text);" onkeyup="filterIcons()">
+                                    <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
+                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: 13px;">加载图标库中...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="a-toggle-row" id="cacheToggleRow" onclick="toggleCacheSwitch(this)">
+                                <div class="ios-switch on"></div>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px; font-weight:600;">海报 &amp; 静态资源缓存</div>
+                                    <div style="font-size:11px; color:var(--text-sec);">降低上游压力，建议开启</div>
+                                </div>
+                                <input type="checkbox" id="nodeCache" class="ip-checkbox" checked style="display:none;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="a-footer">
+                        <span class="a-footer-aux">所有更改实时保存到 Cloudflare D1</span>
+                        <div class="a-footer-actions">
+                            <button type="submit" id="submitBtn" class="btn-tier is-primary"><svg><use href="#i-save"/></svg>保存并部署</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -588,9 +849,9 @@ const HTML_UI = `
             <div class="card">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                     <h2 style="margin:0; font-size:18px;">已反代的媒体库</h2>
-                    <div style="display: flex; gap: 10px; align-items:center; flex-wrap: wrap;">
-                        <button class="btn-submit" onclick="pingAllNodes()" style="background:#32ade6; padding: 10px 14px; font-size: 13px;">⚡ 全局测速</button>
-                        <button id="btnPurge" class="btn-submit" onclick="purgeCache()" style="background:#ff2d55; padding: 10px 14px; font-size: 13px;">🧹 刷新全站海报</button>
+                    <div style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+                        <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">全局测速</button>
+                        <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">刷新全站海报</button>
                         <input type="text" id="searchNode" class="search-input" placeholder="🔍 搜索备注或后缀查找..." onkeyup="filterNodesList()">
                     </div>
                 </div>
@@ -920,33 +1181,54 @@ const HTML_UI = `
             });
         }
 
+        function makeUpstreamRow(idx, value = '') {
+            const isMain = idx === 0;
+            const row = document.createElement('div');
+            row.className = 'a-upstream-row';
+            row.innerHTML = isMain
+                ? '<span class="a-tag-pri">主源</span><input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">'
+                : '<span class="a-tag-bk">备 ' + idx + '</span><input type="url" class="a-input target-input" placeholder="备用线路 ' + idx + ' (选填，主源挂掉时触发)" oninput="handleTargetInputs()">';
+            const inp = row.querySelector('input');
+            inp.value = value;
+            return row;
+        }
+
         function handleTargetInputs() {
             const container = document.getElementById('targetInputs');
             const inputs = container.querySelectorAll('.target-input');
             const lastInput = inputs[inputs.length - 1];
-            if (lastInput.value.trim() !== '') {
-                const newInput = document.createElement('input');
-                newInput.type = 'url'; newInput.className = 'target-input';
-                newInput.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
-                newInput.oninput = handleTargetInputs;
-                container.appendChild(newInput);
+            if (lastInput && lastInput.value.trim() !== '') {
+                container.appendChild(makeUpstreamRow(inputs.length));
             }
             let emptyCount = 0;
             const currentInputs = container.querySelectorAll('.target-input');
             for (let i = currentInputs.length - 1; i >= 0; i--) {
-                if (currentInputs[i].value.trim() === '') { emptyCount++; if (emptyCount > 1) currentInputs[i].remove(); } else { break; }
+                if (currentInputs[i].value.trim() === '') {
+                    emptyCount++;
+                    if (emptyCount > 1) {
+                        const wrapper = currentInputs[i].closest('.a-upstream-row');
+                        (wrapper || currentInputs[i]).remove();
+                    }
+                } else { break; }
             }
-            container.querySelectorAll('.target-input').forEach((inp, idx) => {
-                inp.placeholder = idx === 0 ? "主线路地址 (如: http://1.1.1.1:8096)" : \`备用线路 \${idx} (选填，主源挂掉时触发)\`;
+            container.querySelectorAll('.a-upstream-row').forEach((row, idx) => {
+                const tag = row.querySelector('.a-tag-pri, .a-tag-bk');
+                const inp = row.querySelector('.target-input');
+                if (idx === 0) {
+                    if (tag) { tag.className = 'a-tag-pri'; tag.textContent = '主源'; }
+                    if (inp) inp.placeholder = '主线路地址 (如: http://1.1.1.1:8096)';
+                } else {
+                    if (tag) { tag.className = 'a-tag-bk'; tag.textContent = '备 ' + idx; }
+                    if (inp) inp.placeholder = '备用线路 ' + idx + ' (选填，主源挂掉时触发)';
+                }
             });
         }
 
         function resetTargetInputs() {
             const container = document.getElementById('targetInputs');
-            container.innerHTML = \`
-                <input type="url" class="target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" required oninput="handleTargetInputs()">
-                <input type="url" class="target-input" placeholder="备用线路 1 (选填)" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;" oninput="handleTargetInputs()">
-            \`;
+            container.innerHTML = '';
+            container.appendChild(makeUpstreamRow(0));
+            container.appendChild(makeUpstreamRow(1));
         }
 
         function toggleVis(id, isArray = false) {
@@ -1155,10 +1437,11 @@ const HTML_UI = `
             document.getElementById('prefix').value = prefix;
             document.getElementById('mode').value = mode || 'off';
             document.getElementById('nodeCache').checked = (cacheImg !== 'off');
+            syncCacheSwitch();
             // Read custom_headers from the card's data attribute to avoid inline escaping issues
             const card = document.querySelector(\`.route-item[data-prefix="\${prefix}"]\`);
-            document.getElementById('customHeaders').value = card ? (card.getAttribute('data-custom-headers') || '') : '';
-            
+            HeadersEditor.set(card ? (card.getAttribute('data-custom-headers') || '') : '');
+
             if (icon) {
                 const foundItem = globalIcons.find(i => i.url === icon);
                 selectIcon(icon, foundItem ? foundItem.name : '已选择图标');
@@ -1166,27 +1449,14 @@ const HTML_UI = `
                 selectIcon('', '默认 🎬');
             }
 
-            document.getElementById('submitBtn').textContent = '保存修改';
-            
+            document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存修改';
+
             const container = document.getElementById('targetInputs');
             container.innerHTML = '';
             const targets = targetStr.split(',').map(s => s.trim()).filter(Boolean);
-            
-            targets.forEach((url) => {
-                const inp = document.createElement('input');
-                inp.type = 'url'; inp.className = 'target-input'; inp.value = url;
-                inp.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
-                inp.oninput = handleTargetInputs;
-                container.appendChild(inp);
-            });
-            
-            const emptyInp = document.createElement('input');
-            emptyInp.type = 'url'; emptyInp.className = 'target-input';
-            emptyInp.style = 'padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;';
-            emptyInp.oninput = handleTargetInputs;
-            container.appendChild(emptyInp);
-            
-            handleTargetInputs(); 
+            targets.forEach((url, idx) => container.appendChild(makeUpstreamRow(idx, url)));
+            container.appendChild(makeUpstreamRow(targets.length));
+            handleTargetInputs();
             window.scrollTo({ top: document.getElementById('addForm').offsetTop - 100, behavior: 'smooth' });
         }
 
@@ -1198,7 +1468,7 @@ const HTML_UI = `
             const mode = document.getElementById('mode').value;
             const icon = document.getElementById('iconUrl').value;
             const cache_img = document.getElementById('nodeCache').checked ? 'on' : 'off';
-            const custom_headers = document.getElementById('customHeaders').value.trim();
+            const custom_headers = HeadersEditor.get();
 
             const inputs = document.querySelectorAll('.target-input');
             let targetsArray = [];
@@ -1219,12 +1489,13 @@ const HTML_UI = `
                 if(!data.success) throw new Error(data.error || '部署失败');
                 
                 document.getElementById('addForm').reset();
-                document.getElementById('oldPrefix').value = ''; 
+                document.getElementById('oldPrefix').value = '';
                 selectIcon('', '默认 🎬');
                 document.getElementById('nodeCache').checked = true;
-                document.getElementById('customHeaders').value = '';
-                document.getElementById('submitBtn').textContent = '保存部署'; 
-                resetTargetInputs(); 
+                syncCacheSwitch();
+                HeadersEditor.set('');
+                document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存并部署';
+                resetTargetInputs();
                 
                 showToast('✅ 节点部署成功');
                 load();
@@ -1854,7 +2125,276 @@ const HTML_UI = `
 
         // 页面加载完成后自动在后台静默检测更新
         document.addEventListener('DOMContentLoaded', checkForUpdates);
+
+        // ============================================================
+        // UI Suggestions v2.0.7 — Headers Editor + menu helpers
+        // ============================================================
+
+        // Generic dropdown menu (used by "更多 ▾" and "配置工具")
+        function toggleMenu(btn) {
+            const wrap = btn.closest('.menu-wrap');
+            const menu = wrap && wrap.querySelector('.menu');
+            if (!menu) return;
+            const wasOpen = menu.classList.contains('open');
+            closeAllMenus();
+            if (!wasOpen) menu.classList.add('open');
+        }
+        function closeAllMenus() {
+            document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+        }
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.menu-wrap')) closeAllMenus();
+        });
+
+        // Append a backup line input (called by the dashed "+ 添加备用线路" button)
+        function addBackupLine() {
+            const wrap = document.getElementById('targetInputs');
+            if (!wrap) return;
+            const existing = wrap.querySelectorAll('.target-input').length;
+            const row = document.createElement('div');
+            row.className = 'a-upstream-row';
+            row.innerHTML = '<span class="a-tag-bk">备 ' + existing + '</span>' +
+                '<input type="url" class="a-input target-input" placeholder="备用线路 ' + existing + ' (选填，主源挂掉时触发)" oninput="handleTargetInputs()">';
+            wrap.appendChild(row);
+            if (typeof handleTargetInputs === 'function') handleTargetInputs();
+        }
+
+        // Two-way bind the iOS-style cache toggle with the underlying checkbox
+        function toggleCacheSwitch(el) {
+            const cb = document.getElementById('nodeCache');
+            if (!cb) return;
+            cb.checked = !cb.checked;
+            el.querySelector('.ios-switch').classList.toggle('on', cb.checked);
+        }
+        function syncCacheSwitch() {
+            const cb = document.getElementById('nodeCache');
+            const sw = document.querySelector('#cacheToggleRow .ios-switch');
+            if (cb && sw) sw.classList.toggle('on', cb.checked);
+        }
+
+        // Headers Editor — KV editor that serializes to the legacy "Key: Value\\n..." format
+        const HeadersEditor = (() => {
+            const SENSITIVE_KEYS = ['authorization','cookie','x-api-key','x-auth-token','x-emby-token','token'];
+            let rows = [];
+            let dragSrc = null;
+            let nextId = 1;
+
+            const $list = () => document.getElementById('hed-list');
+            const $count = () => document.getElementById('hed-count');
+
+            const isSensitiveKey = (k) => SENSITIVE_KEYS.includes((k || '').trim().toLowerCase());
+
+            function makeRow(key = '', value = '', on = true) {
+                return { id: nextId++, key, value, on, masked: isSensitiveKey(key) };
+            }
+
+            function escapeHtml(s) {
+                return String(s)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function render() {
+                const list = $list();
+                if (!list) return;
+
+                if (rows.length === 0) {
+                    list.innerHTML = '<div class="hed-empty">尚未添加任何请求头 · 点「+ 添加请求头」或从下方模板插入</div>';
+                } else {
+                    list.innerHTML = rows.map(r => {
+                        const sensitive = r.masked || isSensitiveKey(r.key);
+                        return '<div class="hed-row ' + (r.on ? '' : 'disabled') + '" draggable="true" data-id="' + r.id + '">' +
+                            '<span class="hed-handle" title="拖拽排序">⋮⋮</span>' +
+                            '<input type="text" class="hed-k" value="' + escapeHtml(r.key) + '" placeholder="Header-Name" data-id="' + r.id + '" data-field="key">' +
+                            '<div class="hed-v-wrap">' +
+                                '<input type="' + (r.masked ? 'password' : 'text') + '" class="hed-v" value="' + escapeHtml(r.value) + '" placeholder="value" data-id="' + r.id + '" data-field="value">' +
+                                (sensitive ? '<button type="button" class="mask-btn" data-id="' + r.id + '" title="' + (r.masked ? '显示' : '隐藏') + '"><svg><use href="#' + (r.masked ? 'i-eye' : 'i-eye-off') + '"/></svg></button>' : '') +
+                            '</div>' +
+                            '<div class="ios-switch ' + (r.on ? 'on' : '') + '" data-id="' + r.id + '" title="' + (r.on ? '已启用' : '已停用') + '"></div>' +
+                            '<button type="button" class="hed-del" data-id="' + r.id + '" title="删除"><svg><use href="#i-x"/></svg></button>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                updateCount();
+                bindRowEvents();
+            }
+
+            function bindRowEvents() {
+                const list = $list();
+                if (!list) return;
+                list.querySelectorAll('input.hed-k, input.hed-v').forEach(inp => {
+                    inp.oninput = (e) => {
+                        const id = +e.target.dataset.id;
+                        const row = rows.find(r => r.id === id);
+                        if (!row) return;
+                        row[e.target.dataset.field] = e.target.value;
+                        if (e.target.dataset.field === 'key') {
+                            const nowSensitive = isSensitiveKey(row.key);
+                            if (!row.masked && nowSensitive) { row.masked = true; render(); return; }
+                        }
+                        updateCount();
+                    };
+                });
+                list.querySelectorAll('.ios-switch').forEach(sw => {
+                    sw.onclick = (e) => {
+                        const id = +e.currentTarget.dataset.id;
+                        const row = rows.find(r => r.id === id);
+                        if (!row) return;
+                        row.on = !row.on;
+                        render();
+                    };
+                });
+                list.querySelectorAll('.hed-del').forEach(btn => {
+                    btn.onclick = (e) => {
+                        const id = +e.currentTarget.dataset.id;
+                        rows = rows.filter(r => r.id !== id);
+                        render();
+                    };
+                });
+                list.querySelectorAll('.mask-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        const id = +e.currentTarget.dataset.id;
+                        const row = rows.find(r => r.id === id);
+                        if (!row) return;
+                        row.masked = !row.masked;
+                        render();
+                    };
+                });
+                list.querySelectorAll('.hed-row').forEach(row => {
+                    row.ondragstart = (e) => {
+                        dragSrc = +row.dataset.id;
+                        row.classList.add('dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                    };
+                    row.ondragend = () => row.classList.remove('dragging');
+                    row.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+                    row.ondrop = (e) => {
+                        e.preventDefault();
+                        const targetId = +row.dataset.id;
+                        if (dragSrc === null || dragSrc === targetId) return;
+                        const srcIdx = rows.findIndex(r => r.id === dragSrc);
+                        const tgtIdx = rows.findIndex(r => r.id === targetId);
+                        const [moved] = rows.splice(srcIdx, 1);
+                        rows.splice(tgtIdx, 0, moved);
+                        dragSrc = null;
+                        render();
+                    };
+                });
+            }
+
+            function updateCount() {
+                const c = $count();
+                if (c) c.textContent = rows.filter(r => r.on && r.key.trim()).length;
+            }
+
+            function serialize() {
+                const seen = new Set();
+                return rows
+                    .filter(r => r.on && r.key.trim() !== '')
+                    .map(r => {
+                        const k = r.key.trim();
+                        const lk = k.toLowerCase();
+                        if (seen.has(lk)) return null;
+                        seen.add(lk);
+                        return k + ': ' + r.value;
+                    })
+                    .filter(Boolean)
+                    .join('\\n');
+            }
+
+            function parse(str) {
+                if (!str) return [];
+                return str.split('\\n').map(line => {
+                    const t = line.trim();
+                    if (!t || t.startsWith('#')) return null;
+                    const idx = t.indexOf(':');
+                    if (idx < 1) return null;
+                    const k = t.slice(0, idx).trim();
+                    const v = t.slice(idx + 1).trim();
+                    return makeRow(k, v, true);
+                }).filter(Boolean);
+            }
+
+            return {
+                init(initial) { rows = parse(initial || ''); render(); },
+                get() { return serialize(); },
+                set(str) { rows = parse(str || ''); render(); },
+                addRow(k = '', v = '', on = true) {
+                    rows.push(makeRow(k, v, on));
+                    render();
+                    requestAnimationFrame(() => {
+                        const last = $list() && $list().querySelector('.hed-row:last-child .hed-k');
+                        if (last && !k) last.focus();
+                    });
+                },
+                insertTemplate(k, v) {
+                    const existing = rows.find(r => r.key.toLowerCase() === k.toLowerCase());
+                    if (existing) {
+                        showToast('「' + k + '」已存在');
+                        existing.on = true;
+                        render();
+                        return;
+                    }
+                    rows.push(makeRow(k, v, true));
+                    render();
+                },
+                openCurlModal() {
+                    const m = document.getElementById('curlModal');
+                    if (m) {
+                        m.classList.add('show');
+                        setTimeout(() => { const i = document.getElementById('curlInput'); if (i) i.focus(); }, 50);
+                    }
+                },
+                closeCurlModal() {
+                    const m = document.getElementById('curlModal');
+                    if (m) m.classList.remove('show');
+                    const i = document.getElementById('curlInput');
+                    if (i) i.value = '';
+                },
+                parseCurl() {
+                    const input = document.getElementById('curlInput');
+                    const text = input ? input.value : '';
+                    const re = /(?:-H|--header)\\s+(['"])([^:]+):\\s*([^]*?)\\1/g;
+                    let match, added = 0;
+                    while ((match = re.exec(text)) !== null) {
+                        const k = match[2].trim();
+                        const v = match[3].trim();
+                        if (!k) continue;
+                        if (rows.find(r => r.key.toLowerCase() === k.toLowerCase())) continue;
+                        rows.push(makeRow(k, v, true));
+                        added++;
+                    }
+                    if (added === 0) {
+                        showToast('❌ 未在 cURL 中找到 -H 标头');
+                        return;
+                    }
+                    this.closeCurlModal();
+                    render();
+                    showToast('✅ 导入 ' + added + ' 条请求头');
+                }
+            };
+        })();
+        window.HeadersEditor = HeadersEditor;
+
+        // Bootstrap empty editor once DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            HeadersEditor.init('');
+            syncCacheSwitch();
+        });
     </script>
+
+    <!-- cURL paste modal (UI Suggestions v2.0.7) -->
+    <div class="curl-modal-bg" id="curlModal" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
+        <div class="curl-modal">
+            <h3>从 cURL 命令导入</h3>
+            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:11px;">-H</code> 标头：</p>
+            <textarea id="curlInput" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \\&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \\&#10;  -H 'x-emby-token: abc123' \\&#10;  --compressed"></textarea>
+            <div class="curl-modal-actions">
+                <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">取消</button>
+                <button class="btn-tier is-primary" onclick="HeadersEditor.parseCurl()">解析并导入</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 `;
