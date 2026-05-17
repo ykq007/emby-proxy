@@ -7,8 +7,6 @@ const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 // 1. 网页界面-单播报版本
 // ==========================================
 
-const SVG_EYE = `<svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`;
-const SVG_COPY = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
 const SVG_TG = `<svg viewBox="0 0 24 24" style="width:20px;height:20px;margin-right:8px;fill:#0088cc;"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>`;
 
 const CSS_COMMON = `
@@ -105,6 +103,75 @@ const CSS_COMMON = `
     .emby-card.sortable-drag { cursor: grabbing !important; }
     .drag-handle { cursor: grab; padding-right: 10px; font-size: 18px; color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
     .drag-handle:active { cursor: grabbing; color: var(--primary); }
+
+    /* ============================================================
+       节点卡片精简 (Node Card Redesign) — Lucide 风格，去 emoji
+       ============================================================ */
+    .emby-card.idle { opacity: 0.85; }
+    .a-head { display: flex; align-items: center; gap: 12px; }
+    .a-handle { width: 18px; display: flex; align-items: center; justify-content: center; color: var(--text-ter, #b0b0b5); cursor: grab; flex-shrink: 0; touch-action: none; }
+    .a-handle:hover { color: var(--primary); }
+    .a-handle:active { cursor: grabbing; }
+    .a-handle svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .a-cb { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; margin: 0; }
+    .a-thumb { width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--primary), #5856d6); color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -0.02em; overflow: hidden; text-transform: uppercase; }
+    .a-thumb.idle { background: linear-gradient(135deg, #8e8e93, #636366); }
+    .a-thumb img { width: 100%; height: 100%; border-radius: 9px; object-fit: cover; display: block; }
+    .a-title-block { flex: 1; min-width: 0; }
+    .a-name { font-weight: 600; font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .a-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-sec); font-family: ui-monospace, Menlo, Consolas, monospace; margin-top: 2px; flex-wrap: wrap; }
+    .a-meta .dot-sep { color: var(--text-ter, #b0b0b5); }
+    .a-mode { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: var(--text-sec); }
+    .a-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+    .a-status-dot.live { background: #34c759; box-shadow: 0 0 5px #34c759; }
+    .a-status-dot.idle { background: var(--text-ter, #b0b0b5); }
+    .a-status-dot.warn { background: #ff9500; box-shadow: 0 0 5px #ff9500; }
+    .a-mode-badge { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(0,113,227,0.1); color: var(--primary); flex-shrink: 0; }
+
+    .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .a-stat { padding: 0 12px; border-right: 1px solid var(--border); min-width: 0; }
+    .a-stat:last-child { border-right: none; }
+    .a-stat:first-child { padding-left: 2px; }
+    .a-stat-label { font-size: 10px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .a-stat-val { font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .a-stat-val .unit { font-size: 11px; font-weight: 600; color: var(--text-sec); margin-left: 2px; }
+    .a-stat-val.muted { color: var(--text-ter, #b0b0b5); }
+    .a-stat-val.danger { color: #ff3b30; }
+    .a-stat-sub { font-size: 11px; color: var(--text-sec); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .a-stat-sub.up { color: #34c759; }
+    .a-stat-sub.down { color: #ff3b30; }
+
+    .a-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 24px; }
+    .a-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(120,120,120,0.07); border: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; }
+    .a-tag svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .a-tag.good { color: #34c759; background: rgba(52,199,89,0.08); border-color: rgba(52,199,89,0.2); }
+    .a-tag.warn { color: #ff9500; background: rgba(255,149,0,0.08); border-color: rgba(255,149,0,0.2); }
+    .a-tag.danger { color: #ff3b30; background: rgba(255,59,48,0.08); border-color: rgba(255,59,48,0.2); }
+    .a-tag.primary { color: var(--primary); background: rgba(0,113,227,0.08); border-color: rgba(0,113,227,0.2); cursor: pointer; }
+    .a-tag.primary:hover { background: rgba(0,113,227,0.14); }
+
+    .a-foot { display: flex; align-items: center; gap: 6px; }
+    .a-foot-spacer { flex: 1; }
+    .a-icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-sec); transition: 0.15s; box-shadow: none; padding: 0; }
+    .a-icon-btn:hover { color: var(--text); background: rgba(120,120,120,0.07); border-color: var(--border); }
+    .a-icon-btn.danger-hover:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.06); }
+    .a-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .a-btn-edit { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .a-btn-edit:hover { border-color: var(--primary); color: var(--primary); }
+    .a-btn-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+    .a-details { display: none; padding: 14px; background: rgba(120,120,120,0.04); border-radius: 10px; border: 1px solid var(--border); margin-top: -4px; }
+    .a-details.open { display: block; }
+    .a-detail-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 12px; }
+    .a-detail-row + .a-detail-row { border-top: 1px solid var(--border); }
+    .a-detail-label { color: var(--text-sec); font-weight: 600; }
+    .a-detail-val { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .a-detail-val.secret { letter-spacing: 2px; color: var(--text-sec); }
+    .a-detail-actions { display: flex; gap: 4px; justify-self: end; }
+    .a-detail-actions .a-icon-btn { width: 26px; height: 26px; }
+    .a-detail-actions .a-icon-btn svg { width: 12px; height: 12px; }
+
+    /* 节点卡片是 ping-badge 的容器之一，但新版把 ping 放进 stat val，不再需要徽章样式 */
 
     /* ============================================================
        UI Suggestions v2.0.7 — 4-tier button system, dropdown menus,
@@ -269,6 +336,112 @@ const CSS_COMMON = `
     .curl-modal textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; resize: vertical; min-height: 120px; outline: none; }
     .curl-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
 
+    /* ============================================================
+       Top Bar Redesign — consolidate update alert + CF trace +
+       placement select + page header into a single status bar
+       with pills, dismissable update banner, and expandable drawer.
+       ============================================================ */
+    .tb-banner {
+        background: linear-gradient(90deg, rgba(52,199,89,0.12), rgba(52,199,89,0.04));
+        border: 1px solid rgba(52,199,89,0.3); border-radius: 10px;
+        padding: 8px 14px; display: flex; align-items: center; gap: 12px;
+        font-size: 13px; margin-bottom: 14px;
+    }
+    .tb-banner .b-tag { background: #34c759; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .tb-banner .b-msg { color: var(--text); flex: 1; }
+    .tb-banner .b-cta { background: #34c759; color: #fff; border: none; padding: 6px 14px; border-radius: 7px; font-weight: 600; cursor: pointer; font: inherit; font-size: 12px; }
+    .tb-banner .b-cta:disabled { opacity: 0.6; cursor: not-allowed; }
+    .tb-banner .b-dismiss { background: transparent; border: none; color: var(--text-sec); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; }
+    .tb-banner .b-dismiss:hover { color: var(--text); }
+
+    .tb-bar {
+        background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+        padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 14px;
+    }
+    .tb-title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; padding-right: 4px; }
+    .tb-title .tb-logo {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary), #5856d6);
+        display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;
+    }
+    .tb-divider { width: 1px; height: 22px; background: var(--border); }
+
+    .pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 6px 11px; border-radius: 999px;
+        background: rgba(120,120,120,0.06); border: 1px solid var(--border);
+        font-size: 12px; font-weight: 600; color: var(--text); cursor: default;
+        transition: 0.15s; position: relative; line-height: 1.2; white-space: nowrap;
+    }
+    .pill:hover { background: rgba(120,120,120,0.1); }
+    .pill .lbl { color: var(--text-sec); font-weight: 500; }
+    .pill .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .pill .dot.green { background: #34c759; box-shadow: 0 0 6px #34c759; }
+    .pill .dot.amber { background: #ff9500; box-shadow: 0 0 6px #ff9500; }
+    .pill .dot.red { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; }
+    .pill.expandable { cursor: pointer; }
+    .pill.expandable:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.04); }
+    .pill.expandable.open { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.06); }
+    .pill .caret { font-size: 9px; opacity: 0.6; transition: transform 0.2s; }
+    .pill.expandable.open .caret { transform: rotate(180deg); }
+
+    .pill .tip {
+        position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+        background: #1d1d1f; color: #fff; padding: 8px 12px; border-radius: 8px;
+        font-size: 11px; font-weight: 500; white-space: nowrap;
+        display: flex; flex-direction: column; gap: 4px;
+        opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 50;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    .pill .tip::before { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: #1d1d1f; }
+    .pill .tip .line { display: flex; gap: 14px; justify-content: space-between; }
+    .pill .tip .tip-key { color: #98989d; }
+    .pill:hover .tip { opacity: 1; }
+
+    .tb-spacer { flex: 1; min-width: 8px; }
+
+    .tb-icon-btn {
+        width: 36px; height: 36px; border-radius: 10px; border: 1px solid transparent;
+        background: transparent; cursor: pointer; display: inline-flex;
+        align-items: center; justify-content: center; font-size: 16px; color: var(--text-sec);
+        transition: 0.15s; position: relative; padding: 0;
+    }
+    .tb-icon-btn:hover { background: rgba(120,120,120,0.08); color: var(--text); border-color: var(--border); }
+    .tb-icon-btn.danger:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.05); }
+
+    .tb-drawer {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 14px; overflow: hidden;
+        max-height: 0; opacity: 0; padding: 0 20px;
+        transition: max-height 0.3s ease, opacity 0.2s, padding 0.3s, margin 0.3s;
+        margin-bottom: 0;
+    }
+    .tb-drawer.open { max-height: 320px; opacity: 1; padding: 16px 20px; margin-bottom: 14px; }
+    .tb-drawer h3 { margin: 0 0 4px 0; font-size: 14px; font-weight: 700; }
+    .tb-drawer .sub { font-size: 12px; color: var(--text-sec); margin-bottom: 12px; }
+    .tb-drawer .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tb-drawer select, .tb-drawer input {
+        padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+        background: var(--bg); color: var(--text); font: inherit; font-size: 13px; outline: none;
+        min-width: 200px;
+    }
+    .tb-drawer select:focus, .tb-drawer input:focus { border-color: var(--primary); }
+    .tb-drawer .status { margin-top: 10px; font-size: 12px; color: var(--text-sec); display: flex; align-items: center; gap: 6px; }
+
+    @media (max-width: 768px) {
+        .tb-bar { padding: 10px 12px; gap: 8px; }
+        .tb-title { font-size: 14px; }
+        .tb-title .tb-logo { width: 24px; height: 24px; font-size: 12px; }
+        .tb-bar .tb-divider { display: none; }
+        .pill { font-size: 11px; padding: 5px 10px; }
+        .tb-icon-btn { width: 38px; height: 38px; }
+        .tb-banner { flex-wrap: wrap; }
+        .tb-drawer select, .tb-drawer input { min-width: 0; width: 100%; }
+        .tb-drawer .controls { flex-direction: column; align-items: stretch; }
+    }
+
     /* --- Mobile tweaks for the new components --- */
     @media (max-width: 768px) {
         .a-row, .a-row.two { grid-template-columns: 1fr; }
@@ -300,8 +473,12 @@ const CSS_COMMON = `
         .node-grid { grid-template-columns: 1fr; gap: 12px; }
 
         /* Tap-target sizing */
-        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn { min-height: 44px; }
-        .icon-btn { width: 36px; height: 36px; }
+        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit { min-height: 44px; }
+        .icon-btn, .a-icon-btn { width: 36px; height: 36px; }
+        .a-detail-actions .a-icon-btn { width: 32px; height: 32px; }
+        .a-stat-val { font-size: 18px; }
+        .a-stats { grid-template-columns: 1fr 1fr 1fr; }
+        .a-foot { flex-wrap: wrap; }
         select, input[type="text"], input[type="url"], input[type="password"], textarea {
             font-size: 16px; /* prevent iOS zoom on focus */
         }
@@ -443,6 +620,109 @@ const CSS_COMMON = `
         /* Speed-test multi-button bar: stack */
         #btnSelectedDns, #btnTop3Dns, #btnDirectCname, #btnTestCustom { width: 100% !important; }
     }
+
+    /* ============================================================
+       Mobile Adaptation v3 — Bottom Tab Bar, status pills row,
+       sticky form CTA, login Face ID. Desktop hides everything.
+       Reference: design/Mobile Adaptation.html + mobile-screens.jsx.
+       ============================================================ */
+    .m-pills { display: none; }
+    .m-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 11px; border-radius: 999px;
+        background: rgba(120,120,120,0.06);
+        border: 1px solid var(--border);
+        font-size: 12px; font-weight: 600; color: var(--text);
+        white-space: nowrap; flex-shrink: 0; line-height: 1.2;
+    }
+    .m-pill .lbl { color: var(--text-sec); font-weight: 500; }
+    .m-pill .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .m-pill .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .m-pill .dot.green { background: #34c759; box-shadow: 0 0 5px #34c759; }
+    .m-pill .dot.amber { background: #ff9500; box-shadow: 0 0 5px #ff9500; }
+    .m-pill.strong .val { color: var(--primary); }
+
+    #mobileTabBar { display: none; }
+
+    /* Login: gradient logo + Face ID button (desktop hidden) */
+    .login-logo { display: none; }
+    .login-faceid { display: none; }
+
+    @media (max-width: 768px) {
+        /* Reserve room above the Tab Bar */
+        body { padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
+
+        /* Status pills row above node list */
+        .m-pills {
+            display: flex; gap: 6px; overflow-x: auto;
+            margin: -4px 0 12px; padding: 4px 2px 6px;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none;
+        }
+        .m-pills::-webkit-scrollbar { display: none; }
+
+        /* Mobile takes over RTT + placement pill duty: hide the desktop ones */
+        #cf-trace-card .pill[title*="设备到云端"] { display: none; }
+        #cf-trace-card .pill.expandable#placePill { display: none; }
+        /* cf-trace-card now wraps instead of horizontal scroll */
+        #cf-trace-card { flex-wrap: wrap !important; row-gap: 8px; overflow-x: visible !important; }
+        #cf-trace-card .tb-spacer { display: none; }
+
+        /* Sticky save button for deploy/edit form */
+        #addForm #submitBtn {
+            position: sticky !important;
+            bottom: calc(72px + env(safe-area-inset-bottom));
+            z-index: 5;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+            margin-top: 8px;
+        }
+        body.dark #addForm #submitBtn { box-shadow: 0 -4px 16px rgba(0,0,0,0.4); }
+
+        /* Bottom Tab Bar */
+        #mobileTabBar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
+            background: rgba(255,255,255,0.88);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+            border-top: 0.5px solid var(--border);
+            padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+        }
+        body.dark #mobileTabBar { background: rgba(28,28,30,0.88); }
+        #mobileTabBar button {
+            background: transparent; border: none; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 6px 4px; color: var(--text-sec);
+            font: inherit; font-size: 10px; font-weight: 600;
+            min-height: 44px;
+        }
+        #mobileTabBar button.active { color: var(--primary); }
+        #mobileTabBar button svg {
+            width: 22px; height: 22px; fill: none; stroke: currentColor;
+            stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+        }
+        #mobileTabBar button.active svg { stroke-width: 2.2; }
+
+        /* Login mobile hero: gradient logo block + Face ID secondary */
+        body.login-body .login-logo {
+            display: flex; align-items: center; justify-content: center;
+            width: 64px; height: 64px; border-radius: 18px; color: #fff;
+            background: linear-gradient(135deg, var(--primary), #5856d6);
+            box-shadow: 0 12px 28px rgba(0,113,227,0.28);
+            margin: 0 0 28px;
+        }
+        body.login-body .login-logo svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+        body.login-body .login-faceid {
+            display: inline-flex !important;
+            width: 100%; margin-top: 12px; padding: 14px;
+            background: transparent; color: var(--text);
+            border: 1px solid var(--border); border-radius: 14px;
+            font-weight: 600; font-size: 14px; cursor: pointer;
+            align-items: center; justify-content: center; gap: 8px;
+            min-height: 48px; font-family: inherit;
+        }
+        body.login-body .login-faceid svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    }
 `;
 
 const LOGIN_UI = `
@@ -476,11 +756,18 @@ const LOGIN_UI = `
 <body class="login-body">
     <div id="toast"></div>
     <div class="login-box">
+        <div class="login-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
         <div class="login-eyebrow">反代核心 · 安全中心</div>
         <h2>欢迎回来</h2>
         <p class="login-sub">输入管理员密钥继续。<br>未授权访问将被自动拒绝并记录。</p>
         <input type="password" id="tokenInput" placeholder="请输入密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
         <button onclick="login()">验 证 登 录</button>
+        <button type="button" class="login-faceid" onclick="faceIdHint()">
+            <svg viewBox="0 0 24 24"><path d="M12 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="16" r="2"/></svg>
+            使用 Face ID 登录
+        </button>
         <div class="login-foot">v${CURRENT_VERSION} · Cloudflare Worker<br>仅供学习与技术测试使用</div>
     </div>
     <script>
@@ -494,6 +781,9 @@ const LOGIN_UI = `
             if(!token) return showToast('请输入正确的密钥');
             document.cookie = 'admin_token=' + encodeURIComponent(token) + '; path=/; max-age=2592000;';
             window.location.reload();
+        }
+        function faceIdHint() {
+            showToast('Face ID 暂未启用');
         }
     </script>
 </body>
@@ -526,6 +816,13 @@ const HTML_UI = `
             <symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
             <symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></symbol>
             <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></symbol>
+            <symbol id="i-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+            <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+            <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
         </defs>
     </svg>
 
@@ -564,35 +861,65 @@ const HTML_UI = `
     </div>
 
     <div class="container">
-    <div id="updateAlert" class="card" style="display: none; border-left: 4px solid #34c759; background-color: rgba(52, 199, 89, 0.05); margin-top: 20px;">
-            <div style="display:flex; justify-content: space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <h3 style="margin:0; color: #34c759; font-size: 16px;">✨ 发现新版本！</h3>
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: var(--text-sec);" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</p>
-                </div>
-                <button onclick="doOnlineUpdate()" id="onlineUpdateBtn" style="background: #34c759; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">🚀 一键拉取并升级</button>
-            </div>
+        <!-- Slim, dismissable update banner -->
+        <div id="updateAlert" class="tb-banner" style="display: none; margin-top: 20px;">
+            <span class="b-tag">NEW</span>
+            <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
+            <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
+            <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
         </div>
-    <div id="cf-trace-card" style="background: rgba(120,120,120,0.05); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; font-size: 14px; gap: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-top: 20px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 24px;">📍</div>
-                <div>
-                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px;">访客入口 (地区与机房)</div>
-                    <div id="trace-entry" style="font-weight:600; color:var(--text); font-family: monospace; font-size: 15px;">雷达扫描中...</div>
+
+        <!-- Consolidated top status bar -->
+        <div id="cf-trace-card" class="tb-bar" style="margin-top: 20px;">
+            <div class="tb-title">
+                <div class="tb-logo">⚡</div>
+                <span>反代核心</span>
+            </div>
+
+            <div class="tb-divider"></div>
+
+            <!-- RTT pill -->
+            <div class="pill" title="你的设备到云端边缘节点的真实往返延迟">
+                <span class="dot green" id="rttDot"></span>
+                <span class="lbl">RTT</span>
+                <span class="val" id="rttValue">测算中</span>
+                <div class="tip">
+                    <div class="line"><span class="tip-key">RTT</span><span>设备 → 边缘节点延迟</span></div>
+                    <div class="tip-key" style="font-size:10px;">每 5s 自动测算</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 24px;">🚀</div>
-                <div>
-                    <div style="color:var(--text-sec); font-size: 12px; margin-bottom: 2px;">Worker 实际落地机房</div>
-                    <div id="trace-egress" style="font-weight:600; color:#34c759; font-family: monospace; font-size: 15px;">雷达扫描中...</div>
+
+            <!-- CF Trace pill (entry → egress) -->
+            <div class="pill">
+                <span class="val" id="trace-entry">--</span>
+                <span style="color: var(--text-sec); font-size: 11px;">→</span>
+                <span class="val" id="trace-egress" style="color: #34c759;">--</span>
+                <div class="tip">
+                    <div class="line"><span class="tip-key">访客入口</span><span>地区与机房</span></div>
+                    <div class="line"><span class="tip-key">Worker 落地</span><span>实际物理机房</span></div>
                 </div>
             </div>
-        </div><div style="background: rgba(120,120,120,0.05); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; margin-top: 20px;">
-            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px;">⚙️ Worker 调度模式与区域设置</div>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                
-                <select id="cf-mode-select" onchange="handleModeChange()" style="flex: 1; min-width: 180px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+
+            <!-- Placement pill (expandable drawer trigger) -->
+            <div class="pill expandable" id="placePill" onclick="togglePlacementDrawer()">
+                <span class="lbl">调度</span>
+                <span id="placeModeLabel">智能</span>
+                <span class="caret">▾</span>
+            </div>
+
+            <div class="tb-spacer"></div>
+
+            <button class="btn-tier is-primary" onclick="openDashboard()">📊 数据大屏</button>
+            <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" title="切换深色模式">🌙</button>
+            <button class="tb-icon-btn danger" onclick="logout()" title="退出系统">⏻</button>
+        </div>
+
+        <!-- Placement drawer (collapsed by default) -->
+        <div class="tb-drawer" id="placeDrawer">
+            <h3>Worker 调度模式</h3>
+            <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
+            <div class="controls">
+                <select id="cf-mode-select" onchange="handleModeChange()">
                     <option value='{"mode":"smart"}'>🤖 智能调度 (Smart Placement)</option>
                     <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认离访客近)</option>
                     <optgroup label="📍 指定云厂商物理机房落地">
@@ -602,34 +929,21 @@ const HTML_UI = `
                     </optgroup>
                     <option value="custom">✏️ 手动输入区域代码...</option>
                 </select>
-
-                <select id="cf-region-select" style="display: none; flex: 1.5; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-                </select>
-
-                <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none; flex: 1.5; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-                
-                <button onclick="updatePlacement()" style="background: #007aff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">
-                    提交修改
-                </button>
+                <select id="cf-region-select" style="display: none;"></select>
+                <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
+                <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
             </div>
-            <div id="place-status" style="margin-top: 10px; font-size: 13px; color: var(--text-sec); font-weight: 600;">后台全自动安全调度，不暴露任何私钥</div>
+            <div class="status"><span id="place-status">🔒 后台全自动安全调度，不暴露任何私钥</span></div>
         </div>
+
+        <!-- Mobile-only status pills row (RTT / 模式 / 今日) -->
+        <div class="m-pills" id="mobilePills" aria-label="移动端状态">
+            <span class="m-pill"><span class="dot green"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+            <span class="m-pill"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span></span>
+            <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
+        </div>
+
         <div class="content-wrap">
-            <div class="header" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap:wrap; gap:16px;">
-                <h1 style="margin: 0; font-size: 26px; display:flex; align-items:center; gap: 10px;">
-                    私有调度与反代核心
-                    <button id="themeToggle" onclick="toggleDarkMode()" style="background:transparent;border:none;font-size:24px;cursor:pointer;padding:0;" title="切换深色模式">🌙</button>
-                </h1>
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
-                    <div style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 10px; background: rgba(120,120,120,0.08); border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);" title="你的设备到云端边缘节点的真实往返延迟">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#34c759; box-shadow: 0 0 6px #34c759; transition: 0.3s;" id="rttDot"></span>
-                        <span style="color: var(--text-sec);">RTT: </span><span id="rttValue" style="font-family: monospace; font-size: 14px; width: 45px; text-align: right;">测算中</span>
-                    </div>
-                    
-                    <button class="btn-submit" onclick="openDashboard()" style="background: #34c759; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);">📊 数据大屏</button>
-                    <button class="logout-btn" style="background: #ff3b30; color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 16px; cursor: pointer;" onclick="logout()">退出系统</button>
-                </div>
-            </div>
 
             <div class="card" style="border-left: 4px solid #ff3b30;">
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
@@ -640,10 +954,10 @@ const HTML_UI = `
     <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
         <span style="font-size:14px; font-weight:bold;">或 方式二：</span>
         <input type="file" id="fileInput" accept=".js" style="font-size:14px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background:var(--bg);">
-        <button class="btn-submit" id="deployBtn" onclick="deployWorker()" style="background: #ff3b30; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2); margin-left: auto;">🔥 立即覆盖部署并重启节点</button>
+        <button type="button" class="btn-tier is-danger" id="deployBtn" onclick="deployWorker()" style="margin-left: auto;">立即覆盖部署并重启节点</button>
     </div>
 </div>
-            <div class="card">
+            <div class="card" id="speed-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                     <h2 style="margin:0; font-size:18px;">⚡ 专属线路测速与动态 DNS 解析</h2>
                 </div>
@@ -716,7 +1030,7 @@ const HTML_UI = `
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="settings-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                     <div>
                         <h2 style="margin:0; font-size:19px; letter-spacing:-0.01em;">部署反代节点</h2>
@@ -1253,15 +1567,34 @@ const HTML_UI = `
 
         async function pingTarget(idx, targetUrl) {
             const pingEl = document.getElementById('ping-' + idx);
-            pingEl.textContent = '测速中...'; pingEl.style.color = 'var(--text-sec)';
+            if (!pingEl) return;
+            pingEl.textContent = '测速中'; pingEl.style.color = '';
+            // 找到延迟所在 stat 的副标题（若存在）以同步状态文案与色彩
+            const stat = pingEl.closest('.a-stat');
+            const sub = stat ? stat.querySelector('.a-stat-sub') : null;
+            const setSub = (text, cls) => {
+                if (!sub) return;
+                sub.textContent = text;
+                sub.classList.remove('up', 'down');
+                if (cls) sub.classList.add(cls);
+            };
             try {
                 const res = await fetch('/api/ping-node?url=' + encodeURIComponent(targetUrl));
                 const data = await res.json();
                 if(data.ms >= 0) {
-                    pingEl.textContent = data.ms + ' ms';
-                    pingEl.style.color = data.ms < 200 ? '#34c759' : (data.ms < 500 ? 'var(--primary)' : '#ff9500');
-                } else { pingEl.textContent = '断连/超时'; pingEl.style.color = '#ff3b30'; }
-            } catch(e) { pingEl.textContent = '测速异常'; pingEl.style.color = '#ff3b30'; }
+                    pingEl.innerHTML = data.ms + '<span class="unit">ms</span>';
+                    if (data.ms < 200) { pingEl.style.color = '#34c759'; setSub('良好', 'up'); }
+                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); }
+                    else { pingEl.style.color = '#ff9500'; setSub('偏高', 'down'); }
+                } else { pingEl.textContent = '断连'; pingEl.style.color = '#ff3b30'; setSub('超时', 'down'); }
+            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = '#ff3b30'; setSub('错误', 'down'); }
+        }
+
+        function toggleDetails(el) {
+            const card = el.closest('.emby-card') || el.closest('.a-card');
+            if (!card) return;
+            const d = card.querySelector('.a-details');
+            if (d) d.classList.toggle('open');
         }
 
         function pingAllNodes() {
@@ -1325,80 +1658,111 @@ const HTML_UI = `
                     const remarkName = r.remark || '未命名媒体库';
                     const lastPlay = r.last_play ? r.last_play : '暂无播放记录';
                     
-                    const iconHtml = r.icon ? \`<img src="\${r.icon}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;">\` : '🎬';
                     const encodedTargets = encodeURIComponent(JSON.stringify(targets));
-                    
+
                     // 🌟 接收后端传来的：单节点独立宽带与请求统计数据
                     const todayBw = r.todayBandwidth || '0 B';
                     const totalReqs = r.totalReqs || r.todayReqs || 0;
+                    const todayReqs = r.todayReqs || 0;
+
+                    // 状态点：依据最后活跃文本判定（刚刚/秒/分钟/小时 → live；天/暂无 → idle）
+                    let statusClass = 'idle';
+                    if (/刚刚|秒|分钟|小时/.test(lastPlay)) statusClass = 'live';
+
+                    const isIdle = (todayReqs === 0) && statusClass === 'idle';
+                    const cardIdleCls = isIdle ? ' idle' : '';
+                    const thumbIdleCls = isIdle ? ' idle' : '';
+
+                    // 缩略图：有 icon URL 用图片，否则取备注首字
+                    const thumbLetter = (remarkName.replace(/\\s+/g, '').charAt(0) || '?').toUpperCase();
+                    const thumbInner = r.icon
+                        ? \`<img src="\${r.icon}" alt="">\`
+                        : thumbLetter;
+
+                    // 自定义头标签：统计条数
+                    const headerLines = (r.custom_headers || '').split('\\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+                    const headerKeys = headerLines.map(l => l.split(':')[0].trim()).filter(Boolean);
+
+                    const cacheOn = r.cache_img !== 'off';
+                    const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
                     proxyNodesForPing.push({ idx: idx, url: mainTarget });
 
                     container.innerHTML += \`
-                    <div class="emby-card route-item" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}">
-                        <div class="card-header">
-                            <div class="card-title-group" style="display: flex; align-items: center; gap: 10px;">
-                                <div class="drag-handle" title="长按拖拽排序" style="margin: 0; display: flex; align-items: center;">☰</div>
-                                <input type="checkbox" class="node-cb" value="\${r.prefix}" style="width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--primary); flex-shrink: 0;">
-                                <div class="emby-icon" style="margin: 0; display: flex; align-items: center;">\${iconHtml}</div>
-                                <div>
-                                    <div style="font-weight: 600; font-size: 16px; color: var(--text);">\${remarkName}</div>
-                                    <div style="font-size: 13px; color: var(--text-sec); margin-top:2px;">/\${r.prefix}</div>
+                    <div class="emby-card route-item\${cardIdleCls}" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}">
+                        <div class="a-head">
+                            <div class="drag-handle a-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>
+                            <input type="checkbox" class="node-cb a-cb" value="\${r.prefix}">
+                            <div class="a-thumb\${thumbIdleCls}">\${thumbInner}</div>
+                            <div class="a-title-block">
+                                <div class="a-name">\${remarkName}</div>
+                                <div class="a-meta">
+                                    <span class="a-status-dot \${statusClass}" title="\${lastPlay}"></span>
+                                    <span>/\${r.prefix}</span>
+                                    <span class="dot-sep">·</span>
+                                    <span class="a-mode">\${modeNames[r.mode] || '未知'}</span>
                                 </div>
-                            </div>
-                            <div style="display:flex; align-items:center;">
-                                <span class="badge" style="background: rgba(0,113,227,0.1); color: var(--primary);">\${modeNames[r.mode] || '未知'}</span>
                             </div>
                         </div>
 
-                        <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                            <div style="display:flex; flex-direction: column; gap: 4px;">
-                                <span style="font-size:12px; color:var(--text-sec);">⬇️ 今日产生总流量</span>
-                                <span style="font-size:16px; font-weight:700; color:var(--primary);">\${todayBw}</span>
+                        <div class="a-stats">
+                            <div class="a-stat">
+                                <div class="a-stat-label">今日流量</div>
+                                <span class="a-stat-val\${isIdle ? ' muted' : ''}">\${todayBw}</span>
+                                <div class="a-stat-sub">\${isIdle ? '闲置' : '今日累积'}</div>
                             </div>
-                            <div style="display:flex; flex-direction: column; gap: 4px; text-align: right;">
-                                <span style="font-size:12px; color:var(--text-sec);">📺 播放次数 (今日/累计)</span>
-                                <span style="font-size:16px; font-weight:700; color:#ff9500;">\${r.todayReqs} / \${totalReqs} 次</span>
+                            <div class="a-stat">
+                                <div class="a-stat-label">今日播放</div>
+                                <span class="a-stat-val\${isIdle ? ' muted' : ''}">\${todayReqs}</span>
+                                <div class="a-stat-sub">累计 \${totalReqs}</div>
+                            </div>
+                            <div class="a-stat">
+                                <div class="a-stat-label">延迟</div>
+                                <span id="ping-\${idx}" class="a-stat-val" style="cursor:pointer;" onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中</span>
+                                <div class="a-stat-sub">点击重测</div>
                             </div>
                         </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <div class="info-row">
-                                <span class="info-label">直达链接:</span>
-                                <div class="action-group" style="flex:1; justify-content: flex-end; margin-left: 10px; align-items: flex-start;">
-                                    <span id="p-\${idx}" data-val="\${proxyUrl}" class="secret-text dynamic-url">••••••••</span>
-                                    <button class="icon-btn" style="margin-top: 2px;" onclick="toggleVis('p-\${idx}')" title="查看明文">${SVG_EYE}</button>
-                                    <button class="icon-btn" style="margin-top: 2px;" onclick="copyTxt('\${proxyUrl}')" title="复制链接">${SVG_COPY}</button>
-                                </div>
+                        <div class="a-tags">
+                            \${cacheOn
+                                ? '<span class="a-tag good"><svg><use href="#i-image"/></svg>海报缓存</span>'
+                                : '<span class="a-tag warn"><svg><use href="#i-image"/></svg>缓存已关闭</span>'}
+                            \${headerKeys.length
+                                ? \`<span class="a-tag primary" onclick="toggleDetails(this)" title="点击查看自定义请求头"><svg><use href="#i-key"/></svg>\${headerKeys.length} 个自定义头</span>\`
+                                : ''}
+                            <span class="a-tag">最后活跃 \${lastPlay}</span>
+                        </div>
+
+                        <div class="a-details">
+                            <div class="a-detail-row">
+                                <span class="a-detail-label">直达链接</span>
+                                <span id="p-\${idx}" data-val="\${proxyUrl}" class="a-detail-val secret-text">••••••••</span>
+                                <span class="a-detail-actions">
+                                    <button class="a-icon-btn" onclick="toggleVis('p-\${idx}')" title="查看明文"><svg><use href="#i-eye"/></svg></button>
+                                    <button class="a-icon-btn" onclick="copyTxt('\${proxyUrl}')" title="复制链接"><svg><use href="#i-copy"/></svg></button>
+                                </span>
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">源站线路:</span>
-                                <div class="action-group" style="flex:1; justify-content: flex-end; margin-left: 10px; align-items: flex-start;">
-                                    <div id="t-\${idx}" data-val="\${encodedTargets}" class="secret-text dynamic-url">••••••••</div>
-                                    <button class="icon-btn" style="margin-top: 2px;" onclick="toggleVis('t-\${idx}', true)" title="查看明文">${SVG_EYE}</button>
-                                </div>
+                            <div class="a-detail-row">
+                                <span class="a-detail-label">源站</span>
+                                <span id="t-\${idx}" data-val="\${encodedTargets}" class="a-detail-val secret-text">••••••••</span>
+                                <span class="a-detail-actions">
+                                    <button class="a-icon-btn" onclick="toggleVis('t-\${idx}', true)" title="查看明文"><svg><use href="#i-eye"/></svg></button>
+                                </span>
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">节点延迟:</span>
-                                <span id="ping-\${idx}" class="ping-badge" onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中...</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">海报缓存:</span>
-                                <span style="color:\${r.cache_img !== 'off' ? '#34c759' : '#ff9500'}; font-weight:600;">\${r.cache_img !== 'off' ? '✅ 已开启' : '❌ 已关闭'}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">最后活跃:</span>
-                                <span style="color:var(--text-sec);">\${lastPlay}</span>
-                            </div>
-                            \${r.custom_headers ? \`<div class="info-row">
-                                <span class="info-label">自定义头:</span>
-                                <span style="color:#34c759; font-size:12px; font-family:monospace; word-break:break-all; flex:1; text-align:right;">\${r.custom_headers.split('\\n').filter(Boolean).map(l => \`<span style="display:inline-block;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:4px;padding:1px 6px;margin:2px;">\${l.split(':')[0].trim()}</span>\`).join('')}</span>
+                            \${headerKeys.length ? \`<div class="a-detail-row">
+                                <span class="a-detail-label">自定义头</span>
+                                <span class="a-detail-val" title="\${escAttr(headerKeys.join(', '))}">\${headerKeys.join(', ')}</span>
+                                <span></span>
                             </div>\` : ''}
                         </div>
 
-                        <div class="card-footer">
-                            <button class="btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}')">编辑配置</button>
-                            <button class="btn-del" onclick="del('\${r.prefix}')">删除</button>
+                        <div class="a-foot">
+                            <button class="a-icon-btn" title="测速" onclick="pingTarget(\${idx}, '\${mainTarget}')"><svg><use href="#i-zap"/></svg></button>
+                            <button class="a-icon-btn" title="复制直达链接" onclick="copyTxt('\${proxyUrl}')"><svg><use href="#i-copy"/></svg></button>
+                            <button class="a-icon-btn" title="更多详情" onclick="toggleDetails(this)"><svg><use href="#i-more"/></svg></button>
+                            <span class="a-foot-spacer"></span>
+                            <button class="a-btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}')"><svg><use href="#i-edit"/></svg>编辑</button>
+                            <button class="a-icon-btn danger-hover" title="删除" onclick="del('\${r.prefix}')"><svg><use href="#i-trash"/></svg></button>
                         </div>
                     </div>\`;
 
@@ -1819,22 +2183,22 @@ const HTML_UI = `
                 const res = await fetch('/api/trace');
                 const data = await res.json();
                 if (data.success) {
-                    // 拼接访客入口信息：国家 城市 (机房代码)
-                    let entryText = data.entryCountry;
-                    if (data.entryCity && data.entryCity !== '未知') entryText += ' ' + data.entryCity;
-                    entryText += ' (' + data.entryColo + ')';
-                    
-                    document.getElementById('trace-entry').innerText = entryText;
-                    
-                    // 落地机房处理
+                    // Compact entry: just the colo code (e.g. "HKG"); full text shown in pill tooltip
+                    const entryEl = document.getElementById('trace-entry');
+                    entryEl.innerText = data.entryColo || '--';
+                    let fullEntry = data.entryCountry || '';
+                    if (data.entryCity && data.entryCity !== '未知') fullEntry += ' ' + data.entryCity;
+                    fullEntry += ' (' + (data.entryColo || '?') + ')';
+                    entryEl.title = '访客入口: ' + fullEntry;
+
                     const egressText = data.egressColo;
                     const egressElem = document.getElementById('trace-egress');
                     egressElem.innerText = egressText;
-                    
-                    // 核心逻辑：如果入口和落地机房不一致，显示高亮提示（智能调度触发）
+                    egressElem.title = 'Worker 落地: ' + egressText;
+
                     if (data.entryColo !== egressText && egressText !== '探测中...' && egressText !== '获取失败') {
-                        egressElem.style.color = '#ff9500'; // 变成橘黄色警示
-                        egressElem.innerText += ' (智能放置/回源)';
+                        egressElem.style.color = '#ff9500';
+                        egressElem.title += ' (智能放置/回源)';
                     }
                 }
             } catch(e) {
@@ -1890,18 +2254,18 @@ const HTML_UI = `
             ]
         };
 
-        // 🚀 新增：联动菜单处理逻辑
+        // 🚀 联动菜单处理逻辑 + 同步顶部 pill 标签
         function handleModeChange() {
             var mode = document.getElementById('cf-mode-select').value;
             var regionSelect = document.getElementById('cf-region-select');
             var customInput = document.getElementById('cf-custom-input');
-            
+
             regionSelect.style.display = 'none';
             customInput.style.display = 'none';
-            
+
             if (mode === 'aws' || mode === 'gcp' || mode === 'azure') {
                 regionSelect.style.display = 'block';
-                regionSelect.innerHTML = ''; 
+                regionSelect.innerHTML = '';
                 var regions = cfRegions[mode];
                 regions.forEach(function(r) {
                     var opt = document.createElement('option');
@@ -1912,6 +2276,28 @@ const HTML_UI = `
             } else if (mode === 'custom') {
                 customInput.style.display = 'block';
             }
+
+            // Update placement pill label
+            var pillLabel = document.getElementById('placeModeLabel');
+            if (pillLabel) {
+                var labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', custom: '自定义' };
+                if (labels[mode]) {
+                    pillLabel.textContent = labels[mode];
+                } else {
+                    try {
+                        var parsed = JSON.parse(mode);
+                        pillLabel.textContent = parsed.mode === 'smart' ? '智能' : '边缘';
+                    } catch (_) { pillLabel.textContent = '智能'; }
+                }
+            }
+        }
+
+        function togglePlacementDrawer() {
+            var pill = document.getElementById('placePill');
+            var drawer = document.getElementById('placeDrawer');
+            if (!pill || !drawer) return;
+            pill.classList.toggle('open');
+            drawer.classList.toggle('open');
         }
 
         // 🚀 新增：调用部署修改接口
@@ -2395,6 +2781,77 @@ const HTML_UI = `
             </div>
         </div>
     </div>
+
+    <!-- 移动端底部导航 Tab Bar (桌面端 CSS 隐藏) -->
+    <nav id="mobileTabBar" aria-label="移动端导航">
+        <button type="button" data-tab="home" class="active" aria-label="节点">
+            <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <span>节点</span>
+        </button>
+        <button type="button" data-tab="speed" aria-label="测速">
+            <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>测速</span>
+        </button>
+        <button type="button" data-tab="stats" aria-label="数据">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+            <span>数据</span>
+        </button>
+        <button type="button" data-tab="settings" aria-label="设置">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>设置</span>
+        </button>
+    </nav>
+
+    <script>
+        // 📱 Mobile bottom Tab Bar + status pills (mobile only; desktop CSS hides them)
+        (function () {
+            function initMobileTabBar() {
+                const bar = document.getElementById('mobileTabBar');
+                if (!bar) return;
+                bar.querySelectorAll('button[data-tab]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const tab = btn.dataset.tab;
+                        bar.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+                        if (tab === 'stats') { if (typeof openDashboard === 'function') openDashboard(); return; }
+                        const sel = tab === 'home' ? '#list-grid'
+                                  : tab === 'speed' ? '#speed-anchor'
+                                  : tab === 'settings' ? '#settings-anchor' : null;
+                        const el = sel && document.querySelector(sel);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    });
+                });
+            }
+            function initMobilePills() {
+                const sources = [
+                    { src: 'rttValue',       dst: 'm-pill-rtt' },
+                    { src: 'placeModeLabel', dst: 'm-pill-mode' },
+                    { src: 'trafficToday',   dst: 'm-pill-today' },
+                ];
+                const sync = () => {
+                    sources.forEach(({ src, dst }) => {
+                        const s = document.getElementById(src);
+                        const d = document.getElementById(dst);
+                        if (s && d) {
+                            const txt = (s.textContent || '').trim();
+                            if (txt && txt !== '加载中...') d.textContent = txt;
+                        }
+                    });
+                };
+                sync();
+                sources.forEach(({ src }) => {
+                    const node = document.getElementById(src);
+                    if (!node) return;
+                    new MutationObserver(sync).observe(node, { childList: true, characterData: true, subtree: true });
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => { initMobileTabBar(); initMobilePills(); });
+            } else {
+                initMobileTabBar();
+                initMobilePills();
+            }
+        })();
+    </script>
 </body>
 </html>
 `;
