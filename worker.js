@@ -428,12 +428,6 @@ const HTML_UI = `
                     </div>
 
                     <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
-                        <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 4px;">分离后端地址 (可选)</div>
-                        <div id="backendStatusHint" style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。</div>
-                        <input type="url" id="backendUrlInput" placeholder="例如: http://1.1.1.1:8096 或 https://api.example.com" style="padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); width: 100%;">
-                    </div>
-
-                    <div style="background: rgba(120,120,120,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 16px;">
                         <div style="font-size: 14px; font-weight: 600; color: var(--text-sec); margin-bottom: 4px;">🔧 自定义请求头 (Custom Headers)</div>
                         <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">每行一条，格式：<code style="background:rgba(120,120,120,0.1);padding:1px 6px;border-radius:4px;">Header-Name: value</code>，留空则不添加</div>
                         <textarea id="customHeaders" rows="3" placeholder="Authorization: Bearer xxxxx&#10;X-Custom-Token: mytoken" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background:var(--card); font-family: monospace; font-size: 13px; resize: vertical; color: var(--text);"></textarea>
@@ -905,15 +899,11 @@ const HTML_UI = `
                     // 🌟 接收后端传来的：单节点独立宽带与请求统计数据
                     const todayBw = r.todayBandwidth || '0 B';
                     const totalReqs = r.totalReqs || r.todayReqs || 0;
-                    const backendMode = r.backend_mode || 'auto';
-                    const backendUrl = r.backend_url || '';
-                    const backendStatus = backendUrl ? (backendMode === 'manual' ? '手动后端' : '自动已检测') : '自动检测中';
-                    const backendColor = backendUrl ? (backendMode === 'manual' ? '#ff9500' : '#34c759') : 'var(--text-sec)';
 
                     proxyNodesForPing.push({ idx: idx, url: mainTarget });
 
                     container.innerHTML += \`
-                    <div class="emby-card route-item" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}" data-backend-url="\${backendUrl.replace(/"/g, '&quot;')}" data-backend-mode="\${backendMode}">
+                    <div class="emby-card route-item" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}">
                         <div class="card-header">
                             <div class="card-title-group" style="display: flex; align-items: center; gap: 10px;">
                                 <div class="drag-handle" title="长按拖拽排序" style="margin: 0; display: flex; align-items: center;">☰</div>
@@ -955,10 +945,6 @@ const HTML_UI = `
                                     <div id="t-\${idx}" data-val="\${encodedTargets}" class="secret-text dynamic-url">••••••••</div>
                                     <button class="icon-btn" style="margin-top: 2px;" onclick="toggleVis('t-\${idx}', true)" title="查看明文">${SVG_EYE}</button>
                                 </div>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">分离后端:</span>
-                                <span style="color:\${backendColor}; font-weight:600; font-size:13px; word-break:break-all; flex:1; text-align:right;">\${backendStatus}\${backendUrl ? ' · ' + backendUrl : ''}</span>
                             </div>
                             <div class="info-row">
                                 <span class="info-label">节点延迟:</span>
@@ -1022,12 +1008,6 @@ const HTML_UI = `
             // Read custom_headers from the card's data attribute to avoid inline escaping issues
             const card = document.querySelector(\`.route-item[data-prefix="\${prefix}"]\`);
             document.getElementById('customHeaders').value = card ? (card.getAttribute('data-custom-headers') || '') : '';
-            const backendMode = card ? (card.getAttribute('data-backend-mode') || 'auto') : 'auto';
-            const backendUrl = card ? (card.getAttribute('data-backend-url') || '') : '';
-            document.getElementById('backendUrlInput').value = backendMode === 'manual' ? backendUrl : '';
-            document.getElementById('backendStatusHint').textContent = backendUrl
-                ? (backendMode === 'manual' ? '当前使用手动后端；修改或清空后保存即可变更模式。' : '已自动检测到: ' + backendUrl + '。留空保存会继续保持自动模式。')
-                : '留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。';
             
             if (icon) {
                 const foundItem = globalIcons.find(i => i.url === icon);
@@ -1069,8 +1049,6 @@ const HTML_UI = `
             const icon = document.getElementById('iconUrl').value;
             const cache_img = document.getElementById('nodeCache').checked ? 'on' : 'off';
             const custom_headers = document.getElementById('customHeaders').value.trim();
-            const backend_url = document.getElementById('backendUrlInput').value.trim().replace(/\\/$/g, '');
-            const backend_mode = backend_url ? 'manual' : 'auto';
 
             const inputs = document.querySelectorAll('.target-input');
             let targetsArray = [];
@@ -1085,7 +1063,7 @@ const HTML_UI = `
             try {
                 const res = await fetch('/api/routes', { 
                     method: 'POST', 
-                    body: JSON.stringify({oldPrefix, prefix, target, mode, remark, icon, cache_img, custom_headers, backend_url, backend_mode})
+                    body: JSON.stringify({oldPrefix, prefix, target, mode, remark, icon, cache_img, custom_headers})
                 });
                 const data = await res.json();
                 if(!data.success) throw new Error(data.error || '部署失败');
@@ -1095,12 +1073,10 @@ const HTML_UI = `
                 selectIcon('', '默认 🎬');
                 document.getElementById('nodeCache').checked = true;
                 document.getElementById('customHeaders').value = '';
-                document.getElementById('backendUrlInput').value = '';
-                document.getElementById('backendStatusHint').textContent = '留空自动检测；填写后将作为手动后端，不会被自动检测覆盖。';
                 document.getElementById('submitBtn').textContent = '保存部署'; 
                 resetTargetInputs(); 
                 
-                showToast(data.warning ? ('⚠️ 已保存: ' + data.warning) : '✅ 节点部署成功');
+                showToast('✅ 节点部署成功');
                 load();
             } catch(err) {
                 showToast('❌ 保存失败: ' + err.message);
@@ -1737,163 +1713,6 @@ const HTML_UI = `
 // 2. 后端 Worker 主逻辑处理区 (核心故障转移 + TG Bot播报 + 智能流量拉取)
 // ==========================================
 
-function normalizeBackendOrigin(value) {
-    try {
-        const u = new URL((value || '').trim());
-        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
-        return u.origin;
-    } catch (e) {
-        return '';
-    }
-}
-
-function isEmbyInfoPayload(data) {
-    if (!data || typeof data !== 'object') return false;
-    const embyKeys = ['ServerName', 'Version', 'ProductName', 'OperatingSystem', 'Id'];
-    return embyKeys.some(key => Object.prototype.hasOwnProperty.call(data, key));
-}
-
-async function validateEmbyBackend(candidateUrl, frontendTarget = '', proxyOrigin = '') {
-    const backendOrigin = normalizeBackendOrigin(candidateUrl);
-    if (!backendOrigin) return { valid: false, reason: '后端地址不是有效的 http(s) URL' };
-
-    try {
-        const frontendOrigin = frontendTarget ? new URL(frontendTarget).origin : '';
-        if (frontendOrigin && backendOrigin === frontendOrigin) return { valid: false, reason: '候选地址与前端地址相同' };
-        if (proxyOrigin && backendOrigin === proxyOrigin) return { valid: false, reason: '候选地址是当前 Worker 地址' };
-    } catch (e) { }
-
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(backendOrigin + '/System/Info/Public', {
-            headers: { 'Accept': 'application/json', 'User-Agent': 'EmbyProxyBackendDetector/1.0' },
-            signal: controller.signal
-        });
-        clearTimeout(timeout);
-        if (!res.ok) return { valid: false, reason: `公共信息接口返回 HTTP ${res.status}` };
-        const contentType = res.headers.get('content-type') || '';
-        if (!contentType.includes('json')) return { valid: false, reason: '公共信息接口不是 JSON 响应' };
-        const data = await res.json();
-        if (!isEmbyInfoPayload(data)) return { valid: false, reason: '公共信息接口不像 Emby 服务' };
-        return { valid: true, url: backendOrigin };
-    } catch (e) {
-        return { valid: false, reason: '公共信息接口验证失败: ' + (e?.message || '未知错误') };
-    }
-}
-
-function isTextLikeForBackendDetection(contentType, pathLower) {
-    return contentType.includes('text/html') ||
-        contentType.includes('javascript') ||
-        contentType.includes('json') ||
-        pathLower.endsWith('.m3u8') ||
-        contentType.includes('mpegurl');
-}
-
-function extractBackendCandidateOrigins(text, frontendOrigins, proxyOrigin) {
-    const candidates = new Set();
-    if (!text) return [];
-    const urls = text.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
-    urls.forEach(raw => {
-        const trail = raw.match(/[.,;)]+$/)?.[0] || '';
-        const clean = trail ? raw.slice(0, -trail.length) : raw;
-        const origin = normalizeBackendOrigin(clean);
-        if (!origin) return;
-        if (frontendOrigins.has(origin) || origin === proxyOrigin) return;
-        candidates.add(origin);
-    });
-    return Array.from(candidates);
-}
-
-function persistDetectedBackend(ctx, env, prefix, candidates, frontendTarget, proxyOrigin) {
-    if (!ctx || !ctx.waitUntil || !env.DB || !prefix || !candidates.length) return;
-    ctx.waitUntil((async () => {
-        for (const candidate of candidates) {
-            const validation = await validateEmbyBackend(candidate, frontendTarget, proxyOrigin);
-            if (!validation.valid) continue;
-            await env.DB.prepare(`
-                UPDATE routes
-                SET backend_url = ?, backend_mode = 'auto'
-                WHERE prefix = ? AND IFNULL(backend_mode, 'auto') = 'auto'
-            `).bind(validation.url, prefix).run();
-            break;
-        }
-    })());
-}
-
-function shouldRouteToBackend(pathname, search) {
-    const pathLower = pathname.toLowerCase();
-    const searchLower = (search || '').toLowerCase();
-    if (searchLower.includes('api_key=') || searchLower.includes('x-emby-token=')) return true;
-    if (pathLower === '/socket' || pathLower === '/websocket' || pathLower.includes('/socket.io/')) return true;
-    if (pathLower.includes('/playbackinfo')) return true;
-    if (/^\/(system|users|items|sessions|devices|videos|audio|livestreams|playlists|artists|albums|genres|studios|persons|channels|shows|library|sync|notifications|scheduledtasks|displaypreferences|quickconnect|branding|plugins)(\/|$)/i.test(pathname)) return true;
-    if (/^\/emby(\/|$)/i.test(pathname)) return true;
-    if (/\/(images|stream|hls|dash)(\/|$|\?)/i.test(pathLower)) return true;
-    return false;
-}
-
-function isMediaStreamRequest(pathname, search) {
-    const pathLower = pathname.toLowerCase();
-    const searchLower = (search || '').toLowerCase();
-    if (searchLower.includes('static=true') || searchLower.includes('mediasourceid=')) return true;
-    if (/^\/(videos|audio|livestreams)(\/|$)/i.test(pathname)) return true;
-    if (/\/(stream|hls|dash)(\/|$|\?)/i.test(pathLower)) return true;
-    if (/\.(mkv|mp4|m4v|mov|avi|wmv|flv|webm|ts|m2ts|mp3|m4a|aac|flac|wav|ogg|opus)(\?|$)/i.test(pathLower)) return true;
-    return false;
-}
-
-function shouldRequestUncompressed(pathname, search) {
-    const pathLower = pathname.toLowerCase();
-    if (pathLower.includes('/playbackinfo')) return true;
-    if (/\/system\/info(\/public)?$/i.test(pathLower)) return true;
-    if (pathLower.endsWith('.m3u8')) return true;
-    if (pathLower === '/' || pathLower.endsWith('/')) return true;
-    if (/\/web(\/|$)/i.test(pathname)) return true;
-    if (/\.(html|js|json|webmanifest)(\?|$)/i.test(pathLower)) return true;
-    return false;
-}
-
-function rewriteEmbyWebRootPaths(text, safePrefix) {
-    if (!safePrefix || !text) return text;
-    let rewritten = text;
-    // Emby app route content lives under /web, but some bundles reference it as root absolute.
-    rewritten = rewritten.replace(/contentPath:"\/(?!web\/|emby\/|System\/|Users\/|Items\/|Videos\/|Audio\/|Sessions\/|Devices\/|LiveStreams\/|socket|websocket)([^"]+)"/g, `contentPath:"${safePrefix}/web/$1"`);
-    rewritten = rewritten.replace(/contentPath:'\/(?!web\/|emby\/|System\/|Users\/|Items\/|Videos\/|Audio\/|Sessions\/|Devices\/|LiveStreams\/|socket|websocket)([^']+)'/g, `contentPath:'${safePrefix}/web/$1'`);
-    rewritten = rewritten.replace(/"start_url"\s*:\s*"\/web\/index\.html"/g, `"start_url":"${safePrefix}/web/index.html"`);
-    return rewritten;
-}
-
-function prepareTextResponseHeaders(headers) {
-    headers.delete("Content-Length");
-    headers.delete("Content-Encoding");
-    headers.delete("Transfer-Encoding");
-}
-
-function proxifyAbsoluteUrl(value, proxyOrigin, safePrefix) {
-    return proxyOrigin + safePrefix + '/' + encodeURIComponent(value);
-}
-
-async function fetchWithResponseTimeout(request, timeoutMs) {
-    if (!timeoutMs || timeoutMs <= 0) return fetch(request);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const timedRequest = new Request(request, { signal: controller.signal });
-        return await fetch(timedRequest);
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
-function proxifyPlaybackUrl(value, proxyOrigin, safePrefix) {
-    if (!value || typeof value !== 'string') return value;
-    if (value.startsWith(proxyOrigin)) return value;
-    if (/^https?:\/\//i.test(value)) return proxifyAbsoluteUrl(value, proxyOrigin, safePrefix);
-    if (value.startsWith('/')) return proxyOrigin + safePrefix + value;
-    return value;
-}
-
 // 用于向 Cloudflare 获取对应时间段的总流量 (支持北京时间今日、近7天、近30天)
 async function getCFTraffic(env, type) {
     if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) return "缺少变量";
@@ -2509,21 +2328,11 @@ export default {
         if (url.pathname === '/api/routes/import' && request.method === 'POST') {
             if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
             try {
-                await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN mode TEXT DEFAULT 'off'`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN remark TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN last_play TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN icon TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN cache_img TEXT DEFAULT 'on'`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
                 const routes = await request.json();
                 for (const r of routes) {
                     if (r.prefix && r.target) {
-                        await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, backend_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                            .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.backend_mode || 'auto').run();
+                        await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                            .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '').run();
                     }
                 }
                 return Response.json({ success: true });
@@ -2546,7 +2355,6 @@ export default {
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`); } catch (e) { }
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`); } catch (e) { }
             try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
 
             // 数据防爆清理策略：自动清理过去 7 天的精细日志
             try { await env.DB.exec(`DELETE FROM visitor_logs WHERE timestamp < datetime('now', '-7 days')`); } catch (e) { }
@@ -2622,35 +2430,18 @@ export default {
 
             if (request.method === 'POST') {
                 const data = await request.json(); let currentSortOrder = 0;
-                const rawBackendUrl = (data.backend_url || '').trim().replace(/\/+$/g, '');
-                const cleanBackendUrl = rawBackendUrl ? normalizeBackendOrigin(rawBackendUrl) : '';
-                if (rawBackendUrl && !cleanBackendUrl) return Response.json({ success: false, error: '分离后端地址必须是有效的 http(s) URL' });
-                const requestedBackendMode = cleanBackendUrl ? 'manual' : 'auto';
-                let storedBackendUrl = cleanBackendUrl;
-                let storedBackendMode = requestedBackendMode;
-
                 if (data.oldPrefix && data.oldPrefix !== data.prefix) {
                     const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
-                    if (oldRow) {
-                        currentSortOrder = oldRow.sort_order;
-                    }
+                    if (oldRow) currentSortOrder = oldRow.sort_order;
                     await env.DB.prepare('DELETE FROM routes WHERE prefix = ?').bind(data.oldPrefix).run();
                 } else {
                     const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.prefix).first();
-                    if (oldRow) {
-                        currentSortOrder = oldRow.sort_order;
-                    }
+                    if (oldRow) currentSortOrder = oldRow.sort_order;
                 }
 
-                let backendWarning = '';
-                if (storedBackendMode === 'manual' && storedBackendUrl) {
-                    const validation = await validateEmbyBackend(storedBackendUrl, data.target);
-                    if (!validation.valid) backendWarning = validation.reason || '后端地址未通过 Emby 公共信息验证，已按手动配置保存';
-                }
-
-                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, backend_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', storedBackendUrl, storedBackendMode).run();
-                return Response.json({ success: true, warning: backendWarning });
+                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '').run();
+                return Response.json({ success: true });
             }
 
             if (request.method === 'DELETE') {
@@ -2662,8 +2453,8 @@ export default {
         // ==========================================
         // 2.6 核心反代与调度引擎
         // ==========================================
-        let targetUrls = []; let frontendTargetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
-        let customHeadersRaw = ''; let backendUrl = ''; let backendMode = 'auto'; let routeToBackend = false;
+        let targetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
+        let customHeadersRaw = '';
         const decodedPath = decodeURIComponent(url.pathname); let matchedPrefix = null;
         let proxyOrigin = new URL(request.url).origin;
 
@@ -2675,51 +2466,20 @@ export default {
 
             try {
                 if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
-                try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_mode TEXT DEFAULT 'auto'`); } catch (e) { }
-                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, backend_url, backend_mode FROM routes WHERE prefix = ?`);
-                let route = await stmt.bind(prefix).first();
-                let effectivePrefix = prefix;
-                let escapedWebPath = '';
-                if (!route) {
-                    try {
-                        const referer = request.headers.get('Referer') || '';
-                        const refUrl = referer ? new URL(referer) : null;
-                        const refParts = refUrl && refUrl.origin === proxyOrigin ? decodeURIComponent(refUrl.pathname).split('/') : [];
-                        const refPrefix = refParts[1] || '';
-                        if (refPrefix && refParts[2] === 'web') {
-                            const refRoute = await stmt.bind(refPrefix).first();
-                            if (refRoute) {
-                                route = refRoute;
-                                effectivePrefix = refPrefix;
-                                escapedWebPath = decodedPath.startsWith('/web/') ? decodedPath : '/web' + decodedPath;
-                            }
-                        }
-                    } catch (e) { }
-                }
+                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers FROM routes WHERE prefix = ?`);
+                const route = await stmt.bind(prefix).first();
                 if (!route) return new Response(`404: Node not found`, { status: 404 });
 
                 currentMode = route.mode || 'off'; enableCache = (route.cache_img !== 'off');
-                matchedPrefix = effectivePrefix; remainingPath = escapedWebPath || ('/' + pathParts.slice(2).join('/'));
+                matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
                 targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
-                frontendTargetUrls = [...targetUrls];
                 customHeadersRaw = route.custom_headers || '';
-                backendUrl = normalizeBackendOrigin(route.backend_url || '');
-                backendMode = route.backend_mode || 'auto';
 
                 if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
             } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
         }
 
         if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
-
-        if (matchedPrefix && backendUrl && remainingPath && shouldRouteToBackend(remainingPath, url.search)) {
-            const frontendOrigins = new Set(frontendTargetUrls.map(t => normalizeBackendOrigin(t)).filter(Boolean));
-            if (!frontendOrigins.has(backendUrl) && backendUrl !== proxyOrigin) {
-                routeToBackend = true;
-                targetUrls = [backendUrl, ...targetUrls.filter(t => normalizeBackendOrigin(t) !== backendUrl)];
-            }
-        }
 
         // ==========================================
         // 2.7 防爆型精准日志拦截 (修复统计虚高：仅拦截点火请求)
@@ -2756,18 +2516,14 @@ export default {
             bodyBuffer = await request.clone().arrayBuffer();
         }
 
-        let finalResponse = null; let finalTargetUrl = null; let lastError = null;
+        let finalResponse = null; let lastError = null;
 
         for (let i = 0; i < targetUrls.length; i++) {
             const targetUrlStr = targetUrls[i] + remainingPath + url.search; const targetUrl = new URL(targetUrlStr);
-            const usingDetectedBackend = routeToBackend && normalizeBackendOrigin(targetUrls[i]) === backendUrl;
-            const hasFailoverTarget = i < targetUrls.length - 1;
             const newHeaders = new Headers(request.headers); newHeaders.set("Host", targetUrl.host);
-            const requiresTextRewrite = shouldRequestUncompressed(targetUrl.pathname, targetUrl.search || url.search);
-            if (requiresTextRewrite) {
-                // 只有需要改写文本响应时才禁用上游压缩；普通媒体库 JSON 和视频流保持源站压缩/直传，避免拖慢加载。
-                newHeaders.delete("Accept-Encoding");
-            }
+            // 去掉 Accept-Encoding，让源站返回未压缩内容，这样我们才能正确重写响应体
+            // CF Worker 会自动在返回给客户端时重新压缩，不影响用户体验
+            newHeaders.delete("Accept-Encoding");
 
             const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(',')[0].trim();
             newHeaders.delete("cf-connecting-ip"); newHeaders.delete("cf-ipcountry"); newHeaders.delete("cf-ray");
@@ -2780,23 +2536,6 @@ export default {
                 newHeaders.delete("X-Forwarded-Proto"); newHeaders.delete("X-Forwarded-Host");
                 newHeaders.set("Origin", targetUrl.origin); newHeaders.set("Referer", targetUrl.origin + "/");
                 if (realIp) { newHeaders.set("X-Real-IP", realIp); newHeaders.set("X-Forwarded-For", realIp); }
-            }
-
-            if (usingDetectedBackend) {
-                newHeaders.set("Host", targetUrl.host);
-                if (newHeaders.has("Origin")) newHeaders.set("Origin", targetUrl.origin);
-                const referer = newHeaders.get("Referer") || "";
-                const refererIsFrontend = frontendTargetUrls.map(t => normalizeBackendOrigin(t)).filter(Boolean).some(origin => referer.startsWith(origin));
-                if (referer.startsWith(proxyOrigin) || refererIsFrontend) {
-                    newHeaders.set("Referer", targetUrl.origin + "/");
-                }
-            }
-
-            if (!usingDetectedBackend) {
-                const origin = newHeaders.get("Origin") || "";
-                if (origin === proxyOrigin) newHeaders.set("Origin", targetUrl.origin);
-                const referer = newHeaders.get("Referer") || "";
-                if (referer.startsWith(proxyOrigin)) newHeaders.set("Referer", targetUrl.origin + "/");
             }
 
             // 🌟 应用节点自定义请求头 (格式: Key: Value，每行一条)
@@ -2823,42 +2562,10 @@ export default {
             }
 
             try {
-                const modifiedRequest = new Request(targetUrl, fetchInit);
-                const responseTimeoutMs = usingDetectedBackend && hasFailoverTarget ? 4500 : 0;
-                let response = await fetchWithResponseTimeout(modifiedRequest, responseTimeoutMs);
-                let responseTargetUrl = targetUrl;
-                const shouldFollowMediaRedirect = request.headers.has("Range") || isMediaStreamRequest(targetUrl.pathname, targetUrl.search || url.search);
-                if ((request.method === 'GET' || request.method === 'HEAD') && shouldFollowMediaRedirect) {
-                    for (let redirectCount = 0; redirectCount < 4 && [301, 302, 303, 307, 308].includes(response.status); redirectCount++) {
-                        const redirectLocation = response.headers.get('Location');
-                        if (!redirectLocation) break;
-                        const redirectedUrl = new URL(redirectLocation, responseTargetUrl);
-                        const redirectHeaders = new Headers(newHeaders);
-                        redirectHeaders.set("Host", redirectedUrl.host);
-                        if (redirectHeaders.has("Origin")) redirectHeaders.set("Origin", redirectedUrl.origin);
-                        const redirectReferer = redirectHeaders.get("Referer") || "";
-                        if (redirectReferer.startsWith(proxyOrigin) || redirectReferer.startsWith(responseTargetUrl.origin)) {
-                            redirectHeaders.set("Referer", redirectedUrl.origin + "/");
-                        }
-                        const redirectInit = { method: request.method, headers: redirectHeaders, redirect: 'manual' };
-                        responseTargetUrl = redirectedUrl;
-                        response = await fetchWithResponseTimeout(new Request(redirectedUrl, redirectInit), 0);
-                    }
-                }
+                const modifiedRequest = new Request(targetUrl, fetchInit); const response = await fetch(modifiedRequest);
                 if (response.status === 502 || response.status === 503 || response.status === 504) { lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`); continue; }
-                finalResponse = response; finalTargetUrl = responseTargetUrl; break;
-            } catch (err) {
-                const timedOut = err?.name === 'AbortError';
-                lastError = timedOut ? new Error(`Node ${i + 1} timed out after upstream response wait`) : err;
-                if (usingDetectedBackend && backendMode === 'auto' && ctx && ctx.waitUntil && env.DB && matchedPrefix) {
-                    ctx.waitUntil(env.DB.prepare(`
-                        UPDATE routes
-                        SET backend_url = ''
-                        WHERE prefix = ? AND IFNULL(backend_mode, 'auto') = 'auto' AND backend_url = ?
-                    `).bind(matchedPrefix, backendUrl).run());
-                }
-                continue;
-            }
+                finalResponse = response; break;
+            } catch (err) { lastError = err; continue; }
         }
 
         if (!finalResponse) return new Response("Worker Proxy Failover Exhausted. All nodes failed. Last Error: " + (lastError?.message || 'Unknown Error'), { status: 502 });
@@ -2874,17 +2581,9 @@ export default {
         // ==========================================
         if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
             const location = responseHeaders.get('Location');
-            if (location) {
-                try {
-                    const resolved = new URL(location, finalTargetUrl || targetUrls[0]);
-                    const frontendOriginsForRedirect = new Set((frontendTargetUrls.length ? frontendTargetUrls : targetUrls).map(t => normalizeBackendOrigin(t)).filter(Boolean));
-                    if (matchedPrefix && frontendOriginsForRedirect.has(resolved.origin)) {
-                        responseHeaders.set('Location', `${proxyOrigin}${safePrefix}${resolved.pathname}${resolved.search}${resolved.hash}`);
-                    } else if (/^https?:\/\//i.test(resolved.href)) {
-                        // 🎯 补回 encodeURIComponent，防止播放器解析重定向头时发疯
-                        responseHeaders.set('Location', `${proxyOrigin}${safePrefix}/${encodeURIComponent(resolved.href)}`);
-                    }
-                } catch (e) { }
+            if (location && /^https?:\/\//i.test(location)) {
+                // 🎯 补回 encodeURIComponent，防止播放器解析重定向头时发疯
+                responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
             }
         }
 
@@ -2896,21 +2595,19 @@ export default {
 
         // 🌟 前后端分离核心：前端 origin 已知，响应体里出现的其他 origin 就是泄露的后端地址
         let frontendOrigin = '';
-        const frontendOrigins = new Set((frontendTargetUrls.length ? frontendTargetUrls : targetUrls).map(t => normalizeBackendOrigin(t)).filter(Boolean));
-        try { frontendOrigin = normalizeBackendOrigin((frontendTargetUrls[0] || targetUrls[0] || '')); } catch (e) { }
+        try { frontendOrigin = new URL(targetUrls[0]).origin; } catch (e) { }
 
         // 通用 URL 改写：把非前端、非代理自身的绝对 URL 都套上代理前缀
         // 正则只匹配到合法 URL 字符结束（不吃引号、空白、括号、逗号、分号）
-        function rewriteBackendUrls(text, allowedOrigins = null) {
+        function rewriteBackendUrls(text) {
             return text.replace(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g, matched => {
                 // 去掉尾部可能被误匹配的标点
                 const trail = matched.match(/[.,;)]+$/)?.[0] || '';
                 const clean = trail ? matched.slice(0, -trail.length) : matched;
                 try {
                     const u = new URL(clean);
-                    const allowed = !allowedOrigins || allowedOrigins.has(u.origin);
-                    if (allowed && !frontendOrigins.has(u.origin) && u.origin !== proxyOrigin) {
-                        return proxifyAbsoluteUrl(clean, proxyOrigin, safePrefix) + trail;
+                    if (u.origin !== frontendOrigin && u.origin !== proxyOrigin) {
+                        return proxyOrigin + safePrefix + '/' + clean + trail;
                     }
                 } catch (e) { }
                 return matched;
@@ -2925,21 +2622,12 @@ export default {
         const needsSystemInfo = finalResponse.status === 200 && contentType.includes("json") && /\/system\/info(\/public)?$/i.test(pathLower);
         const needsM3u8 = finalResponse.status === 200 && pathLower.endsWith('.m3u8');
         const needsHtmlJs = finalResponse.status === 200 && frontendOrigin && (
-            contentType.includes('text/html') || contentType.includes('javascript')
+            contentType.includes('text/html') || contentType.includes('text/javascript') || contentType.includes('application/javascript')
         );
-        const declaredLength = Number(responseHeaders.get("content-length") || "0");
-        const backendDetectionPath = remainingPath || url.pathname;
-        const isBackendApiResponse = shouldRouteToBackend(backendDetectionPath, url.search);
-        const needsBackendDetection = finalResponse.status === 200 && matchedPrefix && backendMode !== 'manual' &&
-            !isBackendApiResponse && isTextLikeForBackendDetection(contentType, pathLower) && declaredLength <= 1048576;
 
-        if (needsJsonPlayback || needsSystemInfo || needsM3u8 || needsHtmlJs || needsBackendDetection) {
+        if (needsJsonPlayback || needsSystemInfo || needsM3u8 || needsHtmlJs) {
             try {
                 const bodyText = await finalResponse.text();
-                if (needsBackendDetection && bodyText.length <= 1048576) {
-                    const candidates = extractBackendCandidateOrigins(bodyText, frontendOrigins, proxyOrigin);
-                    persistDetectedBackend(ctx, env, matchedPrefix, candidates, frontendTargetUrls[0] || targetUrls[0] || '', proxyOrigin);
-                }
 
                 // ① PlaybackInfo：重写 DirectStreamUrl / TranscodingUrl
                 if (needsJsonPlayback) {
@@ -2948,28 +2636,16 @@ export default {
                         let modified = false;
                         if (data && data.MediaSources) {
                             data.MediaSources.forEach(source => {
-                                ['DirectStreamUrl', 'TranscodingUrl', 'LiveStreamUrl', 'HlsUrl', 'DashUrl'].forEach(key => {
-                                    const rewritten = proxifyPlaybackUrl(source[key], proxyOrigin, safePrefix);
-                                    if (rewritten !== source[key]) {
-                                        source[key] = rewritten;
+                                ['DirectStreamUrl', 'TranscodingUrl'].forEach(key => {
+                                    if (source[key] && source[key].startsWith('http') && !source[key].startsWith(proxyOrigin)) {
+                                        source[key] = proxyOrigin + safePrefix + '/' + source[key];
                                         modified = true;
                                     }
                                 });
-                                if (source.MediaStreams) {
-                                    source.MediaStreams.forEach(stream => {
-                                        ['DeliveryUrl', 'Url'].forEach(key => {
-                                            const rewritten = proxifyPlaybackUrl(stream[key], proxyOrigin, safePrefix);
-                                            if (rewritten !== stream[key]) {
-                                                stream[key] = rewritten;
-                                                modified = true;
-                                            }
-                                        });
-                                    });
-                                }
                             });
                         }
                         if (modified) {
-                            prepareTextResponseHeaders(responseHeaders);
+                            responseHeaders.delete("Content-Length");
                             return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
                         }
                     } catch (e) { console.log("PlaybackInfo 重写失败:", e.message); }
@@ -2980,20 +2656,14 @@ export default {
                     try {
                         const data = JSON.parse(bodyText);
                         let modified = false;
-                        ['Address', 'LocalAddress', 'WanAddress', 'RemoteAddress', 'ManualAddress'].forEach(key => {
+                        ['Address', 'LocalAddress'].forEach(key => {
                             if (data[key] && data[key].startsWith('http') && !data[key].startsWith(proxyOrigin)) {
                                 data[key] = proxyOrigin + safePrefix;
                                 modified = true;
                             }
                         });
-                        ['LocalAddresses', 'RemoteAddresses'].forEach(key => {
-                            if (Array.isArray(data[key])) {
-                                data[key] = [proxyOrigin + safePrefix];
-                                modified = true;
-                            }
-                        });
                         if (modified) {
-                            prepareTextResponseHeaders(responseHeaders);
+                            responseHeaders.delete("Content-Length");
                             return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
                         }
                     } catch (e) { console.log("System/Info 重写失败:", e.message); }
@@ -3003,41 +2673,27 @@ export default {
                 if (needsM3u8) {
                     if (bodyText.includes('http://') || bodyText.includes('https://')) {
                         const rewritten = rewriteBackendUrls(bodyText);
-                        prepareTextResponseHeaders(responseHeaders);
+                        responseHeaders.delete("Content-Length");
                         return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
                     }
                 }
 
                 // ④ HTML / JS：检测并改写泄露的后端地址
                 if (needsHtmlJs) {
-                    const webPathRewritten = rewriteEmbyWebRootPaths(bodyText, safePrefix);
-                    if (webPathRewritten !== bodyText) {
-                        prepareTextResponseHeaders(responseHeaders);
-                        return new Response(webPathRewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                    }
-                    // 只改写已知后端，避免把 CDN、帮助链接等外部 URL 当成后端代理。
+                    // 只有真的包含异源 URL 才做替换，避免修改无需处理的页面
                     const urls = bodyText.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
-                    const knownBackendOrigins = new Set([backendUrl].filter(Boolean));
-                    const hasLeakedBackend = knownBackendOrigins.size > 0 && urls.some(u => {
-                        try { const o = new URL(u).origin; return knownBackendOrigins.has(o); } catch (e) { return false; }
+                    const hasLeakedBackend = urls.some(u => {
+                        try { const o = new URL(u).origin; return o !== frontendOrigin && o !== proxyOrigin; } catch (e) { return false; }
                     });
                     if (hasLeakedBackend) {
-                        const rewritten = rewriteBackendUrls(bodyText, knownBackendOrigins);
-                        prepareTextResponseHeaders(responseHeaders);
+                        const rewritten = rewriteBackendUrls(bodyText);
+                        responseHeaders.delete("Content-Length");
                         return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
                     }
                 }
 
-                if (contentType.includes('json')) {
-                    const jsonPathRewritten = rewriteEmbyWebRootPaths(bodyText, safePrefix);
-                    if (jsonPathRewritten !== bodyText) {
-                        prepareTextResponseHeaders(responseHeaders);
-                        return new Response(jsonPathRewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                    }
-                }
-
                 // 没有命中任何重写逻辑，原样返回已读取的文本
-                prepareTextResponseHeaders(responseHeaders);
+                responseHeaders.delete("Content-Length");
                 return new Response(bodyText, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
 
             } catch (e) {
