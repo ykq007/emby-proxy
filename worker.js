@@ -106,29 +106,165 @@ const CSS_COMMON = `
     .drag-handle { cursor: grab; padding-right: 10px; font-size: 18px; color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
     .drag-handle:active { cursor: grabbing; color: var(--primary); }
 
-    /* 响应式移动端适配 */
+    /* iOS-style mobile adaptation
+       References the Mobile Adaptation prototype: bottom-sheet modals,
+       large title + status pills, sticky bottom CTA, ≥44pt tap targets. */
+    @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
     @media (max-width: 768px) {
-        body { padding: 12px; }
-        .card { padding: 16px; border-radius: 12px; margin-bottom: 16px; }
-        .header h1 { font-size: 22px; }
-        .toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+        body { padding: 12px; padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+        .card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
+        .header { margin-bottom: 16px !important; }
+        .header h1 { font-size: 22px; letter-spacing: -0.02em; }
+        .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
         .toolbar > * { width: 100%; display: flex; justify-content: center; }
         .search-input { width: 100%; }
-        .node-grid { grid-template-columns: 1fr; }
+        .node-grid { grid-template-columns: 1fr; gap: 12px; }
+
+        /* Tap-target sizing */
+        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn { min-height: 44px; }
+        .icon-btn { width: 36px; height: 36px; }
+        select, input[type="text"], input[type="url"], input[type="password"], textarea {
+            font-size: 16px; /* prevent iOS zoom on focus */
+        }
+
+        /* Table → stacked card rows (kept from previous design) */
         .table-wrapper { border: none; background: transparent; overflow: visible; }
         table, thead, tbody, th, td, tr { display: block; width: 100%; }
         thead { display: none; }
-        tr { margin-bottom: 16px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: hidden; }
-        td { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); text-align: right; gap: 12px; min-height: 50px; }
+        tr { margin-bottom: 12px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: hidden; }
+        td { display: flex; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid var(--border); text-align: right; gap: 12px; min-height: 44px; }
         td:last-child { border-bottom: none; }
         td[colspan] { justify-content: center; text-align: center; }
         td[colspan]::before { display: none !important; }
-        td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; }
-        
-        #dashboardModal { padding: 10px !important; }
-        #dashboardModal .card { margin: 10px auto !important; padding: 16px !important; box-sizing: border-box; }
-        #dashboardModal h2 { font-size: 18px; flex-direction: column; align-items: flex-start; }
+        td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+        /* Modals → bottom sheet */
+        #dashboardModal {
+            padding: 0 !important;
+            display: flex !important;
+            align-items: flex-end !important;
+            justify-content: stretch !important;
+        }
+        #dashboardModal[style*="display:none"], #dashboardModal[style*="display: none"] { display: none !important; }
+        #dashboardModal > .card {
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 92vh;
+            margin: 0 !important;
+            padding: 18px 16px 24px !important;
+            border-radius: 18px 18px 0 0 !important;
+            box-shadow: 0 -8px 32px rgba(0,0,0,0.18) !important;
+            overflow-y: auto;
+            animation: sheet-up 0.28s cubic-bezier(.32,.72,.3,1);
+            position: relative;
+        }
+        #dashboardModal > .card::before {
+            content: ''; display: block;
+            width: 36px; height: 5px; border-radius: 3px;
+            background: var(--border);
+            margin: -4px auto 14px;
+        }
+        #dashboardModal h2 { font-size: 18px; flex-direction: column; align-items: flex-start; gap: 8px; }
+        #dashboardModal h2 > div:last-child { font-size: 12px !important; }
         #dashboardModal h2 span { font-size: 12px; }
+        #dashboardModal .table-wrapper td { font-size: 13px; }
+
+        /* CF trace card → horizontal scrollable status strip */
+        #cf-trace-card {
+            padding: 10px 14px !important;
+            gap: 10px !important;
+            font-size: 13px !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            scrollbar-width: none;
+        }
+        #cf-trace-card::-webkit-scrollbar { display: none; }
+        #cf-trace-card > * { flex-shrink: 0; }
+
+        /* Header (title + dashboard + logout) compresses */
+        .header { gap: 10px !important; }
+        .header > div:last-child { gap: 6px !important; }
+        .header .btn-submit, .header .logout-btn { padding: 10px 12px; font-size: 13px; }
+
+        /* Deploy/edit form (#addForm): stretch inputs, group submit at bottom */
+        #addForm input[type="text"],
+        #addForm input[type="url"],
+        #addForm select,
+        #addForm textarea {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-height: 44px;
+            padding: 12px 14px !important;
+        }
+        #addForm > div { gap: 10px !important; }
+        #addForm #iconSelectBtn { width: 100%; }
+        #addForm #submitBtn {
+            width: 100% !important;
+            padding: 14px !important;
+            font-size: 16px;
+            border-radius: 12px;
+            order: 99;
+            margin-top: 4px;
+        }
+        #addForm > div:nth-of-type(2) { flex-direction: column; align-items: stretch !important; }
+        #addForm > div:nth-of-type(2) > * { width: 100%; }
+        #addForm #customHeaders { font-size: 13px; }
+
+        /* Speed-test toolbar buttons stack with primary highlighted */
+        #addForm + div .toolbar { flex-direction: column; }
+
+        /* Login page: gradient ornaments + iOS hero */
+        body.login-body {
+            padding: 0 !important;
+            background: var(--bg) !important;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        body.login-body .login-box {
+            box-shadow: none !important;
+            background: transparent !important;
+            padding: 60px 24px 32px !important;
+            max-width: 100% !important;
+            text-align: left !important;
+            border-radius: 0;
+        }
+        body.login-body .login-eyebrow {
+            font-size: 11px; font-weight: 700; color: var(--text-sec);
+            letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
+        }
+        body.login-body .login-box h2 {
+            font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
+            margin: 0 0 8px 0 !important; text-align: left;
+        }
+        body.login-body .login-sub {
+            font-size: 14px; color: var(--text-sec); line-height: 1.5; margin: 0 0 28px 0;
+        }
+        body.login-body .login-foot {
+            position: fixed; bottom: max(env(safe-area-inset-bottom), 16px); left: 0; right: 0;
+            text-align: center; color: var(--text-sec); font-size: 11px; line-height: 1.6;
+            opacity: 0.7;
+        }
+    }
+
+    @media (max-width: 480px) {
+        body { padding: 10px; }
+        .card { padding: 14px; border-radius: 12px; }
+        .header h1 { font-size: 20px; }
+        .header .btn-submit, .header .logout-btn { flex: 1; min-width: 0; }
+        h2 { font-size: 17px !important; }
+
+        /* Logout / dashboard top buttons reflow */
+        .header > div:last-child { width: 100%; justify-content: stretch; }
+        .header > div:last-child > div:first-child { flex: 0 0 auto; }
+        .header > div:last-child > button { flex: 1; }
+
+        /* Toolbar collapses to vertical with full-width primary */
+        .toolbar { gap: 8px; }
+        .toolbar select, .toolbar input, .toolbar button { width: 100% !important; min-width: 0 !important; }
+
+        /* Speed-test multi-button bar: stack */
+        #btnSelectedDns, #btnTop3Dns, #btnDirectCname, #btnTestCustom { width: 100% !important; }
     }
 `;
 
@@ -141,20 +277,34 @@ const LOGIN_UI = `
     <title>系统授权</title>
     <style>
         ${CSS_COMMON}
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; padding: 16px; margin: 0; background: #f0f2f5; }
-        .login-box { background: var(--card); padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); text-align: center; width: 100%; max-width: 360px; }
-        .login-box h2 { margin: 0 0 24px 0; font-size: 22px; font-weight: 600; }
-        .login-box input { width: 100%; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; }
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; margin: 0; background: #f0f2f5; position: relative; overflow-x: hidden; }
+        body::before, body::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
+        body::before { top: -120px; right: -80px; width: 320px; height: 320px; background: radial-gradient(circle, rgba(0,113,227,0.22), rgba(0,113,227,0) 70%); }
+        body::after { bottom: -100px; left: -100px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(88,86,214,0.18), rgba(88,86,214,0) 70%); }
+        .login-box { position: relative; z-index: 1; background: var(--card); padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); text-align: center; width: 100%; max-width: 360px; }
+        .login-eyebrow { display: none; }
+        .login-sub { display: none; }
+        .login-foot { display: none; }
+        .login-box h2 { margin: 0 0 24px 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+        .login-box input { width: 100%; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; font-size: 16px; }
         .login-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.15); }
-        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; }
+        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 16px; min-height: 44px; }
+
+        /* On phone, show the eyebrow / sub / foot copy and drop the boxed card */
+        @media (max-width: 768px) {
+            .login-eyebrow, .login-sub, .login-foot { display: block; }
+        }
     </style>
 </head>
-<body>
+<body class="login-body">
     <div id="toast"></div>
     <div class="login-box">
-        <h2>安全中心</h2>
+        <div class="login-eyebrow">反代核心 · 安全中心</div>
+        <h2>欢迎回来</h2>
+        <p class="login-sub">输入管理员密钥继续。<br>未授权访问将被自动拒绝并记录。</p>
         <input type="password" id="tokenInput" placeholder="请输入密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
         <button onclick="login()">验 证 登 录</button>
+        <div class="login-foot">v${CURRENT_VERSION} · Cloudflare Worker<br>仅供学习与技术测试使用</div>
     </div>
     <script>
         function showToast(msg) {
