@@ -623,7 +623,7 @@ const CSS_COMMON = `
 
     /* ============================================================
        Mobile Adaptation v3 — Bottom Tab Bar, status pills row,
-       sticky form CTA, login Face ID. Desktop hides everything.
+       sticky form CTA, login gradient logo. Desktop hides everything.
        Reference: design/Mobile Adaptation.html + mobile-screens.jsx.
        ============================================================ */
     .m-pills { display: none; }
@@ -644,9 +644,8 @@ const CSS_COMMON = `
 
     #mobileTabBar { display: none; }
 
-    /* Login: gradient logo + Face ID button (desktop hidden) */
+    /* Login: gradient logo (desktop hidden, mobile shown) */
     .login-logo { display: none; }
-    .login-faceid { display: none; }
 
     @media (max-width: 768px) {
         /* Reserve room above the Tab Bar */
@@ -703,7 +702,7 @@ const CSS_COMMON = `
         }
         #mobileTabBar button.active svg { stroke-width: 2.2; }
 
-        /* Login mobile hero: gradient logo block + Face ID secondary */
+        /* Login mobile hero: gradient logo block */
         body.login-body .login-logo {
             display: flex; align-items: center; justify-content: center;
             width: 64px; height: 64px; border-radius: 18px; color: #fff;
@@ -712,16 +711,136 @@ const CSS_COMMON = `
             margin: 0 0 28px;
         }
         body.login-body .login-logo svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-        body.login-body .login-faceid {
-            display: inline-flex !important;
-            width: 100%; margin-top: 12px; padding: 14px;
-            background: transparent; color: var(--text);
-            border: 1px solid var(--border); border-radius: 14px;
-            font-weight: 600; font-size: 14px; cursor: pointer;
-            align-items: center; justify-content: center; gap: 8px;
-            min-height: 48px; font-family: inherit;
+    }
+
+    /* ============================================================
+       Mobile UX v4 — fluid type, mid-breakpoints, landscape /
+       short-height adaptation, tactile feedback, edge-fade scroll
+       affordance, sheet drag-to-dismiss visual hooks.
+       Layered on top of v1–v3; desktop remains untouched.
+       ============================================================ */
+
+    /* Fluid typography & spacing — gentle on desktop, real impact on mobile */
+    @media (max-width: 1024px) {
+        .header h1 { font-size: clamp(20px, 4.5vw, 26px); letter-spacing: -0.02em; }
+        h2 { font-size: clamp(16px, 3.4vw, 20px); }
+        .card { padding: clamp(14px, 3vw, 22px); }
+    }
+
+    /* Mid-range (481–768px): large phone landscape & small tablet portrait — 2-col where it helps */
+    @media (min-width: 481px) and (max-width: 768px) {
+        .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .a-row, .a-row.two { grid-template-columns: 1fr 1fr !important; }
+        #addForm > div:nth-of-type(2) { flex-direction: row !important; align-items: center !important; flex-wrap: wrap; }
+        #addForm > div:nth-of-type(2) > * { width: auto !important; flex: 1 1 200px; }
+    }
+
+    /* Small phones (≤360px): tighten everything one more notch */
+    @media (max-width: 360px) {
+        body { padding: 10px; padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
+        .card { padding: 12px; border-radius: 12px; margin-bottom: 12px; }
+        .header h1 { font-size: 18px; }
+        .m-pill { padding: 5px 9px; font-size: 11px; }
+        #mobileTabBar { padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
+        #mobileTabBar button { font-size: 9px; padding: 5px 2px; }
+        #mobileTabBar button svg { width: 20px; height: 20px; }
+    }
+
+    /* Landscape phones (short height): slim tab bar, side-by-side login, horizontal safe-area */
+    @media (orientation: landscape) and (max-height: 480px) {
+        body {
+            padding-left: max(env(safe-area-inset-left), 12px);
+            padding-right: max(env(safe-area-inset-right), 12px);
+            padding-bottom: calc(48px + env(safe-area-inset-bottom)) !important;
         }
-        body.login-body .login-faceid svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #mobileTabBar { padding: 2px 0 calc(2px + env(safe-area-inset-bottom)); }
+        #mobileTabBar button {
+            flex-direction: row; gap: 6px; padding: 4px 8px;
+            min-height: 36px; font-size: 11px;
+        }
+        #mobileTabBar button svg { width: 18px; height: 18px; }
+        .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .a-row, .a-row.two { grid-template-columns: 1fr 1fr !important; }
+        #dashboardModal > .card { max-height: 96vh; padding: 14px 18px 18px !important; }
+        /* Landscape login: two columns via simple flex split */
+        body.login-body .login-box {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 32px;
+            padding: 32px 36px !important;
+            text-align: left !important;
+            max-width: min(720px, 92vw) !important;
+            margin: 0 auto !important;
+        }
+        body.login-body .login-logo,
+        body.login-body .login-eyebrow,
+        body.login-body .login-box h2,
+        body.login-body .login-sub { flex: 0 0 calc(45% - 16px); margin-left: 0 !important; margin-right: 0 !important; }
+        body.login-body .login-logo { margin: 0 0 6px !important; }
+        body.login-body .login-box h2 { font-size: 26px !important; margin: 0 !important; }
+        body.login-body .login-sub { margin: 0 !important; }
+        body.login-body .login-box > input,
+        body.login-body .login-box > button { flex: 1 1 calc(55% - 16px); margin: 0 !important; }
+        body.login-body .login-box > button { margin-top: 12px !important; }
+        body.login-body .login-foot {
+            position: static !important; margin-top: 16px !important;
+            text-align: left !important; opacity: 0.6;
+            flex: 1 0 100%;
+        }
+    }
+
+    /* Tactile feedback — only on touch pointers, never on desktop */
+    @media (hover: none) and (pointer: coarse) {
+        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn,
+        .a-btn-edit, .pill, .login-box button, #mobileTabBar button,
+        .btn-tier, .m-pill, .tb-icon-btn {
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.08s ease-out, box-shadow 0.18s ease;
+        }
+        .btn-submit:active, .btn-edit:active, .btn-del:active, .btn-dns:active,
+        .logout-btn:active, .a-btn-edit:active, .pill:active,
+        .login-box button:active, #mobileTabBar button:active,
+        .btn-tier:active, .m-pill:active, .tb-icon-btn:active {
+            transform: scale(0.96);
+        }
+        /* Strip desktop hover lift when we're on touch */
+        .btn-submit:hover { transform: none; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
+    }
+
+    /* Edge-fade affordance for horizontal scrollers — signals "swipe-able" */
+    @media (max-width: 768px) {
+        .m-pills, #cf-trace-card {
+            -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+                    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+        }
+
+        /* Sheet handle becomes a real drag affordance */
+        #dashboardModal > .card::before {
+            cursor: grab;
+            transition: transform 0.18s ease, background 0.18s ease, width 0.18s ease;
+        }
+        #dashboardModal > .card.is-dragging::before {
+            background: var(--primary); transform: scaleX(1.25); cursor: grabbing;
+        }
+        #dashboardModal > .card.is-dragging { transition: none !important; will-change: transform; }
+
+        /* Stacked table rows feel "pressable" */
+        .table-wrapper tr { transition: transform 0.08s ease-out, box-shadow 0.18s ease; }
+        .table-wrapper tr:active { transform: scale(0.99); }
+
+        /* Density: prevent pill rows / a-stats from overflowing when too dense */
+        .a-stats { row-gap: 8px; }
+    }
+
+    /* Honor reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+        #dashboardModal > .card { animation: none !important; }
     }
 `;
 
@@ -764,10 +883,6 @@ const LOGIN_UI = `
         <p class="login-sub">输入管理员密钥继续。<br>未授权访问将被自动拒绝并记录。</p>
         <input type="password" id="tokenInput" placeholder="请输入密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
         <button onclick="login()">验 证 登 录</button>
-        <button type="button" class="login-faceid" onclick="faceIdHint()">
-            <svg viewBox="0 0 24 24"><path d="M12 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="16" r="2"/></svg>
-            使用 Face ID 登录
-        </button>
         <div class="login-foot">v${CURRENT_VERSION} · Cloudflare Worker<br>仅供学习与技术测试使用</div>
     </div>
     <script>
@@ -781,9 +896,6 @@ const LOGIN_UI = `
             if(!token) return showToast('请输入正确的密钥');
             document.cookie = 'admin_token=' + encodeURIComponent(token) + '; path=/; max-age=2592000;';
             window.location.reload();
-        }
-        function faceIdHint() {
-            showToast('Face ID 暂未启用');
         }
     </script>
 </body>
@@ -860,6 +972,21 @@ const HTML_UI = `
         </div>
     </div>
 
+    <div id="workerUpdateModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
+        <div class="card" style="max-width: 760px; margin: 60px auto; position:relative; border-left: 4px solid #ff3b30; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <button onclick="closeWorkerUpdate()" style="position:absolute; top:20px; right:20px; font-size:24px; background:none; border:none; cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ff3b30'" onmouseout="this.style.color='var(--text-sec)'">✖</button>
+
+            <h2 style="margin:0 0 12px; font-size:18px; color: #ff3b30;">🚀 一键覆盖/更新 Worker 核心层代码</h2>
+            <div style="font-size: 13px; color: var(--text-sec); margin-bottom: 12px;">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
+            <textarea id="codeArea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..." style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card); font-size:12px;"></textarea>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size:14px; font-weight:bold;">或 方式二：</span>
+                <input type="file" id="fileInput" accept=".js" style="font-size:14px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background:var(--bg);">
+                <button type="button" class="btn-tier is-danger" id="deployBtn" onclick="deployWorker()" style="margin-left: auto;">立即覆盖部署并重启节点</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Slim, dismissable update banner -->
         <div id="updateAlert" class="tb-banner" style="display: none; margin-top: 20px;">
@@ -910,6 +1037,7 @@ const HTML_UI = `
             <div class="tb-spacer"></div>
 
             <button class="btn-tier is-primary" onclick="openDashboard()">📊 数据大屏</button>
+            <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码">⚙️</button>
             <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" title="切换深色模式">🌙</button>
             <button class="tb-icon-btn danger" onclick="logout()" title="退出系统">⏻</button>
         </div>
@@ -945,18 +1073,6 @@ const HTML_UI = `
 
         <div class="content-wrap">
 
-            <div class="card" style="border-left: 4px solid #ff3b30;">
-    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-        <h2 style="margin:0; font-size:18px; color: #ff3b30;">🚀 一键覆盖/更新 Worker 核心层代码</h2>
-    </div>
-    <div style="font-size: 13px; color: var(--text-sec); margin-bottom: 12px;">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
-    <textarea id="codeArea" rows="6" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..." style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card); font-size:12px;"></textarea>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-        <span style="font-size:14px; font-weight:bold;">或 方式二：</span>
-        <input type="file" id="fileInput" accept=".js" style="font-size:14px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background:var(--bg);">
-        <button type="button" class="btn-tier is-danger" id="deployBtn" onclick="deployWorker()" style="margin-left: auto;">立即覆盖部署并重启节点</button>
-    </div>
-</div>
             <div class="card" id="speed-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                     <h2 style="margin:0; font-size:18px;">⚡ 专属线路测速与动态 DNS 解析</h2>
@@ -1375,6 +1491,15 @@ const HTML_UI = `
         }
 
         function closeDashboard() { document.getElementById('dashboardModal').style.display = 'none'; }
+
+        function openWorkerUpdate() {
+            const m = document.getElementById('workerUpdateModal');
+            if (m) m.style.display = 'block';
+        }
+        function closeWorkerUpdate() {
+            const m = document.getElementById('workerUpdateModal');
+            if (m) m.style.display = 'none';
+        }
 
         async function loadIcons(forceUrl = null) {
             const grid = document.getElementById('iconGrid');
@@ -2844,11 +2969,62 @@ const HTML_UI = `
                     new MutationObserver(sync).observe(node, { childList: true, characterData: true, subtree: true });
                 });
             }
+            // 📱 Drag-to-dismiss for the bottom-sheet dashboard modal (mobile only)
+            function initSheetGesture() {
+                const modal = document.getElementById('dashboardModal');
+                if (!modal) return;
+                const card = modal.querySelector('.card');
+                if (!card) return;
+                const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+                let startY = 0, dy = 0, dragging = false;
+
+                card.addEventListener('touchstart', (e) => {
+                    if (!isMobile()) return;
+                    // Only start drag when sheet is scrolled to top AND finger lands on/near the grip (top 44px)
+                    if (card.scrollTop > 0) return;
+                    const t = e.touches[0];
+                    const rect = card.getBoundingClientRect();
+                    if (t.clientY - rect.top > 44) return;
+                    startY = t.clientY; dy = 0; dragging = true;
+                    card.classList.add('is-dragging');
+                }, { passive: true });
+
+                card.addEventListener('touchmove', (e) => {
+                    if (!dragging) return;
+                    dy = Math.max(0, e.touches[0].clientY - startY);
+                    // Light resistance after 200px so it feels rubbery, not slippery
+                    const eased = dy < 200 ? dy : 200 + (dy - 200) * 0.4;
+                    card.style.transform = 'translateY(' + eased + 'px)';
+                }, { passive: true });
+
+                const finish = () => {
+                    if (!dragging) return;
+                    dragging = false;
+                    card.classList.remove('is-dragging');
+                    card.style.transition = 'transform 0.24s cubic-bezier(.32,.72,.3,1)';
+                    if (dy > 120) {
+                        card.style.transform = 'translateY(100%)';
+                        setTimeout(() => {
+                            if (typeof closeDashboard === 'function') closeDashboard();
+                            card.style.transition = '';
+                            card.style.transform = '';
+                        }, 240);
+                    } else {
+                        card.style.transform = '';
+                        setTimeout(() => { card.style.transition = ''; }, 240);
+                    }
+                    dy = 0;
+                };
+                card.addEventListener('touchend', finish);
+                card.addEventListener('touchcancel', finish);
+            }
+
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => { initMobileTabBar(); initMobilePills(); });
+                document.addEventListener('DOMContentLoaded', () => { initMobileTabBar(); initMobilePills(); initSheetGesture(); });
             } else {
                 initMobileTabBar();
                 initMobilePills();
+                initSheetGesture();
             }
         })();
     </script>
