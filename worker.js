@@ -641,6 +641,9 @@ const CSS_COMMON = `
     .m-pill .dot.green { background: #34c759; box-shadow: 0 0 5px #34c759; }
     .m-pill .dot.amber { background: #ff9500; box-shadow: 0 0 5px #ff9500; }
     .m-pill.strong .val { color: var(--primary); }
+    .m-pill.tappable { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+    .m-pill.tappable .caret { color: var(--text-sec); font-size: 10px; margin-left: 1px; }
+    .m-pill.tappable:active { transform: scale(0.97); }
 
     #mobileTabBar { display: none; }
 
@@ -1067,7 +1070,7 @@ const HTML_UI = `
         <!-- Mobile-only status pills row (RTT / 模式 / 今日) -->
         <div class="m-pills" id="mobilePills" aria-label="移动端状态">
             <span class="m-pill"><span class="dot green"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
-            <span class="m-pill"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span></span>
+            <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
             <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
         </div>
 
@@ -2423,6 +2426,15 @@ const HTML_UI = `
             if (!pill || !drawer) return;
             pill.classList.toggle('open');
             drawer.classList.toggle('open');
+        }
+
+        function openPlacementDrawerFromMobile() {
+            var pill = document.getElementById('placePill');
+            var drawer = document.getElementById('placeDrawer');
+            if (!drawer) return;
+            if (pill) pill.classList.add('open');
+            drawer.classList.add('open');
+            try { drawer.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { drawer.scrollIntoView(); }
         }
 
         // 🚀 新增：调用部署修改接口
