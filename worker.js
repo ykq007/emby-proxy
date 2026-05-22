@@ -3718,6 +3718,112 @@ async function sendTgStats(env, chatId) {
     }
 }
 
+// ==========================================
+// 反代核心健壮性辅助函数 (proxy-core robustness helpers)
+// ==========================================
+const MAX_RETRY_BODY_BYTES = 8 * 1024 * 1024; // 8MB：超过此值的请求体不缓冲、不重试
+
+// 构造发往源站的请求头：剥离 cf-* 元数据、套用伪装模式、注入节点自定义头
+function buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw) {
+    const h = new Headers(request.headers);
+    h.set("Host", targetUrl.host);
+    // 去掉 Accept-Encoding，让源站返回未压缩内容以便正确重写响应体
+    h.delete("Accept-Encoding");
+
+    const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(',')[0].trim();
+    h.delete("cf-connecting-ip"); h.delete("cf-ipcountry"); h.delete("cf-ray");
+    h.delete("cf-visitor"); h.delete("x-forwarded-for"); h.delete("x-real-ip");
+
+    if (currentMode === 'realip_only' && realIp) {
+        h.set("X-Real-IP", realIp);
+    } else if (currentMode === 'dual' && realIp) {
+        h.set("X-Real-IP", realIp); h.set("X-Forwarded-For", realIp);
+    } else if (currentMode === 'strict') {
+        // 强力防 403 模式：强制清空原始端代理参数，对齐 Origin
+        h.delete("X-Forwarded-Proto"); h.delete("X-Forwarded-Host");
+        h.set("Origin", targetUrl.origin); h.set("Referer", targetUrl.origin + "/");
+        if (realIp) { h.set("X-Real-IP", realIp); h.set("X-Forwarded-For", realIp); }
+    }
+
+    // 🌟 应用节点自定义请求头 (格式: Key: Value，每行一条)
+    if (customHeadersRaw) {
+        customHeadersRaw.split('\n').forEach(line => {
+            const idx = line.indexOf(':');
+            if (idx > 0) {
+                const key = line.slice(0, idx).trim();
+                const val = line.slice(idx + 1).trim();
+                if (key) h.set(key, val);
+            }
+        });
+    }
+    return h;
+}
+
+// http <-> https 协议互换，返回新的 URL 对象；非 http(s) 返回 null
+function flipScheme(targetUrl) {
+    const u = new URL(targetUrl);
+    if (u.protocol === 'https:') u.protocol = 'http:';
+    else if (u.protocol === 'http:') u.protocol = 'https:';
+    else return null;
+    return u;
+}
+
+// fetch 包装：源站 SSL 类错误 (525/526/530) 或抛异常时，自动切换 http/https 协议重试一次
+async function fetchWithSchemeFallback(targetUrl, fetchInit, canRetry) {
+    const SSL_ERR = [525, 526, 530];
+    if (!canRetry) {
+        // 请求体不可重放（流式 / 超限），单次发送，异常向上抛出走多节点故障转移
+        return await fetch(new Request(targetUrl, fetchInit));
+    }
+    try {
+        const resp = await fetch(new Request(targetUrl, fetchInit));
+        if (!SSL_ERR.includes(resp.status)) return resp;
+        const flipped = flipScheme(targetUrl);
+        if (!flipped) return resp;
+        try { return await fetch(new Request(flipped, fetchInit)); }
+        catch (e) { return resp; }
+    } catch (err) {
+        const flipped = flipScheme(targetUrl);
+        if (!flipped) throw err;
+        return await fetch(new Request(flipped, fetchInit));
+    }
+}
+
+// 源站返回 403 时，逐级调整请求头重试 (最多 3 次额外尝试)
+// 返回首个非 403 响应；全部失败返回最后一次 403；无尝试返回 null
+async function attempt403Cascade(targetUrl, baseHeaders, fetchInit, currentMode) {
+    const strategies = [];
+    // 策略 2：对齐源站 Origin/Referer (strict 模式下已是基线，跳过避免重复)
+    if (currentMode !== 'strict') {
+        strategies.push((h) => {
+            h.set("Origin", targetUrl.origin);
+            h.set("Referer", targetUrl.origin + "/");
+        });
+    }
+    // 策略 3：删除 Origin/Referer/Sec-Fetch-*
+    strategies.push((h) => {
+        h.delete("Origin"); h.delete("Referer");
+        for (const k of [...h.keys()]) { if (k.toLowerCase().startsWith('sec-fetch-')) h.delete(k); }
+    });
+    // 策略 4：最小化请求头，仅保留 UA / Accept / 鉴权 / 内容头
+    strategies.push((h) => {
+        const keep = ['user-agent', 'accept', 'host', 'x-emby-token', 'x-mediabrowser-token', 'x-emby-authorization', 'authorization', 'content-type', 'content-length'];
+        for (const k of [...h.keys()]) { if (!keep.includes(k.toLowerCase())) h.delete(k); }
+    });
+
+    let lastResp = null;
+    for (const apply of strategies) {
+        const h = new Headers(baseHeaders);
+        apply(h);
+        try {
+            const resp = await fetch(new Request(targetUrl, { ...fetchInit, headers: h }));
+            if (resp.status !== 403) return resp;
+            lastResp = resp;
+        } catch (e) { /* 忽略，尝试下一策略 */ }
+    }
+    return lastResp;
+}
+
 export default {
     // 每天自动运行发送 TG 统计
     async scheduled(event, env, ctx) {
@@ -4265,6 +4371,25 @@ export default {
         if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
 
         // ==========================================
+        // 2.6.5 WebSocket 反代 (Emby 会话保活 / 远程控制 / SyncPlay)
+        // ==========================================
+        if ((request.headers.get('Upgrade') || '').toLowerCase() === 'websocket') {
+            let wsLastError = null;
+            for (let i = 0; i < targetUrls.length; i++) {
+                const wsTarget = new URL(targetUrls[i] + remainingPath + url.search);
+                const wsHeaders = buildUpstreamHeaders(request, wsTarget, currentMode, customHeadersRaw);
+                try {
+                    const resp = await fetch(new Request(wsTarget, { headers: wsHeaders }));
+                    if (resp.webSocket) {
+                        return new Response(null, { status: 101, webSocket: resp.webSocket });
+                    }
+                    wsLastError = new Error(`Node ${i + 1}: upstream did not upgrade (status ${resp.status})`);
+                } catch (err) { wsLastError = err; }
+            }
+            return new Response("WebSocket upstream failed. Last Error: " + (wsLastError?.message || 'Unknown Error'), { status: 502 });
+        }
+
+        // ==========================================
         // 2.7 防爆型精准日志拦截 (修复统计虚高：仅拦截点火请求)
         // ==========================================
         const isNewPlaySession = /\/PlaybackInfo/i.test(url.pathname);
@@ -4292,46 +4417,21 @@ export default {
         // ==========================================
         // 2.8 无伪装模式下的源站反代 (含强力防 403 引擎)
         // ==========================================
-        const isStrictMode = currentMode === 'strict';
-
+        const hasBody = request.method !== 'GET' && request.method !== 'HEAD' && !!request.body;
         let bodyBuffer = null;
-        if (request.method !== 'GET' && request.method !== 'HEAD' && targetUrls.length > 1) {
-            bodyBuffer = await request.clone().arrayBuffer();
+        if (hasBody) {
+            const buf = await request.clone().arrayBuffer();
+            if (buf.byteLength <= MAX_RETRY_BODY_BYTES) { bodyBuffer = buf; }
+            // 超过上限：bodyBuffer 保持 null，走单次流式发送、不做协议/403 重试
         }
+        // 请求体可重放时（无体 或 已缓冲）才允许协议回退 / 403 级联重试
+        const canRetry = !hasBody || bodyBuffer !== null;
 
         let finalResponse = null; let lastError = null;
 
         for (let i = 0; i < targetUrls.length; i++) {
             const targetUrlStr = targetUrls[i] + remainingPath + url.search; const targetUrl = new URL(targetUrlStr);
-            const newHeaders = new Headers(request.headers); newHeaders.set("Host", targetUrl.host);
-            // 去掉 Accept-Encoding，让源站返回未压缩内容，这样我们才能正确重写响应体
-            // CF Worker 会自动在返回给客户端时重新压缩，不影响用户体验
-            newHeaders.delete("Accept-Encoding");
-
-            const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(',')[0].trim();
-            newHeaders.delete("cf-connecting-ip"); newHeaders.delete("cf-ipcountry"); newHeaders.delete("cf-ray");
-            newHeaders.delete("cf-visitor"); newHeaders.delete("x-forwarded-for"); newHeaders.delete("x-real-ip");
-
-            if (currentMode === 'realip_only' && realIp) { newHeaders.set("X-Real-IP", realIp); }
-            else if (currentMode === 'dual' && realIp) { newHeaders.set("X-Real-IP", realIp); newHeaders.set("X-Forwarded-For", realIp); }
-            else if (isStrictMode) {
-                // 强力防 403 模式：强制清空原始端代理参数，对齐 Origin
-                newHeaders.delete("X-Forwarded-Proto"); newHeaders.delete("X-Forwarded-Host");
-                newHeaders.set("Origin", targetUrl.origin); newHeaders.set("Referer", targetUrl.origin + "/");
-                if (realIp) { newHeaders.set("X-Real-IP", realIp); newHeaders.set("X-Forwarded-For", realIp); }
-            }
-
-            // 🌟 应用节点自定义请求头 (格式: Key: Value，每行一条)
-            if (customHeadersRaw) {
-                customHeadersRaw.split('\n').forEach(line => {
-                    const idx = line.indexOf(':');
-                    if (idx > 0) {
-                        const key = line.slice(0, idx).trim();
-                        const val = line.slice(idx + 1).trim();
-                        if (key) newHeaders.set(key, val);
-                    }
-                });
-            }
+            const newHeaders = buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw);
 
             const isStaticOrImage = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(targetUrl.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(targetUrl.pathname);
 
@@ -4339,13 +4439,18 @@ export default {
 
             if (isStaticOrImage && enableCache) { fetchInit.cf = { cacheEverything: true, cacheTtl: 86400 }; }
 
-            if (request.method !== 'GET' && request.method !== 'HEAD') {
-                if (targetUrls.length > 1) { fetchInit.body = bodyBuffer; }
+            if (hasBody) {
+                if (bodyBuffer !== null) { fetchInit.body = bodyBuffer; }
                 else { fetchInit.body = request.body; fetchInit.duplex = 'half'; }
             }
 
             try {
-                const modifiedRequest = new Request(targetUrl, fetchInit); const response = await fetch(modifiedRequest);
+                let response = await fetchWithSchemeFallback(targetUrl, fetchInit, canRetry);
+                // 源站 403 → 逐级调整请求头重试
+                if (response.status === 403 && canRetry) {
+                    const cascaded = await attempt403Cascade(targetUrl, newHeaders, fetchInit, currentMode);
+                    if (cascaded) response = cascaded;
+                }
                 if (response.status === 502 || response.status === 503 || response.status === 504) { lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`); continue; }
                 finalResponse = response; break;
             } catch (err) { lastError = err; continue; }
@@ -4364,9 +4469,24 @@ export default {
         // ==========================================
         if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
             const location = responseHeaders.get('Location');
-            if (location && /^https?:\/\//i.test(location)) {
-                // 🎯 补回 encodeURIComponent，防止播放器解析重定向头时发疯
-                responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
+            if (location) {
+                if (/^https?:\/\//i.test(location)) {
+                    // 绝对地址：套代理前缀 + encodeURIComponent，防止播放器解析重定向头时发疯
+                    responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
+                } else if (location.startsWith('//')) {
+                    // 协议相对地址 //host/path：补全协议后按绝对处理
+                    const abs = new URL(request.url).protocol + location;
+                    responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(abs)}`);
+                } else if (location.startsWith('/')) {
+                    // 根相对地址 /path：补回节点前缀，避免客户端逃出代理
+                    if (safePrefix) responseHeaders.set('Location', `${safePrefix}${location}`);
+                } else {
+                    // 裸相对地址 foo/bar：相对源站请求地址解析后按绝对处理
+                    try {
+                        const abs = new URL(location, targetUrls[0] + remainingPath).href;
+                        responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(abs)}`);
+                    } catch (e) { /* 解析失败则保持原样 */ }
+                }
             }
         }
 
@@ -4403,12 +4523,15 @@ export default {
         // 判断是否需要做响应体重写，避免对不需要处理的请求读取 body
         const needsJsonPlayback = finalResponse.status === 200 && contentType.includes("json") && pathLower.includes("playbackinfo");
         const needsSystemInfo = finalResponse.status === 200 && contentType.includes("json") && /\/system\/info(\/public)?$/i.test(pathLower);
-        const needsM3u8 = finalResponse.status === 200 && pathLower.endsWith('.m3u8');
+        const needsManifest = finalResponse.status === 200 && (
+            pathLower.endsWith('.m3u8') || pathLower.endsWith('.mpd') ||
+            contentType.includes('mpegurl') || contentType.includes('dash+xml')
+        );
         const needsHtmlJs = finalResponse.status === 200 && frontendOrigin && (
             contentType.includes('text/html') || contentType.includes('text/javascript') || contentType.includes('application/javascript')
         );
 
-        if (needsJsonPlayback || needsSystemInfo || needsM3u8 || needsHtmlJs) {
+        if (needsJsonPlayback || needsSystemInfo || needsManifest || needsHtmlJs) {
             try {
                 const bodyText = await finalResponse.text();
 
@@ -4452,8 +4575,8 @@ export default {
                     } catch (e) { console.log("System/Info 重写失败:", e.message); }
                 }
 
-                // ③ M3U8 播放列表
-                if (needsM3u8) {
+                // ③ M3U8 / DASH 播放列表 (HLS .m3u8 + DASH .mpd)
+                if (needsManifest) {
                     if (bodyText.includes('http://') || bodyText.includes('https://')) {
                         const rewritten = rewriteBackendUrls(bodyText);
                         responseHeaders.delete("Content-Length");
