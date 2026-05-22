@@ -1,6 +1,6 @@
-// VERSION: 2.0.7
+// VERSION: 2.1.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.0.7";
+const CURRENT_VERSION = "2.1.0";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -10,25 +10,45 @@ const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 const SVG_TG = `<svg viewBox="0 0 24 24" style="width:20px;height:20px;margin-right:8px;fill:#0088cc;"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>`;
 
 const CSS_COMMON = `
-    :root { 
-        --primary: #0071e3; 
+    :root {
+        --primary: #0071e3;
         --primary-hover: #005cbf;
-        --bg: #f5f5f7; 
-        --card: #ffffff; 
-        --text: #1d1d1f; 
+        --bg: #f5f5f7;
+        --card: #ffffff;
+        --text: #1d1d1f;
         --text-sec: #86868b;
-        --border: #d2d2d7; 
+        --border: #d2d2d7;
         --radius-card: 16px;
+        /* 科技风扩展变量 (浅色版) */
+        --surface: #ffffff;
+        --surface-2: #f0f1f4;
+        --accent-glow: rgba(0,113,227,0.18);
+        --sidebar-bg: #ffffff;
+        --topbar-bg: #ffffff;
+        --ok: #34c759;
+        --warn: #ff9500;
+        --err: #ff3b30;
+        --card-shadow: 0 4px 20px rgba(0,0,0,0.05);
     }
-    
+
     body.dark {
-        --primary: #0a84ff; 
-        --primary-hover: #0071e3;
-        --bg: #000000; 
-        --card: #1c1c1e; 
-        --text: #f5f5f7; 
-        --text-sec: #98989d;
-        --border: #38383a;
+        --primary: #2f9bff;
+        --primary-hover: #5cb0ff;
+        --bg: #07090f;
+        --card: #12151d;
+        --text: #e9edf5;
+        --text-sec: #8b93a7;
+        --border: #232838;
+        /* 科技风扩展变量 (深色版) */
+        --surface: #12151d;
+        --surface-2: #181c27;
+        --accent-glow: rgba(47,155,255,0.32);
+        --sidebar-bg: #0c0e15;
+        --topbar-bg: #0e1119;
+        --ok: #30d158;
+        --warn: #ff9f0a;
+        --err: #ff453a;
+        --card-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 6px 26px rgba(0,0,0,0.55);
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
@@ -662,12 +682,9 @@ const CSS_COMMON = `
         }
         .m-pills::-webkit-scrollbar { display: none; }
 
-        /* Mobile takes over RTT + placement pill duty: hide the desktop ones */
-        #cf-trace-card .pill[title*="设备到云端"] { display: none; }
-        #cf-trace-card .pill.expandable#placePill { display: none; }
-        /* cf-trace-card now wraps instead of horizontal scroll */
-        #cf-trace-card { flex-wrap: wrap !important; row-gap: 8px; overflow-x: visible !important; }
-        #cf-trace-card .tb-spacer { display: none; }
+        /* Mobile: topbar 精简, 调度 pill 由移动端状态行接管 */
+        #cf-trace-card #placePill { display: none; }
+        #cf-trace-card .topbar-spacer { display: none; }
 
         /* Sticky save button for deploy/edit form */
         #addForm #submitBtn {
@@ -845,6 +862,181 @@ const CSS_COMMON = `
         }
         #dashboardModal > .card { animation: none !important; }
     }
+
+    /* ============================================================
+       Admin UI Redesign — 反代核心·安全中心 仪表盘布局
+       侧边栏 + 顶部状态栏 + 分区内容 + 危险操作底部条
+       ============================================================ */
+    body.shell-on { padding: 0 !important; }
+    .app-shell { display: flex; min-height: 100vh; width: 100%; }
+
+    /* --- 侧边栏 --- */
+    .sidebar {
+        width: 248px; flex-shrink: 0; background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        position: sticky; top: 0; height: 100vh;
+        transition: width 0.22s ease;
+    }
+    .sidebar-brand {
+        display: flex; align-items: center; gap: 12px;
+        padding: 20px 18px; border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo {
+        width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+        background: linear-gradient(135deg, var(--primary), #5856d6);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .sidebar-logo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .sidebar-brand-text { min-width: 0; }
+    .sidebar-brand-title { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-brand-sub { font-size: 11px; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+    .nav-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 11px 12px; border-radius: 10px; cursor: pointer;
+        color: var(--text-sec); font-size: 14px; font-weight: 600;
+        border: 1px solid transparent; transition: 0.15s; white-space: nowrap;
+        font-family: inherit; background: transparent; width: 100%; text-align: left;
+    }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item:hover { color: var(--text); background: rgba(120,120,140,0.08); }
+    .nav-item.is-active {
+        color: var(--primary); background: var(--accent-glow);
+        border-color: rgba(47,155,255,0.25);
+    }
+    .sidebar-foot {
+        padding: 12px; border-top: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar-collapse {
+        display: flex; align-items: center; gap: 10px; justify-content: center;
+        padding: 9px; border-radius: 9px; cursor: pointer;
+        background: rgba(120,120,140,0.07); border: 1px solid var(--border);
+        color: var(--text-sec); font: inherit; font-size: 12px; font-weight: 600;
+    }
+    .sidebar-collapse:hover { color: var(--primary); border-color: var(--primary); }
+    .sidebar-collapse svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform 0.2s; }
+    .sidebar-version { text-align: center; font-size: 11px; color: var(--text-sec); }
+
+    /* 折叠态 */
+    .sidebar.collapsed { width: 68px; }
+    .sidebar.collapsed .sidebar-brand-text,
+    .sidebar.collapsed .nav-item span,
+    .sidebar.collapsed .sidebar-version,
+    .sidebar.collapsed .sidebar-collapse span { display: none; }
+    .sidebar.collapsed .sidebar-brand { justify-content: center; padding: 18px 10px; }
+    .sidebar.collapsed .nav-item { justify-content: center; padding: 11px 0; }
+    .sidebar.collapsed .sidebar-collapse svg { transform: rotate(180deg); }
+
+    /* --- 主区 --- */
+    .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    /* --- 顶部状态栏 --- */
+    .topbar {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 14px 24px; background: var(--topbar-bg);
+        border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 90;
+    }
+    .topbar .tb-stat {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 7px 13px; border-radius: 10px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .topbar .tb-stat .lbl { color: var(--text-sec); font-weight: 500; }
+    .topbar .tb-stat .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .topbar .tb-stat .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .topbar .tb-stat .dot.green { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+    .topbar .tb-stat .dot.amber { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+    .topbar .tb-stat .dot.red { background: var(--err); box-shadow: 0 0 6px var(--err); }
+    .topbar-spacer { flex: 1; min-width: 8px; }
+    .topbar-user {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 5px 12px 5px 6px; border-radius: 999px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        font-size: 12px; font-weight: 600;
+    }
+    .topbar-user .ava {
+        width: 26px; height: 26px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), #5856d6);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700;
+    }
+
+    /* --- 内容区与分区 --- */
+    .content { flex: 1; padding: 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
+    .app-section { display: none; }
+    .app-section.is-active { display: block; animation: sec-fade 0.22s ease; }
+    @keyframes sec-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* --- 危险操作底部条 --- */
+    .danger-bar {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        padding: 12px 24px; border-top: 1px solid var(--err);
+        background: linear-gradient(90deg, rgba(255,69,58,0.10), rgba(255,69,58,0.02));
+        position: sticky; bottom: 0; z-index: 80;
+    }
+    .danger-bar .db-title {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 12px; font-weight: 700; color: var(--err); white-space: nowrap;
+    }
+    .danger-bar .db-title .db-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); box-shadow: 0 0 8px var(--err); }
+    .danger-bar .db-sub { font-size: 12px; color: var(--text-sec); }
+    .danger-bar .db-spacer { flex: 1; min-width: 8px; }
+
+    /* 科技风卡片微光 (深色) */
+    body.dark .card { box-shadow: var(--card-shadow); }
+    body.dark .emby-card { box-shadow: var(--card-shadow); }
+    body.dark .emby-card:hover { box-shadow: 0 0 0 1px var(--accent-glow), 0 10px 30px rgba(0,0,0,0.6); }
+
+    /* --- 节点状态徽章 --- */
+    .node-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 9px; border-radius: 999px;
+        font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .node-badge .bdot { width: 6px; height: 6px; border-radius: 50%; }
+    .node-badge.is-online { color: var(--ok); background: rgba(52,199,89,0.12); }
+    .node-badge.is-online .bdot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+    .node-badge.is-slow { color: var(--warn); background: rgba(255,159,10,0.12); }
+    .node-badge.is-slow .bdot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+    .node-badge.is-offline { color: var(--err); background: rgba(255,69,58,0.12); }
+    .node-badge.is-offline .bdot { background: var(--err); box-shadow: 0 0 6px var(--err); }
+    .node-badge.is-idle { color: var(--text-sec); background: rgba(142,142,147,0.14); }
+    .node-badge.is-idle .bdot { background: var(--text-sec); }
+
+    /* --- 迷你 SVG 折线图 --- */
+    .node-spark { width: 100%; height: 38px; display: block; }
+    .node-spark .sk-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .node-spark .sk-area { fill: var(--accent-glow); opacity: 0.5; }
+    .node-spark-empty {
+        height: 38px; display: flex; align-items: center; justify-content: center;
+        font-size: 11px; color: var(--text-sec);
+        border: 1px dashed var(--border); border-radius: 8px;
+    }
+
+    /* --- 移动端: 隐藏侧边栏, 沿用底部 tab --- */
+    @media (max-width: 768px) {
+        body.shell-on { padding: 0 !important; }
+        .app-shell { display: block; }
+        .sidebar { display: none; }
+        .app-main { display: block; }
+        .topbar {
+            padding: 10px 14px; gap: 8px;
+            flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+        }
+        .topbar::-webkit-scrollbar { display: none; }
+        .topbar > * { flex-shrink: 0; }
+        .content { padding: 14px; padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+        .danger-bar {
+            position: static; padding: 14px;
+            margin-bottom: calc(72px + env(safe-area-inset-bottom));
+        }
+        .danger-bar .db-sub { width: 100%; }
+    }
 `;
 
 const LOGIN_UI = `
@@ -916,7 +1108,7 @@ const HTML_UI = `
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="shell-on">
     <div id="toast"></div>
 
     <!-- Shared SVG sprite (UI Suggestions v2.0.7) -->
@@ -941,39 +1133,6 @@ const HTML_UI = `
         </defs>
     </svg>
 
-    <div id="dashboardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
-        <div class="card" style="max-width: 1000px; margin: 40px auto; position:relative; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-            <button onclick="closeDashboard()" style="position:absolute; top:20px; right:20px; font-size:24px; background:none; border:none; cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ff3b30'" onmouseout="this.style.color='var(--text-sec)'">✖</button>
-            
-            <h2 style="margin-top:0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    📊 数据大屏 <span style="font-size:14px; font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
-                </div>
-                <div style="font-size: 13px; background: rgba(0,113,227,0.1); color: var(--primary); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(0,113,227,0.2); display: flex; gap: 15px; flex-wrap: wrap;">
-                    <span> 今天: <strong id="trafficToday">加载中...</strong></span>
-                    <span>1周内: <strong id="traffic7d">加载中...</strong></span>
-                    <span>1月内: <strong id="traffic30d">加载中...</strong></span>
-                </div>
-            </h2>
-            
-            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top:20px;">
-                <div style="flex: 2; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03);">
-                    <canvas id="trendChart"></canvas>
-                </div>
-                <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03); display: flex; justify-content: center; align-items: center;">
-                    <canvas id="locationChart"></canvas>
-                </div>
-            </div>
-            
-            <h3 style="margin-top: 30px; margin-bottom:16px;">🕵️ 最新独立播放记录 <span style="font-size:12px; color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
-            <div class="table-wrapper">
-                <table style="width: 100%;">
-                    <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识 (User-Agent)</th></tr></thead>
-                    <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center; padding: 30px;">加载数据中...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
     <div id="workerUpdateModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
         <div class="card" style="max-width: 760px; margin: 60px auto; position:relative; border-left: 4px solid #ff3b30; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
@@ -990,91 +1149,163 @@ const HTML_UI = `
         </div>
     </div>
 
-    <div class="container">
-        <!-- Slim, dismissable update banner -->
-        <div id="updateAlert" class="tb-banner" style="display: none; margin-top: 20px;">
-            <span class="b-tag">NEW</span>
-            <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
-            <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
-            <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
-        </div>
-
-        <!-- Consolidated top status bar -->
-        <div id="cf-trace-card" class="tb-bar" style="margin-top: 20px;">
-            <div class="tb-title">
-                <div class="tb-logo">⚡</div>
-                <span>反代核心</span>
-            </div>
-
-            <div class="tb-divider"></div>
-
-            <!-- RTT pill -->
-            <div class="pill" title="你的设备到云端边缘节点的真实往返延迟">
-                <span class="dot green" id="rttDot"></span>
-                <span class="lbl">RTT</span>
-                <span class="val" id="rttValue">测算中</span>
-                <div class="tip">
-                    <div class="line"><span class="tip-key">RTT</span><span>设备 → 边缘节点延迟</span></div>
-                    <div class="tip-key" style="font-size:10px;">每 5s 自动测算</div>
+    <div class="app-shell">
+        <!-- ===== 侧边栏 ===== -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                <div class="sidebar-brand-text">
+                    <div class="sidebar-brand-title">反代核心 · 安全中心</div>
+                    <div class="sidebar-brand-sub">Emby 反向代理管理喵板</div>
                 </div>
             </div>
+            <nav class="sidebar-nav">
+                <button type="button" class="nav-item is-active" data-section="overview" onclick="showSection('overview')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                    <span>概览</span>
+                </button>
+                <button type="button" class="nav-item" data-section="speed" onclick="showSection('speed')">
+                    <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>线路测速 &amp; DNS</span>
+                </button>
+                <button type="button" class="nav-item" data-section="stats" onclick="showSection('stats')">
+                    <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+                    <span>数据统计</span>
+                </button>
+                <button type="button" class="nav-item" data-section="settings" onclick="showSection('settings')">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>系统设置</span>
+                </button>
+                <button type="button" class="nav-item" data-section="tools" onclick="showSection('tools')">
+                    <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <span>工具箱</span>
+                </button>
+            </nav>
+            <div class="sidebar-foot">
+                <button type="button" class="sidebar-collapse" id="sidebarCollapseBtn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span>收起侧栏</span>
+                </button>
+                <div class="sidebar-version">v${CURRENT_VERSION}</div>
+            </div>
+        </aside>
 
-            <!-- CF Trace pill (entry → egress) -->
-            <div class="pill">
-                <span class="val" id="trace-entry">--</span>
-                <span style="color: var(--text-sec); font-size: 11px;">→</span>
-                <span class="val" id="trace-egress" style="color: #34c759;">--</span>
-                <div class="tip">
-                    <div class="line"><span class="tip-key">访客入口</span><span>地区与机房</span></div>
-                    <div class="line"><span class="tip-key">Worker 落地</span><span>实际物理机房</span></div>
+        <div class="app-main">
+            <!-- ===== 顶部状态栏 (保留 #cf-trace-card 供 JS 使用) ===== -->
+            <header id="cf-trace-card" class="topbar">
+                <div class="tb-stat" title="你的设备到云端边缘节点的真实往返延迟">
+                    <span class="dot green" id="rttDot"></span>
+                    <span class="lbl">运行</span>
+                    <span class="val" id="rttValue">测算中</span>
+                </div>
+                <div class="tb-stat">
+                    <span class="lbl">节点</span>
+                    <span class="val" id="tb-node-count">--</span>
+                </div>
+                <div class="tb-stat">
+                    <span class="lbl">今日流量</span>
+                    <span class="val" id="tb-traffic-today">--</span>
+                </div>
+                <div class="tb-stat" id="tb-health">
+                    <span class="dot green" id="tb-health-dot"></span>
+                    <span class="lbl">健康度</span>
+                    <span class="val" id="tb-health-val">--</span>
+                </div>
+                <div class="tb-stat pill expandable" id="placePill" onclick="togglePlacementDrawer()" style="cursor:pointer;">
+                    <span class="lbl">调度</span>
+                    <span id="placeModeLabel">智能</span>
+                    <span class="caret">▾</span>
+                </div>
+                <span class="val" id="trace-entry" style="display:none;">--</span>
+                <span class="val" id="trace-egress" style="display:none;">--</span>
+
+                <div class="topbar-spacer"></div>
+
+                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码">⚙️</button>
+                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" title="切换主题">🌓</button>
+                <div class="topbar-user">
+                    <span class="ava">A</span>
+                    <span>admin</span>
+                    <button class="tb-icon-btn danger" onclick="logout()" title="退出系统" style="width:28px;height:28px;">⏻</button>
+                </div>
+            </header>
+
+            <!-- Slim, dismissable update banner -->
+            <div id="updateAlert" class="tb-banner" style="display: none; margin: 14px 24px 0;">
+                <span class="b-tag">NEW</span>
+                <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
+                <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
+                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
+            </div>
+
+            <!-- Placement drawer (collapsed by default) -->
+            <div class="tb-drawer" id="placeDrawer" style="margin: 14px 24px 0;">
+                <h3>Worker 调度模式</h3>
+                <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
+                <div class="controls">
+                    <select id="cf-mode-select" onchange="handleModeChange()">
+                        <option value='{"mode":"smart"}'>🤖 智能调度 (Smart Placement)</option>
+                        <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认离访客近)</option>
+                        <optgroup label="📍 指定云厂商物理机房落地">
+                            <option value="aws">☁️ AWS (亚马逊云)</option>
+                            <option value="gcp">☁️ GCP (谷歌云)</option>
+                            <option value="azure">☁️ Azure (微软云)</option>
+                        </optgroup>
+                        <option value="custom">✏️ 手动输入区域代码...</option>
+                    </select>
+                    <select id="cf-region-select" style="display: none;"></select>
+                    <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
+                    <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
+                </div>
+                <div class="status"><span id="place-status">🔒 后台全自动安全调度，不暴露任何私钥</span></div>
+            </div>
+
+        <div class="content">
+
+            <!-- Mobile-only status pills row (RTT / 模式 / 今日) -->
+            <div class="m-pills" id="mobilePills" aria-label="移动端状态">
+                <span class="m-pill"><span class="dot green"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+                <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
+                <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
+            </div>
+
+            <!-- ===== 分区: 数据统计 ===== -->
+            <section id="sec-stats" class="app-section" data-section="stats" style="display:none;">
+            <div class="card">
+                <h2 style="margin-top:0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        📊 数据统计 <span style="font-size:14px; font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
+                    </div>
+                    <div style="font-size: 13px; background: rgba(0,113,227,0.1); color: var(--primary); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(0,113,227,0.2); display: flex; gap: 15px; flex-wrap: wrap;">
+                        <span> 今天: <strong id="trafficToday">加载中...</strong></span>
+                        <span>1周内: <strong id="traffic7d">加载中...</strong></span>
+                        <span>1月内: <strong id="traffic30d">加载中...</strong></span>
+                    </div>
+                </h2>
+
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top:20px;">
+                    <div style="flex: 2; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03);">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                    <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03); display: flex; justify-content: center; align-items: center;">
+                        <canvas id="locationChart"></canvas>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom:16px;">🕵️ 最新独立播放记录 <span style="font-size:12px; color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
+                <div class="table-wrapper">
+                    <table style="width: 100%;">
+                        <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识 (User-Agent)</th></tr></thead>
+                        <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center; padding: 30px;">加载数据中...</td></tr></tbody>
+                    </table>
                 </div>
             </div>
+            </section><!-- /sec-stats -->
 
-            <!-- Placement pill (expandable drawer trigger) -->
-            <div class="pill expandable" id="placePill" onclick="togglePlacementDrawer()">
-                <span class="lbl">调度</span>
-                <span id="placeModeLabel">智能</span>
-                <span class="caret">▾</span>
-            </div>
-
-            <div class="tb-spacer"></div>
-
-            <button class="btn-tier is-primary" onclick="openDashboard()">📊 数据大屏</button>
-            <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码">⚙️</button>
-            <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" title="切换深色模式">🌙</button>
-            <button class="tb-icon-btn danger" onclick="logout()" title="退出系统">⏻</button>
-        </div>
-
-        <!-- Placement drawer (collapsed by default) -->
-        <div class="tb-drawer" id="placeDrawer">
-            <h3>Worker 调度模式</h3>
-            <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
-            <div class="controls">
-                <select id="cf-mode-select" onchange="handleModeChange()">
-                    <option value='{"mode":"smart"}'>🤖 智能调度 (Smart Placement)</option>
-                    <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认离访客近)</option>
-                    <optgroup label="📍 指定云厂商物理机房落地">
-                        <option value="aws">☁️ AWS (亚马逊云)</option>
-                        <option value="gcp">☁️ GCP (谷歌云)</option>
-                        <option value="azure">☁️ Azure (微软云)</option>
-                    </optgroup>
-                    <option value="custom">✏️ 手动输入区域代码...</option>
-                </select>
-                <select id="cf-region-select" style="display: none;"></select>
-                <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
-                <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
-            </div>
-            <div class="status"><span id="place-status">🔒 后台全自动安全调度，不暴露任何私钥</span></div>
-        </div>
-
-        <!-- Mobile-only status pills row (RTT / 模式 / 今日) -->
-        <div class="m-pills" id="mobilePills" aria-label="移动端状态">
-            <span class="m-pill"><span class="dot green"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
-            <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
-            <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
-        </div>
-
-        <div class="content-wrap">
+            <!-- ===== 分区: 线路测速 ===== -->
+            <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
 
             <div class="card" id="speed-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
@@ -1148,7 +1379,11 @@ const HTML_UI = `
                     </table>
                 </div>
             </div>
-            
+            </section><!-- /sec-speed -->
+
+            <!-- ===== 分区: 系统设置 ===== -->
+            <section id="sec-settings" class="app-section" data-section="settings" style="display:none;">
+
             <div class="card" id="settings-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                     <div>
@@ -1278,7 +1513,27 @@ const HTML_UI = `
                     </div>
                 </form>
             </div>
+            </section><!-- /sec-settings -->
 
+            <!-- ===== 分区: 工具箱 ===== -->
+            <section id="sec-tools" class="app-section" data-section="tools" style="display:none;">
+            <div class="card">
+                <h2 style="margin:0 0 6px; font-size:18px;">工具箱</h2>
+                <div style="color:var(--text-sec); font-size:13px; margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
+                    <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
+                    <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL 请求头解析</button>
+                    <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>更新 Worker 核心代码</button>
+                </div>
+                <div style="margin-top:16px; font-size:12px; color:var(--text-sec); line-height:1.6;">
+                    提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「系统设置」中准备好节点信息。
+                </div>
+            </div>
+            </section><!-- /sec-tools -->
+
+            <!-- ===== 分区: 概览 (节点管理) ===== -->
+            <section id="sec-overview" class="app-section is-active" data-section="overview">
             <div class="card">
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                     <h2 style="margin:0; font-size:18px;">已反代的媒体库</h2>
@@ -1308,19 +1563,32 @@ const HTML_UI = `
                     <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
                 </div>
             </div>
-            
-        </div>
-        
-        <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
-            <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: 14px; border: 1px solid var(--border);">
-                ${SVG_TG}
-                联系作者 MakkaPakkaOvO
-            </a>
-            <div style="margin-top: 20px; font-size: 12px; color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
-                <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
+
+            <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
+                <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: 14px; border: 1px solid var(--border);">
+                    ${SVG_TG}
+                    联系作者 MakkaPakkaOvO
+                </a>
+                <div style="margin-top: 20px; font-size: 12px; color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
+                    <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
+                </div>
             </div>
+            </section><!-- /sec-overview -->
+
+        </div><!-- /.content -->
+
+        <!-- ===== 危险操作区 (常驻底部条) ===== -->
+        <div class="danger-bar">
+            <span class="db-title"><span class="db-dot"></span>危险操作区</span>
+            <span class="db-sub">以下操作不可逆，请谨慎执行</span>
+            <span class="db-spacer"></span>
+            <button type="button" class="btn-tier is-danger is-sm" onclick="purgeCache()">刷新全站海报缓存</button>
+            <button type="button" class="btn-tier is-danger is-sm" onclick="openWorkerUpdate()">覆盖部署 Worker</button>
+            <button type="button" class="btn-tier is-danger is-sm" onclick="logout()">退出登录</button>
         </div>
-    </div>
+
+        </div><!-- /.app-main -->
+    </div><!-- /.app-shell -->
 
     <script>
         const modeNames = { 'off': '保守', 'realip_only': '严格', 'dual': '兼容', 'strict': '强力' };
@@ -1338,12 +1606,44 @@ const HTML_UI = `
             Chart.defaults.borderColor = document.body.classList.contains('dark') ? '#38383a' : '#d2d2d7';
         }
 
+        // 节点状态徽章: 依据延迟/活跃度映射 在线/延迟/离线
+        function nodeBadgeHtml(statusClass) {
+            if (statusClass === 'live') return '<span class="node-badge is-online"><span class="bdot"></span>在线</span>';
+            if (statusClass === 'warn') return '<span class="node-badge is-slow"><span class="bdot"></span>延迟</span>';
+            if (statusClass === 'offline') return '<span class="node-badge is-offline"><span class="bdot"></span>离线</span>';
+            return '<span class="node-badge is-idle"><span class="bdot"></span>空闲</span>';
+        }
+
+        // 迷你 SVG 折线图: 数据缺失时占位
+        function nodeSparklineHtml(points) {
+            var data = (points || []).filter(function (n) { return typeof n === 'number' && isFinite(n); });
+            if (data.length < 2) {
+                return '<div class="node-spark-empty">暂无趋势数据</div>';
+            }
+            var W = 100, H = 38, pad = 3;
+            var max = Math.max.apply(null, data), min = Math.min.apply(null, data);
+            var range = (max - min) || 1;
+            var step = W / (data.length - 1);
+            var pts = data.map(function (v, i) {
+                var x = (i * step).toFixed(1);
+                var y = (pad + (H - 2 * pad) * (1 - (v - min) / range)).toFixed(1);
+                return x + ',' + y;
+            });
+            var line = pts.join(' ');
+            var area = '0,' + H + ' ' + line + ' ' + W + ',' + H;
+            return '<svg class="node-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+                   '<polygon class="sk-area" points="' + area + '"/>' +
+                   '<polyline class="sk-line" points="' + line + '"/></svg>';
+        }
+
         // =====================================
         // 数据大屏与统计逻辑 (适配手机端表格排版)
         // =====================================
-        async function openDashboard() {
-            document.getElementById('dashboardModal').style.display = 'block';
-            
+        // 兼容旧入口: 切到数据统计分区
+        function openDashboard() { showSection('stats'); }
+
+        async function loadDashboardData() {
+
             function parseTrafficToBytes(str) {
                 if (!str || str === '0 B' || str.includes('异常') || str.includes('获取')) return 0;
                 let val = parseFloat(str);
@@ -1358,7 +1658,8 @@ const HTML_UI = `
             if (!top5Container) {
                 top5Container = document.createElement('div');
                 top5Container.id = 'top5-simple-container';
-                const wrapper = document.querySelector('.table-wrapper');
+                const statsSec = document.getElementById('sec-stats');
+                const wrapper = statsSec ? statsSec.querySelector('.table-wrapper') : document.querySelector('.table-wrapper');
                 if(wrapper && wrapper.previousElementSibling) {
                     wrapper.parentNode.insertBefore(top5Container, wrapper.previousElementSibling);
                 }
@@ -1493,7 +1794,7 @@ const HTML_UI = `
             }
         }
 
-        function closeDashboard() { document.getElementById('dashboardModal').style.display = 'none'; }
+        function closeDashboard() { showSection('overview'); }
 
         function openWorkerUpdate() {
             const m = document.getElementById('workerUpdateModal');
@@ -1587,13 +1888,113 @@ const HTML_UI = `
             }
         });
 
-        function toggleDarkMode() {
-            const isDark = document.body.classList.toggle('dark');
-            document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
-            localStorage.setItem('emby_proxy_dark', isDark ? '1' : '0');
-            if(trendChartInstance) { updateChartColors(); trendChartInstance.update(); locationChartInstance.update(); }
+        // ===== 三态主题系统: auto / light / dark =====
+        var __themeMql = window.matchMedia('(prefers-color-scheme: dark)');
+
+        function getThemePref() {
+            // 旧键一次性迁移
+            var legacy = localStorage.getItem('emby_proxy_dark');
+            if (legacy !== null && !localStorage.getItem('emby_theme')) {
+                localStorage.setItem('emby_theme', legacy === '1' ? 'dark' : 'light');
+                localStorage.removeItem('emby_proxy_dark');
+            }
+            return localStorage.getItem('emby_theme') || 'auto';
         }
-        if (localStorage.getItem('emby_proxy_dark') === '1') { document.body.classList.add('dark'); document.getElementById('themeToggle').textContent = '☀️'; }
+
+        function resolveDark(pref) {
+            if (pref === 'dark') return true;
+            if (pref === 'light') return false;
+            return __themeMql.matches; // auto
+        }
+
+        function applyTheme(pref) {
+            var dark = resolveDark(pref);
+            document.body.classList.toggle('dark', dark);
+            var btn = document.getElementById('themeToggle');
+            if (btn) {
+                var map = { auto: '🌓', light: '☀️', dark: '🌙' };
+                var titleMap = { auto: '主题: 跟随系统', light: '主题: 浅色', dark: '主题: 深色' };
+                btn.textContent = map[pref] || '🌓';
+                btn.title = titleMap[pref] || '切换主题';
+            }
+            if (typeof trendChartInstance !== 'undefined' && trendChartInstance) {
+                updateChartColors(); trendChartInstance.update();
+                if (locationChartInstance) locationChartInstance.update();
+            }
+        }
+
+        function toggleDarkMode() {
+            // 循环 auto → light → dark → auto
+            var order = ['auto', 'light', 'dark'];
+            var cur = getThemePref();
+            var next = order[(order.indexOf(cur) + 1) % order.length];
+            localStorage.setItem('emby_theme', next);
+            applyTheme(next);
+        }
+
+        __themeMql.addEventListener('change', function () {
+            if (getThemePref() === 'auto') applyTheme('auto');
+        });
+
+        applyTheme(getThemePref());
+
+        // ===== 导航分区切换 =====
+        var __statsInited = false;
+        function showSection(key) {
+            var sections = document.querySelectorAll('.app-section');
+            for (var i = 0; i < sections.length; i++) {
+                var sec = sections[i];
+                var on = sec.getAttribute('data-section') === key;
+                sec.classList.toggle('is-active', on);
+                sec.style.display = on ? 'block' : 'none';
+            }
+            var navs = document.querySelectorAll('.nav-item');
+            for (var j = 0; j < navs.length; j++) {
+                navs[j].classList.toggle('is-active', navs[j].getAttribute('data-section') === key);
+            }
+            // 同步移动端底部 tab
+            var tabBar = document.getElementById('mobileTabBar');
+            if (tabBar) {
+                var tabMap = { overview: 'home', speed: 'speed', stats: 'stats', settings: 'settings' };
+                var tabKey = tabMap[key];
+                var btns = tabBar.querySelectorAll('button[data-tab]');
+                for (var k = 0; k < btns.length; k++) {
+                    btns[k].classList.toggle('active', btns[k].dataset.tab === tabKey);
+                }
+            }
+            try { localStorage.setItem('emby_active_section', key); } catch (e) {}
+            // 数据统计分区: 首次进入 lazy init 图表
+            if (key === 'stats') {
+                if (!__statsInited) { __statsInited = true; loadDashboardData(); }
+                else { setTimeout(function () {
+                    if (trendChartInstance) trendChartInstance.resize();
+                    if (locationChartInstance) locationChartInstance.resize();
+                }, 60); }
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function toggleSidebar() {
+            var sb = document.getElementById('appSidebar');
+            if (!sb) return;
+            var collapsed = sb.classList.toggle('collapsed');
+            try { localStorage.setItem('emby_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+        }
+
+        (function initShellState() {
+            try {
+                if (localStorage.getItem('emby_sidebar_collapsed') === '1') {
+                    var sb = document.getElementById('appSidebar');
+                    if (sb) sb.classList.add('collapsed');
+                }
+            } catch (e) {}
+            var saved = 'overview';
+            try { saved = localStorage.getItem('emby_active_section') || 'overview'; } catch (e) {}
+            // 延迟到 DOM 就绪后再切换
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () { showSection(saved); });
+            } else { showSection(saved); }
+        })();
 
         function showToast(msg) {
             const t = document.getElementById('toast');
@@ -1706,16 +2107,26 @@ const HTML_UI = `
                 sub.classList.remove('up', 'down');
                 if (cls) sub.classList.add(cls);
             };
+            // 依据测速结果刷新节点状态徽章 (在线/延迟/离线)
+            const card = pingEl.closest('.emby-card');
+            const setBadge = (state) => {
+                if (!card) return;
+                const badge = card.querySelector('.node-badge');
+                if (!badge) return;
+                badge.className = 'node-badge ' + (state === 'online' ? 'is-online' : state === 'slow' ? 'is-slow' : 'is-offline');
+                badge.innerHTML = '<span class="bdot"></span>' + (state === 'online' ? '在线' : state === 'slow' ? '延迟' : '离线');
+            };
             try {
                 const res = await fetch('/api/ping-node?url=' + encodeURIComponent(targetUrl));
                 const data = await res.json();
                 if(data.ms >= 0) {
                     pingEl.innerHTML = data.ms + '<span class="unit">ms</span>';
-                    if (data.ms < 200) { pingEl.style.color = '#34c759'; setSub('良好', 'up'); }
-                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); }
-                    else { pingEl.style.color = '#ff9500'; setSub('偏高', 'down'); }
-                } else { pingEl.textContent = '断连'; pingEl.style.color = '#ff3b30'; setSub('超时', 'down'); }
-            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = '#ff3b30'; setSub('错误', 'down'); }
+                    if (data.ms < 200) { pingEl.style.color = '#34c759'; setSub('良好', 'up'); setBadge('online'); }
+                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); setBadge('online'); }
+                    else { pingEl.style.color = '#ff9500'; setSub('偏高', 'down'); setBadge('slow'); }
+                } else { pingEl.textContent = '断连'; pingEl.style.color = '#ff3b30'; setSub('超时', 'down'); setBadge('offline'); }
+            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = '#ff3b30'; setSub('错误', 'down'); setBadge('offline'); }
+            if (typeof updateTopbarHealth === 'function') updateTopbarHealth();
         }
 
         function toggleDetails(el) {
@@ -1814,6 +2225,12 @@ const HTML_UI = `
                     const cacheOn = r.cache_img !== 'off';
                     const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
+                    // 状态徽章 + 迷你折线图 (趋势数据缺失则占位)
+                    const badgeHtml = nodeBadgeHtml(statusClass);
+                    let trendData = r.trend || r.trafficHistory || r.history || null;
+                    if (!Array.isArray(trendData)) trendData = null;
+                    const sparkHtml = nodeSparklineHtml(trendData);
+
                     proxyNodesForPing.push({ idx: idx, url: mainTarget });
 
                     container.innerHTML += \`
@@ -1831,7 +2248,10 @@ const HTML_UI = `
                                     <span class="a-mode">\${modeNames[r.mode] || '未知'}</span>
                                 </div>
                             </div>
+                            \${badgeHtml}
                         </div>
+
+                        <div style="margin:2px 0;">\${sparkHtml}</div>
 
                         <div class="a-stats">
                             <div class="a-stat">
@@ -1918,9 +2338,32 @@ const HTML_UI = `
                     }
                 });
 
+                // 刷新顶部状态栏: 节点总数
+                const tbCount = document.getElementById('tb-node-count');
+                if (tbCount) tbCount.textContent = String(data.length);
+                updateTopbarHealth();
+
             } catch (err) {
                 document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:#ff3b30; font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
             }
+        }
+
+        // 依据节点徽章统计健康度并刷新顶栏
+        function updateTopbarHealth() {
+            const cards = document.querySelectorAll('#list-grid .emby-card');
+            const total = cards.length;
+            const dot = document.getElementById('tb-health-dot');
+            const val = document.getElementById('tb-health-val');
+            if (!val) return;
+            if (total === 0) { val.textContent = '--'; if (dot) dot.className = 'dot green'; return; }
+            let online = 0;
+            cards.forEach(c => {
+                const b = c.querySelector('.node-badge');
+                if (b && (b.classList.contains('is-online') || b.classList.contains('is-slow'))) online++;
+            });
+            const pct = Math.round(online / total * 100);
+            val.textContent = pct + '%';
+            if (dot) dot.className = 'dot ' + (pct >= 80 ? 'green' : pct >= 40 ? 'amber' : 'red');
         }
 
         function editNode(prefix, targetStr, mode, remark, icon, cacheImg) {
@@ -1949,7 +2392,12 @@ const HTML_UI = `
             targets.forEach((url, idx) => container.appendChild(makeUpstreamRow(idx, url)));
             container.appendChild(makeUpstreamRow(targets.length));
             handleTargetInputs();
-            window.scrollTo({ top: document.getElementById('addForm').offsetTop - 100, behavior: 'smooth' });
+            // 编辑节点时切到「系统设置」分区, 让部署表单可见
+            if (typeof showSection === 'function') showSection('settings');
+            setTimeout(function () {
+                const f = document.getElementById('addForm');
+                if (f) window.scrollTo({ top: f.offsetTop - 100, behavior: 'smooth' });
+            }, 80);
         }
 
         document.getElementById('addForm').onsubmit = async (e) => {
@@ -2945,16 +3393,15 @@ const HTML_UI = `
             function initMobileTabBar() {
                 const bar = document.getElementById('mobileTabBar');
                 if (!bar) return;
+                // tab → section 映射
+                const tabToSection = { home: 'overview', speed: 'speed', stats: 'stats', settings: 'settings' };
                 bar.querySelectorAll('button[data-tab]').forEach(btn => {
                     btn.addEventListener('click', () => {
                         const tab = btn.dataset.tab;
-                        bar.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
-                        if (tab === 'stats') { if (typeof openDashboard === 'function') openDashboard(); return; }
-                        const sel = tab === 'home' ? '#list-grid'
-                                  : tab === 'speed' ? '#speed-anchor'
-                                  : tab === 'settings' ? '#settings-anchor' : null;
-                        const el = sel && document.querySelector(sel);
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        const section = tabToSection[tab];
+                        if (section && typeof showSection === 'function') {
+                            showSection(section);
+                        }
                     });
                 });
             }
@@ -2963,6 +3410,7 @@ const HTML_UI = `
                     { src: 'rttValue',       dst: 'm-pill-rtt' },
                     { src: 'placeModeLabel', dst: 'm-pill-mode' },
                     { src: 'trafficToday',   dst: 'm-pill-today' },
+                    { src: 'trafficToday',   dst: 'tb-traffic-today' },
                 ];
                 const sync = () => {
                     sources.forEach(({ src, dst }) => {
