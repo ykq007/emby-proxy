@@ -1,6 +1,6 @@
-// VERSION: 2.1.0
+// VERSION: 2.2.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.1.0";
+const CURRENT_VERSION = "2.2.0";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -18,17 +18,37 @@ const CSS_COMMON = `
         --text: #1d1d1f;
         --text-sec: #86868b;
         --border: #d2d2d7;
-        --radius-card: 16px;
         /* 科技风扩展变量 (浅色版) */
         --surface: #ffffff;
         --surface-2: #f0f1f4;
-        --accent-glow: rgba(0,113,227,0.18);
         --sidebar-bg: #ffffff;
         --topbar-bg: #ffffff;
         --ok: #34c759;
         --warn: #ff9500;
         --err: #ff3b30;
         --card-shadow: 0 4px 20px rgba(0,0,0,0.05);
+
+        /* === Alignment system v2.2.0 — design tokens ===
+           Spec: .trellis/spec/frontend/ui-design-system.md "Alignment system" */
+        --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+        --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 48px;
+        /* half-steps — only for legitimate optical compaction (icon paddings,
+           inline-row gaps, dense card spacing). Prefer whole steps in new code. */
+        --space-1-5: 6px; --space-2-5: 10px; --space-3-5: 14px;
+        --text-2xs:  9px; --text-xs:  11px; --text-sm:  12px; --text-md: 13px;
+        --text-base: 14px; --text-lg:  15px; --text-xl:  16px;
+        --text-2xl:  20px; --text-3xl: 28px;
+        --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
+        --radius-xl: 14px; --radius-2xl: 16px; --radius-pill: 999px;
+        --radius-card: var(--radius-2xl);
+        --ok-soft:   rgba(52,199,89,0.10);  --ok-ring:   rgba(52,199,89,0.20);
+        --warn-soft: rgba(255,149,0,0.10);  --warn-ring: rgba(255,149,0,0.20);
+        --err-soft:  rgba(255,59,48,0.10);  --err-ring:  rgba(255,59,48,0.20);
+        --primary-soft: rgba(0,113,227,0.10);
+        --primary-ring: rgba(0,113,227,0.20);
+        --primary-glow: rgba(0,113,227,0.32);
+        --accent-glow: var(--primary-glow);
+        --touch-min: 44px;
     }
 
     body.dark {
@@ -42,152 +62,172 @@ const CSS_COMMON = `
         /* 科技风扩展变量 (深色版) */
         --surface: #12151d;
         --surface-2: #181c27;
-        --accent-glow: rgba(47,155,255,0.32);
         --sidebar-bg: #0c0e15;
         --topbar-bg: #0e1119;
         --ok: #30d158;
         --warn: #ff9f0a;
         --err: #ff453a;
         --card-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 6px 26px rgba(0,0,0,0.55);
+
+        /* Alignment system v2.2.0 — dark-mode overrides for tokens whose value differs */
+        --ok-soft:   rgba(48,209,88,0.12);  --ok-ring:   rgba(48,209,88,0.24);
+        --warn-soft: rgba(255,159,10,0.12); --warn-ring: rgba(255,159,10,0.24);
+        --err-soft:  rgba(255,69,58,0.12);  --err-ring:  rgba(255,69,58,0.24);
+        --primary-soft: rgba(47,155,255,0.12);
+        --primary-ring: rgba(47,155,255,0.24);
+        --primary-glow: rgba(47,155,255,0.32);
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; -webkit-text-size-adjust: 100%; transition: background-color 0.3s, color 0.3s; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: var(--space-5); -webkit-text-size-adjust: 100%; transition: background-color 0.3s, color 0.3s; }
     .container { max-width: 1200px; margin: 0 auto; width: 100%; min-height: 90vh; display: flex; flex-direction: column;}
     .content-wrap { flex: 1; }
-    input, select, button, textarea { font-family: inherit; outline: none; font-size: 15px; }
+    input, select, button, textarea { font-family: inherit; outline: none; font-size: var(--text-lg); }
     
-    .card { background: var(--card); padding: 24px; border-radius: var(--radius-card); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--border); transition: 0.3s; }
+    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-card); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: var(--space-6); border: 1px solid var(--border); transition: 0.3s; }
     
-    #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 9999; backdrop-filter: blur(10px); text-align: center; max-width: 90vw; word-wrap: break-word; }
+    #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: var(--space-3) var(--space-6); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 9999; backdrop-filter: blur(10px); text-align: center; max-width: 90vw; word-wrap: break-word; }
     #toast.show { top: 20px; }
 
-    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
-    .btn-submit { padding: 12px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: 0.2s; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
+    .toolbar { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); align-items: center; }
+    .btn-submit { padding: var(--space-3) var(--space-5); background: var(--primary); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; white-space: nowrap; transition: 0.2s; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
     .btn-submit:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 113, 227, 0.3); }
     .btn-submit:active { transform: translateY(0); }
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
     
-    .table-wrapper { width: 100%; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--card); }
+    .table-wrapper { width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; background: var(--card); }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th, td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+    th, td { padding: var(--space-4); border-bottom: 1px solid var(--border); font-size: var(--text-base); vertical-align: middle; }
     th { color: var(--text-sec); font-weight: 600; background: rgba(120,120,120,0.05); }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background-color: rgba(120,120,120,0.03); }
     
-    .action-group { display: inline-flex; gap: 8px; background: rgba(120,120,120,0.05); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
-    .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: none; background: var(--card); cursor: pointer; color: var(--text); padding: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); transition: 0.2s; flex-shrink: 0; font-size:16px; }
-    .icon-btn:hover { color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    .icon-btn svg { width: 15px; height: 15px; fill: currentColor; }
+    .action-group { display: inline-flex; gap: var(--space-2); background: rgba(120,120,120,0.05); padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-md); border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
+    /* === Icon button family (v2.2.0) ===
+       Canonical ghost-bordered icon button. Three intent classes share base rules:
+         .icon-btn      — generic (= .a-icon-btn)
+         .a-icon-btn    — node-card / table action buttons
+         .tb-icon-btn   — topbar borderless variant (own rule below)
+       Size modifiers (apply to any): .is-sm 28x28 / .is-md 32x32 / .is-lg 36x36 */
+    .icon-btn, .a-icon-btn {
+        width: 32px; height: 32px; border-radius: var(--radius-md);
+        border: 1px solid var(--border); background: transparent;
+        cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        color: var(--text-sec); transition: 0.15s; padding: 0;
+        font-size: var(--text-xl); flex-shrink: 0;
+    }
+    .icon-btn:hover, .a-icon-btn:hover { color: var(--text); background: var(--surface-2); border-color: var(--border); }
+    .icon-btn.danger-hover:hover, .a-icon-btn.danger-hover:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+    .icon-btn svg, .a-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .icon-btn.is-sm, .a-icon-btn.is-sm, .tb-icon-btn.is-sm { width: 28px; height: 28px; }
+    .icon-btn.is-md, .a-icon-btn.is-md, .tb-icon-btn.is-md { width: 32px; height: 32px; }
+    .icon-btn.is-lg, .a-icon-btn.is-lg, .tb-icon-btn.is-lg { width: 36px; height: 36px; }
     
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .badge { padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; display: inline-block; }
     
-    .btn-edit { padding: 8px 14px; background: var(--card); color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
-    .btn-del { padding: 8px 14px; background: var(--card); color: #ff3b30; border: 1px solid #ff3b30; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
-    .btn-dns { padding: 8px 14px; background: var(--card); color: #34c759; border: 1px solid #34c759; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; white-space: nowrap; }
+    .btn-edit { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--primary); border: 1px solid var(--primary); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; }
+    .btn-del { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--err); border: 1px solid var(--err); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; }
+    .btn-dns { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--ok); border: 1px solid var(--ok); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; white-space: nowrap; }
     .btn-dns:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .ip-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
     .secret-text { font-family: monospace; letter-spacing: 2px; color: var(--text-sec); }
     
     .dynamic-url { display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
-    .actual-text.dynamic-url { white-space: normal; max-width: 100%; overflow: visible; text-align: left !important; word-break: break-all; font-size: 13px; font-family: monospace; color: var(--primary); letter-spacing: normal; }
-    .url-list-item { background: var(--bg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-top: 6px; word-break: break-all; line-height: 1.4; color: var(--text); font-family: -apple-system, sans-serif; letter-spacing: normal; text-align: left; }
+    .actual-text.dynamic-url { white-space: normal; max-width: 100%; overflow: visible; text-align: left !important; word-break: break-all; font-size: var(--text-md); font-family: monospace; color: var(--primary); letter-spacing: normal; }
+    .url-list-item { background: var(--bg); border: 1px solid var(--border); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-sm); margin-top: var(--space-1-5); word-break: break-all; line-height: 1.4; color: var(--text); font-family: -apple-system, sans-serif; letter-spacing: normal; text-align: left; }
     .url-list-item:first-child { margin-top: 0; }
 
     body.dark input, body.dark select, body.dark textarea { background: #1c1c1e; color: #f5f5f7; border: 1px solid #38383a; }
 
-    .search-input { padding: 10px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; width: 260px; transition: 0.3s; }
-    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.15); }
+    .search-input { padding: var(--space-2-5) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: var(--text-base); width: 260px; transition: 0.3s; }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
 
-    .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; margin-top: 20px; }
-    .emby-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 14px; transition: 0.3s; position: relative; }
+    .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-5); margin-top: var(--space-5); }
+    .emby-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: var(--space-3-5); transition: 0.3s; position: relative; }
     .emby-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.06); transform: translateY(-2px); }
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .card-title-group { display: flex; align-items: center; gap: 12px; }
-    .emby-icon { font-size: 28px; background: rgba(120,120,120,0.05); border-radius: 10px; padding: 6px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
-    .info-row { display: flex; align-items: flex-start; justify-content: space-between; font-size: 13px; }
-    .info-label { color: var(--text-sec); font-weight: 500; min-width: 65px; margin-top: 4px; }
-    .card-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .card-title-group { display: flex; align-items: center; gap: var(--space-3); }
+    .emby-icon { font-size: var(--text-3xl); background: rgba(120,120,120,0.05); border-radius: var(--radius-md); padding: var(--space-1-5); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
+    .info-row { display: flex; align-items: flex-start; justify-content: space-between; font-size: var(--text-md); }
+    .info-label { color: var(--text-sec); font-weight: 500; min-width: 65px; margin-top: var(--space-1); }
+    .card-footer { display: flex; justify-content: flex-end; gap: var(--space-2-5); margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); }
 
-    .ping-badge { color: var(--text-sec); cursor: pointer; padding: 4px 10px; background: rgba(120,120,120,0.05); border-radius: 6px; font-size: 13px; font-weight: 500; transition: 0.2s; border: 1px solid transparent; user-select: none; }
+    .ping-badge { color: var(--text-sec); cursor: pointer; padding: var(--space-1) var(--space-2-5); background: rgba(120,120,120,0.05); border-radius: var(--radius-sm); font-size: var(--text-md); font-weight: 500; transition: 0.2s; border: 1px solid transparent; user-select: none; }
     .ping-badge:hover { border-color: var(--border); background: var(--card); box-shadow: 0 2px 6px rgba(0,0,0,0.05); color: var(--primary); }
 
-    .icon-item { cursor: pointer; padding: 6px; border-radius: 8px; border: 1px solid transparent; display: flex; justify-content: center; align-items: center; transition: 0.2s; background: var(--bg); height: 44px; }
-    .icon-item:hover { border-color: var(--primary) !important; box-shadow: 0 2px 8px rgba(0,113,227,0.2); transform: scale(1.05); }
+    .icon-item { cursor: pointer; padding: var(--space-1-5); border-radius: var(--radius-md); border: 1px solid transparent; display: flex; justify-content: center; align-items: center; transition: 0.2s; background: var(--bg); height: 44px; }
+    .icon-item:hover { border-color: var(--primary) !important; box-shadow: 0 2px 8px var(--primary-ring); transform: scale(1.05); }
     #iconGrid::-webkit-scrollbar { width: 6px; }
-    #iconGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    #iconGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-pill); }
 
     /* 拖拽排序核心适配样式 */
     .emby-card.sortable-ghost { opacity: 0.4; }
     .emby-card.sortable-drag { cursor: grabbing !important; }
-    .drag-handle { cursor: grab; padding-right: 10px; font-size: 18px; color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
+    .drag-handle { cursor: grab; padding-right: 10px; font-size: var(--text-2xl); color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
     .drag-handle:active { cursor: grabbing; color: var(--primary); }
 
     /* ============================================================
        节点卡片精简 (Node Card Redesign) — Lucide 风格，去 emoji
        ============================================================ */
     .emby-card.idle { opacity: 0.85; }
-    .a-head { display: flex; align-items: center; gap: 12px; }
+    .a-head { display: flex; align-items: center; gap: var(--space-3); }
     .a-handle { width: 18px; display: flex; align-items: center; justify-content: center; color: var(--text-ter, #b0b0b5); cursor: grab; flex-shrink: 0; touch-action: none; }
     .a-handle:hover { color: var(--primary); }
     .a-handle:active { cursor: grabbing; }
     .a-handle svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
     .a-cb { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; margin: 0; }
-    .a-thumb { width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--primary), #5856d6); color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -0.02em; overflow: hidden; text-transform: uppercase; }
+    .a-thumb { width: 38px; height: 38px; border-radius: var(--radius-md); flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--primary), #5856d6); color: #fff; font-weight: 700; font-size: var(--text-lg); letter-spacing: -0.02em; overflow: hidden; text-transform: uppercase; }
     .a-thumb.idle { background: linear-gradient(135deg, #8e8e93, #636366); }
-    .a-thumb img { width: 100%; height: 100%; border-radius: 9px; object-fit: cover; display: block; }
+    .a-thumb img { width: 100%; height: 100%; border-radius: var(--radius-md); object-fit: cover; display: block; }
     .a-title-block { flex: 1; min-width: 0; }
-    .a-name { font-weight: 600; font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .a-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-sec); font-family: ui-monospace, Menlo, Consolas, monospace; margin-top: 2px; flex-wrap: wrap; }
+    .a-name { font-weight: 600; font-size: var(--text-lg); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .a-meta { display: flex; align-items: center; gap: var(--space-1-5); font-size: var(--text-sm); color: var(--text-sec); font-family: ui-monospace, Menlo, Consolas, monospace; margin-top: 2px; flex-wrap: wrap; }
     .a-meta .dot-sep { color: var(--text-ter, #b0b0b5); }
     .a-mode { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: var(--text-sec); }
     .a-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-    .a-status-dot.live { background: #34c759; box-shadow: 0 0 5px #34c759; }
+    .a-status-dot.live { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
     .a-status-dot.idle { background: var(--text-ter, #b0b0b5); }
-    .a-status-dot.warn { background: #ff9500; box-shadow: 0 0 5px #ff9500; }
-    .a-mode-badge { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(0,113,227,0.1); color: var(--primary); flex-shrink: 0; }
+    .a-status-dot.warn { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+    .a-mode-badge { padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
 
     .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .a-stat { padding: 0 12px; border-right: 1px solid var(--border); min-width: 0; }
+    .a-stat { padding: 0 var(--space-3); border-right: 1px solid var(--border); min-width: 0; }
     .a-stat:last-child { border-right: none; }
-    .a-stat:first-child { padding-left: 2px; }
-    .a-stat-label { font-size: 10px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-    .a-stat-val { font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .a-stat-val .unit { font-size: 11px; font-weight: 600; color: var(--text-sec); margin-left: 2px; }
+    /* symmetric stat columns — no first/last asymmetry (v2.2.0) */
+    .a-stat-label { font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-1); }
+    .a-stat-val { font-size: var(--text-2xl); font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .a-stat-val .unit { font-size: var(--text-xs); font-weight: 600; color: var(--text-sec); margin-left: 2px; }
     .a-stat-val.muted { color: var(--text-ter, #b0b0b5); }
-    .a-stat-val.danger { color: #ff3b30; }
-    .a-stat-sub { font-size: 11px; color: var(--text-sec); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .a-stat-sub.up { color: #34c759; }
-    .a-stat-sub.down { color: #ff3b30; }
+    .a-stat-val.danger { color: var(--err); }
+    .a-stat-sub { font-size: var(--text-xs); color: var(--text-sec); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .a-stat-sub.up { color: var(--ok); }
+    .a-stat-sub.down { color: var(--err); }
 
-    .a-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 24px; }
-    .a-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(120,120,120,0.07); border: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; }
+    .a-tags { display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; min-height: 24px; }
+    .a-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: rgba(120,120,120,0.07); border: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; }
     .a-tag svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
-    .a-tag.good { color: #34c759; background: rgba(52,199,89,0.08); border-color: rgba(52,199,89,0.2); }
-    .a-tag.warn { color: #ff9500; background: rgba(255,149,0,0.08); border-color: rgba(255,149,0,0.2); }
-    .a-tag.danger { color: #ff3b30; background: rgba(255,59,48,0.08); border-color: rgba(255,59,48,0.2); }
-    .a-tag.primary { color: var(--primary); background: rgba(0,113,227,0.08); border-color: rgba(0,113,227,0.2); cursor: pointer; }
-    .a-tag.primary:hover { background: rgba(0,113,227,0.14); }
+    .a-tag.good { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-ring); }
+    .a-tag.warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-ring); }
+    .a-tag.danger { color: var(--err); background: var(--err-soft); border-color: var(--err-ring); }
+    .a-tag.primary { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-ring); cursor: pointer; }
+    .a-tag.primary:hover { background: var(--primary-ring); }
 
-    .a-foot { display: flex; align-items: center; gap: 6px; }
+    .a-foot { display: flex; align-items: center; gap: var(--space-1-5); }
     .a-foot-spacer { flex: 1; }
-    .a-icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-sec); transition: 0.15s; box-shadow: none; padding: 0; }
-    .a-icon-btn:hover { color: var(--text); background: rgba(120,120,120,0.07); border-color: var(--border); }
-    .a-icon-btn.danger-hover:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.06); }
-    .a-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
-    .a-btn-edit { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    /* .a-icon-btn — see consolidated rule above (icon-button family). */
+    .a-btn-edit { padding: 7px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: var(--text-md); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-1-5); }
     .a-btn-edit:hover { border-color: var(--primary); color: var(--primary); }
     .a-btn-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 
-    .a-details { display: none; padding: 14px; background: rgba(120,120,120,0.04); border-radius: 10px; border: 1px solid var(--border); margin-top: -4px; }
+    .a-details { display: none; padding: var(--space-3-5); background: rgba(120,120,120,0.04); border-radius: var(--radius-md); border: 1px solid var(--border); margin-top: -4px; }
     .a-details.open { display: block; }
-    .a-detail-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 12px; }
+    .a-detail-row { display: grid; grid-template-columns: 78px 1fr auto; gap: var(--space-2-5); align-items: center; padding: 6px 0; font-size: var(--text-sm); }
     .a-detail-row + .a-detail-row { border-top: 1px solid var(--border); }
     .a-detail-label { color: var(--text-sec); font-weight: 600; }
     .a-detail-val { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .a-detail-val.secret { letter-spacing: 2px; color: var(--text-sec); }
-    .a-detail-actions { display: flex; gap: 4px; justify-self: end; }
+    .a-detail-actions { display: flex; gap: var(--space-1); justify-self: end; }
     .a-detail-actions .a-icon-btn { width: 26px; height: 26px; }
     .a-detail-actions .a-icon-btn svg { width: 12px; height: 12px; }
 
@@ -202,11 +242,11 @@ const CSS_COMMON = `
 
     /* --- 4-tier button system --- */
     .btn-tier {
-        padding: 9px 16px; border-radius: 10px; border: 1px solid var(--border);
+        padding: 9px 16px; border-radius: var(--radius-md); border: 1px solid var(--border);
         background: var(--card); color: var(--text);
-        font: inherit; font-size: 13px; font-weight: 600;
+        font: inherit; font-size: var(--text-md); font-weight: 600;
         cursor: pointer; white-space: nowrap;
-        display: inline-flex; align-items: center; gap: 6px;
+        display: inline-flex; align-items: center; gap: var(--space-1-5);
         transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
     .btn-tier:hover { background: rgba(120,120,120,0.06); border-color: var(--text-sec); }
@@ -215,146 +255,146 @@ const CSS_COMMON = `
     .btn-tier svg { width: 14px; height: 14px; flex-shrink: 0; }
     .btn-tier.is-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
     .btn-tier.is-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-    .btn-tier.is-success { background: #34c759; color: #fff; border-color: #34c759; }
+    .btn-tier.is-success { background: var(--ok); color: #fff; border-color: var(--ok); }
     .btn-tier.is-success:hover { filter: brightness(0.95); }
-    .btn-tier.is-danger  { background: #ff3b30; color: #fff; border-color: #ff3b30; }
+    .btn-tier.is-danger  { background: var(--err); color: #fff; border-color: var(--err); }
     .btn-tier.is-danger:hover  { filter: brightness(0.95); }
     .btn-tier.is-ghost   { background: transparent; border-color: transparent; color: var(--text-sec); }
     .btn-tier.is-ghost:hover { color: var(--text); background: rgba(120,120,120,0.07); }
-    .btn-tier.is-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-tier.is-sm { padding: var(--space-1-5) var(--space-3); font-size: var(--text-sm); }
     .v-sep { width: 1px; height: 22px; background: var(--border); align-self: center; }
 
     /* --- Generic dropdown menu --- */
     .menu-wrap { position: relative; display: inline-flex; }
     .menu {
         position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px;
-        background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 6px;
+        background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: var(--space-1-5);
         display: none; flex-direction: column; gap: 2px; z-index: 200;
     }
     .menu.open { display: flex; }
     .menu button {
-        display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px;
-        border: none; background: transparent; color: var(--text); font: inherit; font-size: 13px;
+        display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2-5); border-radius: var(--radius-md);
+        border: none; background: transparent; color: var(--text); font: inherit; font-size: var(--text-md);
         text-align: left; cursor: pointer; width: 100%;
     }
     .menu button:hover { background: rgba(120,120,120,0.07); }
-    .menu button.danger { color: #ff3b30; }
-    .menu button.danger:hover { background: rgba(255,59,48,0.08); }
+    .menu button.danger { color: var(--err); }
+    .menu button.danger:hover { background: var(--err-soft); }
     .menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; opacity: 0.6; }
     .menu svg { width: 14px; height: 14px; flex-shrink: 0; }
 
     /* --- iOS-style switch (scoped to .ios-switch to avoid collisions) --- */
-    .ios-switch { width: 38px; height: 22px; background: var(--border); border-radius: 999px; position: relative; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+    .ios-switch { width: 38px; height: 22px; background: var(--border); border-radius: var(--radius-pill); position: relative; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
     .ios-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
-    .ios-switch.on { background: #34c759; }
+    .ios-switch.on { background: var(--ok); }
     .ios-switch.on::after { left: 18px; }
 
     /* --- Sectioned form (.a-* family) --- */
-    .a-form { display: flex; flex-direction: column; gap: 22px; }
-    .a-fieldset { display: flex; flex-direction: column; gap: 10px; }
-    .a-fieldset-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .a-field-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
-    .a-field-aux { font-size: 12px; color: var(--text-sec); }
+    .a-form { display: flex; flex-direction: column; gap: var(--space-6); }
+    .a-fieldset { display: flex; flex-direction: column; gap: var(--space-2-5); }
+    .a-fieldset-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2-5); flex-wrap: wrap; }
+    .a-field-label { display: block; font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
+    .a-field-aux { font-size: var(--text-sm); color: var(--text-sec); }
     .a-input, .a-select {
-        padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
-        background: var(--card); color: var(--text); font: inherit; font-size: 14px;
+        padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+        background: var(--card); color: var(--text); font: inherit; font-size: var(--text-base);
         outline: none; width: 100%; transition: 0.15s;
     }
-    .a-input:focus, .a-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.12); }
-    .a-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .a-input:focus, .a-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
+    .a-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-2-5); }
     .a-row.two { grid-template-columns: 1fr 1fr; }
-    .a-upstream-row { display: flex; gap: 8px; align-items: center; }
+    .a-upstream-row { display: flex; gap: var(--space-2); align-items: center; }
     .a-tag-pri, .a-tag-bk {
-        width: 48px; flex-shrink: 0; padding: 5px 0; border-radius: 7px;
-        text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+        width: 48px; flex-shrink: 0; padding: 5px 0; border-radius: var(--radius-md);
+        text-align: center; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.04em;
     }
-    .a-tag-pri { background: rgba(0,113,227,0.1); color: var(--primary); }
+    .a-tag-pri { background: var(--primary-soft); color: var(--primary); }
     .a-tag-bk  { background: rgba(120,120,120,0.1); color: var(--text-sec); }
     .a-add-row {
         align-self: flex-start;
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 7px 12px; border: 1px dashed var(--border); border-radius: 8px;
+        display: inline-flex; align-items: center; gap: var(--space-1-5);
+        padding: 7px 12px; border: 1px dashed var(--border); border-radius: var(--radius-md);
         background: transparent; color: var(--text-sec); font-weight: 600; cursor: pointer;
-        font: inherit; font-size: 13px;
+        font: inherit; font-size: var(--text-md);
     }
-    .a-add-row:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.04); }
+    .a-add-row:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
     .a-add-row svg { width: 13px; height: 13px; }
     .a-card-pick, .a-toggle-row {
-        display: flex; gap: 12px; align-items: center; padding: 12px 14px;
-        border: 1px solid var(--border); border-radius: 10px; background: var(--card); cursor: pointer;
+        display: flex; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-3-5);
+        border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); cursor: pointer;
         min-height: 60px;
     }
     .a-card-pick:hover { border-color: var(--primary); }
     .a-toggle-row { user-select: none; }
     .a-footer {
-        display: flex; justify-content: space-between; align-items: center; gap: 10px;
-        padding-top: 18px; border-top: 1px solid var(--border); margin-top: 4px;
+        display: flex; justify-content: space-between; align-items: center; gap: var(--space-2-5);
+        padding-top: 18px; border-top: 1px solid var(--border); margin-top: var(--space-1);
         flex-wrap: wrap;
     }
-    .a-footer .a-footer-aux { color: var(--text-sec); font-size: 12px; }
+    .a-footer .a-footer-aux { color: var(--text-sec); font-size: var(--text-sm); }
 
     /* --- Headers Editor --- */
-    .hed { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: rgba(120,120,120,0.025); }
-    .hed-head { display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: 8px; align-items: center; padding: 0 4px 8px 4px; font-size: 10px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
-    .hed-list { display: flex; flex-direction: column; gap: 6px; }
+    .hed { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3-5) var(--space-4); background: rgba(120,120,120,0.025); }
+    .hed-head { display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: var(--space-2); align-items: center; padding: 0 4px 8px 4px; font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
+    .hed-list { display: flex; flex-direction: column; gap: var(--space-1-5); }
     .hed-row {
-        display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: 8px;
-        align-items: center; padding: 4px; border-radius: 8px;
+        display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: var(--space-2);
+        align-items: center; padding: var(--space-1); border-radius: var(--radius-md);
         transition: background 0.15s;
     }
     .hed-row.dragging { opacity: 0.35; }
     .hed-row.disabled .hed-k, .hed-row.disabled .hed-v { opacity: 0.45; }
     .hed-row:hover { background: rgba(120,120,120,0.05); }
-    .hed-handle { cursor: grab; color: var(--text-sec); opacity: 0.5; text-align: center; user-select: none; font-size: 13px; line-height: 1; padding: 8px 0; }
+    .hed-handle { cursor: grab; color: var(--text-sec); opacity: 0.5; text-align: center; user-select: none; font-size: var(--text-md); line-height: 1; padding: 8px 0; }
     .hed-handle:active { cursor: grabbing; }
     .hed-k, .hed-v {
         width: 100%; padding: 9px 12px; border: 1px solid var(--border);
-        border-radius: 8px; background: var(--card); color: var(--text);
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+        border-radius: var(--radius-md); background: var(--card); color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-md);
         outline: none; transition: 0.15s;
     }
-    .hed-k:focus, .hed-v:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.12); }
+    .hed-k:focus, .hed-v:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
     .hed-v-wrap { position: relative; }
     .hed-v-wrap .mask-btn {
         position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
         width: 28px; height: 28px; border: none; background: transparent;
-        color: var(--text-sec); cursor: pointer; border-radius: 6px;
+        color: var(--text-sec); cursor: pointer; border-radius: var(--radius-sm);
         display: flex; align-items: center; justify-content: center;
     }
-    .hed-v-wrap .mask-btn:hover { color: var(--primary); background: rgba(0,113,227,0.08); }
+    .hed-v-wrap .mask-btn:hover { color: var(--primary); background: var(--primary-soft); }
     .hed-v-wrap .mask-btn svg { width: 16px; height: 16px; fill: currentColor; }
     .hed-del {
-        width: 32px; height: 32px; border: 1px solid transparent; border-radius: 8px;
+        width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius-md);
         background: transparent; color: var(--text-sec); cursor: pointer;
-        display: flex; align-items: center; justify-content: center; font-size: 14px;
+        display: flex; align-items: center; justify-content: center; font-size: var(--text-base);
         transition: 0.15s; justify-self: center;
     }
-    .hed-del:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.06); }
+    .hed-del:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
     .hed-del svg { width: 12px; height: 12px; }
-    .hed-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 10px; }
-    .hed-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-sec); }
-    .hed-meta .dot { width: 6px; height: 6px; background: #34c759; border-radius: 50%; box-shadow: 0 0 6px #34c759; }
-    .hed-empty { text-align: center; padding: 26px 20px; color: var(--text-sec); font-size: 13px; border: 1px dashed var(--border); border-radius: 10px; }
-    .templates { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-    .templates-label { font-size: 12px; color: var(--text-sec); margin-right: 4px; }
+    .hed-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3-5); flex-wrap: wrap; gap: var(--space-2-5); }
+    .hed-meta { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); color: var(--text-sec); }
+    .hed-meta .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; box-shadow: 0 0 6px var(--ok); }
+    .hed-empty { text-align: center; padding: 26px 20px; color: var(--text-sec); font-size: var(--text-md); border: 1px dashed var(--border); border-radius: var(--radius-md); }
+    .templates { margin-top: var(--space-3-5); padding-top: 14px; border-top: 1px solid var(--border); display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; }
+    .templates-label { font-size: var(--text-sm); color: var(--text-sec); margin-right: var(--space-1); }
     .chip {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: var(--space-1);
+        padding: 5px 10px; border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600;
         background: rgba(120,120,120,0.08); color: var(--text-sec); border: 1px solid var(--border);
         cursor: pointer; transition: 0.15s; font-family: inherit;
     }
-    .chip:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.06); }
-    .chip-curl { color: var(--primary); border-color: rgba(0,113,227,0.3); background: rgba(0,113,227,0.06); }
+    .chip:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+    .chip-curl { color: var(--primary); border-color: var(--primary-ring); background: var(--primary-soft); }
 
     /* --- cURL modal (separate from #dashboardModal) --- */
     .curl-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
     .curl-modal-bg.show { display: flex; }
-    .curl-modal { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; width: 90%; max-width: 540px; }
-    .curl-modal h3 { margin: 0 0 6px 0; font-size: 16px; }
-    .curl-modal p  { margin: 0 0 12px 0; font-size: 13px; color: var(--text-sec); }
-    .curl-modal textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 12px; resize: vertical; min-height: 120px; outline: none; }
-    .curl-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+    .curl-modal { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); width: 90%; max-width: 540px; }
+    .curl-modal h3 { margin: 0 0 6px 0; font-size: var(--text-xl); }
+    .curl-modal p  { margin: 0 0 12px 0; font-size: var(--text-md); color: var(--text-sec); }
+    .curl-modal textarea { width: 100%; padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: var(--text-sm); resize: vertical; min-height: 120px; outline: none; }
+    .curl-modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2-5); margin-top: var(--space-3-5); }
 
     /* ============================================================
        Top Bar Redesign — consolidate update alert + CF trace +
@@ -362,101 +402,101 @@ const CSS_COMMON = `
        with pills, dismissable update banner, and expandable drawer.
        ============================================================ */
     .tb-banner {
-        background: linear-gradient(90deg, rgba(52,199,89,0.12), rgba(52,199,89,0.04));
-        border: 1px solid rgba(52,199,89,0.3); border-radius: 10px;
-        padding: 8px 14px; display: flex; align-items: center; gap: 12px;
-        font-size: 13px; margin-bottom: 14px;
+        background: linear-gradient(90deg, var(--ok-soft), transparent);
+        border: 1px solid var(--ok-ring); border-radius: var(--radius-md);
+        padding: var(--space-2) var(--space-3-5); display: flex; align-items: center; gap: var(--space-3);
+        font-size: var(--text-md); margin-bottom: var(--space-3-5);
     }
-    .tb-banner .b-tag { background: #34c759; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .tb-banner .b-tag { background: var(--ok); color: #fff; font-size: var(--text-xs); font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); }
     .tb-banner .b-msg { color: var(--text); flex: 1; }
-    .tb-banner .b-cta { background: #34c759; color: #fff; border: none; padding: 6px 14px; border-radius: 7px; font-weight: 600; cursor: pointer; font: inherit; font-size: 12px; }
+    .tb-banner .b-cta { background: var(--ok); color: #fff; border: none; padding: var(--space-1-5) var(--space-3-5); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font: inherit; font-size: var(--text-sm); }
     .tb-banner .b-cta:disabled { opacity: 0.6; cursor: not-allowed; }
-    .tb-banner .b-dismiss { background: transparent; border: none; color: var(--text-sec); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; }
+    .tb-banner .b-dismiss { background: transparent; border: none; color: var(--text-sec); cursor: pointer; font-size: var(--text-xl); line-height: 1; padding: 2px 6px; }
     .tb-banner .b-dismiss:hover { color: var(--text); }
 
     .tb-bar {
-        background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-        padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 14px;
+        background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl);
+        padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: var(--space-3-5);
     }
-    .tb-title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; padding-right: 4px; }
+    .tb-title { display: flex; align-items: center; gap: var(--space-2-5); font-weight: 700; font-size: var(--text-xl); padding-right: 4px; }
     .tb-title .tb-logo {
-        width: 28px; height: 28px; border-radius: 8px;
+        width: 28px; height: 28px; border-radius: var(--radius-md);
         background: linear-gradient(135deg, var(--primary), #5856d6);
-        display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;
+        display: flex; align-items: center; justify-content: center; color: #fff; font-size: var(--text-base);
     }
     .tb-divider { width: 1px; height: 22px; background: var(--border); }
 
     .pill {
         display: inline-flex; align-items: center; gap: 7px;
-        padding: 6px 11px; border-radius: 999px;
+        padding: 6px 11px; border-radius: var(--radius-pill);
         background: rgba(120,120,120,0.06); border: 1px solid var(--border);
-        font-size: 12px; font-weight: 600; color: var(--text); cursor: default;
+        font-size: var(--text-sm); font-weight: 600; color: var(--text); cursor: default;
         transition: 0.15s; position: relative; line-height: 1.2; white-space: nowrap;
     }
     .pill:hover { background: rgba(120,120,120,0.1); }
     .pill .lbl { color: var(--text-sec); font-weight: 500; }
     .pill .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
     .pill .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .pill .dot.green { background: #34c759; box-shadow: 0 0 6px #34c759; }
-    .pill .dot.amber { background: #ff9500; box-shadow: 0 0 6px #ff9500; }
-    .pill .dot.red { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; }
+    .pill .dot.green { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+    .pill .dot.amber { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+    .pill .dot.red { background: var(--err); box-shadow: 0 0 6px var(--err); }
     .pill.expandable { cursor: pointer; }
-    .pill.expandable:hover { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.04); }
-    .pill.expandable.open { color: var(--primary); border-color: var(--primary); background: rgba(0,113,227,0.06); }
-    .pill .caret { font-size: 9px; opacity: 0.6; transition: transform 0.2s; }
+    .pill.expandable:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+    .pill.expandable.open { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+    .pill .caret { font-size: var(--text-2xs); opacity: 0.6; transition: transform 0.2s; }
     .pill.expandable.open .caret { transform: rotate(180deg); }
 
     .pill .tip {
         position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-        background: #1d1d1f; color: #fff; padding: 8px 12px; border-radius: 8px;
-        font-size: 11px; font-weight: 500; white-space: nowrap;
-        display: flex; flex-direction: column; gap: 4px;
+        background: #1d1d1f; color: #fff; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+        font-size: var(--text-xs); font-weight: 500; white-space: nowrap;
+        display: flex; flex-direction: column; gap: var(--space-1);
         opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 50;
         box-shadow: 0 6px 20px rgba(0,0,0,0.2);
     }
     .pill .tip::before { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: #1d1d1f; }
-    .pill .tip .line { display: flex; gap: 14px; justify-content: space-between; }
+    .pill .tip .line { display: flex; gap: var(--space-3-5); justify-content: space-between; }
     .pill .tip .tip-key { color: #98989d; }
     .pill:hover .tip { opacity: 1; }
 
     .tb-spacer { flex: 1; min-width: 8px; }
 
     .tb-icon-btn {
-        width: 36px; height: 36px; border-radius: 10px; border: 1px solid transparent;
+        width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid transparent;
         background: transparent; cursor: pointer; display: inline-flex;
-        align-items: center; justify-content: center; font-size: 16px; color: var(--text-sec);
+        align-items: center; justify-content: center; font-size: var(--text-xl); color: var(--text-sec);
         transition: 0.15s; position: relative; padding: 0;
     }
     .tb-icon-btn:hover { background: rgba(120,120,120,0.08); color: var(--text); border-color: var(--border); }
-    .tb-icon-btn.danger:hover { color: #ff3b30; border-color: #ff3b30; background: rgba(255,59,48,0.05); }
+    .tb-icon-btn.danger:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
 
     .tb-drawer {
         background: var(--card); border: 1px solid var(--border);
-        border-radius: 14px; overflow: hidden;
+        border-radius: var(--radius-xl); overflow: hidden;
         max-height: 0; opacity: 0; padding: 0 20px;
         transition: max-height 0.3s ease, opacity 0.2s, padding 0.3s, margin 0.3s;
         margin-bottom: 0;
     }
-    .tb-drawer.open { max-height: 320px; opacity: 1; padding: 16px 20px; margin-bottom: 14px; }
-    .tb-drawer h3 { margin: 0 0 4px 0; font-size: 14px; font-weight: 700; }
-    .tb-drawer .sub { font-size: 12px; color: var(--text-sec); margin-bottom: 12px; }
-    .tb-drawer .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tb-drawer.open { max-height: 320px; opacity: 1; padding: var(--space-4) var(--space-5); margin-bottom: var(--space-3-5); }
+    .tb-drawer h3 { margin: 0 0 4px 0; font-size: var(--text-base); font-weight: 700; }
+    .tb-drawer .sub { font-size: var(--text-sm); color: var(--text-sec); margin-bottom: var(--space-3); }
+    .tb-drawer .controls { display: flex; gap: var(--space-2-5); flex-wrap: wrap; align-items: center; }
     .tb-drawer select, .tb-drawer input {
-        padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
-        background: var(--bg); color: var(--text); font: inherit; font-size: 13px; outline: none;
+        padding: 9px 12px; border-radius: var(--radius-md); border: 1px solid var(--border);
+        background: var(--bg); color: var(--text); font: inherit; font-size: var(--text-md); outline: none;
         min-width: 200px;
     }
     .tb-drawer select:focus, .tb-drawer input:focus { border-color: var(--primary); }
-    .tb-drawer .status { margin-top: 10px; font-size: 12px; color: var(--text-sec); display: flex; align-items: center; gap: 6px; }
+    .tb-drawer .status { margin-top: var(--space-2-5); font-size: var(--text-sm); color: var(--text-sec); display: flex; align-items: center; gap: var(--space-1-5); }
 
     @media (max-width: 768px) {
-        .tb-bar { padding: 10px 12px; gap: 8px; }
-        .tb-title { font-size: 14px; }
-        .tb-title .tb-logo { width: 24px; height: 24px; font-size: 12px; }
+        .tb-bar { padding: var(--space-2-5) var(--space-3); gap: var(--space-2); }
+        .tb-title { font-size: var(--text-base); }
+        .tb-title .tb-logo { width: 24px; height: 24px; font-size: var(--text-sm); }
         .tb-bar .tb-divider { display: none; }
-        .pill { font-size: 11px; padding: 5px 10px; }
-        .tb-icon-btn { width: 38px; height: 38px; }
+        .pill { font-size: var(--text-xs); padding: 5px 10px; }
+        /* .tb-icon-btn mobile sizing now driven by --touch-min in the consolidated tap-target block below. */
         .tb-banner { flex-wrap: wrap; }
         .tb-drawer select, .tb-drawer input { min-width: 0; width: 100%; }
         .tb-drawer .controls { flex-direction: column; align-items: stretch; }
@@ -466,14 +506,14 @@ const CSS_COMMON = `
     @media (max-width: 768px) {
         .a-row, .a-row.two { grid-template-columns: 1fr; }
         .hed-head { display: none; }
-        .hed-row { grid-template-columns: 18px 1fr 36px 28px; grid-template-rows: auto auto; gap: 6px; padding: 8px 4px; }
+        .hed-row { grid-template-columns: 18px 1fr 36px 28px; grid-template-rows: auto auto; gap: var(--space-1-5); padding: var(--space-2) var(--space-1); }
         .hed-row .hed-handle { grid-row: 1 / 3; }
         .hed-row .hed-k { grid-column: 2 / 5; }
         .hed-row .hed-v-wrap { grid-column: 2 / 3; grid-row: 2; }
         .hed-row .ios-switch { grid-column: 3 / 4; grid-row: 2; }
         .hed-row .hed-del { grid-column: 4 / 5; grid-row: 2; }
         .a-footer { flex-direction: column-reverse; align-items: stretch; }
-        .a-footer .a-footer-actions { display: flex; gap: 10px; }
+        .a-footer .a-footer-actions { display: flex; gap: var(--space-2-5); }
         .a-footer .a-footer-actions .btn-tier { flex: 1; justify-content: center; }
     }
 
@@ -483,36 +523,38 @@ const CSS_COMMON = `
     @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     @media (max-width: 768px) {
-        body { padding: 12px; padding-bottom: max(env(safe-area-inset-bottom), 12px); }
-        .card { padding: 16px; border-radius: 14px; margin-bottom: 14px; }
+        body { padding: var(--space-3); padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+        .card { padding: var(--space-4); border-radius: var(--radius-xl); margin-bottom: var(--space-3-5); }
         .header { margin-bottom: 16px !important; }
-        .header h1 { font-size: 22px; letter-spacing: -0.02em; }
-        .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+        .header h1 { font-size: var(--text-2xl); letter-spacing: -0.02em; }
+        .toolbar { flex-direction: column; align-items: stretch; gap: var(--space-2-5); }
         .toolbar > * { width: 100%; display: flex; justify-content: center; }
         .search-input { width: 100%; }
-        .node-grid { grid-template-columns: 1fr; gap: 12px; }
+        .node-grid { grid-template-columns: 1fr; gap: var(--space-3); }
 
-        /* Tap-target sizing */
-        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit { min-height: 44px; }
-        .icon-btn, .a-icon-btn { width: 36px; height: 36px; }
-        .a-detail-actions .a-icon-btn { width: 32px; height: 32px; }
-        .a-stat-val { font-size: 18px; }
+        /* Tap-target sizing — iOS HIG minimum --touch-min (44px) for all primary interactive elements */
+        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit,
+        .btn-tier, .icon-btn, .a-icon-btn, .tb-icon-btn { min-height: var(--touch-min); }
+        .icon-btn, .a-icon-btn, .tb-icon-btn { min-width: var(--touch-min); }
+        /* Detail-row icon buttons may stay compact (inside an already-large card) */
+        .a-detail-actions .a-icon-btn { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+        .a-stat-val { font-size: var(--text-2xl); }
         .a-stats { grid-template-columns: 1fr 1fr 1fr; }
         .a-foot { flex-wrap: wrap; }
         select, input[type="text"], input[type="url"], input[type="password"], textarea {
-            font-size: 16px; /* prevent iOS zoom on focus */
+            font-size: var(--text-xl); /* prevent iOS zoom on focus */
         }
 
         /* Table → stacked card rows (kept from previous design) */
         .table-wrapper { border: none; background: transparent; overflow: visible; }
         table, thead, tbody, th, td, tr { display: block; width: 100%; }
         thead { display: none; }
-        tr { margin-bottom: 12px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: hidden; }
-        td { display: flex; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid var(--border); text-align: right; gap: 12px; min-height: 44px; }
+        tr { margin-bottom: var(--space-3); background: var(--card); border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: hidden; }
+        td { display: flex; align-items: center; padding: var(--space-3) var(--space-3-5); border-bottom: 0.5px solid var(--border); text-align: right; gap: var(--space-3); min-height: 44px; }
         td:last-child { border-bottom: none; }
         td[colspan] { justify-content: center; text-align: center; }
         td[colspan]::before { display: none !important; }
-        td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+        td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.04em; }
 
         /* Modals → bottom sheet */
         #dashboardModal {
@@ -528,7 +570,7 @@ const CSS_COMMON = `
             max-height: 92vh;
             margin: 0 !important;
             padding: 18px 16px 24px !important;
-            border-radius: 18px 18px 0 0 !important;
+            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0 !important;
             box-shadow: 0 -8px 32px rgba(0,0,0,0.18) !important;
             overflow-y: auto;
             animation: sheet-up 0.28s cubic-bezier(.32,.72,.3,1);
@@ -536,20 +578,20 @@ const CSS_COMMON = `
         }
         #dashboardModal > .card::before {
             content: ''; display: block;
-            width: 36px; height: 5px; border-radius: 3px;
+            width: 36px; height: 5px; border-radius: var(--radius-pill);
             background: var(--border);
             margin: -4px auto 14px;
         }
-        #dashboardModal h2 { font-size: 18px; flex-direction: column; align-items: flex-start; gap: 8px; }
-        #dashboardModal h2 > div:last-child { font-size: 12px !important; }
-        #dashboardModal h2 span { font-size: 12px; }
-        #dashboardModal .table-wrapper td { font-size: 13px; }
+        #dashboardModal h2 { font-size: var(--text-2xl); flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+        #dashboardModal h2 > div:last-child { font-size: var(--text-sm) !important; }
+        #dashboardModal h2 span { font-size: var(--text-sm); }
+        #dashboardModal .table-wrapper td { font-size: var(--text-md); }
 
         /* CF trace card → horizontal scrollable status strip */
         #cf-trace-card {
             padding: 10px 14px !important;
             gap: 10px !important;
-            font-size: 13px !important;
+            font-size: var(--text-md) !important;
             flex-wrap: nowrap !important;
             overflow-x: auto !important;
             scrollbar-width: none;
@@ -560,7 +602,7 @@ const CSS_COMMON = `
         /* Header (title + dashboard + logout) compresses */
         .header { gap: 10px !important; }
         .header > div:last-child { gap: 6px !important; }
-        .header .btn-submit, .header .logout-btn { padding: 10px 12px; font-size: 13px; }
+        .header .btn-submit, .header .logout-btn { padding: var(--space-2-5) var(--space-3); font-size: var(--text-md); }
 
         /* Deploy/edit form (#addForm): stretch inputs, group submit at bottom */
         #addForm input[type="text"],
@@ -577,10 +619,10 @@ const CSS_COMMON = `
         #addForm #submitBtn {
             width: 100% !important;
             padding: 14px !important;
-            font-size: 16px;
-            border-radius: 12px;
+            font-size: var(--text-xl);
+            border-radius: var(--radius-lg);
             order: 99;
-            margin-top: 4px;
+            margin-top: var(--space-1);
         }
         #addForm > div:nth-of-type(2) { flex-direction: column; align-items: stretch !important; }
         #addForm > div:nth-of-type(2) > * { width: 100%; }
@@ -604,29 +646,29 @@ const CSS_COMMON = `
             border-radius: 0;
         }
         body.login-body .login-eyebrow {
-            font-size: 11px; font-weight: 700; color: var(--text-sec);
-            letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
+            font-size: var(--text-xs); font-weight: 700; color: var(--text-sec);
+            letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--space-1-5);
         }
         body.login-body .login-box h2 {
-            font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
+            font-size: var(--text-3xl); font-weight: 700; letter-spacing: -0.025em;
             margin: 0 0 8px 0 !important; text-align: left;
         }
         body.login-body .login-sub {
-            font-size: 14px; color: var(--text-sec); line-height: 1.5; margin: 0 0 28px 0;
+            font-size: var(--text-base); color: var(--text-sec); line-height: 1.5; margin: 0 0 28px 0;
         }
         body.login-body .login-foot {
             position: fixed; bottom: max(env(safe-area-inset-bottom), 16px); left: 0; right: 0;
-            text-align: center; color: var(--text-sec); font-size: 11px; line-height: 1.6;
+            text-align: center; color: var(--text-sec); font-size: var(--text-xs); line-height: 1.6;
             opacity: 0.7;
         }
     }
 
     @media (max-width: 480px) {
-        body { padding: 10px; }
-        .card { padding: 14px; border-radius: 12px; }
-        .header h1 { font-size: 20px; }
+        body { padding: var(--space-2-5); }
+        .card { padding: var(--space-3-5); border-radius: var(--radius-lg); }
+        .header h1 { font-size: var(--text-2xl); }
         .header .btn-submit, .header .logout-btn { flex: 1; min-width: 0; }
-        h2 { font-size: 17px !important; }
+        h2 { font-size: var(--text-xl) !important; }
 
         /* Logout / dashboard top buttons reflow */
         .header > div:last-child { width: 100%; justify-content: stretch; }
@@ -634,7 +676,7 @@ const CSS_COMMON = `
         .header > div:last-child > button { flex: 1; }
 
         /* Toolbar collapses to vertical with full-width primary */
-        .toolbar { gap: 8px; }
+        .toolbar { gap: var(--space-2); }
         .toolbar select, .toolbar input, .toolbar button { width: 100% !important; min-width: 0 !important; }
 
         /* Speed-test multi-button bar: stack */
@@ -648,21 +690,21 @@ const CSS_COMMON = `
        ============================================================ */
     .m-pills { display: none; }
     .m-pill {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 6px 11px; border-radius: 999px;
+        display: inline-flex; align-items: center; gap: var(--space-1-5);
+        padding: 6px 11px; border-radius: var(--radius-pill);
         background: rgba(120,120,120,0.06);
         border: 1px solid var(--border);
-        font-size: 12px; font-weight: 600; color: var(--text);
+        font-size: var(--text-sm); font-weight: 600; color: var(--text);
         white-space: nowrap; flex-shrink: 0; line-height: 1.2;
     }
     .m-pill .lbl { color: var(--text-sec); font-weight: 500; }
     .m-pill .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
     .m-pill .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .m-pill .dot.green { background: #34c759; box-shadow: 0 0 5px #34c759; }
-    .m-pill .dot.amber { background: #ff9500; box-shadow: 0 0 5px #ff9500; }
+    .m-pill .dot.green { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
+    .m-pill .dot.amber { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
     .m-pill.strong .val { color: var(--primary); }
     .m-pill.tappable { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
-    .m-pill.tappable .caret { color: var(--text-sec); font-size: 10px; margin-left: 1px; }
+    .m-pill.tappable .caret { color: var(--text-sec); font-size: var(--text-xs); margin-left: 1px; }
     .m-pill.tappable:active { transform: scale(0.97); }
 
     #mobileTabBar { display: none; }
@@ -676,7 +718,7 @@ const CSS_COMMON = `
 
         /* Status pills row above node list */
         .m-pills {
-            display: flex; gap: 6px; overflow-x: auto;
+            display: flex; gap: var(--space-1-5); overflow-x: auto;
             margin: -4px 0 12px; padding: 4px 2px 6px;
             -webkit-overflow-scrolling: touch; scrollbar-width: none;
         }
@@ -692,7 +734,7 @@ const CSS_COMMON = `
             bottom: calc(72px + env(safe-area-inset-bottom));
             z-index: 5;
             box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
-            margin-top: 8px;
+            margin-top: var(--space-2);
         }
         body.dark #addForm #submitBtn { box-shadow: 0 -4px 16px rgba(0,0,0,0.4); }
 
@@ -712,7 +754,7 @@ const CSS_COMMON = `
             background: transparent; border: none; cursor: pointer;
             display: flex; flex-direction: column; align-items: center; gap: 3px;
             padding: 6px 4px; color: var(--text-sec);
-            font: inherit; font-size: 10px; font-weight: 600;
+            font: inherit; font-size: var(--text-xs); font-weight: 600;
             min-height: 44px;
         }
         #mobileTabBar button.active { color: var(--primary); }
@@ -725,9 +767,9 @@ const CSS_COMMON = `
         /* Login mobile hero: gradient logo block */
         body.login-body .login-logo {
             display: flex; align-items: center; justify-content: center;
-            width: 64px; height: 64px; border-radius: 18px; color: #fff;
+            width: 64px; height: 64px; border-radius: var(--radius-2xl); color: #fff;
             background: linear-gradient(135deg, var(--primary), #5856d6);
-            box-shadow: 0 12px 28px rgba(0,113,227,0.28);
+            box-shadow: 0 12px 28px var(--primary-glow);
             margin: 0 0 28px;
         }
         body.login-body .login-logo svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -749,7 +791,7 @@ const CSS_COMMON = `
 
     /* Mid-range (481–768px): large phone landscape & small tablet portrait — 2-col where it helps */
     @media (min-width: 481px) and (max-width: 768px) {
-        .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
         .a-row, .a-row.two { grid-template-columns: 1fr 1fr !important; }
         #addForm > div:nth-of-type(2) { flex-direction: row !important; align-items: center !important; flex-wrap: wrap; }
         #addForm > div:nth-of-type(2) > * { width: auto !important; flex: 1 1 200px; }
@@ -757,12 +799,12 @@ const CSS_COMMON = `
 
     /* Small phones (≤360px): tighten everything one more notch */
     @media (max-width: 360px) {
-        body { padding: 10px; padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
-        .card { padding: 12px; border-radius: 12px; margin-bottom: 12px; }
-        .header h1 { font-size: 18px; }
-        .m-pill { padding: 5px 9px; font-size: 11px; }
+        body { padding: var(--space-2-5); padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
+        .card { padding: var(--space-3); border-radius: var(--radius-lg); margin-bottom: var(--space-3); }
+        .header h1 { font-size: var(--text-2xl); }
+        .m-pill { padding: 5px 9px; font-size: var(--text-xs); }
         #mobileTabBar { padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
-        #mobileTabBar button { font-size: 9px; padding: 5px 2px; }
+        #mobileTabBar button { font-size: var(--text-2xs); padding: 5px 2px; }
         #mobileTabBar button svg { width: 20px; height: 20px; }
     }
 
@@ -775,8 +817,8 @@ const CSS_COMMON = `
         }
         #mobileTabBar { padding: 2px 0 calc(2px + env(safe-area-inset-bottom)); }
         #mobileTabBar button {
-            flex-direction: row; gap: 6px; padding: 4px 8px;
-            min-height: 36px; font-size: 11px;
+            flex-direction: row; gap: var(--space-1-5); padding: var(--space-1) var(--space-2);
+            min-height: 36px; font-size: var(--text-xs);
         }
         #mobileTabBar button svg { width: 18px; height: 18px; }
         .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -799,7 +841,7 @@ const CSS_COMMON = `
         body.login-body .login-box h2,
         body.login-body .login-sub { flex: 0 0 calc(45% - 16px); margin-left: 0 !important; margin-right: 0 !important; }
         body.login-body .login-logo { margin: 0 0 6px !important; }
-        body.login-body .login-box h2 { font-size: 26px !important; margin: 0 !important; }
+        body.login-body .login-box h2 { font-size: var(--text-3xl) !important; margin: 0 !important; }
         body.login-body .login-sub { margin: 0 !important; }
         body.login-body .login-box > input,
         body.login-body .login-box > button { flex: 1 1 calc(55% - 16px); margin: 0 !important; }
@@ -851,7 +893,7 @@ const CSS_COMMON = `
         .table-wrapper tr:active { transform: scale(0.99); }
 
         /* Density: prevent pill rows / a-stats from overflowing when too dense */
-        .a-stats { row-gap: 8px; }
+        .a-stats { row-gap: var(--space-2); }
     }
 
     /* Honor reduced-motion preference */
@@ -879,24 +921,24 @@ const CSS_COMMON = `
         transition: width 0.22s ease;
     }
     .sidebar-brand {
-        display: flex; align-items: center; gap: 12px;
+        display: flex; align-items: center; gap: var(--space-3);
         padding: 20px 18px; border-bottom: 1px solid var(--border);
     }
     .sidebar-logo {
-        width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+        width: 38px; height: 38px; border-radius: var(--radius-lg); flex-shrink: 0;
         background: linear-gradient(135deg, var(--primary), #5856d6);
         display: flex; align-items: center; justify-content: center;
         color: #fff; box-shadow: 0 0 16px var(--accent-glow);
     }
     .sidebar-logo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     .sidebar-brand-text { min-width: 0; }
-    .sidebar-brand-title { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sidebar-brand-sub { font-size: 11px; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-    .sidebar-nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+    .sidebar-brand-title { font-weight: 700; font-size: var(--text-base); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-brand-sub { font-size: var(--text-xs); color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: var(--space-3-5) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); overflow-y: auto; }
     .nav-item {
-        display: flex; align-items: center; gap: 12px;
-        padding: 11px 12px; border-radius: 10px; cursor: pointer;
-        color: var(--text-sec); font-size: 14px; font-weight: 600;
+        display: flex; align-items: center; gap: var(--space-3);
+        padding: 11px 12px; border-radius: var(--radius-md); cursor: pointer;
+        color: var(--text-sec); font-size: var(--text-base); font-weight: 600;
         border: 1px solid transparent; transition: 0.15s; white-space: nowrap;
         font-family: inherit; background: transparent; width: 100%; text-align: left;
     }
@@ -904,21 +946,21 @@ const CSS_COMMON = `
     .nav-item:hover { color: var(--text); background: rgba(120,120,140,0.08); }
     .nav-item.is-active {
         color: var(--primary); background: var(--accent-glow);
-        border-color: rgba(47,155,255,0.25);
+        border-color: var(--primary-ring);
     }
     .sidebar-foot {
-        padding: 12px; border-top: 1px solid var(--border);
-        display: flex; flex-direction: column; gap: 8px;
+        padding: var(--space-3); border-top: 1px solid var(--border);
+        display: flex; flex-direction: column; gap: var(--space-2);
     }
     .sidebar-collapse {
-        display: flex; align-items: center; gap: 10px; justify-content: center;
-        padding: 9px; border-radius: 9px; cursor: pointer;
+        display: flex; align-items: center; gap: var(--space-2-5); justify-content: center;
+        padding: 9px; border-radius: var(--radius-md); cursor: pointer;
         background: rgba(120,120,140,0.07); border: 1px solid var(--border);
-        color: var(--text-sec); font: inherit; font-size: 12px; font-weight: 600;
+        color: var(--text-sec); font: inherit; font-size: var(--text-sm); font-weight: 600;
     }
     .sidebar-collapse:hover { color: var(--primary); border-color: var(--primary); }
     .sidebar-collapse svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform 0.2s; }
-    .sidebar-version { text-align: center; font-size: 11px; color: var(--text-sec); }
+    .sidebar-version { text-align: center; font-size: var(--text-xs); color: var(--text-sec); }
 
     /* 折叠态 */
     .sidebar.collapsed { width: 68px; }
@@ -935,16 +977,16 @@ const CSS_COMMON = `
 
     /* --- 顶部状态栏 --- */
     .topbar {
-        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        padding: 14px 24px; background: var(--topbar-bg);
+        display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
+        padding: var(--space-3-5) var(--space-6); background: var(--topbar-bg);
         border-bottom: 1px solid var(--border);
         position: sticky; top: 0; z-index: 90;
     }
     .topbar .tb-stat {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 7px 13px; border-radius: 10px;
+        display: inline-flex; align-items: center; gap: var(--space-2);
+        padding: 7px 13px; border-radius: var(--radius-md);
         background: var(--surface-2); border: 1px solid var(--border);
-        font-size: 12px; font-weight: 600; white-space: nowrap;
+        font-size: var(--text-sm); font-weight: 600; white-space: nowrap;
     }
     .topbar .tb-stat .lbl { color: var(--text-sec); font-weight: 500; }
     .topbar .tb-stat .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
@@ -952,39 +994,121 @@ const CSS_COMMON = `
     .topbar .tb-stat .dot.green { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
     .topbar .tb-stat .dot.amber { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
     .topbar .tb-stat .dot.red { background: var(--err); box-shadow: 0 0 6px var(--err); }
+    .topbar .tb-stat.is-clickable { cursor: pointer; }
+
+    /* === Utility classes (v2.2.0) === */
+    /* Card variant: lifted modal-style card with danger left-border */
+    .card.is-danger-highlight {
+        max-width: 760px; margin: 60px auto; position: relative;
+        border-left: 4px solid var(--err);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    /* Trailing action row — last button pushed to the right edge */
+    .row-end { display: flex; gap: var(--space-2-5); flex-wrap: wrap; align-items: center; }
+    .row-end > .row-end-spacer { margin-left: auto; }
+
+    /* === Layout / text utilities (v2.2.0) === */
+    .text-center { text-align: center; }
+    .text-center-muted { text-align: center; color: var(--text-sec); }
+    .text-muted { color: var(--text-sec); }
+    .cell-loading { text-align: center; color: var(--text-sec); padding: var(--space-7); }
+    .cell-loading-bold { font-weight: 600; color: var(--text-sec); }
+    .copyable {
+        color: var(--primary); cursor: pointer;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .section-title { margin: 0; font-size: var(--text-2xl); font-weight: 600; }
+    .section-header-row {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2-5);
+    }
+    .section-spacer-top { margin-top: var(--space-7); margin-bottom: var(--space-4); }
+    .mt-4 { margin-top: var(--space-4); }
+    .w-full { width: 100%; }
+    .col-w40 { width: 40px; text-align: center; }
+    .col-w60 { width: 60px; text-align: center; }
+    .col-w90 { width: 90px; text-align: center; }
+    .label-bold { font-size: var(--text-md); font-weight: 600; }
+    .flex-row-tight { display: flex; align-items: center; gap: var(--space-2-5); }
+    .flex-wrap-tight { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .flex-wrap-loose { display: flex; gap: var(--space-5); flex-wrap: wrap; margin-top: var(--space-5); }
+    .banner-spaced { margin: var(--space-3-5) var(--space-6) 0; }
+    .is-disabled { opacity: 0.4; cursor: not-allowed; }
+    .cursor-pointer { cursor: pointer; }
+    .pos-rel { position: relative; }
+    .pos-abs { position: absolute; }
+    .flex-1 { flex: 1; }
+    .flex-1-min0 { flex: 1; min-width: 0; }
+    /* DNS record-type badges (cyan = AAAA, purple = system accent) — non-status palette */
+    .badge.is-info   { background: rgba(50,173,230,0.10);  color: #32ade6; margin-right: var(--space-1); }
+    .badge.is-accent { background: rgba(175,82,222,0.10); color: #af52de; margin-right: var(--space-1); }
+
+    /* === Worker-update modal (.wu-*) === */
+    .wu-overlay {
+        position: fixed; inset: 0; z-index: 10000;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+        overflow-y: auto; padding: var(--space-5);
+    }
+    .wu-close {
+        position: absolute; top: var(--space-5); right: var(--space-5);
+        font-size: var(--text-3xl); line-height: 1; padding: 0;
+        background: none; border: none; cursor: pointer;
+        color: var(--text-sec); transition: color 0.2s;
+    }
+    .wu-close:hover { color: var(--err); }
+    .wu-title {
+        margin: 0 0 var(--space-3); font-size: var(--text-2xl); color: var(--err);
+    }
+    .wu-warning {
+        font-size: var(--text-md); color: var(--text-sec);
+        margin-bottom: var(--space-3);
+    }
+    .wu-textarea {
+        width: 100%; padding: var(--space-3-5);
+        border-radius: var(--radius-md); border: 1px solid var(--border);
+        margin-bottom: var(--space-3); background: var(--card);
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: var(--text-sm); resize: vertical;
+    }
+    .wu-label { font-size: var(--text-base); font-weight: 700; }
+    .wu-file-input {
+        font-size: var(--text-base); padding: var(--space-1-5);
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--bg);
+    }
     .topbar-spacer { flex: 1; min-width: 8px; }
     .topbar-user {
-        display: inline-flex; align-items: center; gap: 8px;
-        padding: 5px 12px 5px 6px; border-radius: 999px;
+        display: inline-flex; align-items: center; gap: var(--space-2);
+        padding: 5px 12px 5px 6px; border-radius: var(--radius-pill);
         background: var(--surface-2); border: 1px solid var(--border);
-        font-size: 12px; font-weight: 600;
+        font-size: var(--text-sm); font-weight: 600;
     }
     .topbar-user .ava {
         width: 26px; height: 26px; border-radius: 50%;
         background: linear-gradient(135deg, var(--primary), #5856d6);
         color: #fff; display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 700;
+        font-size: var(--text-sm); font-weight: 700;
     }
 
     /* --- 内容区与分区 --- */
-    .content { flex: 1; padding: 24px; max-width: 1400px; width: 100%; margin: 0 auto; }
+    .content { flex: 1; padding: var(--space-6); max-width: 1400px; width: 100%; margin: 0 auto; }
     .app-section { display: none; }
     .app-section.is-active { display: block; animation: sec-fade 0.22s ease; }
     @keyframes sec-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
     /* --- 危险操作底部条 --- */
     .danger-bar {
-        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-        padding: 12px 24px; border-top: 1px solid var(--err);
-        background: linear-gradient(90deg, rgba(255,69,58,0.10), rgba(255,69,58,0.02));
+        display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+        padding: var(--space-3) var(--space-6); border-top: 1px solid var(--err);
+        background: linear-gradient(90deg, var(--err-soft), transparent);
         position: sticky; bottom: 0; z-index: 80;
     }
     .danger-bar .db-title {
         display: inline-flex; align-items: center; gap: 7px;
-        font-size: 12px; font-weight: 700; color: var(--err); white-space: nowrap;
+        font-size: var(--text-sm); font-weight: 700; color: var(--err); white-space: nowrap;
     }
     .danger-bar .db-title .db-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); box-shadow: 0 0 8px var(--err); }
-    .danger-bar .db-sub { font-size: 12px; color: var(--text-sec); }
+    .danger-bar .db-sub { font-size: var(--text-sm); color: var(--text-sec); }
     .danger-bar .db-spacer { flex: 1; min-width: 8px; }
 
     /* 科技风卡片微光 (深色) */
@@ -995,15 +1119,15 @@ const CSS_COMMON = `
     /* --- 节点状态徽章 --- */
     .node-badge {
         display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px; border-radius: 999px;
-        font-size: 11px; font-weight: 700; white-space: nowrap;
+        padding: 3px 9px; border-radius: var(--radius-pill);
+        font-size: var(--text-xs); font-weight: 700; white-space: nowrap;
     }
     .node-badge .bdot { width: 6px; height: 6px; border-radius: 50%; }
-    .node-badge.is-online { color: var(--ok); background: rgba(52,199,89,0.12); }
+    .node-badge.is-online { color: var(--ok); background: var(--ok-soft); }
     .node-badge.is-online .bdot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-    .node-badge.is-slow { color: var(--warn); background: rgba(255,159,10,0.12); }
+    .node-badge.is-slow { color: var(--warn); background: var(--warn-soft); }
     .node-badge.is-slow .bdot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
-    .node-badge.is-offline { color: var(--err); background: rgba(255,69,58,0.12); }
+    .node-badge.is-offline { color: var(--err); background: var(--err-soft); }
     .node-badge.is-offline .bdot { background: var(--err); box-shadow: 0 0 6px var(--err); }
     .node-badge.is-idle { color: var(--text-sec); background: rgba(142,142,147,0.14); }
     .node-badge.is-idle .bdot { background: var(--text-sec); }
@@ -1014,8 +1138,8 @@ const CSS_COMMON = `
     .node-spark .sk-area { fill: var(--accent-glow); opacity: 0.5; }
     .node-spark-empty {
         height: 38px; display: flex; align-items: center; justify-content: center;
-        font-size: 11px; color: var(--text-sec);
-        border: 1px dashed var(--border); border-radius: 8px;
+        font-size: var(--text-xs); color: var(--text-sec);
+        border: 1px dashed var(--border); border-radius: var(--radius-md);
     }
 
     /* --- 移动端: 隐藏侧边栏, 沿用底部 tab --- */
@@ -1025,14 +1149,14 @@ const CSS_COMMON = `
         .sidebar { display: none; }
         .app-main { display: block; }
         .topbar {
-            padding: 10px 14px; gap: 8px;
+            padding: var(--space-2-5) var(--space-3-5); gap: var(--space-2);
             flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
         }
         .topbar::-webkit-scrollbar { display: none; }
         .topbar > * { flex-shrink: 0; }
-        .content { padding: 14px; padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+        .content { padding: var(--space-3-5); padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
         .danger-bar {
-            position: static; padding: 14px;
+            position: static; padding: var(--space-3-5);
             margin-bottom: calc(72px + env(safe-area-inset-bottom));
         }
         .danger-bar .db-sub { width: 100%; }
@@ -1112,7 +1236,7 @@ const HTML_UI = `
     <div id="toast"></div>
 
     <!-- Shared SVG sprite (UI Suggestions v2.0.7) -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <svg width="0" height="0" class="pos-abs" aria-hidden="true">
         <defs>
             <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
@@ -1134,17 +1258,16 @@ const HTML_UI = `
     </svg>
 
 
-    <div id="workerUpdateModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y:auto; padding: 20px; backdrop-filter: blur(5px);">
-        <div class="card" style="max-width: 760px; margin: 60px auto; position:relative; border-left: 4px solid #ff3b30; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-            <button onclick="closeWorkerUpdate()" style="position:absolute; top:20px; right:20px; font-size:24px; background:none; border:none; cursor:pointer; color: var(--text-sec); transition: 0.2s;" onmouseover="this.style.color='#ff3b30'" onmouseout="this.style.color='var(--text-sec)'">✖</button>
-
-            <h2 style="margin:0 0 12px; font-size:18px; color: #ff3b30;">🚀 一键覆盖/更新 Worker 核心层代码</h2>
-            <div style="font-size: 13px; color: var(--text-sec); margin-bottom: 12px;">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
-            <textarea id="codeArea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..." style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; font-family: monospace; resize: vertical; background:var(--card); font-size:12px;"></textarea>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                <span style="font-size:14px; font-weight:bold;">或 方式二：</span>
-                <input type="file" id="fileInput" accept=".js" style="font-size:14px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; background:var(--bg);">
-                <button type="button" class="btn-tier is-danger" id="deployBtn" onclick="deployWorker()" style="margin-left: auto;">立即覆盖部署并重启节点</button>
+    <div id="workerUpdateModal" class="wu-overlay" style="display:none;">
+        <div class="card is-danger-highlight">
+            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="关闭">✖</button>
+            <h2 class="wu-title">🚀 一键覆盖/更新 Worker 核心层代码</h2>
+            <div class="wu-warning">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
+            <textarea id="codeArea" class="wu-textarea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..."></textarea>
+            <div class="row-end">
+                <span class="wu-label">或 方式二：</span>
+                <input type="file" id="fileInput" class="wu-file-input" accept=".js">
+                <button type="button" class="btn-tier is-danger row-end-spacer" id="deployBtn" onclick="deployWorker()">立即覆盖部署并重启节点</button>
             </div>
         </div>
     </div>
@@ -1213,7 +1336,7 @@ const HTML_UI = `
                     <span class="lbl">健康度</span>
                     <span class="val" id="tb-health-val">--</span>
                 </div>
-                <div class="tb-stat pill expandable" id="placePill" onclick="togglePlacementDrawer()" style="cursor:pointer;">
+                <div class="tb-stat pill expandable is-clickable" id="placePill" onclick="togglePlacementDrawer()">
                     <span class="lbl">调度</span>
                     <span id="placeModeLabel">智能</span>
                     <span class="caret">▾</span>
@@ -1228,7 +1351,7 @@ const HTML_UI = `
                 <div class="topbar-user">
                     <span class="ava">A</span>
                     <span>admin</span>
-                    <button class="tb-icon-btn danger" onclick="logout()" title="退出系统" style="width:28px;height:28px;">⏻</button>
+                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="退出系统">⏻</button>
                 </div>
             </header>
 
@@ -1241,7 +1364,7 @@ const HTML_UI = `
             </div>
 
             <!-- Placement drawer (collapsed by default) -->
-            <div class="tb-drawer" id="placeDrawer" style="margin: 14px 24px 0;">
+            <div class="tb-drawer banner-spaced" id="placeDrawer" >
                 <h3>Worker 调度模式</h3>
                 <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
                 <div class="controls">
@@ -1275,17 +1398,17 @@ const HTML_UI = `
             <section id="sec-stats" class="app-section" data-section="stats" style="display:none;">
             <div class="card">
                 <h2 style="margin-top:0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        📊 数据统计 <span style="font-size:14px; font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
+                    <div class="flex-row-tight">
+                        📊 数据统计 <span style="font-size:var(--text-base); font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
                     </div>
-                    <div style="font-size: 13px; background: rgba(0,113,227,0.1); color: var(--primary); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(0,113,227,0.2); display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div style="font-size: var(--text-md); background: var(--primary-soft); color: var(--primary); padding: 6px 12px; border-radius: var(--radius-md); border: 1px solid var(--primary-ring); display: flex; gap: 15px; flex-wrap: wrap;">
                         <span> 今天: <strong id="trafficToday">加载中...</strong></span>
                         <span>1周内: <strong id="traffic7d">加载中...</strong></span>
                         <span>1月内: <strong id="traffic30d">加载中...</strong></span>
                     </div>
                 </h2>
 
-                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top:20px;">
+                <div class="flex-wrap-loose">
                     <div style="flex: 2; min-width: 300px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: rgba(120,120,120,0.03);">
                         <canvas id="trendChart"></canvas>
                     </div>
@@ -1294,11 +1417,11 @@ const HTML_UI = `
                     </div>
                 </div>
 
-                <h3 style="margin-top: 30px; margin-bottom:16px;">🕵️ 最新独立播放记录 <span style="font-size:12px; color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
+                <h3 class="section-spacer-top">🕵️ 最新独立播放记录 <span style="font-size:var(--text-sm); color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
                 <div class="table-wrapper">
-                    <table style="width: 100%;">
+                    <table class="w-full">
                         <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识 (User-Agent)</th></tr></thead>
-                        <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center; padding: 30px;">加载数据中...</td></tr></tbody>
+                        <tbody id="logTableBody"><tr><td colspan="5" class="cell-loading">加载数据中...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1308,19 +1431,19 @@ const HTML_UI = `
             <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
 
             <div class="card" id="speed-anchor">
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px;">⚡ 专属线路测速与动态 DNS 解析</h2>
+                <div class="section-header-row">
+                    <h2 class="section-title">⚡ 专属线路测速与动态 DNS 解析</h2>
                 </div>
                 
-                <div style="background: rgba(120,120,120,0.05); padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div style="font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 8px;">📡 当前域名生效的 DNS 解析：</div>
-                    <div id="dnsStatus" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <span style="color:#888; font-size: 14px;">加载中...</span>
+                <div style="background: rgba(120,120,120,0.05); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
+                    <div style="font-size: var(--text-md); font-weight: 600; color: var(--text-sec); margin-bottom: 8px;">📡 当前域名生效的 DNS 解析：</div>
+                    <div id="dnsStatus" class="flex-wrap-tight">
+                        <span class="text-muted">加载中...</span>
                     </div>
                 </div>
 
                 <div class="toolbar">
-                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background:var(--card);">
+                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
                         <option value="all">综合混合源</option>
                         <option value="电信">电信专属</option>
                         <option value="联通">联通专属</option>
@@ -1353,19 +1476,19 @@ const HTML_UI = `
                 </div>
 
                 <div style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
-                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                    <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
                 </div>
                 
-                <div id="statusText" style="line-height: 1.6; font-size: 14px; color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: rgba(52, 199, 89, 0.1); border-radius: 10px; border-left: 4px solid #34c759;">
+                <div id="statusText" style="line-height: 1.6; font-size: var(--text-base); color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: var(--ok-soft); border-radius: var(--radius-md); border-left: 4px solid var(--ok);">
                     💡 测速完成后，可勾选复选框自由组合，点击【提交选中节点至 DNS】自动分发。
                 </div>
 
                 <div class="table-wrapper">
-                    <table style="width: 100%;">
+                    <table class="w-full">
                         <thead>
                             <tr>
-                                <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
+                                <th class="col-w40"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
                                 <th>专属节点 (点击复制)</th>
                                 <th>预估延迟</th>
                                 <th>连通状态</th>
@@ -1374,49 +1497,49 @@ const HTML_UI = `
                             </tr>
                         </thead>
                         <tbody id="testTableBody">
-                            <tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
+                            <tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
             <!-- ===== F4: 优选 CDN 域名 + 一键 DNS CNAME ===== -->
-            <div class="card" style="margin-top:16px;">
+            <div class="card mt-4" >
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px;">🌟 优选 CDN 域名 + 一键 DNS CNAME</h2>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <h2 class="section-title">🌟 优选 CDN 域名 + 一键 DNS CNAME</h2>
+                    <div class="flex-wrap-tight">
                         <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
                         <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
                         <button type="button" class="btn-tier is-success" onclick="runDownloadSpeedtest()" title="测当前 DNS 路径的实际下载带宽">⬇️ 当前路径带宽</button>
                         <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ 添加自定义</button>
                     </div>
-                    <div id="downloadSpeedResult" style="margin-top:10px; font-size:13px; color:var(--text-sec);"></div>
+                    <div id="downloadSpeedResult" style="margin-top:10px; font-size:var(--text-md); color:var(--text-sec);"></div>
                 </div>
                 <div class="table-wrapper">
-                    <table style="width:100%;">
+                    <table class="w-full">
                         <thead>
                             <tr>
                                 <th>域名</th>
                                 <th>备注</th>
-                                <th style="width:60px; text-align:center;">内置</th>
-                                <th style="width:60px; text-align:center;">启用</th>
-                                <th style="width:90px; text-align:center;">上次测速</th>
+                                <th class="col-w60">内置</th>
+                                <th class="col-w60">启用</th>
+                                <th class="col-w90">上次测速</th>
                                 <th style="width:180px;">操作</th>
                             </tr>
                         </thead>
                         <tbody id="optimizedDomainsBody">
-                            <tr><td colspan="6" style="text-align:center;color:var(--text-sec);">加载中...</td></tr>
+                            <tr><td colspan="6" class="text-center-muted">加载中...</td></tr>
                         </tbody>
                     </table>
                 </div>
-                <div id="dnsReadyHint" style="margin-top:14px; padding:10px 14px; border-radius:10px; font-size:13px;"></div>
+                <div id="dnsReadyHint" style="margin-top:14px; padding:10px 14px; border-radius:var(--radius-md); font-size:var(--text-md);"></div>
             </div>
 
             <!-- ===== F3: 重定向白名单 ===== -->
-            <div class="card" style="margin-top:16px;">
-                <h2 style="margin:0 0 10px 0; font-size:18px;">🔁 3xx 重定向直通白名单</h2>
-                <div style="font-size:13px; color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
-                <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
+            <div class="card mt-4" >
+                <h2 style="margin:0 0 10px 0; font-size:var(--text-2xl);">🔁 3xx 重定向直通白名单</h2>
+                <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
+                <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
                 <div style="margin-top:10px;">
                     <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">保存白名单</button>
                 </div>
@@ -1451,20 +1574,20 @@ const HTML_UI = `
                     console.log('[optimized-domains] response:', data);
                     if (!data.success) {
                         const body = document.getElementById('optimizedDomainsBody');
-                        if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f44;">加载失败: ' + (data.error || '未知') + '</td></tr>';
+                        if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">加载失败: ' + (data.error || '未知') + '</td></tr>';
                         return;
                     }
                     renderOptimizedDomains(data.items || []);
                 } catch (e) {
                     console.error('[optimized-domains] load error:', e);
                     const body = document.getElementById('optimizedDomainsBody');
-                    if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f44;">JS 异常: ' + e.message + '</td></tr>';
+                    if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">JS 异常: ' + e.message + '</td></tr>';
                 }
             }
             function renderOptimizedDomains(items) {
                 const body = document.getElementById('optimizedDomainsBody');
                 if (!body) { console.warn('[optimized-domains] body element not found'); return; }
-                if (!items.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无</td></tr>'; return; }
+                if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="text-center-muted">暂无</td></tr>'; return; }
                 const dnsReady = _dnsReady;
                 body.innerHTML = items.map(it => {
                     const live = _lastSpeedtest[it.id];
@@ -1474,11 +1597,11 @@ const HTML_UI = `
                     return '<tr>'
                         + '<td><code>' + it.domain + '</code></td>'
                         + '<td>' + (it.note || '') + '</td>'
-                        + '<td style="text-align:center;">' + (it.builtin ? '✓' : '') + '</td>'
-                        + '<td style="text-align:center;"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
-                        + '<td style="text-align:center;">' + ms + '</td>'
+                        + '<td class="text-center">' + (it.builtin ? '✓' : '') + '</td>'
+                        + '<td class="text-center"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
+                        + '<td class="text-center">' + ms + '</td>'
                         + '<td>'
-                          + '<button type="button" class="btn-tier is-success" ' + (replaceBtnDisabled ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">🔄 替换DNS</button> '
+                          + '<button type="button" class="btn-tier is-success is-disabled" ' + (replaceBtnDisabled ? 'disabled ' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">🔄 替换DNS</button> '
                           + (!it.builtin ? '<button type="button" class="btn-tier danger" onclick="deleteOptimizedDomain(' + it.id + ')">删除</button>' : '')
                         + '</td>'
                         + '</tr>';
@@ -1654,8 +1777,8 @@ const HTML_UI = `
             <div class="card" id="settings-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                     <div>
-                        <h2 style="margin:0; font-size:19px; letter-spacing:-0.01em;">部署反代节点</h2>
-                        <div style="color:var(--text-sec); font-size:13px; margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
+                        <h2 style="margin:0; font-size:var(--text-2xl); letter-spacing:-0.01em;">部署反代节点</h2>
+                        <div style="color:var(--text-sec); font-size:var(--text-md); margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
                     </div>
                     <div class="menu-wrap">
                         <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>配置工具 <svg><use href="#i-chevron"/></svg></button>
@@ -1738,33 +1861,33 @@ const HTML_UI = `
                     <div class="a-fieldset">
                         <span class="a-field-label">显示 &amp; 缓存</span>
                         <div class="a-row two">
-                            <div style="position: relative;">
+                            <div class="pos-rel">
                                 <div class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn">
-                                    <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:8px;object-fit:cover;">
-                                    <span id="iconDefault" style="font-size:24px;line-height:1;">🎬</span>
-                                    <div style="flex:1; min-width:0;">
-                                        <div style="font-size:13px; font-weight:600;">节点图标</div>
-                                        <div id="iconSelectText" style="font-size:11px; color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
+                                    <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
+                                    <span id="iconDefault" style="font-size:var(--text-3xl);line-height:1;">🎬</span>
+                                    <div class="flex-1-min0">
+                                        <div class="label-bold">节点图标</div>
+                                        <div id="iconSelectText" style="font-size:var(--text-xs); color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
                                     </div>
                                     <input type="hidden" id="iconUrl" value="">
                                 </div>
-                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
+                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); font-size: 13px; color: var(--text);">
+                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
                                         <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">加载</button>
                                         <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">默认库</button>
                                     </div>
-                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background:var(--bg); width: 100%; font-size: 14px; color: var(--text);" onkeyup="filterIcons()">
+                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); width: 100%; font-size: var(--text-base); color: var(--text);" onkeyup="filterIcons()">
                                     <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
-                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: 13px;">加载图标库中...</div>
+                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: var(--text-md);">加载图标库中...</div>
                                     </div>
                                 </div>
                             </div>
                             <div class="a-toggle-row" id="cacheToggleRow" onclick="toggleCacheSwitch(this)">
                                 <div class="ios-switch on"></div>
-                                <div style="flex:1;">
-                                    <div style="font-size:13px; font-weight:600;">海报 &amp; 静态资源缓存</div>
-                                    <div style="font-size:11px; color:var(--text-sec);">降低上游压力，建议开启</div>
+                                <div class="flex-1">
+                                    <div class="label-bold">海报 &amp; 静态资源缓存</div>
+                                    <div style="font-size:var(--text-xs); color:var(--text-sec);">降低上游压力，建议开启</div>
                                 </div>
                                 <input type="checkbox" id="nodeCache" class="ip-checkbox" checked style="display:none;">
                             </div>
@@ -1785,15 +1908,15 @@ const HTML_UI = `
             <!-- ===== 分区: 工具箱 ===== -->
             <section id="sec-tools" class="app-section" data-section="tools" style="display:none;">
             <div class="card">
-                <h2 style="margin:0 0 6px; font-size:18px;">工具箱</h2>
-                <div style="color:var(--text-sec); font-size:13px; margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">工具箱</h2>
+                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
                     <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
                     <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL 请求头解析</button>
                     <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>更新 Worker 核心代码</button>
                 </div>
-                <div style="margin-top:16px; font-size:12px; color:var(--text-sec); line-height:1.6;">
+                <div style="margin-top:16px; font-size:var(--text-sm); color:var(--text-sec); line-height:1.6;">
                     提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「系统设置」中准备好节点信息。
                 </div>
             </div>
@@ -1802,8 +1925,8 @@ const HTML_UI = `
             <!-- ===== 分区: 概览 (节点管理) ===== -->
             <section id="sec-overview" class="app-section is-active" data-section="overview">
             <div class="card">
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                    <h2 style="margin:0; font-size:18px;">已反代的媒体库</h2>
+                <div class="section-header-row">
+                    <h2 class="section-title">已反代的媒体库</h2>
                     <div style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
                         <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">全局测速</button>
                         <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">刷新全站海报</button>
@@ -1816,15 +1939,15 @@ const HTML_UI = `
                 全选节点
             </label>
             
-            <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
+            <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
                 <option value="">🔄 读取模式中...</option>
             </select>
 
-            <button onclick="batchUpdateModes()" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,113,227,0.2);">
+            <button onclick="batchUpdateModes()" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px var(--primary-ring);">
                 🚀 批量应用模式
             </button>
 
-            <span id="batch-status" style="font-size: 13px; font-weight: 600;"></span>
+            <span id="batch-status" class="label-bold"></span>
         </div>
                 <div id="list-grid" class="node-grid">
                     <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
@@ -1832,11 +1955,11 @@ const HTML_UI = `
             </div>
 
             <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
-                <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: 14px; border: 1px solid var(--border);">
+                <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: var(--text-base); border: 1px solid var(--border);">
                     ${SVG_TG}
                     联系作者 MakkaPakkaOvO
                 </a>
-                <div style="margin-top: 20px; font-size: 12px; color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
+                <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
                     <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
                 </div>
             </div>
@@ -1932,7 +2055,7 @@ const HTML_UI = `
                 }
             }
             
-            let top5Html = '<h3 style="margin-top: 30px; margin-bottom:16px;">🏆 今日节点流量消耗 TOP 5</h3><div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
+            let top5Html = '<h3 class="section-spacer-top">🏆 今日节点流量消耗 TOP 5</h3><div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
             
             // ==========================================
             // 🚀 核心优化：听你的天才思路！直接去网页现有的卡片里“抓取”数据，绝不等待变量！
@@ -1968,17 +2091,17 @@ const HTML_UI = `
                 const top5 = validNodes.sort((a, b) => parseTrafficToBytes(b.todayBandwidth) - parseTrafficToBytes(a.todayBandwidth)).slice(0, 5);
                 
                 if (top5.length > 0) {
-                    top5Html += '<ul style="margin:0; padding-left: 20px; line-height: 2; font-size: 14px; color: var(--text);">';
+                    top5Html += '<ul style="margin:0; padding-left: 20px; line-height: 2; font-size: var(--text-base); color: var(--text);">';
                     top5.forEach((r, idx) => {
-                        const rankColor = idx === 0 ? '#ff3b30' : (idx === 1 ? '#ff9500' : (idx === 2 ? '#ffcc00' : 'var(--text-sec)'));
-                        top5Html += \`<li><strong style="color:\${rankColor}; font-size: 15px;">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) —— 消耗: <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
+                        const rankColor = idx === 0 ? 'var(--err)' : (idx === 1 ? 'var(--warn)' : (idx === 2 ? '#ffcc00' : 'var(--text-sec)'));
+                        top5Html += \`<li><strong style="color:\${rankColor}; font-size: var(--text-lg);">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) —— 消耗: <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
                     });
                     top5Html += '</ul>';
                 } else {
-                    top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">今日暂无节点产生流量</div>';
+                    top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">今日暂无节点产生流量</div>';
                 }
             } else {
-                top5Html += '<div style="color:var(--text-sec); font-size:13px; text-align:center;">主页暂无节点卡片</div>';
+                top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">主页暂无节点卡片</div>';
             }
             top5Html += '</div>';
             
@@ -1989,7 +2112,7 @@ const HTML_UI = `
             // ==========================================
             // 🌟 正常加载下面的图表数据 (带有10秒防卡死超时保护)
             // ==========================================
-            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px;">数据分析引擎计算中...</td></tr>';
+            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" class="cell-loading">数据分析引擎计算中...</td></tr>';
             document.getElementById('trafficToday').innerText = '拉取中...';
             document.getElementById('traffic7d').innerText = '拉取中...';
             document.getElementById('traffic30d').innerText = '拉取中...';
@@ -2039,17 +2162,17 @@ const HTML_UI = `
                 const tbody = document.getElementById('logTableBody');
                 tbody.innerHTML = '';
                 if(data.recents.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px;">暂无日志记录</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="cell-loading">暂无日志记录</td></tr>';
                 } else {
                     data.recents.forEach(log => {
                         const tr = document.createElement('tr');
                         const isChina = log.country === 'CN';
                         tr.innerHTML = \`
-                            <td data-label="访问时间" style="font-size:12px; white-space:nowrap;">\${log.timestamp}</td>
-                            <td data-label="目标节点"><span class="badge" style="background:rgba(0,113,227,0.1);color:var(--primary);">\${log.prefix}</span></td>
-                            <td data-label="真实 IP" style="font-family:monospace; font-size:13px; color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
-                            <td data-label="归属地"><span class="badge" style="background:\${isChina ? 'rgba(52,199,89,0.1)' : 'rgba(255,149,0,0.1)'}; color:\${isChina ? '#34c759' : '#ff9500'};">\${isChina ? '中国大陆' : (log.country || 'Unknown')}</span></td>
-                            <td data-label="设备标识 (UA)" style="font-size:12px; color:var(--text-sec); word-break: break-all; white-space: normal; text-align: right; line-height: 1.4;" title="\${log.ua}">\${log.ua}</td>
+                            <td data-label="访问时间" style="font-size:var(--text-sm); white-space:nowrap;">\${log.timestamp}</td>
+                            <td data-label="目标节点"><span class="badge" style="background:var(--primary-soft);color:var(--primary);">\${log.prefix}</span></td>
+                            <td data-label="真实 IP" style="font-family:monospace; font-size:var(--text-md); color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
+                            <td data-label="归属地"><span class="badge" style="background:\${isChina ? 'var(--ok-soft)' : 'var(--warn-soft)'}; color:\${isChina ? 'var(--ok)' : 'var(--warn)'};">\${isChina ? '中国大陆' : (log.country || 'Unknown')}</span></td>
+                            <td data-label="设备标识 (UA)" style="font-size:var(--text-sm); color:var(--text-sec); word-break: break-all; white-space: normal; text-align: right; line-height: 1.4;" title="\${log.ua}">\${log.ua}</td>
                         \`;
                         tbody.appendChild(tr);
                     });
@@ -2057,7 +2180,7 @@ const HTML_UI = `
 
             } catch (e) {
                 const errMsg = e.name === 'AbortError' ? '网络超时，CF 接口拥堵，请稍后重试' : e.message;
-                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:#ff3b30; padding: 30px;">独立图表数据拉取失败: \${errMsg}</td></tr>\`;
+                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:var(--err); padding: 30px;">独立图表数据拉取失败: \${errMsg}</td></tr>\`;
             }
         }
 
@@ -2074,7 +2197,7 @@ const HTML_UI = `
 
         async function loadIcons(forceUrl = null) {
             const grid = document.getElementById('iconGrid');
-            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: 13px; text-align: center;">加载图标库中...</div>';
+            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: var(--text-md); text-align: center;">加载图标库中...</div>';
             const targetUrl = forceUrl || localStorage.getItem('custom_icon_url') || DEFAULT_ICON_URL;
             const urlInput = document.getElementById('customIconUrlInput');
             if (urlInput) urlInput.value = targetUrl === DEFAULT_ICON_URL ? '' : targetUrl;
@@ -2091,7 +2214,7 @@ const HTML_UI = `
                 }
                 renderIconGrid('');
             } catch(e) { 
-                grid.innerHTML = '<div style="grid-column: 1/-1; color: #ff3b30; font-size: 13px; text-align: center;">获取图标库失败，请检查链接或网络状态</div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--err); font-size: var(--text-md); text-align: center;">获取图标库失败，请检查链接或网络状态</div>';
             }
         }
 
@@ -2115,7 +2238,7 @@ const HTML_UI = `
             const grid = document.getElementById('iconGrid');
             const lowerFilter = filterText.toLowerCase();
             const filtered = globalIcons.filter(item => (item.name || '').toLowerCase().includes(lowerFilter));
-            let html = \`<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="使用默认图标"><span style="font-size:22px;">🎬</span></div>\`;
+            let html = \`<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="使用默认图标"><span style="font-size:var(--text-2xl);">🎬</span></div>\`;
             filtered.forEach(item => {
                 html += \`<div class="icon-item" onclick="selectIcon('\${item.url}', '\${item.name}')" title="\${item.name}">
                             <img src="\${item.url}" loading="lazy" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
@@ -2349,7 +2472,7 @@ const HTML_UI = `
                     const arr = JSON.parse(decodeURIComponent(el.getAttribute('data-val')));
                     let html = '';
                     arr.forEach((t, i) => {
-                        const tag = i === 0 ? '<span style="color:#34c759;font-weight:bold;">[主]</span>' : '<span style="color:#ff9500;font-weight:bold;">[备]</span>';
+                        const tag = i === 0 ? '<span style="color:var(--ok);font-weight:bold;">[主]</span>' : '<span style="color:var(--warn);font-weight:bold;">[备]</span>';
                         html += \`<div class="url-list-item">\${tag} \${t}</div>\`;
                     });
                     el.innerHTML = html;
@@ -2388,11 +2511,11 @@ const HTML_UI = `
                 const data = await res.json();
                 if(data.ms >= 0) {
                     pingEl.innerHTML = data.ms + '<span class="unit">ms</span>';
-                    if (data.ms < 200) { pingEl.style.color = '#34c759'; setSub('良好', 'up'); setBadge('online'); }
+                    if (data.ms < 200) { pingEl.style.color = 'var(--ok)'; setSub('良好', 'up'); setBadge('online'); }
                     else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); setBadge('online'); }
-                    else { pingEl.style.color = '#ff9500'; setSub('偏高', 'down'); setBadge('slow'); }
-                } else { pingEl.textContent = '断连'; pingEl.style.color = '#ff3b30'; setSub('超时', 'down'); setBadge('offline'); }
-            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = '#ff3b30'; setSub('错误', 'down'); setBadge('offline'); }
+                    else { pingEl.style.color = 'var(--warn)'; setSub('偏高', 'down'); setBadge('slow'); }
+                } else { pingEl.textContent = '断连'; pingEl.style.color = 'var(--err)'; setSub('超时', 'down'); setBadge('offline'); }
+            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = 'var(--err)'; setSub('错误', 'down'); setBadge('offline'); }
             if (typeof updateTopbarHealth === 'function') updateTopbarHealth();
         }
 
@@ -2533,7 +2656,7 @@ const HTML_UI = `
                             </div>
                             <div class="a-stat">
                                 <div class="a-stat-label">延迟</div>
-                                <span id="ping-\${idx}" class="a-stat-val" style="cursor:pointer;" onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中</span>
+                                <span id="ping-\${idx}" class="a-stat-val cursor-pointer"  onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中</span>
                                 <div class="a-stat-sub">点击重测</div>
                             </div>
                         </div>
@@ -2611,7 +2734,7 @@ const HTML_UI = `
                 updateTopbarHealth();
 
             } catch (err) {
-                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:#ff3b30; font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
+                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
             }
         }
 
@@ -2783,11 +2906,11 @@ const HTML_UI = `
                 const tr = document.createElement('tr');
                 tr.className = 'test-row';
                 tr.innerHTML = \`
-                    <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                    <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                    <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
-                    <td data-label="连通状态" class="speed" style="color: #888;">-</td>
-                    <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                    <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                    <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                    <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
+                    <td data-label="连通状态" class="speed text-muted" >-</td>
+                    <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
                     <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                 tbody.insertBefore(tr, tbody.firstChild);
                 promises.push(doLocalPing(ip, tr, '自定义节点'));
@@ -2818,11 +2941,11 @@ const HTML_UI = `
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                        <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
-                        <td data-label="连通状态" class="speed" style="color: #888;">-</td>
-                        <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                        <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                        <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
+                        <td data-label="连通状态" class="speed text-muted" >-</td>
+                        <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
                         <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
                     promises.push(doLocalPing(ip, tr, '自定义 API'));
@@ -2856,11 +2979,11 @@ const HTML_UI = `
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="勾选节点" style="text-align: center;"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="专属节点"><strong class="ip-text" style="color:var(--primary);cursor:pointer;font-family:monospace;" onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                        <td data-label="预估延迟" class="latency" data-ms="9999" style="font-weight: 600; color: #888;">测算中...</td>
-                        <td data-label="连通状态" class="speed" style="color: #888;">-</td>
-                        <td data-label="记录/归属地" class="loc" style="color: #666;">等待解析</td>
+                        <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
+                        <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
+                        <td data-label="连通状态" class="speed text-muted" >-</td>
+                        <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
                         <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
                     promises.push(doLocalPing(ip, tr, typeText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '')));
@@ -2875,13 +2998,13 @@ const HTML_UI = `
             finally { btn.disabled = false; btn.textContent = '🌍 提取预设源并测速'; }
         }
         function clearTest() {
-            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>';
+            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>';
             document.getElementById('statusText').textContent = '列表已清空。';
             document.getElementById('selectAll').checked = false;
         }
         function markTimeout(latTd, spdTd, tr) {
-            latTd.textContent = '超时抛弃'; latTd.setAttribute('data-ms', 9999); latTd.style.color = '#ff3b30';
-            spdTd.textContent = '❌ 超时 (>2000ms)'; spdTd.style.color = '#ff3b30';
+            latTd.textContent = '超时抛弃'; latTd.setAttribute('data-ms', 9999); latTd.style.color = 'var(--err)';
+            spdTd.textContent = '❌ 超时 (>2000ms)'; spdTd.style.color = 'var(--err)';
             const cb = tr.querySelector('.row-checkbox');
             if(cb) { cb.disabled = true; cb.title = '不可用的节点无法被勾选'; }
         }
@@ -2892,9 +3015,9 @@ const HTML_UI = `
             const queryIp = ip.replace(/[\\[\\]]/g, '');
             const isIPv6 = ip.includes(':'); 
             const isDomain = /[a-zA-Z]/.test(queryIp) && !isIPv6;
-            if (isDomain) { locTd.innerHTML = \`<span class="badge" style="background:rgba(175,82,222,0.1);color:#af52de;margin-right:4px;">CNAME</span> \${sourceLabel} | 优选域名\`;
+            if (isDomain) { locTd.innerHTML = \`<span class="badge is-accent">CNAME</span> \${sourceLabel} | 优选域名\`;
             } else {
-                const recordLabel = isIPv6 ? '<span class="badge" style="background:rgba(50,173,230,0.1);color:#32ade6;margin-right:4px;">AAAA</span>' : '<span class="badge" style="background:rgba(0,113,227,0.1);color:#0071e3;margin-right:4px;">A记录</span>';
+                const recordLabel = isIPv6 ? '<span class="badge is-info">AAAA</span>' : '<span class="badge" style="background:var(--primary-soft);color:var(--primary);margin-right:var(--space-1);">A记录</span>';
                 fetch(\`https://api.ip.sb/geoip/\${queryIp}\`).then(res => res.json()).then(data => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | \${data.country || '未知'}\`).catch(() => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | 解析失败\`);
             }
             const start = performance.now();
@@ -2915,9 +3038,9 @@ const HTML_UI = `
         }
         function updateRowState(latTd, spdTd, latency) {
             latTd.textContent = latency + ' ms'; latTd.setAttribute('data-ms', latency);
-            if (latency < 300) { latTd.style.color = '#34c759'; spdTd.textContent = '🚀 极佳'; spdTd.style.color = '#34c759'; } 
+            if (latency < 300) { latTd.style.color = 'var(--ok)'; spdTd.textContent = '🚀 极佳'; spdTd.style.color = 'var(--ok)'; } 
             else if (latency <= 500) { latTd.style.color = 'var(--primary)'; spdTd.textContent = '✅ 正常'; spdTd.style.color = 'var(--primary)'; } 
-            else { latTd.style.color = '#ff9500'; spdTd.textContent = '⚠️ 较高'; spdTd.style.color = '#ff9500'; }
+            else { latTd.style.color = 'var(--warn)'; spdTd.textContent = '⚠️ 较高'; spdTd.style.color = 'var(--warn)'; }
         }
         function sortTableByLatency(tbody) {
             const rows = Array.from(tbody.querySelectorAll('.test-row'));
@@ -2968,10 +3091,10 @@ const HTML_UI = `
                 const res = await fetch('/api/get-dns'); const data = await res.json(); const container = document.getElementById('dnsStatus');
                 if (data.success && data.result) {
                     const records = data.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-                    if (records.length === 0) container.innerHTML = '<span class="badge" style="background:rgba(255,149,0,0.1);color:#ff9500;">暂无解析记录</span>';
-                    else container.innerHTML = records.map(r => \`<span class="badge" style="background:rgba(0,113,227,0.1);color:var(--primary);border:1px solid rgba(0,113,227,0.2);">\${r.type} | \${r.content}</span>\`).join('');
-                } else container.innerHTML = \`<span class="badge" style="background:rgba(255,59,48,0.1);color:#ff3b30;">\${data.error || '获取失败'}</span>\`;
-            } catch (e) { document.getElementById('dnsStatus').innerHTML = '<span class="badge" style="background:rgba(255,59,48,0.1);color:#ff3b30;">网络异常</span>'; }
+                    if (records.length === 0) container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">暂无解析记录</span>';
+                    else container.innerHTML = records.map(r => \`<span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary-ring);">\${r.type} | \${r.content}</span>\`).join('');
+                } else container.innerHTML = \`<span class="badge" style="background:var(--err-soft);color:var(--err);">\${data.error || '获取失败'}</span>\`;
+            } catch (e) { document.getElementById('dnsStatus').innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
         }
         
         function logout() {
@@ -3001,18 +3124,18 @@ const HTML_UI = `
                 
                 // 根据延迟改变呼吸灯颜色
                 if (rtt < 80) {
-                    dotEl.style.background = '#34c759'; dotEl.style.boxShadow = '0 0 8px #34c759';
-                    rttEl.style.color = '#34c759';
+                    dotEl.style.background = 'var(--ok)'; dotEl.style.boxShadow = '0 0 8px var(--ok)';
+                    rttEl.style.color = 'var(--ok)';
                 } else if (rtt < 200) {
-                    dotEl.style.background = '#ff9500'; dotEl.style.boxShadow = '0 0 8px #ff9500';
-                    rttEl.style.color = '#ff9500';
+                    dotEl.style.background = 'var(--warn)'; dotEl.style.boxShadow = '0 0 8px var(--warn)';
+                    rttEl.style.color = 'var(--warn)';
                 } else {
-                    dotEl.style.background = '#ff3b30'; dotEl.style.boxShadow = '0 0 8px #ff3b30';
-                    rttEl.style.color = '#ff3b30';
+                    dotEl.style.background = 'var(--err)'; dotEl.style.boxShadow = '0 0 8px var(--err)';
+                    rttEl.style.color = 'var(--err)';
                 }
             } catch (e) {
                 document.getElementById('rttValue').textContent = '断连';
-                document.getElementById('rttDot').style.background = '#ff3b30';
+                document.getElementById('rttDot').style.background = 'var(--err)';
             }
         }
         
@@ -3041,7 +3164,7 @@ const HTML_UI = `
                     egressElem.title = 'Worker 落地: ' + egressText + (data.cacheKey ? ' · key=' + data.cacheKey : '');
 
                     if (data.entryColo !== egressText && egressText !== '探测中...' && egressText !== '获取失败') {
-                        egressElem.style.color = '#ff9500';
+                        egressElem.style.color = 'var(--warn)';
                         egressElem.title += ' (智能放置/回源)';
                     }
                 }
@@ -3166,7 +3289,7 @@ const HTML_UI = `
                 var customVal = document.getElementById('cf-custom-input').value;
                 if (!customVal || customVal.trim() === '') {
                     statusElem.innerText = "❌ 请填写自定义区域代码（如 gcp:asia-east2）";
-                    statusElem.style.color = "#ff3b30";
+                    statusElem.style.color = "var(--err)";
                     return;
                 }
                 placementPayload = { region: customVal.trim() };
@@ -3175,7 +3298,7 @@ const HTML_UI = `
             }
 
             statusElem.innerText = "⏳ 正在提交请求，请稍候...";
-            statusElem.style.color = "#ff9500";
+            statusElem.style.color = "var(--warn)";
             
             try {
                 var res = await fetch('/api/placement', {
@@ -3186,14 +3309,14 @@ const HTML_UI = `
                 var data = await res.json();
                 if (data.success) {
                     statusElem.innerText = "✅ " + data.msg;
-                    statusElem.style.color = "#34c759";
+                    statusElem.style.color = "var(--ok)";
                 } else {
                     statusElem.innerText = "❌ " + data.msg;
-                    statusElem.style.color = "#ff3b30";
+                    statusElem.style.color = "var(--err)";
                 }
             } catch(e) {
                 statusElem.innerText = "❌ 网络错误: " + e.message;
-                statusElem.style.color = "#ff3b30";
+                statusElem.style.color = "var(--err)";
             }
         }
     // 🚀 魔法功能：自动继承现有的模式选项 (增强稳定版)
@@ -3220,7 +3343,7 @@ const HTML_UI = `
 
             if (selectedPrefixes.length === 0) {
                 statusElem.innerText = "⚠️ 请先打勾需要修改的节点！";
-                statusElem.style.color = "#ff9500";
+                statusElem.style.color = "var(--warn)";
                 return;
             }
 
@@ -3255,12 +3378,12 @@ const HTML_UI = `
                 }));
                 
                 statusElem.innerText = "✅ 批量修改成功！";
-                statusElem.style.color = "#34c759";
+                statusElem.style.color = "var(--ok)";
                 setTimeout(() => location.reload(), 1000); 
 
             } catch (e) {
                 statusElem.innerText = "❌ 失败: " + e.message;
-                statusElem.style.color = "#ff3b30";
+                statusElem.style.color = "var(--err)";
             }
         }
     async function deployWorker() {
@@ -3626,7 +3749,7 @@ const HTML_UI = `
     <div class="curl-modal-bg" id="curlModal" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
         <div class="curl-modal">
             <h3>从 cURL 命令导入</h3>
-            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:11px;">-H</code> 标头：</p>
+            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:var(--text-xs);">-H</code> 标头：</p>
             <textarea id="curlInput" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \\&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \\&#10;  -H 'x-emby-token: abc123' \\&#10;  --compressed"></textarea>
             <div class="curl-modal-actions">
                 <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">取消</button>
