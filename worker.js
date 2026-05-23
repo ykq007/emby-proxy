@@ -1801,6 +1801,596 @@ const CSS_COMMON = `
 
         /* --- Tactile feedback on bottom-tab buttons --- */
         #mobileTabBar button:active { transform: scale(0.94); }
+
+        /* ============================================================
+           === Mobile v5 — 测速 & DNS specialist (v2.6.0) ===
+           Purpose-built layout for #sec-speed. Layered on top of the
+           generic v5 mobile rules above. All selectors scoped to
+           #sec-speed; desktop guards live outside the MQ further down.
+           ============================================================ */
+
+        /* 7.1 — Large-title page header (mobile only) */
+        #sec-speed .sd-page-header {
+            display: block;
+            padding: var(--space-2) var(--space-1) var(--space-3);
+        }
+        #sec-speed .sd-page-header .ios-large-title {
+            font-size: var(--text-large-title);
+            margin: 0;
+        }
+        #sec-speed .sd-page-header .sd-page-sub {
+            margin: var(--space-1) 0 0;
+            font-size: var(--text-md);
+            color: var(--text-sec);
+            font-weight: 500;
+            letter-spacing: -0.005em;
+        }
+        /* Hide in-card legacy H2 since the large title carries context */
+        #sec-speed .card .section-title,
+        #sec-speed .card .section-header-row { display: none; }
+        #sec-speed .card > div[style*="display:flex"][style*="space-between"] > h2.section-title { display: none; }
+
+        /* 7.2 — Current effective DNS resolution hero card */
+        #sec-speed .sd-dns-card {
+            background: var(--card);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            padding: var(--space-3) var(--space-3-5) var(--space-2);
+            margin-bottom: var(--space-4);
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.5) inset,
+                0 4px 14px -8px rgba(15,23,42,0.10);
+        }
+        body.dark #sec-speed .sd-dns-card {
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                0 6px 18px -10px rgba(0,0,0,0.6);
+        }
+        #sec-speed .sd-dns-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+        }
+        #sec-speed .sd-eyebrow {
+            font-size: var(--text-xs); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.10em;
+            color: var(--text-sec);
+        }
+        #sec-speed .sd-dns-tag {
+            font-size: 9px; font-weight: 800;
+            letter-spacing: 0.14em;
+            color: var(--primary);
+            background: var(--primary-soft);
+            padding: 3px 7px;
+            border-radius: var(--radius-pill);
+            border: 0.5px solid var(--primary-ring);
+        }
+        #sec-speed .sd-dns-list {
+            list-style: none; margin: 0; padding: 0;
+            display: flex; flex-direction: column;
+            gap: 0;
+        }
+        #sec-speed .sd-dns-row {
+            display: flex; align-items: center;
+            gap: var(--space-2-5);
+            padding: var(--space-2) 0;
+            border-top: 0.5px solid var(--hairline);
+            min-height: 36px;
+        }
+        #sec-speed .sd-dns-row:first-child { border-top: none; }
+        #sec-speed .sd-dns-badge { display: none; }  /* desktop-only fallback */
+        #sec-speed .sd-rec-pill {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 44px;
+            padding: 2px 6px;
+            font-size: 10px; font-weight: 800;
+            letter-spacing: 0.06em;
+            border-radius: var(--radius-sm);
+            font-variant-numeric: tabular-nums;
+        }
+        #sec-speed .sd-rec-pill.is-A    { color: var(--primary); background: var(--primary-soft); }
+        #sec-speed .sd-rec-pill.is-AAAA { color: #0aa3a3;       background: rgba(10,163,163,0.12); }
+        body.dark #sec-speed .sd-rec-pill.is-AAAA { color: #5fd1d1; background: rgba(95,209,209,0.16); }
+        #sec-speed .sd-rec-pill.is-CNAME{ color: var(--warn);    background: var(--warn-soft); }
+        #sec-speed .sd-ip {
+            flex: 1 1 auto; min-width: 0;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: var(--text-md);
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #sec-speed .sd-dns-card .text-muted { color: var(--text-sec); font-size: var(--text-md); }
+
+        /* 7.3 — ISP segmented control (horizontally scrollable) */
+        #sec-speed .sd-isp-seg {
+            display: flex;
+            gap: var(--space-1-5);
+            padding: var(--space-1);
+            margin: 0 calc(-1 * var(--space-4)) var(--space-3);
+            padding-left: var(--space-4); padding-right: var(--space-4);
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x proximity;
+            overscroll-behavior-x: contain;
+        }
+        #sec-speed .sd-isp-seg::-webkit-scrollbar { display: none; }
+        #sec-speed .sd-isp-seg [role="tab"] {
+            flex: 0 0 auto;
+            min-width: 56px;
+            min-height: 34px;
+            padding: 6px 14px;
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-pill);
+            background: var(--ios-fill-quat);
+            color: var(--text);
+            font-size: var(--text-md);
+            font-weight: 600;
+            letter-spacing: -0.005em;
+            cursor: pointer;
+            scroll-snap-align: center;
+            transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #sec-speed .sd-isp-seg [role="tab"][aria-selected="true"] {
+            background: var(--primary);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 4px 12px -4px var(--primary-glow);
+        }
+        #sec-speed .sd-isp-seg [role="tab"]:active { transform: scale(0.96); }
+
+        /* 7.4 — Action stack (primary CTA + secondary ghosts + overflow) */
+        #sec-speed .sd-action-stack {
+            display: flex; flex-direction: column;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+        }
+        #sec-speed .sd-cta-primary {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: var(--space-2);
+            width: 100%;
+            min-height: 50px;
+            padding: 0 var(--space-5);
+            border: none;
+            border-radius: var(--radius-ios-sm);
+            background: var(--aurora-grad);
+            background-size: 180% 100%;
+            background-position: 0% 0%;
+            color: #fff;
+            font-size: var(--text-headline);
+            font-weight: 700;
+            letter-spacing: -0.005em;
+            cursor: pointer;
+            box-shadow: 0 8px 22px -8px var(--primary-glow);
+            transition: background-position 0.4s ease, transform 0.12s ease, box-shadow 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #sec-speed .sd-cta-primary:active {
+            transform: scale(0.985);
+            background-position: 100% 0%;
+            box-shadow: 0 4px 14px -6px var(--primary-glow);
+        }
+        #sec-speed .sd-action-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 48px;
+            gap: var(--space-2);
+        }
+        #sec-speed .sd-cta-ghost,
+        #sec-speed .sd-cta-more {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-height: var(--touch-min);
+            padding: 0 var(--space-3);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            background: var(--ios-fill-quat);
+            color: var(--text);
+            font-size: var(--text-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.12s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #sec-speed .sd-cta-ghost:active,
+        #sec-speed .sd-cta-more:active {
+            background: var(--ios-fill);
+            transform: scale(0.97);
+        }
+        #sec-speed .sd-cta-more svg { color: var(--text-sec); }
+
+        /* 7.5 — Floating selection bar (slides up from bottom of #speed-anchor) */
+        #sec-speed #speed-anchor { position: relative; }
+        #sec-speed .sd-selection-bar {
+            position: fixed;
+            left: var(--space-4); right: var(--space-4);
+            bottom: calc(72px + env(safe-area-inset-bottom) + var(--space-3));
+            z-index: 900;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            background: var(--topbar-glass);
+            -webkit-backdrop-filter: saturate(180%) blur(24px);
+                    backdrop-filter: saturate(180%) blur(24px);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios);
+            box-shadow: 0 12px 36px -10px rgba(0,0,0,0.32);
+            transform: translateY(20px); opacity: 0;
+            transition: transform 0.22s cubic-bezier(.32,.72,.3,1), opacity 0.18s ease;
+            pointer-events: none;
+        }
+        #sec-speed .sd-selection-bar.is-show {
+            transform: translateY(0); opacity: 1;
+            pointer-events: auto;
+        }
+        #sec-speed .sd-sel-label {
+            font-size: var(--text-base);
+            color: var(--text);
+            font-weight: 500;
+        }
+        #sec-speed .sd-sel-label strong {
+            font-weight: 700; color: var(--primary);
+            font-variant-numeric: tabular-nums;
+            margin: 0 2px;
+        }
+        #sec-speed .sd-sel-btn {
+            display: inline-flex; align-items: center; gap: var(--space-1-5);
+            min-height: 38px;
+            padding: 0 var(--space-3-5);
+            border: none;
+            border-radius: var(--radius-pill);
+            background: var(--ok);
+            color: #fff;
+            font-size: var(--text-md);
+            font-weight: 700;
+            letter-spacing: -0.005em;
+            cursor: pointer;
+            box-shadow: 0 6px 16px -4px rgba(52,199,89,0.5);
+            transition: transform 0.12s ease, box-shadow 0.18s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #sec-speed .sd-sel-btn:active { transform: scale(0.96); }
+        body.dark #sec-speed .sd-sel-btn { box-shadow: 0 6px 16px -4px rgba(48,209,88,0.45); }
+
+        /* 7.6 — Collapsible custom source */
+        #sec-speed .sd-custom-fold {
+            margin-bottom: var(--space-3);
+        }
+        #sec-speed .sd-custom-summary {
+            list-style: none;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-3-5);
+            min-height: var(--touch-min);
+            background: var(--ios-fill-quat);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            font-size: var(--text-md);
+            font-weight: 600;
+            color: var(--text);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        #sec-speed .sd-custom-summary::-webkit-details-marker { display: none; }
+        #sec-speed .sd-custom-summary::marker { content: ''; }
+        #sec-speed .sd-chev {
+            color: var(--text-sec);
+            transition: transform 0.22s ease;
+        }
+        #sec-speed .sd-custom-fold[open] .sd-chev { transform: rotate(180deg); }
+        #sec-speed .sd-custom-fold[open] .sd-custom-summary {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom-color: transparent;
+        }
+        #sec-speed .sd-custom-fold .sd-custom-body {
+            margin-top: 0 !important;
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+        }
+
+        /* 7.7 — Node row redesign — grid layout via display:contents on cells */
+        /* Override generic ≤768 table-stacking for the speed table only */
+        #sec-speed #testTableBody tr {
+            display: grid !important;
+            grid-template-columns: 24px 1fr auto;
+            grid-template-areas:
+                "check  ip     chip"
+                "bar    bar    bar"
+                "stat   acts   acts";
+            gap: var(--space-2-5);
+            padding: var(--space-3) var(--space-3-5);
+            margin-bottom: var(--space-2-5);
+            background: var(--card);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.5) inset,
+                0 3px 10px -6px rgba(15,23,42,0.08);
+        }
+        body.dark #sec-speed #testTableBody tr {
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                0 4px 14px -8px rgba(0,0,0,0.55);
+        }
+        #sec-speed #testTableBody td {
+            display: contents !important;
+        }
+        /* Hide the generic data-label ::before labels — our grid has its own visual hierarchy */
+        #sec-speed #testTableBody td::before { display: none !important; content: '' !important; }
+        /* Slot each cell's children into the grid */
+        #sec-speed #testTableBody td[data-label="勾选节点"] { contain: layout; }
+        #sec-speed #testTableBody td[data-label="勾选节点"] > * { grid-area: check; align-self: center; justify-self: start; }
+        #sec-speed #testTableBody td[data-label="专属节点"] > * { grid-area: ip; align-self: center; }
+        #sec-speed #testTableBody td[data-label="预估延迟"] > * { grid-area: bar; align-self: center; }
+        #sec-speed #testTableBody td[data-label="连通状态"] > * { grid-area: stat; align-self: center; justify-self: start; }
+        #sec-speed #testTableBody td[data-label="记录/归属地"] > * { grid-area: chip; align-self: center; justify-self: end; }
+        #sec-speed #testTableBody td[data-label="快捷操作"] > * { grid-area: acts; align-self: center; justify-self: end; }
+        /* Empty-state row keeps colspan-style centering */
+        #sec-speed #testTableBody td[colspan] {
+            display: block !important;
+            grid-column: 1 / -1 !important;
+            text-align: center;
+            color: var(--text-sec);
+            padding: var(--space-5) var(--space-3);
+        }
+        #sec-speed #testTableBody tr:has(td[colspan]) {
+            display: block !important;
+            padding: 0;
+            background: transparent;
+            border: 0.5px dashed var(--hairline);
+        }
+        /* IP cell typography */
+        #sec-speed #testTableBody td[data-label="专属节点"] .ip-text,
+        #sec-speed #testTableBody td[data-label="专属节点"] strong {
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: var(--text-base);
+            font-weight: 700;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.005em;
+        }
+        /* Latency bar styles */
+        #sec-speed .sd-lat-fallback { display: none; }  /* mobile uses .sd-lat-wrap */
+        #sec-speed .sd-lat-wrap {
+            display: flex; align-items: center; gap: var(--space-2-5);
+            width: 100%;
+        }
+        #sec-speed .sd-lat-bar {
+            display: inline-flex; flex: 1 1 auto;
+            gap: 2px;
+            min-width: 0;
+        }
+        #sec-speed .sd-lat-cell {
+            flex: 1 1 0;
+            height: 8px;
+            border-radius: 2px;
+            background: var(--ios-fill-quat);
+            transition: background 0.2s ease;
+        }
+        #sec-speed .sd-lat-wrap.is-ok   .sd-lat-cell.is-on { background: var(--ok); }
+        #sec-speed .sd-lat-wrap.is-warn .sd-lat-cell.is-on { background: var(--warn); }
+        #sec-speed .sd-lat-wrap.is-err  .sd-lat-cell.is-on { background: var(--err); }
+        #sec-speed .sd-lat-wrap.is-loading .sd-lat-bar {
+            background: linear-gradient(90deg, var(--ios-fill-quat) 0%, var(--ios-fill) 50%, var(--ios-fill-quat) 100%);
+            background-size: 200% 100%;
+            animation: ios-shimmer 1.4s linear infinite;
+            border-radius: 4px;
+            height: 8px;
+        }
+        #sec-speed .sd-lat-wrap.is-loading .sd-lat-cell { background: transparent; }
+        #sec-speed .sd-lat-val {
+            flex: 0 0 auto;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: var(--text-sm);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            min-width: 64px;
+            text-align: right;
+            letter-spacing: -0.01em;
+        }
+        #sec-speed .sd-lat-wrap.is-ok   .sd-lat-val { color: var(--ok); }
+        #sec-speed .sd-lat-wrap.is-warn .sd-lat-val { color: var(--warn); }
+        #sec-speed .sd-lat-wrap.is-err  .sd-lat-val { color: var(--err); }
+        #sec-speed .sd-lat-wrap.is-loading .sd-lat-val { color: var(--text-sec); }
+        /* Connectivity status cell — strip down inline styles */
+        #sec-speed #testTableBody td[data-label="连通状态"] {
+            font-size: var(--text-sm);
+        }
+        /* Region/record-type chip cell */
+        #sec-speed #testTableBody td[data-label="记录/归属地"] {
+            font-size: var(--text-xs);
+            color: var(--text-sec);
+            text-align: right;
+        }
+        /* Action cell — keep the existing button compact */
+        #sec-speed #testTableBody td[data-label="快捷操作"] .btn-dns {
+            padding: 6px 12px;
+            font-size: var(--text-sm);
+            border-radius: var(--radius-pill);
+            min-height: 32px;
+            min-width: auto;
+        }
+        /* Checkbox — chunkier touch surface */
+        #sec-speed #testTableBody .ip-checkbox {
+            width: 20px; height: 20px;
+        }
+        /* Hide the legacy status hint banner on mobile — info is now contextual */
+        #sec-speed #statusText {
+            font-size: var(--text-sm) !important;
+            padding: var(--space-2-5) var(--space-3) !important;
+            border-left-width: 3px !important;
+            margin-bottom: var(--space-3) !important;
+        }
+
+        /* 7.8 — 优选 CDN 域名 card */
+        #sec-speed #optimizedDomainsBody tr.sd-od-row {
+            display: grid !important;
+            grid-template-columns: 1fr auto;
+            grid-template-areas:
+                "domain  toggle"
+                "note    note"
+                "ms      actions";
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-3-5);
+            margin-bottom: var(--space-2-5);
+            background: var(--card);
+            border: 0.5px solid var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.5) inset,
+                0 3px 10px -6px rgba(15,23,42,0.08);
+        }
+        body.dark #sec-speed #optimizedDomainsBody tr.sd-od-row {
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                0 4px 14px -8px rgba(0,0,0,0.55);
+        }
+        #sec-speed #optimizedDomainsBody td { display: contents !important; }
+        #sec-speed #optimizedDomainsBody td::before { display: none !important; content: '' !important; }
+        #sec-speed #optimizedDomainsBody td[data-label="域名"] > * { grid-area: domain; }
+        #sec-speed #optimizedDomainsBody td[data-label="域名"] code {
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: var(--text-base);
+            font-weight: 700;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            word-break: break-all;
+        }
+        #sec-speed #optimizedDomainsBody td[data-label="备注"] {
+            display: block !important;
+            grid-area: note;
+            color: var(--text-sec);
+            font-size: var(--text-sm);
+            line-height: 1.4;
+            padding: 0;
+            border: none;
+        }
+        #sec-speed #optimizedDomainsBody td[data-label="备注"]:empty { display: none !important; }
+        #sec-speed #optimizedDomainsBody td[data-label="内置"] { display: none !important; }
+        #sec-speed #optimizedDomainsBody td[data-label="启用"] > * { grid-area: toggle; justify-self: end; align-self: center; }
+        #sec-speed #optimizedDomainsBody td[data-label="启用"] input[type="checkbox"] {
+            width: 20px; height: 20px;
+            accent-color: var(--primary);
+        }
+        #sec-speed #optimizedDomainsBody td[data-label="上次测速"] > * { grid-area: ms; justify-self: start; }
+        #sec-speed #optimizedDomainsBody td[data-label="操作"] > * { grid-area: actions; justify-self: end; }
+        #sec-speed .sd-od-ms {
+            display: inline-flex; align-items: center;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            font-size: var(--text-sm);
+            font-weight: 700;
+            letter-spacing: -0.005em;
+            background: var(--ios-fill-quat);
+            color: var(--text-sec);
+        }
+        #sec-speed .sd-od-ms.is-ok   { color: var(--ok);   background: var(--ok-soft); }
+        #sec-speed .sd-od-ms.is-warn { color: var(--warn); background: var(--warn-soft); }
+        #sec-speed .sd-od-ms.is-err  { color: var(--err);  background: var(--err-soft); }
+        /* Empty-state row */
+        #sec-speed #optimizedDomainsBody tr:has(td[colspan]) {
+            display: block !important;
+            padding: var(--space-5) var(--space-3);
+            text-align: center;
+            background: transparent;
+            border: 0.5px dashed var(--hairline);
+            border-radius: var(--radius-ios-sm);
+        }
+        #sec-speed #optimizedDomainsBody tr:has(td[colspan]) td {
+            display: block !important;
+            color: var(--text-sec);
+        }
+        /* Collapse the CDN card action toolbar into a primary CTA + overflow on mobile.
+           Implementation kept tiny: just stack them and let the first 'is-primary' button stretch. */
+        #sec-speed .card.mt-4 > div[style*="display:flex"][style*="space-between"] {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: var(--space-2) !important;
+            margin-bottom: var(--space-3) !important;
+        }
+        #sec-speed .card.mt-4 > div[style*="display:flex"][style*="space-between"] .flex-wrap-tight {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-2);
+        }
+        #sec-speed .card.mt-4 .flex-wrap-tight .btn-tier {
+            width: 100%;
+            justify-content: center;
+            min-height: var(--touch-min);
+            font-size: var(--text-md);
+        }
+        #sec-speed .card.mt-4 .flex-wrap-tight .btn-tier.is-primary {
+            grid-column: 1 / -1;
+        }
+        #sec-speed #downloadSpeedResult:not(:empty) {
+            display: inline-block;
+            margin-top: var(--space-2) !important;
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            background: var(--ios-fill-quat);
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--text);
+        }
+        #sec-speed #dnsReadyHint {
+            font-size: var(--text-sm) !important;
+            line-height: 1.5;
+        }
+
+        /* 7.9 — Overflow sheet (#sdMoreSheet) — mirrors #moreSheet pattern */
+        #sec-speed #sdMoreSheet,
+        #sdMoreSheet {
+            display: block;
+            position: fixed; left: 0; right: 0; bottom: 0; top: 0;
+            z-index: 1100;
+            pointer-events: none;
+        }
+        #sdMoreSheet::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: var(--ios-overlay);
+            opacity: 0;
+            transition: opacity 0.28s ease;
+            pointer-events: none;
+        }
+        #sdMoreSheet > .more-sheet-card {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(.32,.72,.3,1);
+            background: var(--card);
+            border-radius: var(--radius-ios) var(--radius-ios) 0 0;
+            padding: var(--space-3) var(--space-4)
+                     calc(var(--space-4) + env(safe-area-inset-bottom));
+            box-shadow: 0 -10px 36px rgba(0,0,0,0.18);
+        }
+        #sdMoreSheet.is-open { pointer-events: auto; }
+        #sdMoreSheet.is-open::before { opacity: 1; pointer-events: auto; }
+        #sdMoreSheet.is-open > .more-sheet-card { transform: translateY(0); pointer-events: auto; }
+        #sdMoreSheet .sd-sheet-cancel {
+            display: block; width: 100%;
+            margin-top: var(--space-3);
+            min-height: 50px;
+            padding: 0;
+            border: none;
+            border-radius: var(--radius-ios-sm);
+            background: var(--surface-2);
+            color: var(--primary);
+            font-size: var(--text-headline);
+            font-weight: 600;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body.dark #sdMoreSheet .sd-sheet-cancel { background: var(--surface); }
+        #sdMoreSheet .sd-sheet-cancel:active { background: var(--ios-fill); }
+
+        /* 7.10 — Hide legacy desktop controls on mobile inside #sec-speed */
+        #sec-speed #speed-anchor > .toolbar { display: none !important; }
+        #sec-speed #ipType { display: none !important; }
     }
 
     /* --- ≤480 specific tightening (5-tab labels stay readable) --- */
@@ -1814,6 +2404,60 @@ const CSS_COMMON = `
     @media (max-width: 360px) {
         .ios-large-title { font-size: var(--text-large-title-sm); }
         .m-pill .lbl { font-size: var(--text-xs); }
+    }
+
+    /* ============================================================
+       === Desktop guards for 测速 & DNS mobile-only chrome (v2.6.0) ===
+       Everything below renders only on mobile; on desktop we collapse
+       the new elements to display:none so the original desktop layout
+       is byte-identical to pre-v2.6.0.
+       ============================================================ */
+    @media (min-width: 769px) {
+        .sd-page-header { display: none !important; }
+        #sec-speed .sd-dns-card {
+            background: rgba(120,120,120,0.05);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-bottom: 16px;
+        }
+        #sec-speed .sd-dns-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        #sec-speed .sd-eyebrow { font-size: var(--text-md); font-weight: 600; color: var(--text-sec); text-transform: none; letter-spacing: 0; }
+        #sec-speed .sd-dns-tag { display: none; }
+        #sec-speed .sd-dns-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        #sec-speed .sd-dns-row { display: contents; }
+        #sec-speed .sd-rec-pill,
+        #sec-speed .sd-ip { display: none; }
+        #sec-speed .sd-dns-badge {
+            display: inline-block;
+            padding: var(--space-1) var(--space-2-5);
+            border-radius: var(--radius-pill);
+            font-size: var(--text-sm);
+            font-weight: 600;
+            background: var(--primary-soft);
+            color: var(--primary);
+            border: 1px solid var(--primary-ring);
+        }
+        .sd-isp-seg { display: none !important; }
+        .sd-action-stack { display: none !important; }
+        .sd-selection-bar { display: none !important; }
+        #sdMoreSheet { display: none !important; }
+        /* details/summary: keep inputs visible by hiding the summary chrome and
+           letting the body render as if it were the plain div it replaced. */
+        #sec-speed .sd-custom-fold > .sd-custom-summary { display: none !important; }
+        #sec-speed .sd-custom-fold .sd-custom-body { display: block !important; }
+        #sec-speed .sd-custom-fold[open] .sd-custom-body,
+        #sec-speed .sd-custom-fold:not([open]) .sd-custom-body { display: block !important; }
+        /* Latency-bar markup is added by the mobile shim; on desktop, fall back
+           to the plain text the original code expected. */
+        #sec-speed .sd-lat-wrap { display: none !important; }
+        #sec-speed .sd-lat-fallback { display: inline; color: inherit; }
+        /* 优选CDN ms chip looks fine on desktop — strip the pill background so
+           it reads as plain text in the original layout. */
+        #sec-speed .sd-od-ms {
+            display: inline; padding: 0; background: transparent !important; color: inherit;
+            font-family: inherit; font-weight: inherit; font-size: inherit;
+        }
     }
 `;
 
@@ -2258,17 +2902,37 @@ const HTML_UI = `
             <!-- ===== 分区: 线路测速 ===== -->
             <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
 
+            <!-- Mobile-only iOS large-title header (v2.6.0) -->
+            <header class="ios-page-header sd-page-header" aria-hidden="false">
+                <h1 class="ios-large-title">测速 &amp; DNS</h1>
+                <p class="sd-page-sub">节点延迟与解析探测</p>
+            </header>
+
             <div class="card" id="speed-anchor">
                 <div class="section-header-row">
                     <h2 class="section-title">⚡ 专属线路测速与动态 DNS 解析</h2>
                 </div>
                 
-                <div style="background: rgba(120,120,120,0.05); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
-                    <div style="font-size: var(--text-md); font-weight: 600; color: var(--text-sec); margin-bottom: 8px;">📡 当前域名生效的 DNS 解析：</div>
+                <div class="sd-dns-card" id="dnsStatusCard">
+                    <div class="sd-dns-head">
+                        <span class="sd-eyebrow">📡 当前生效解析</span>
+                        <span class="sd-dns-tag" id="sd-dns-tag">DNS</span>
+                    </div>
                     <div id="dnsStatus" class="flex-wrap-tight">
                         <span class="text-muted">加载中...</span>
                     </div>
                 </div>
+
+                <!-- Mobile-only ISP segmented control (v2.6.0) -->
+                <nav class="sd-isp-seg" role="tablist" aria-label="ISP 筛选">
+                    <button type="button" role="tab" data-value="all" aria-selected="true">综合</button>
+                    <button type="button" role="tab" data-value="电信" aria-selected="false">电信</button>
+                    <button type="button" role="tab" data-value="联通" aria-selected="false">联通</button>
+                    <button type="button" role="tab" data-value="移动" aria-selected="false">移动</button>
+                    <button type="button" role="tab" data-value="多线" aria-selected="false">多线</button>
+                    <button type="button" role="tab" data-value="ipv6" aria-selected="false">IPv6</button>
+                    <button type="button" role="tab" data-value="优选" aria-selected="false">优选</button>
+                </nav>
 
                 <div class="toolbar">
                     <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
@@ -2303,10 +2967,31 @@ const HTML_UI = `
                     </div>
                 </div>
 
-                <div style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                    <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
-                    <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                <!-- Mobile-only primary CTA stack + overflow trigger (v2.6.0) -->
+                <div class="sd-action-stack" aria-hidden="false">
+                    <button type="button" class="sd-cta-primary" onclick="fetchRemoteAndTest()">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>提取预设源并测速</span>
+                    </button>
+                    <div class="sd-action-row">
+                        <button type="button" class="sd-cta-ghost" onclick="testCustomIPs()">测试粘贴</button>
+                        <button type="button" class="sd-cta-ghost" onclick="fetchCustomApiAndTest()">拉取 API</button>
+                        <button type="button" class="sd-cta-more" onclick="openSdMoreSheet()" aria-label="更多操作">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+                        </button>
+                    </div>
                 </div>
+
+                <details class="sd-custom-fold">
+                    <summary class="sd-custom-summary">
+                        <span>自定义来源</span>
+                        <svg class="sd-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </summary>
+                    <div class="sd-custom-body" style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                        <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                    </div>
+                </details>
                 
                 <div id="statusText" style="line-height: 1.6; font-size: var(--text-base); color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: var(--ok-soft); border-radius: var(--radius-md); border-left: 4px solid var(--ok);">
                     💡 测速完成后，可勾选复选框自由组合，点击【提交选中节点至 DNS】自动分发。
@@ -2328,6 +3013,14 @@ const HTML_UI = `
                             <tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile-only floating selection bar (v2.6.0) -->
+                <div class="sd-selection-bar" id="sdSelectionBar" hidden>
+                    <span class="sd-sel-label">已选 <strong id="sdSelCount">0</strong> 个</span>
+                    <button type="button" class="sd-sel-btn" onclick="updateSelectedToDns()">提交至 DNS
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
                 </div>
             </div>
 
@@ -2422,13 +3115,21 @@ const HTML_UI = `
                     const ms = live ? (live.ok ? live.ms + ' ms' : '失败') : (it.last_ms > 0 ? it.last_ms + ' ms' : (it.last_ms === -1 ? '-' : it.last_ms));
                     const replaceBtnDisabled = !dnsReady;
                     const replaceBtnTitle = dnsReady ? '将 DNS 记录的 CNAME 替换为此域名' : '请先在 Worker 环境变量中配置 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN';
-                    return '<tr>'
-                        + '<td><code>' + it.domain + '</code></td>'
-                        + '<td>' + (it.note || '') + '</td>'
-                        + '<td class="text-center">' + (it.builtin ? '✓' : '') + '</td>'
-                        + '<td class="text-center"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
-                        + '<td class="text-center">' + ms + '</td>'
-                        + '<td>'
+                    // ms-chip class drives mobile color-coded chip; falls back to plain text on desktop.
+                    const liveMs = live ? (live.ok ? live.ms : 99999) : (typeof it.last_ms === 'number' ? it.last_ms : 99999);
+                    let msCls = 'is-idle';
+                    if (typeof liveMs === 'number' && liveMs >= 0 && liveMs < 99999) {
+                        if (liveMs < 150) msCls = 'is-ok';
+                        else if (liveMs < 400) msCls = 'is-warn';
+                        else msCls = 'is-err';
+                    }
+                    return '<tr class="sd-od-row">'
+                        + '<td data-label="域名"><code>' + it.domain + '</code></td>'
+                        + '<td data-label="备注">' + (it.note || '') + '</td>'
+                        + '<td data-label="内置" class="text-center">' + (it.builtin ? '✓' : '') + '</td>'
+                        + '<td data-label="启用" class="text-center"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
+                        + '<td data-label="上次测速" class="text-center"><span class="sd-od-ms ' + msCls + '">' + ms + '</span></td>'
+                        + '<td data-label="操作">'
                           + '<button type="button" class="btn-tier is-success is-disabled" ' + (replaceBtnDisabled ? 'disabled ' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">🔄 替换DNS</button> '
                           + (!it.builtin ? '<button type="button" class="btn-tier danger" onclick="deleteOptimizedDomain(' + it.id + ')">删除</button>' : '')
                         + '</td>'
@@ -2595,7 +3296,192 @@ const HTML_UI = `
                     _embycfInit();
                 }
             })();
+
+            // ==========================================
+            // === Mobile v5 — 测速 & DNS specialist drivers (v2.6.0) ===
+            // View-layer shims. Source-of-truth elements (#ipType, .ip-checkbox,
+            // .latency [data-ms]) are not duplicated; we observe / dispatch on them.
+            // ==========================================
+            (function sdMobileDrivers() {
+                const tableBody = document.getElementById('testTableBody');
+                const ipTypeSel = document.getElementById('ipType');
+                const segEl     = document.querySelector('.sd-isp-seg');
+                const selBar    = document.getElementById('sdSelectionBar');
+                const selCount  = document.getElementById('sdSelCount');
+                const moreSheet = document.getElementById('sdMoreSheet');
+                const customFold = document.querySelector('.sd-custom-fold');
+
+                // ---- Desktop: keep <details> open so the inputs render in place
+                //      (CSS hides the summary on desktop, but browsers gate the body
+                //      on the [open] attribute regardless of CSS display rules).
+                if (customFold) {
+                    const mq = window.matchMedia('(min-width: 769px)');
+                    const applyFoldState = () => { customFold.open = mq.matches; };
+                    applyFoldState();
+                    if (mq.addEventListener) mq.addEventListener('change', applyFoldState);
+                    else if (mq.addListener) mq.addListener(applyFoldState);
+                }
+
+                // ---- Latency bar: 10-cell visual encoding next to the ms value ----
+                // Threshold: <150ms ok · <400ms warn · ≥400ms err · 9999 loading.
+                const LAT_OK = 150, LAT_WARN = 400;
+                function applyLatencyBar(td) {
+                    if (!td || !td.classList || !td.classList.contains('latency')) return;
+                    const raw = td.getAttribute('data-ms');
+                    const ms = parseInt(raw, 10);
+                    if (!isFinite(ms)) return;
+                    const isLoading = (ms === 9999);
+                    let level = 'idle';
+                    if (isLoading) level = 'loading';
+                    else if (ms < LAT_OK) level = 'ok';
+                    else if (ms < LAT_WARN) level = 'warn';
+                    else level = 'err';
+                    // Fill ratio: full at 30ms, empty at 600ms (capped).
+                    let filled = 0;
+                    if (!isLoading) {
+                        const t = Math.max(0, Math.min(1, (600 - Math.max(30, Math.min(600, ms))) / 570));
+                        filled = Math.max(0, Math.min(10, Math.round(t * 10)));
+                    }
+                    let cells = '';
+                    for (let i = 0; i < 10; i++) {
+                        cells += '<span class="sd-lat-cell' + (i < filled ? ' is-on' : '') + '"></span>';
+                    }
+                    const valTxt = isLoading ? '测算中…' : (ms + ' ms');
+                    // Preserve original textual content for the desktop (which hides .sd-lat-wrap via CSS)
+                    // by keeping a fallback .sd-lat-fallback span.
+                    td.innerHTML = '<span class="sd-lat-wrap is-' + level + '" role="img" aria-label="延迟 ' + valTxt + '">'
+                                 +   '<span class="sd-lat-bar">' + cells + '</span>'
+                                 +   '<span class="sd-lat-val">' + valTxt + '</span>'
+                                 + '</span>'
+                                 + '<span class="sd-lat-fallback">' + valTxt + '</span>';
+                }
+                if (tableBody && 'MutationObserver' in window) {
+                    const obs = new MutationObserver(muts => {
+                        for (const m of muts) {
+                            if (m.type === 'attributes' && m.attributeName === 'data-ms') {
+                                applyLatencyBar(m.target);
+                            } else if (m.type === 'childList') {
+                                // Initial render: scan any new .latency cells.
+                                m.addedNodes.forEach(n => {
+                                    if (n.nodeType !== 1) return;
+                                    if (n.matches && n.matches('tr')) {
+                                        n.querySelectorAll('td.latency[data-ms]').forEach(applyLatencyBar);
+                                    } else if (n.querySelectorAll) {
+                                        n.querySelectorAll('td.latency[data-ms]').forEach(applyLatencyBar);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    obs.observe(tableBody, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-ms'] });
+                    // Scan any cells already present at script-init.
+                    tableBody.querySelectorAll('td.latency[data-ms]').forEach(applyLatencyBar);
+                }
+
+                // ---- Selection bar: count checked .row-checkbox under tableBody ----
+                function updateSelectionBar() {
+                    if (!selBar || !tableBody) return;
+                    const n = tableBody.querySelectorAll('.row-checkbox:checked').length;
+                    selCount.textContent = String(n);
+                    if (n > 0) {
+                        selBar.hidden = false;
+                        selBar.classList.add('is-show');
+                    } else {
+                        selBar.classList.remove('is-show');
+                        // Wait for transition before hiding from a11y tree.
+                        setTimeout(() => { if (!selBar.classList.contains('is-show')) selBar.hidden = true; }, 220);
+                    }
+                }
+                if (tableBody) {
+                    tableBody.addEventListener('change', e => {
+                        if (e.target && (e.target.classList.contains('ip-checkbox') || e.target.classList.contains('row-checkbox'))) {
+                            updateSelectionBar();
+                        }
+                    });
+                }
+                const selectAllEl = document.getElementById('selectAll');
+                if (selectAllEl) selectAllEl.addEventListener('change', updateSelectionBar);
+                // Expose so other handlers (e.g. clearTest re-renders) can refresh.
+                window.sdUpdateSelectionBar = updateSelectionBar;
+
+                // ---- Segmented ISP control sync ----
+                if (segEl && ipTypeSel) {
+                    segEl.addEventListener('click', e => {
+                        const btn = e.target.closest('[role="tab"]');
+                        if (!btn) return;
+                        const v = btn.dataset.value;
+                        if (!v) return;
+                        segEl.querySelectorAll('[role="tab"]').forEach(b => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+                        if (ipTypeSel.value !== v) {
+                            ipTypeSel.value = v;
+                            ipTypeSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        // Center the active segment.
+                        try { btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); } catch (_) {}
+                    });
+                    // Reflect external changes (e.g. user picks via native <select> on desktop) back into the segments.
+                    ipTypeSel.addEventListener('change', () => {
+                        const v = ipTypeSel.value;
+                        segEl.querySelectorAll('[role="tab"]').forEach(b => b.setAttribute('aria-selected', b.dataset.value === v ? 'true' : 'false'));
+                    });
+                }
+
+                // ---- More sheet open/close ----
+                window.openSdMoreSheet = function () {
+                    if (!moreSheet) return;
+                    moreSheet.classList.add('is-open');
+                    moreSheet.setAttribute('aria-hidden', 'false');
+                    document.body.style.overflow = 'hidden';
+                };
+                window.closeSdMoreSheet = function () {
+                    if (!moreSheet) return;
+                    moreSheet.classList.remove('is-open');
+                    moreSheet.setAttribute('aria-hidden', 'true');
+                    document.body.style.overflow = '';
+                };
+                if (moreSheet) {
+                    // Tap on backdrop closes; the ::before pseudo handles visual.
+                    moreSheet.addEventListener('click', e => {
+                        if (e.target === moreSheet) closeSdMoreSheet();
+                    });
+                    // ESC closes.
+                    document.addEventListener('keydown', e => {
+                        if (e.key === 'Escape' && moreSheet.classList.contains('is-open')) closeSdMoreSheet();
+                    });
+                }
+            })();
             </script>
+
+            <!-- Mobile-only overflow action sheet for 测速 & DNS (v2.6.0) -->
+            <div id="sdMoreSheet" class="sd-more-sheet" aria-hidden="true">
+                <div class="more-sheet-card" role="dialog" aria-modal="true" aria-label="更多操作">
+                    <span class="more-sheet-grip" aria-hidden="true"></span>
+                    <p class="more-sheet-title">测速 &amp; DNS · 更多操作</p>
+                    <div class="more-sheet-list">
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); batchTcpPing();">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="9" height="9" rx="2"/><rect x="12" y="12" width="9" height="9" rx="2"/></svg>
+                            <span>复制去 ITDog</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); directSubmitCname();">
+                            <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><line x1="18" y1="12" x2="6" y2="12"/></svg>
+                            <span>直推 CNAME (免测速)</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); updateTop3ToDns();">
+                            <svg viewBox="0 0 24 24"><polyline points="12 19 12 5"/><polyline points="6 11 12 5 18 11"/></svg>
+                            <span>更新 TOP3 至 DNS</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row is-danger" onclick="closeSdMoreSheet(); clearTest();">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                            <span>清空列表</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="sd-sheet-cancel" onclick="closeSdMoreSheet()">取消</button>
+                </div>
+            </div>
 
             </section><!-- /sec-speed -->
 
@@ -4024,14 +4910,30 @@ const HTML_UI = `
             sendDnsRequest(topIps, btn);
         }
         async function loadDNS() {
+            const container = document.getElementById('dnsStatus');
             try {
-                const res = await fetch('/api/get-dns'); const data = await res.json(); const container = document.getElementById('dnsStatus');
+                const res = await fetch('/api/get-dns'); const data = await res.json();
                 if (data.success && data.result) {
                     const records = data.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-                    if (records.length === 0) container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">暂无解析记录</span>';
-                    else container.innerHTML = records.map(r => \`<span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary-ring);">\${r.type} | \${r.content}</span>\`).join('');
+                    if (records.length === 0) {
+                        container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">暂无解析记录</span>';
+                    } else {
+                        // Dual-mode markup: desktop reads .sd-dns-badge (rendered inline like the original badges);
+                        // mobile CSS upgrades the .sd-dns-list ul into iOS rows with rec-pill / ip / geo split.
+                        container.innerHTML = '<ul class="sd-dns-list" role="list">'
+                            + records.map(r => {
+                                const t = r.type;
+                                const cnt = String(r.content || '');
+                                return '<li class="sd-dns-row" role="listitem">'
+                                    + '<span class="sd-rec-pill is-' + t + '">' + t + '</span>'
+                                    + '<code class="sd-ip" title="' + cnt.replace(/"/g, '&quot;') + '">' + cnt + '</code>'
+                                    + '<span class="sd-dns-badge">' + t + ' | ' + cnt + '</span>'
+                                    + '</li>';
+                            }).join('')
+                            + '</ul>';
+                    }
                 } else container.innerHTML = \`<span class="badge" style="background:var(--err-soft);color:var(--err);">\${data.error || '获取失败'}</span>\`;
-            } catch (e) { document.getElementById('dnsStatus').innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
+            } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
         }
         
         function logout() {
