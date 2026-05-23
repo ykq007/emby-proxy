@@ -1602,10 +1602,12 @@ const CSS_COMMON = `
 
         /* --- Mobile chrome: collapse topbar to brand + theme toggle only --- */
         .topbar {
+            position: static !important;
             overflow: visible !important;
             justify-content: space-between !important;
             padding: var(--space-3) var(--space-4) !important;
         }
+        .topbar::after { display: none; }
         .topbar > * { display: none !important; }
         .topbar > .mob-brand,
         .topbar > #themeToggle { display: inline-flex !important; }
