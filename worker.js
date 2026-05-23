@@ -1379,6 +1379,273 @@ const HTML_UI = `
                     </table>
                 </div>
             </div>
+
+            <!-- ===== F4: 优选 CDN 域名 + 一键 DNS CNAME ===== -->
+            <div class="card" style="margin-top:16px;">
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                    <h2 style="margin:0; font-size:18px;">🌟 优选 CDN 域名 + 一键 DNS CNAME</h2>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
+                        <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
+                        <button type="button" class="btn-tier is-success" onclick="runDownloadSpeedtest()" title="测当前 DNS 路径的实际下载带宽">⬇️ 当前路径带宽</button>
+                        <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ 添加自定义</button>
+                    </div>
+                    <div id="downloadSpeedResult" style="margin-top:10px; font-size:13px; color:var(--text-sec);"></div>
+                </div>
+                <div class="table-wrapper">
+                    <table style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>域名</th>
+                                <th>备注</th>
+                                <th style="width:60px; text-align:center;">内置</th>
+                                <th style="width:60px; text-align:center;">启用</th>
+                                <th style="width:90px; text-align:center;">上次测速</th>
+                                <th style="width:180px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optimizedDomainsBody">
+                            <tr><td colspan="6" style="text-align:center;color:var(--text-sec);">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="dnsReadyHint" style="margin-top:14px; padding:10px 14px; border-radius:10px; font-size:13px;"></div>
+            </div>
+
+            <!-- ===== F3: 重定向白名单 ===== -->
+            <div class="card" style="margin-top:16px;">
+                <h2 style="margin:0 0 10px 0; font-size:18px;">🔁 3xx 重定向直通白名单</h2>
+                <div style="font-size:13px; color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
+                <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
+                <div style="margin-top:10px;">
+                    <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">保存白名单</button>
+                </div>
+            </div>
+
+            <script>
+            // F3: 白名单
+            async function loadManualRedirectDomains() {
+                try {
+                    const res = await fetch('/api/manual-redirect-domains');
+                    const data = await res.json();
+                    if (data.success) document.getElementById('manualRedirectDomainsInput').value = (data.domains || []).join('\\n');
+                } catch (e) {}
+            }
+            async function saveManualRedirectDomains() {
+                try {
+                    const v = document.getElementById('manualRedirectDomainsInput').value;
+                    const domains = v.split('\\n').map(s => s.trim()).filter(Boolean);
+                    const res = await fetch('/api/manual-redirect-domains', { method: 'POST', body: JSON.stringify({ domains }) });
+                    const data = await res.json();
+                    if (data.success) { showToast('✅ 白名单已保存 (' + data.domains.length + ')'); loadManualRedirectDomains(); }
+                    else showToast('❌ 保存失败: ' + (data.error || '未知'));
+                } catch (e) { showToast('❌ ' + e.message); }
+            }
+
+            // F4: 优选域名
+            let _lastSpeedtest = {}; // id -> {ms, ok}
+            async function loadOptimizedDomains() {
+                try {
+                    const res = await fetch('/api/optimized-domains');
+                    const data = await res.json();
+                    console.log('[optimized-domains] response:', data);
+                    if (!data.success) {
+                        const body = document.getElementById('optimizedDomainsBody');
+                        if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f44;">加载失败: ' + (data.error || '未知') + '</td></tr>';
+                        return;
+                    }
+                    renderOptimizedDomains(data.items || []);
+                } catch (e) {
+                    console.error('[optimized-domains] load error:', e);
+                    const body = document.getElementById('optimizedDomainsBody');
+                    if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f44;">JS 异常: ' + e.message + '</td></tr>';
+                }
+            }
+            function renderOptimizedDomains(items) {
+                const body = document.getElementById('optimizedDomainsBody');
+                if (!body) { console.warn('[optimized-domains] body element not found'); return; }
+                if (!items.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sec);">暂无</td></tr>'; return; }
+                const dnsReady = _dnsReady;
+                body.innerHTML = items.map(it => {
+                    const live = _lastSpeedtest[it.id];
+                    const ms = live ? (live.ok ? live.ms + ' ms' : '失败') : (it.last_ms > 0 ? it.last_ms + ' ms' : (it.last_ms === -1 ? '-' : it.last_ms));
+                    const replaceBtnDisabled = !dnsReady;
+                    const replaceBtnTitle = dnsReady ? '将 DNS 记录的 CNAME 替换为此域名' : '请先在 Worker 环境变量中配置 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN';
+                    return '<tr>'
+                        + '<td><code>' + it.domain + '</code></td>'
+                        + '<td>' + (it.note || '') + '</td>'
+                        + '<td style="text-align:center;">' + (it.builtin ? '✓' : '') + '</td>'
+                        + '<td style="text-align:center;"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
+                        + '<td style="text-align:center;">' + ms + '</td>'
+                        + '<td>'
+                          + '<button type="button" class="btn-tier is-success" ' + (replaceBtnDisabled ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">🔄 替换DNS</button> '
+                          + (!it.builtin ? '<button type="button" class="btn-tier danger" onclick="deleteOptimizedDomain(' + it.id + ')">删除</button>' : '')
+                        + '</td>'
+                        + '</tr>';
+                }).join('');
+            }
+            async function toggleOptimizedDomain(id, enabled) {
+                await fetch('/api/optimized-domains/' + id, { method: 'PATCH', body: JSON.stringify({ enabled }) });
+            }
+            async function deleteOptimizedDomain(id) {
+                if (!confirm('确定删除此自定义域名？')) return;
+                const res = await fetch('/api/optimized-domains/' + id, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) { showToast('🗑️ 已删除'); loadOptimizedDomains(); }
+                else showToast('❌ ' + (data.error || '失败'));
+            }
+            async function addOptimizedDomain() {
+                const domain = prompt('输入自定义优选域名（如 example.com）：');
+                if (!domain) return;
+                const note = prompt('备注（可空）：') || '';
+                const res = await fetch('/api/optimized-domains', { method: 'POST', body: JSON.stringify({ domain, note }) });
+                const data = await res.json();
+                if (data.success) { showToast('✅ 已添加'); loadOptimizedDomains(); }
+                else showToast('❌ ' + (data.error || '失败'));
+            }
+            // 下载测速：拉自己 Worker 的 /api/speedtest-down，测客户端→当前 CF 入口→Worker 的有效带宽
+            async function runDownloadSpeedtest() {
+                const resEl = document.getElementById('downloadSpeedResult');
+                resEl.innerHTML = '⏱ 测速中（下载 10MB）...';
+                try {
+                    const bytes = 10 * 1024 * 1024;
+                    const start = performance.now();
+                    const res = await fetch('/api/speedtest-down?bytes=' + bytes + '&_=' + Date.now(), { cache: 'no-store' });
+                    if (!res.ok) { resEl.innerHTML = '❌ 端点返回 ' + res.status; return; }
+                    const reader = res.body.getReader();
+                    let received = 0;
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        received += value.length;
+                    }
+                    const elapsedMs = performance.now() - start;
+                    const mbps = (received * 8 / 1e6) / (elapsedMs / 1000);
+                    const mibps = (received / 1048576) / (elapsedMs / 1000);
+                    resEl.innerHTML = '✅ 下载 ' + (received / 1048576).toFixed(2) + ' MiB 用时 ' + (elapsedMs / 1000).toFixed(2) + ' 秒 → <b>' + mbps.toFixed(2) + ' Mbps</b> (' + mibps.toFixed(2) + ' MiB/s)';
+                    showToast('✅ 当前路径带宽: ' + mbps.toFixed(1) + ' Mbps');
+                } catch (e) {
+                    resEl.innerHTML = '❌ 测速失败: ' + e.message;
+                }
+            }
+
+            // 客户端侧测速：先 fetch no-cors，失败回退到 Image() 加载（兼容更多目标）
+            function clientProbeImage(domain, timeoutMs) {
+                return new Promise(resolve => {
+                    const start = performance.now();
+                    const img = new Image();
+                    let done = false;
+                    const finish = (ok) => {
+                        if (done) return; done = true;
+                        const ms = Math.round(performance.now() - start);
+                        resolve({ ms: ok ? ms : -1, ok });
+                    };
+                    const t = setTimeout(() => finish(false), timeoutMs);
+                    img.onload = () => { clearTimeout(t); finish(true); };
+                    // onerror 也算"通了"：说明 TCP/TLS 已经握手成功，只是资源不是图片
+                    img.onerror = () => { clearTimeout(t); finish(true); };
+                    img.src = 'https://' + domain + '/favicon.ico?_=' + Date.now();
+                });
+            }
+            async function clientProbe(domain, timeoutMs) {
+                timeoutMs = timeoutMs || 4000;
+                const start = performance.now();
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    await fetch('https://' + domain + '/cdn-cgi/trace?_=' + Date.now(), {
+                        mode: 'no-cors', cache: 'no-store', signal: controller.signal
+                    });
+                    clearTimeout(t);
+                    return { ms: Math.round(performance.now() - start), ok: true };
+                } catch (e) {
+                    clearTimeout(t);
+                    console.log('[probe] fetch failed for', domain, e.message, '— fallback to Image');
+                    return await clientProbeImage(domain, timeoutMs);
+                }
+            }
+            async function speedtestOptimizedDomains(mode) {
+                mode = mode || 'client';
+                showToast('⏱ ' + (mode === 'client' ? '本地' : 'Edge') + '测速中...');
+                let measured = [];
+                if (mode === 'edge') {
+                    const res = await fetch('/api/optimized-domains/speedtest', { method: 'POST', body: '{}' });
+                    const data = await res.json();
+                    if (!data.success) { showToast('❌ ' + (data.error || '测速失败')); return; }
+                    measured = data.items || [];
+                } else {
+                    // 客户端：先取启用域名列表
+                    const listRes = await fetch('/api/optimized-domains');
+                    const listData = await listRes.json();
+                    if (!listData.success) { showToast('❌ 拉取域名失败'); return; }
+                    const enabled = (listData.items || []).filter(it => it.enabled);
+                    measured = await Promise.all(enabled.map(async it => {
+                        const p = await clientProbe(it.domain);
+                        return { id: it.id, domain: it.domain, ms: p.ms, ok: p.ok };
+                    }));
+                    measured.sort((a, b) => {
+                        if (!a.ok && !b.ok) return 0; if (!a.ok) return 1; if (!b.ok) return -1;
+                        return a.ms - b.ms;
+                    });
+                }
+                _lastSpeedtest = {};
+                measured.forEach(it => { _lastSpeedtest[it.id] = { ms: it.ms, ok: it.ok }; });
+                showToast('✅ ' + (mode === 'client' ? '本地' : 'Edge') + '测速完成，已按延迟排序');
+                const listRes = await fetch('/api/optimized-domains');
+                const listData = await listRes.json();
+                if (listData.success) {
+                    const items = (listData.items || []).slice().sort((a, b) => {
+                        const sa = _lastSpeedtest[a.id], sb = _lastSpeedtest[b.id];
+                        if (!sa && !sb) return 0; if (!sa) return 1; if (!sb) return -1;
+                        if (!sa.ok && !sb.ok) return 0; if (!sa.ok) return 1; if (!sb.ok) return -1;
+                        return sa.ms - sb.ms;
+                    });
+                    renderOptimizedDomains(items);
+                }
+            }
+            let _dnsReady = false;
+            async function loadDnsConfig() {
+                try {
+                    const res = await fetch('/api/dns-ready');
+                    const data = await res.json();
+                    _dnsReady = !!(data && data.ready);
+                    const hint = document.getElementById('dnsReadyHint');
+                    if (hint) {
+                        if (_dnsReady) {
+                            hint.style.background = 'rgba(52,199,89,0.1)';
+                            hint.style.border = '1px solid rgba(52,199,89,0.3)';
+                            hint.innerHTML = '✅ DNS 替换已就绪 (域名: <code>' + (data.domain || '?') + '</code>) — 点表格里的 "🔄 替换DNS" 即可应用';
+                        } else {
+                            hint.style.background = 'rgba(255,149,0,0.1)';
+                            hint.style.border = '1px solid rgba(255,149,0,0.3)';
+                            hint.innerHTML = '⚠️ 缺少环境变量 <code>CF_API_TOKEN</code> / <code>CF_ZONE_ID</code> / <code>CF_DOMAIN</code>，无法替换 DNS。请到 Cloudflare Worker 设置中补齐。';
+                        }
+                    }
+                } catch (e) { _dnsReady = false; }
+            }
+            async function replaceDns(domain) {
+                if (!confirm('确定将 DNS 记录的 CNAME 内容替换为 ' + domain + ' ?')) return;
+                const res = await fetch('/api/dns/replace', { method: 'POST', body: JSON.stringify({ domain }) });
+                const data = await res.json();
+                if (data.success) { showToast('✅ DNS 已替换为 ' + data.content); loadDnsConfig(); }
+                else showToast('❌ ' + (data.error || '替换失败'));
+            }
+
+            // 页面加载后立即拉一次（不依赖分区可见性）
+            (function(){
+                function _embycfInit() {
+                    loadOptimizedDomains();
+                    loadDnsConfig().then(() => loadOptimizedDomains()); // 配置加载完后重渲染以显示替换按钮
+                    loadManualRedirectDomains();
+                }
+                if (document.readyState === 'loading') {
+                    window.addEventListener('DOMContentLoaded', _embycfInit);
+                } else {
+                    _embycfInit();
+                }
+            })();
+            </script>
+
             </section><!-- /sec-speed -->
 
             <!-- ===== 分区: 系统设置 ===== -->
@@ -2756,7 +3023,7 @@ const HTML_UI = `
     // 🚀 新增：前端探针自动检测脚本
         async function fetchCfTrace() {
             try {
-                const res = await fetch('/api/trace');
+                const res = await fetch('/api/edge-info');
                 const data = await res.json();
                 if (data.success) {
                     // Compact entry: just the colo code (e.g. "HKG"); full text shown in pill tooltip
@@ -2765,12 +3032,13 @@ const HTML_UI = `
                     let fullEntry = data.entryCountry || '';
                     if (data.entryCity && data.entryCity !== '未知') fullEntry += ' ' + data.entryCity;
                     fullEntry += ' (' + (data.entryColo || '?') + ')';
+                    if (data.cacheKey) fullEntry += ' · key=' + data.cacheKey;
                     entryEl.title = '访客入口: ' + fullEntry;
 
                     const egressText = data.egressColo;
                     const egressElem = document.getElementById('trace-egress');
                     egressElem.innerText = egressText;
-                    egressElem.title = 'Worker 落地: ' + egressText;
+                    egressElem.title = 'Worker 落地: ' + egressText + (data.cacheKey ? ' · key=' + data.cacheKey : '');
 
                     if (data.entryColo !== egressText && egressText !== '探测中...' && egressText !== '获取失败') {
                         egressElem.style.color = '#ff9500';
@@ -3722,6 +3990,121 @@ async function sendTgStats(env, chatId) {
 // 反代核心健壮性辅助函数 (proxy-core robustness helpers)
 // ==========================================
 const MAX_RETRY_BODY_BYTES = 8 * 1024 * 1024; // 8MB：超过此值的请求体不缓冲、不重试
+const MAX_UPSTREAM_TIMEOUT_MS = 15000; // F2: 每个上游单次超时
+
+// F1: 路由别名保留前缀（与系统/CF 路径冲突的不允许注册为代理别名）
+const RESERVED_ALIASES = new Set([
+    'api', 'admin', '__client_rtt__',
+    'login', 'logout',
+    'assets', 'static', 'public',
+    'health', 'healthz', 'ping', 'status',
+    'emby', 'web', 'stats',
+    'favicon.ico', 'robots.txt',
+    'apple-touch-icon', 'sw.js', 'manifest.json', 'cdn-cgi'
+]);
+const PREFIX_REGEX = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+function validateRoutePrefix(raw) {
+    const prefix = String(raw || '').trim();
+    if (!prefix) return '别名为空';
+    if (!PREFIX_REGEX.test(prefix)) return '别名格式非法（仅允许字母/数字/_/-，且不超过 64 位，不能以特殊字符开头）';
+    if (RESERVED_ALIASES.has(prefix.toLowerCase())) return `别名 "${prefix}" 为系统保留前缀`;
+    return null;
+}
+
+// F3: 直接透传 3xx Location 的上游域名白名单（云盘签名直链等）
+const DEFAULT_MANUAL_REDIRECT_DOMAINS = [
+    'cn-beijing-data.aliyundrive.net',
+    'cn-shenzhen-data.aliyundrive.net',
+    'alicdn-adrive-cn-data-yk.alicdn.com',
+    '115.com', '115cdn.com', 'anxia.com',
+    'pcs.drive.quark.cn', 'video-pcs.drive.quark.cn',
+    'mypikpak.com', 'mypikpak.net',
+    'aliyuncs.com', 'myqcloud.com', 'myhuaweicloud.com',
+    'cos.ap-shanghai.myqcloud.com'
+];
+let _manualRedirectHosts = null; // Set<string>，由 ensureSchema/POST 端点初始化
+function hostMatchesAllowlist(host, set) {
+    if (!host || !set || set.size === 0) return false;
+    const h = host.toLowerCase();
+    if (set.has(h)) return true;
+    for (const d of set) {
+        if (h.endsWith('.' + d)) return true;
+    }
+    return false;
+}
+
+// F4: 内置 12 个 CF 友好优选域名（首次部署自动 seed）
+const DEFAULT_OPTIMIZED_DOMAINS = [
+    { domain: 'cf.090227.xyz',         note: 'ZhiXuanWang 优选合集' },
+    { domain: 'cf.zhetengsha.eu.org',  note: '社区维护' },
+    { domain: 'cdn.2020111.xyz',       note: '2020111 推送' },
+    { domain: 'xn--b6gac.eu.org',      note: 'IPv6 友好' },
+    { domain: 'cloudflare.182682.xyz', note: '182682 推送' },
+    { domain: 'cf.877771.xyz',         note: '877771 推送' },
+    { domain: 'cf.0sm.com',            note: '0sm 推送' },
+    { domain: 'visa.com.sg',           note: '亚太低延迟' },
+    { domain: 'visa.com.hk',           note: '香港' },
+    { domain: 'time.is',               note: '欧洲低延迟' },
+    { domain: 'cf-ns.com',             note: '通用' },
+    { domain: 'icook.tw',              note: '台湾' }
+];
+
+// F4: HEAD 测速辅助
+async function probeDomain(domain) {
+    const start = Date.now();
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 4000);
+    try {
+        const res = await fetch(`https://${domain}/cdn-cgi/trace`, {
+            method: 'HEAD', redirect: 'manual', signal: controller.signal,
+            cf: { cacheTtl: 0 }
+        });
+        clearTimeout(t);
+        if (res.status >= 500) return { ms: -1, ok: false };
+        return { ms: Date.now() - start, ok: true };
+    } catch (e) { clearTimeout(t); return { ms: -1, ok: false }; }
+}
+
+// 共享 schema 初始化（幂等）
+let _schemaReady = false;
+async function ensureSchema(env) {
+    if (_schemaReady || !env.DB) return;
+    try {
+        // 既有表（避免冷启时尚未触达 /api/routes 路径）
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
+        // 新增表
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS kv_config (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS optimized_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE, note TEXT DEFAULT '', builtin INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, last_ms INTEGER DEFAULT -1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dns_config (id INTEGER PRIMARY KEY CHECK (id = 1), cf_api_token TEXT DEFAULT '', cf_zone_id TEXT DEFAULT '', cf_record_id TEXT DEFAULT '', target_alias TEXT DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+        // Seed 内置优选域名（依赖 UNIQUE(domain) 去重，幂等）
+        const seedStmts = DEFAULT_OPTIMIZED_DOMAINS.map(d =>
+            env.DB.prepare(`INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 1, 1)`).bind(d.domain, d.note)
+        );
+        if (seedStmts.length) await env.DB.batch(seedStmts);
+
+        // Seed manual redirect domains 默认值
+        const existing = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`).first();
+        if (!existing) {
+            await env.DB.prepare(`INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`)
+                .bind(DEFAULT_MANUAL_REDIRECT_DOMAINS.join('\n')).run();
+            _manualRedirectHosts = new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map(s => s.toLowerCase()));
+        } else {
+            _manualRedirectHosts = new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
+        }
+        _schemaReady = true;
+    } catch (e) {
+        // 不抛错：DB 失败不能阻塞 Worker
+        console.log('ensureSchema error:', e.message);
+    }
+}
+async function getManualRedirectHosts(env) {
+    if (_manualRedirectHosts) return _manualRedirectHosts;
+    await ensureSchema(env);
+    return _manualRedirectHosts || new Set();
+}
 
 // 构造发往源站的请求头：剥离 cf-* 元数据、套用伪装模式、注入节点自定义头
 function buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw) {
@@ -3835,6 +4218,9 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
+        // 共享 schema 初始化（幂等；首次请求后为内存 no-op）
+        if (env.DB) { await ensureSchema(env); }
+
         // ==========================================
         // 🚀 新增：全云厂商 Worker 放置区域接口
         // ==========================================
@@ -3892,6 +4278,48 @@ export default {
                 entryCity: cf.city || '',
                 entryColo: cf.colo || '未知',
                 egressColo: egressColo
+            }), {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+        }
+
+        // ==========================================
+        // 🚀 F5: /api/edge-info — /api/trace 的别名，附带 cacheKey（5 分钟桶 SHA-1）
+        // ==========================================
+        if (url.pathname === '/api/edge-info') {
+            const cf = request.cf || {};
+            let egressColo = '探测中...';
+            try {
+                const traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace', {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (CF-Worker-Trace)' }
+                });
+                const traceText = await traceRes.text();
+                const match = traceText.match(/colo=([A-Z]+)/);
+                if (match) egressColo = match[1];
+            } catch (e) {
+                egressColo = '获取失败';
+            }
+
+            const entryColo = cf.colo || '未知';
+            const bucket = Math.floor(Date.now() / 300000);
+            let cacheKey = '';
+            try {
+                const buf = new TextEncoder().encode(`${entryColo}:${egressColo}:${bucket}`);
+                const digest = await crypto.subtle.digest('SHA-1', buf);
+                cacheKey = Array.from(new Uint8Array(digest)).slice(0, 8)
+                    .map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (e) { cacheKey = ''; }
+
+            return new Response(JSON.stringify({
+                success: true,
+                entryCountry: cf.country || '未知',
+                entryCity: cf.city || '',
+                entryColo,
+                egressColo,
+                cacheKey
             }), {
                 headers: {
                     'Content-Type': 'application/json',
@@ -4101,6 +4529,167 @@ export default {
             } catch (e) { return Response.json({ ms: -1 }); }
         }
 
+        // ==========================================
+        // 🚀 下载测速端点：客户端 → 当前 CF 入口 → Worker 的实际带宽
+        // ==========================================
+        if (url.pathname === '/api/speedtest-down') {
+            const bytes = Math.min(parseInt(url.searchParams.get('bytes') || '5242880', 10) || 5242880, 50 * 1024 * 1024);
+            const chunkSize = 65536;
+            const chunk = new Uint8Array(chunkSize);
+            let sent = 0;
+            const stream = new ReadableStream({
+                pull(controller) {
+                    if (sent >= bytes) { controller.close(); return; }
+                    const remaining = bytes - sent;
+                    if (remaining < chunkSize) {
+                        controller.enqueue(chunk.subarray(0, remaining));
+                        sent += remaining;
+                    } else {
+                        controller.enqueue(chunk);
+                        sent += chunkSize;
+                    }
+                }
+            });
+            return new Response(stream, {
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Content-Length': String(bytes),
+                    'Cache-Control': 'no-store',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+        }
+
+        // ==========================================
+        // 🚀 F3: 手动重定向白名单管理
+        // ==========================================
+        if (url.pathname === '/api/manual-redirect-domains') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
+            await ensureSchema(env);
+            if (request.method === 'GET') {
+                const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`).first();
+                const domains = String(row?.v || '').split('\n').map(s => s.trim()).filter(Boolean);
+                return Response.json({ success: true, domains });
+            }
+            if (request.method === 'POST') {
+                try {
+                    const body = await request.json();
+                    const list = Array.isArray(body.domains) ? body.domains : [];
+                    const cleaned = list.map(s => String(s || '').trim().toLowerCase()).filter(s => s && /^[a-z0-9.-]+$/.test(s));
+                    const v = cleaned.join('\n');
+                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('manual_redirect_domains', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                    _manualRedirectHosts = new Set(cleaned);
+                    return Response.json({ success: true, domains: cleaned });
+                } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+            }
+            return new Response("Method not allowed", { status: 405 });
+        }
+
+        // ==========================================
+        // 🚀 F4: 优选域名 CRUD + 测速
+        // ==========================================
+        if (url.pathname === '/api/optimized-domains' && request.method === 'GET') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
+            await ensureSchema(env);
+            const { results } = await env.DB.prepare(`SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`).all();
+            return Response.json({ success: true, items: results || [] });
+        }
+        if (url.pathname === '/api/optimized-domains' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
+            await ensureSchema(env);
+            try {
+                const { domain, note } = await request.json();
+                const d = String(domain || '').trim().toLowerCase();
+                if (!d || !/^[a-z0-9.-]+$/.test(d)) return Response.json({ success: false, error: '域名格式非法' }, { status: 400 });
+                await env.DB.prepare(`INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 0, 1)`).bind(d, String(note || '')).run();
+                return Response.json({ success: true });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+        }
+        if (url.pathname.startsWith('/api/optimized-domains/') && url.pathname !== '/api/optimized-domains/speedtest') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
+            await ensureSchema(env);
+            const id = parseInt(url.pathname.split('/').pop(), 10);
+            if (!id) return Response.json({ success: false, error: 'invalid id' }, { status: 400 });
+            const row = await env.DB.prepare(`SELECT * FROM optimized_domains WHERE id = ?`).bind(id).first();
+            if (!row) return Response.json({ success: false, error: '记录不存在' }, { status: 404 });
+            if (request.method === 'PATCH') {
+                try {
+                    const body = await request.json();
+                    const enabled = body.enabled === undefined ? row.enabled : (body.enabled ? 1 : 0);
+                    const note = body.note === undefined ? row.note : String(body.note || '');
+                    await env.DB.prepare(`UPDATE optimized_domains SET enabled = ?, note = ? WHERE id = ?`).bind(enabled, note, id).run();
+                    return Response.json({ success: true });
+                } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+            }
+            if (request.method === 'DELETE') {
+                if (row.builtin) return Response.json({ success: false, error: '内置域名不可删除（可禁用）' }, { status: 400 });
+                await env.DB.prepare(`DELETE FROM optimized_domains WHERE id = ?`).bind(id).run();
+                return Response.json({ success: true });
+            }
+            return new Response("Method not allowed", { status: 405 });
+        }
+        if (url.pathname === '/api/optimized-domains/speedtest' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
+            await ensureSchema(env);
+            const { results } = await env.DB.prepare(`SELECT id, domain FROM optimized_domains WHERE enabled = 1`).all();
+            const rows = results || [];
+            const measured = await Promise.all(rows.map(async r => {
+                const probe = await probeDomain(r.domain);
+                return { id: r.id, domain: r.domain, ms: probe.ms, ok: probe.ok };
+            }));
+            // 持久化 last_ms
+            try {
+                const stmts = measured.map(m => env.DB.prepare(`UPDATE optimized_domains SET last_ms = ? WHERE id = ?`).bind(m.ms, m.id));
+                if (stmts.length) await env.DB.batch(stmts);
+            } catch (e) {}
+            measured.sort((a, b) => {
+                if (!a.ok && !b.ok) return 0;
+                if (!a.ok) return 1;
+                if (!b.ok) return -1;
+                return a.ms - b.ms;
+            });
+            return Response.json({ success: true, items: measured });
+        }
+
+        // 检查 DNS 替换前置条件（env 变量是否齐全）
+        if (url.pathname === '/api/dns-ready' && request.method === 'GET') {
+            const ok = !!(env.CF_API_TOKEN && env.CF_ZONE_ID && env.CF_DOMAIN);
+            return Response.json({ success: true, ready: ok, domain: env.CF_DOMAIN || '' });
+        }
+        if (url.pathname === '/api/dns/replace' && request.method === 'POST') {
+            try {
+                const body = await request.json();
+                const newDomain = String(body.domain || '').trim().toLowerCase();
+                if (!newDomain) return Response.json({ success: false, error: '缺少目标域名' }, { status: 400 });
+                const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID; const domain = env.CF_DOMAIN;
+                if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: '缺少环境变量 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN' }, { status: 400 });
+
+                // 拉取该域名下所有 A/AAAA/CNAME 记录
+                const listRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, {
+                    headers: { 'Authorization': `Bearer ${cfToken}` }
+                });
+                const listData = await listRes.json();
+                if (!listData.success) return Response.json({ success: false, error: 'CF 拉取记录失败: ' + JSON.stringify(listData.errors) }, { status: 502 });
+
+                const oldRecords = (listData.result || []).filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
+                // 删除旧 A/AAAA/CNAME
+                for (const r of oldRecords) {
+                    await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${r.id}`, {
+                        method: 'DELETE', headers: { 'Authorization': `Bearer ${cfToken}` }
+                    });
+                }
+                // 写入新 CNAME
+                const postRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${cfToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'CNAME', name: domain, content: newDomain, ttl: 60, proxied: false })
+                });
+                const postData = await postRes.json();
+                if (!postData.success) return Response.json({ success: false, error: 'CF 写入失败: ' + JSON.stringify(postData.errors) }, { status: 502 });
+                return Response.json({ success: true, name: domain, content: newDomain, replaced: oldRecords.length });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
+        }
+
         if (url.pathname === '/api/get-dns') {
             const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID; const domain = env.CF_DOMAIN;
             if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: '缺少 DNS 环境变量' });
@@ -4218,13 +4807,16 @@ export default {
             if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
             try {
                 const routes = await request.json();
+                const skipped = []; let imported = 0;
                 for (const r of routes) {
-                    if (r.prefix && r.target) {
-                        await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                            .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '').run();
-                    }
+                    if (!r.prefix || !r.target) { skipped.push({ prefix: r.prefix || '(空)', reason: '缺少 prefix 或 target' }); continue; }
+                    const reason = validateRoutePrefix(r.prefix);
+                    if (reason) { skipped.push({ prefix: r.prefix, reason }); continue; }
+                    await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                        .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '').run();
+                    imported++;
                 }
-                return Response.json({ success: true });
+                return Response.json({ success: true, imported, skipped });
             } catch (e) { return Response.json({ success: false, error: e.message }); }
         }
 
@@ -4318,7 +4910,13 @@ export default {
             }
 
             if (request.method === 'POST') {
-                const data = await request.json(); let currentSortOrder = 0;
+                const data = await request.json();
+                // F1: 保留前缀 + 格式校验
+                const invalidReason = validateRoutePrefix(data.prefix);
+                if (invalidReason) {
+                    return Response.json({ success: false, error: `路由别名 "${data.prefix}" 不可用：${invalidReason}` }, { status: 400 });
+                }
+                let currentSortOrder = 0;
                 if (data.oldPrefix && data.oldPrefix !== data.prefix) {
                     const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
                     if (oldRow) currentSortOrder = oldRow.sort_order;
@@ -4428,6 +5026,7 @@ export default {
         const canRetry = !hasBody || bodyBuffer !== null;
 
         let finalResponse = null; let lastError = null;
+        let triedUpstreamIndex = -1; let triedUpstreamCount = 0;
 
         for (let i = 0; i < targetUrls.length; i++) {
             const targetUrlStr = targetUrls[i] + remainingPath + url.search; const targetUrl = new URL(targetUrlStr);
@@ -4435,7 +5034,11 @@ export default {
 
             const isStaticOrImage = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(targetUrl.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(targetUrl.pathname);
 
-            let fetchInit = { method: request.method, headers: newHeaders, redirect: 'manual' };
+            // F2: 每个上游 15s 超时；超时按上游失败处理并故障转移
+            const abortCtrl = new AbortController();
+            const timeoutId = setTimeout(() => abortCtrl.abort(), MAX_UPSTREAM_TIMEOUT_MS);
+
+            let fetchInit = { method: request.method, headers: newHeaders, redirect: 'manual', signal: abortCtrl.signal };
 
             if (isStaticOrImage && enableCache) { fetchInit.cf = { cacheEverything: true, cacheTtl: 86400 }; }
 
@@ -4444,32 +5047,57 @@ export default {
                 else { fetchInit.body = request.body; fetchInit.duplex = 'half'; }
             }
 
+            triedUpstreamCount++;
             try {
                 let response = await fetchWithSchemeFallback(targetUrl, fetchInit, canRetry);
-                // 源站 403 → 逐级调整请求头重试
+                clearTimeout(timeoutId);
+                // 源站 403 → 逐级调整请求头重试（同一上游内）
                 if (response.status === 403 && canRetry) {
                     const cascaded = await attempt403Cascade(targetUrl, newHeaders, fetchInit, currentMode);
                     if (cascaded) response = cascaded;
                 }
                 if (response.status === 502 || response.status === 503 || response.status === 504) { lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`); continue; }
+                triedUpstreamIndex = i;
                 finalResponse = response; break;
-            } catch (err) { lastError = err; continue; }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                // AbortError 视为超时 → 故障转移
+                lastError = err; continue;
+            }
         }
 
         if (!finalResponse) return new Response("Worker Proxy Failover Exhausted. All nodes failed. Last Error: " + (lastError?.message || 'Unknown Error'), { status: 502 });
 
         const responseHeaders = new Headers(finalResponse.headers);
 
+        // F2: 可选调试 header，仅在 env.DEBUG_FAILOVER === '1' 时输出
+        if (env.DEBUG_FAILOVER === '1') {
+            responseHeaders.set('X-Proxy-Upstream-Index', String(triedUpstreamIndex));
+            responseHeaders.set('X-Proxy-Upstream-Tries', String(triedUpstreamCount));
+        }
+
         // 统一前缀变量，确保绝对安全，不会抛出未定义错误
         // 假设你前面获取路由节点的变量叫 matchedPrefix，如果有值就带上斜杠
         const safePrefix = matchedPrefix ? `/${matchedPrefix}` : '';
 
         // ==========================================
-        // 🚀 修复版 302 拦截：恢复 URL 编码
+        // 🚀 修复版 302 拦截：恢复 URL 编码 + F3 白名单透传
         // ==========================================
         if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
             const location = responseHeaders.get('Location');
             if (location) {
+                // F3: 若 Location 指向白名单域名，则直接透传 3xx，不再套代理前缀
+                let absHost = null;
+                try {
+                    if (/^https?:\/\//i.test(location)) absHost = new URL(location).host.toLowerCase();
+                    else if (location.startsWith('//')) absHost = new URL(new URL(request.url).protocol + location).host.toLowerCase();
+                } catch (e) {}
+                const allowlist = await getManualRedirectHosts(env);
+                if (absHost && hostMatchesAllowlist(absHost, allowlist)) {
+                    responseHeaders.set('Access-Control-Allow-Origin', '*');
+                    return new Response(null, { status: finalResponse.status, headers: responseHeaders });
+                }
+
                 if (/^https?:\/\//i.test(location)) {
                     // 绝对地址：套代理前缀 + encodeURIComponent，防止播放器解析重定向头时发疯
                     responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
