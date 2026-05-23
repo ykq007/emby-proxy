@@ -1,6 +1,6 @@
 // VERSION: 2.4.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.4.0";
+const CURRENT_VERSION = "2.5.0";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -66,14 +66,18 @@ const CSS_COMMON = `
             0 4px 10px rgba(15,23,42,0.05),
             0 18px 38px -12px rgba(15,23,42,0.18);
 
-        /* === iOS-native tokens v2.4.0 — mobile-only typography & shapes ===
+        /* === iOS-native tokens v2.4.0 — typography & shapes ===
            iOS HIG values (34pt large title, 17pt headline, 16pt callout, 15pt body,
-           continuous-corner radii). Used ONLY inside @media (max-width: 768px). */
+           continuous-corner radii).
+           v2.5.0: desktop port — ios-page-header / ios-form-* / tb-section-title
+           promoted out of the mobile MQ; mobile-only tokens (large-title shrinks)
+           are still scoped via media queries. */
         --text-headline: 17px;
         --text-body-ios: 15px;
         --text-large-title: 34px;
         --text-large-title-md: 30px;   /* ≤480 shrink */
         --text-large-title-sm: 28px;   /* ≤360 shrink */
+        --text-large-title-lg: 40px;   /* ≥769px desktop */
         --radius-ios: 18px;
         --radius-ios-sm: 14px;
         --hairline: rgba(60,60,67,0.18);
@@ -132,7 +136,7 @@ const CSS_COMMON = `
     .content-wrap { flex: 1; }
     input, select, button, textarea { font-family: inherit; outline: none; font-size: var(--text-lg); }
     
-    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-card); box-shadow: var(--card-shadow-lift); margin-bottom: var(--space-6); border: 1px solid var(--border); transition: 0.3s; }
+    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-ios); box-shadow: var(--card-shadow-lift); margin-bottom: var(--space-6); border: 1px solid var(--border); transition: 0.3s; }
     
     #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: var(--space-3) var(--space-6); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 9999; backdrop-filter: blur(10px); text-align: center; max-width: 90vw; word-wrap: break-word; }
     #toast.show { top: 20px; }
@@ -194,7 +198,7 @@ const CSS_COMMON = `
     .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-5); margin-top: var(--space-5); }
     .emby-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: var(--space-3-5); transition: 0.3s; position: relative; }
     .emby-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.06); transform: translateY(-2px); }
-    .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.5px solid var(--hairline); padding-bottom: 12px; }
     .card-title-group { display: flex; align-items: center; gap: var(--space-3); }
     .emby-icon { font-size: var(--text-3xl); background: rgba(120,120,120,0.05); border-radius: var(--radius-md); padding: var(--space-1-5); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
     .info-row { display: flex; align-items: flex-start; justify-content: space-between; font-size: var(--text-md); }
@@ -239,7 +243,7 @@ const CSS_COMMON = `
     .a-status-dot.warn { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
     .a-mode-badge { padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
 
-    .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 0.5px solid var(--hairline); border-bottom: 0.5px solid var(--hairline); }
     .a-stat { padding: 0 var(--space-3); border-right: 1px solid var(--border); min-width: 0; }
     .a-stat:last-child { border-right: none; }
     /* symmetric stat columns — no first/last asymmetry (v2.2.0) */
@@ -272,7 +276,7 @@ const CSS_COMMON = `
     .a-details { display: none; padding: var(--space-3-5); background: rgba(120,120,120,0.04); border-radius: var(--radius-md); border: 1px solid var(--border); margin-top: -4px; }
     .a-details.open { display: block; }
     .a-detail-row { display: grid; grid-template-columns: 78px 1fr auto; gap: var(--space-2-5); align-items: center; padding: 6px 0; font-size: var(--text-sm); }
-    .a-detail-row + .a-detail-row { border-top: 1px solid var(--border); }
+    .a-detail-row + .a-detail-row { border-top: 0.5px solid var(--hairline); }
     .a-detail-label { color: var(--text-sec); font-weight: 600; }
     .a-detail-val { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .a-detail-val.secret { letter-spacing: 2px; color: var(--text-sec); }
@@ -330,7 +334,7 @@ const CSS_COMMON = `
     .menu button:hover { background: rgba(120,120,120,0.07); }
     .menu button.danger { color: var(--err); }
     .menu button.danger:hover { background: var(--err-soft); }
-    .menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 6px; opacity: 0.6; }
+    .menu hr { border: none; border-top: 0.5px solid var(--hairline); margin: 4px 6px; opacity: 0.6; }
     .menu svg { width: 14px; height: 14px; flex-shrink: 0; }
 
     /* --- iOS-style switch (scoped to .ios-switch to avoid collisions) --- */
@@ -378,7 +382,7 @@ const CSS_COMMON = `
     .a-toggle-row { user-select: none; }
     .a-footer {
         display: flex; justify-content: space-between; align-items: center; gap: var(--space-2-5);
-        padding-top: 18px; border-top: 1px solid var(--border); margin-top: var(--space-1);
+        padding-top: 18px; border-top: 0.5px solid var(--hairline); margin-top: var(--space-1);
         flex-wrap: wrap;
     }
     .a-footer .a-footer-aux { color: var(--text-sec); font-size: var(--text-sm); }
@@ -425,7 +429,7 @@ const CSS_COMMON = `
     .hed-meta { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); color: var(--text-sec); }
     .hed-meta .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; box-shadow: 0 0 6px var(--ok); }
     .hed-empty { text-align: center; padding: 26px 20px; color: var(--text-sec); font-size: var(--text-md); border: 1px dashed var(--border); border-radius: var(--radius-md); }
-    .templates { margin-top: var(--space-3-5); padding-top: 14px; border-top: 1px solid var(--border); display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; }
+    .templates { margin-top: var(--space-3-5); padding-top: 14px; border-top: 0.5px solid var(--hairline); display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; }
     .templates-label { font-size: var(--text-sm); color: var(--text-sec); margin-right: var(--space-1); }
     .chip {
         display: inline-flex; align-items: center; gap: var(--space-1);
@@ -945,6 +949,8 @@ const CSS_COMMON = `
         }
         /* Strip desktop hover lift when we're on touch */
         .btn-submit:hover { transform: none; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
+        /* iOS HIG: form rows must remain ≥44pt on touch */
+        .ios-form-row { min-height: var(--touch-min); }
     }
 
     /* Edge-fade affordance for horizontal scrollers — signals "swipe-able" */
@@ -998,7 +1004,7 @@ const CSS_COMMON = `
     }
     .sidebar-brand {
         display: flex; align-items: center; gap: var(--space-3);
-        padding: 20px 18px; border-bottom: 1px solid var(--border);
+        padding: 20px 18px; border-bottom: 0.5px solid var(--hairline);
         position: relative; overflow: hidden;
     }
     .sidebar-brand::before {
@@ -1043,7 +1049,7 @@ const CSS_COMMON = `
     }
     .sidebar.collapsed .nav-item.is-active::before { left: 0; top: 6px; bottom: 6px; }
     .sidebar-foot {
-        padding: var(--space-3); border-top: 1px solid var(--border);
+        padding: var(--space-3); border-top: 0.5px solid var(--hairline);
         display: flex; flex-direction: column; gap: var(--space-2);
     }
     .sidebar-collapse {
@@ -1075,7 +1081,7 @@ const CSS_COMMON = `
         padding: var(--space-3-5) var(--space-6); background: var(--topbar-glass);
         backdrop-filter: saturate(140%) blur(14px);
         -webkit-backdrop-filter: saturate(140%) blur(14px);
-        border-bottom: 1px solid var(--border);
+        border-bottom: 0.5px solid var(--hairline);
         position: sticky; top: 0; z-index: 90;
     }
     .topbar::after {
@@ -1178,7 +1184,28 @@ const CSS_COMMON = `
         border: 1px solid var(--border); border-radius: var(--radius-sm);
         background: var(--bg);
     }
-    .topbar-spacer { flex: 1; min-width: 8px; }
+    .topbar-spacer {
+        flex: 1; min-width: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .tb-section-title {
+        font-size: var(--text-headline);
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    body.is-scrolled .tb-section-title {
+        opacity: 1;
+        transform: none;
+    }
     .topbar-user {
         display: inline-flex; align-items: center; gap: var(--space-2);
         padding: 5px 12px 5px 6px; border-radius: var(--radius-pill);
@@ -1238,32 +1265,36 @@ const CSS_COMMON = `
     .danger-hero .dh-icon svg { width: 22px; height: 22px; }
     .danger-hero .dh-title { margin: 0; font-size: var(--text-2xl); font-weight: 700; color: var(--err); letter-spacing: -0.01em; }
     .danger-hero .dh-sub { font-size: var(--text-base); color: var(--text-sec); margin-top: 4px; }
-    /* Card list — one row per destructive action with full disclosure copy */
-    .danger-list { display: flex; flex-direction: column; gap: var(--space-3); }
-    .danger-card {
-        display: flex; align-items: center; gap: var(--space-5);
-        padding: var(--space-4) var(--space-5);
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-left: 3px solid var(--err);
-        border-radius: var(--radius-lg);
-        box-shadow: var(--card-shadow-lift);
-        transition: 0.22s ease;
-    }
-    .danger-card:hover {
+
+    /* v2.5.0: Danger actions render as one .ios-form-group with three
+       .ios-form-row children, each carrying a trailing red .btn-tier.is-danger.
+       The .danger-group modifier subtly tints the inset card with the err ring. */
+    .ios-form-group.danger-group {
         border-color: var(--err-ring);
-        box-shadow: var(--card-shadow-hover);
-        transform: translateY(-1px);
+        background: linear-gradient(180deg, var(--err-soft), var(--card) 30%);
     }
-    .danger-card .dc-body { flex: 1; min-width: 0; }
-    .danger-card .dc-title { font-size: var(--text-lg); font-weight: 700; color: var(--text); margin-bottom: 4px; }
-    .danger-card .dc-desc { font-size: var(--text-sm); color: var(--text-sec); line-height: 1.55; }
-    .danger-card .btn-tier { flex-shrink: 0; }
+    .ios-form-group.danger-group .ios-form-row {
+        padding: var(--space-4) var(--space-5);
+        gap: var(--space-4);
+        align-items: flex-start;
+    }
+    .ios-form-group.danger-group .ios-form-row .btn-tier {
+        flex-shrink: 0;
+        align-self: center;
+    }
     @media (max-width: 640px) {
         .danger-hero { padding: var(--space-4); }
         .danger-hero .dh-title { font-size: var(--text-xl); }
-        .danger-card { flex-direction: column; align-items: stretch; gap: var(--space-3); }
-        .danger-card .btn-tier { width: 100%; justify-content: center; }
+        .ios-form-group.danger-group .ios-form-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: var(--space-3);
+        }
+        .ios-form-group.danger-group .ios-form-row .btn-tier {
+            width: 100%;
+            justify-content: center;
+            align-self: stretch;
+        }
     }
 
     /* ============================================================
@@ -1282,7 +1313,7 @@ const CSS_COMMON = `
         position: relative; overflow: hidden;
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: var(--radius-xl);
+        border-radius: var(--radius-ios);
         padding: var(--space-5);
         min-height: 124px;
         box-shadow: var(--card-shadow-lift);
@@ -1447,35 +1478,101 @@ const CSS_COMMON = `
         100% { background-position: -200% 0; }
     }
 
-    /* iOS large-title + sticky compact bar (mobile only — components
-       are emitted in DOM for all viewports but hidden on desktop) */
-    .ios-page-header { display: none; }
+    /* iOS large-title + sticky compact bar — v2.5.0 promoted to desktop.
+       Mobile chrome (#mobileTopbarCompact, .mob-brand, #moreSheet) stays
+       hidden on desktop; .ios-form-group default cleared (own block below).
+       #iosLogoutGroup is mobile-only (desktop already has a topbar logout
+       button), so it stays hidden here even though .ios-form-group now
+       renders on desktop. */
     #mobileTopbarCompact { display: none; }
     .mob-brand { display: none; }
     #moreSheet { display: none; }
-    .ios-form-group { display: contents; }
+    #iosLogoutGroup { display: none; }
+
+    /* --- iOS large-title page header (desktop default, mobile overridden below) --- */
+    .ios-page-header {
+        display: block;
+        padding: var(--space-2) var(--space-1) var(--space-4);
+        margin-bottom: var(--space-3);
+    }
+    .ios-large-title {
+        margin: 0;
+        font-size: var(--text-large-title-lg);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+    }
+    .ios-sub {
+        margin: var(--space-1) 0 0;
+        font-size: var(--text-body-ios);
+        color: var(--text-sec);
+        line-height: 1.4;
+    }
+
+    /* --- iOS inset-grouped form rows — v2.5.0 promoted to desktop. --- */
+    .ios-form-group {
+        display: block;
+        background: var(--card);
+        border-radius: var(--radius-ios-sm);
+        overflow: hidden;
+        border: 0.5px solid var(--hairline);
+        margin: 0 0 var(--space-5);
+    }
+    .ios-form-group-label {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-sec);
+        padding: 0 var(--space-4);
+        margin: var(--space-4) 0 var(--space-2);
+    }
+    .ios-form-row {
+        display: flex; align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2-5) var(--space-4);
+        min-height: 40px;
+        border-bottom: 0.5px solid var(--hairline);
+        background: var(--card);
+        color: var(--text);
+        font-size: var(--text-headline);
+        -webkit-tap-highlight-color: transparent;
+    }
+    .ios-form-row:last-child { border-bottom: none; }
+    .ios-form-row.is-tap { cursor: pointer; transition: background 0.12s ease; }
+    .ios-form-row.is-tap:hover { background: var(--ios-fill-quat); }
+    .ios-form-row.is-tap:active { background: var(--ios-fill); }
+    .ios-form-row .ifr-label { flex: 0 0 auto; font-weight: 500; }
+    .ios-form-row .ifr-sub {
+        margin-top: 2px;
+        font-size: var(--text-sm);
+        color: var(--text-sec);
+        line-height: 1.4;
+        font-weight: 400;
+    }
+    .ios-form-row .ifr-value {
+        margin-left: auto;
+        color: var(--text-sec);
+        font-size: var(--text-headline);
+        font-variant-numeric: tabular-nums;
+    }
+    .ios-form-row .ifr-chevron {
+        color: var(--text-sec);
+        opacity: 0.45;
+        margin-left: var(--space-1);
+    }
+    .ios-form-row.is-danger { color: var(--err); }
 
     @media (max-width: 768px) {
-        /* --- Large-title page header per section --- */
+        /* --- Mobile overrides for the large-title block (34/30/28 ramp) --- */
         .ios-page-header {
-            display: block;
             padding: var(--space-1) var(--space-1) var(--space-3);
             margin-bottom: var(--space-2);
         }
         .ios-large-title {
-            margin: 0;
             font-size: var(--text-large-title);
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            line-height: 1.1;
-            color: var(--text);
-            font-variant-numeric: tabular-nums;
-        }
-        .ios-sub {
-            margin: var(--space-1) 0 0;
-            font-size: var(--text-body-ios);
-            color: var(--text-sec);
-            line-height: 1.4;
         }
 
         /* --- Sticky compact top bar (fades in once large title scrolls away) --- */
@@ -1690,51 +1787,11 @@ const CSS_COMMON = `
         .more-sheet-row.is-danger { color: var(--err); }
         .more-sheet-row.is-danger svg { color: var(--err); }
 
-        /* --- iOS inset-grouped form rows (used by Settings + Logout row) --- */
-        .ios-form-group {
-            display: block;
-            background: var(--card);
-            border-radius: var(--radius-ios-sm);
-            overflow: hidden;
-            border: 0.5px solid var(--hairline);
-            margin: 0 0 var(--space-5);
-        }
-        .ios-form-group-label {
-            font-size: var(--text-xs);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-sec);
-            padding: 0 var(--space-4);
-            margin: var(--space-4) 0 var(--space-2);
-        }
-        .ios-form-row {
-            display: flex; align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-2-5) var(--space-4);
-            min-height: var(--touch-min);
-            border-bottom: 0.5px solid var(--hairline);
-            background: var(--card);
-            color: var(--text);
-            font-size: var(--text-headline);
-            -webkit-tap-highlight-color: transparent;
-        }
-        .ios-form-row:last-child { border-bottom: none; }
-        .ios-form-row.is-tap { cursor: pointer; transition: background 0.12s ease; }
-        .ios-form-row.is-tap:active { background: var(--ios-fill); }
-        .ios-form-row .ifr-label { flex: 0 0 auto; font-weight: 500; }
-        .ios-form-row .ifr-value {
-            margin-left: auto;
-            color: var(--text-sec);
-            font-size: var(--text-headline);
-            font-variant-numeric: tabular-nums;
-        }
-        .ios-form-row .ifr-chevron {
-            color: var(--text-sec);
-            opacity: 0.45;
-            margin-left: var(--space-1);
-        }
-        .ios-form-row.is-danger { color: var(--err); }
+        /* iOS inset-grouped form rows now live outside this MQ (v2.5.0). Mobile
+           keeps a 44pt touch-target override below via the hover:none block. */
+        /* Logout row in Settings is mobile-only; desktop already has a topbar
+           logout button. */
+        #iosLogoutGroup { display: block; }
 
         /* --- Sheet detents for dashboard modal (default 85vh, expand to 96vh) --- */
         #dashboardModal > .card { max-height: 85vh !important; }
@@ -1771,14 +1828,93 @@ const LOGIN_UI = `
         body::before, body::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
         body::before { top: -120px; right: -80px; width: 320px; height: 320px; background: radial-gradient(circle, rgba(0,113,227,0.22), rgba(0,113,227,0) 70%); }
         body::after { bottom: -100px; left: -100px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(88,86,214,0.18), rgba(88,86,214,0) 70%); }
-        .login-box { position: relative; z-index: 1; background: var(--card); padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); text-align: center; width: 100%; max-width: 360px; }
-        .login-eyebrow { display: none; }
-        .login-sub { display: none; }
-        .login-foot { display: none; }
-        .login-box h2 { margin: 0 0 24px 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-        .login-box input { width: 100%; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; font-size: 16px; }
-        .login-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,113,227,0.15); }
-        .login-box button { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 16px; min-height: 44px; }
+        /* v2.5.0: desktop login refreshed in iOS-native voice — gradient
+           medallion, large title, inset input. CTA stays inside the card. */
+        .login-box {
+            position: relative; z-index: 1;
+            background: var(--card);
+            padding: var(--space-8) var(--space-7) var(--space-7);
+            border-radius: var(--radius-ios);
+            box-shadow: 0 18px 48px rgba(15,23,42,0.10), 0 2px 6px rgba(15,23,42,0.05);
+            text-align: center; width: 100%; max-width: 400px;
+        }
+        .login-logo {
+            display: flex !important;
+            width: 72px; height: 72px;
+            border-radius: var(--radius-ios);
+            background: var(--aurora-grad);
+            color: #fff;
+            align-items: center; justify-content: center;
+            margin: 0 auto var(--space-5);
+            box-shadow: 0 14px 32px -8px var(--primary-glow);
+        }
+        .login-logo svg { width: 34px; height: 34px; stroke: currentColor; fill: currentColor; }
+        .login-eyebrow {
+            display: block;
+            font-size: var(--text-xs);
+            font-weight: 700;
+            color: var(--text-sec);
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            margin-bottom: var(--space-2);
+        }
+        .login-box h2 {
+            margin: 0 0 var(--space-2) 0;
+            font-size: var(--text-large-title-lg);
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1.1;
+            color: var(--text);
+        }
+        .login-sub {
+            display: block;
+            font-size: var(--text-headline);
+            line-height: 1.45;
+            color: var(--text-sec);
+            margin: 0 0 var(--space-6) 0;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px var(--space-4);
+            margin-bottom: var(--space-4);
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            background: var(--ios-fill-quat);
+            color: var(--text);
+            font-size: var(--text-headline);
+            box-sizing: border-box;
+            transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .login-box input:focus {
+            outline: none;
+            background: var(--card);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-ring);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background: var(--aurora-grad);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: var(--text-headline);
+            min-height: 44px;
+            letter-spacing: 0.02em;
+            box-shadow: 0 10px 24px -6px var(--primary-glow);
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .login-box button:hover { transform: translateY(-1px); box-shadow: 0 14px 28px -6px var(--primary-glow); }
+        .login-foot {
+            display: block;
+            margin-top: var(--space-5);
+            font-size: var(--text-xs);
+            color: var(--text-sec);
+            line-height: 1.6;
+            opacity: 0.7;
+        }
 
         /* On phone, show the eyebrow / sub / foot copy and drop the boxed card */
         @media (max-width: 768px) {
@@ -2022,7 +2158,7 @@ const HTML_UI = `
                 <span class="val" id="trace-entry" style="display:none;">--</span>
                 <span class="val" id="trace-egress" style="display:none;">--</span>
 
-                <div class="topbar-spacer"></div>
+                <div class="topbar-spacer"><span class="tb-section-title" id="tbSectionTitle"></span></div>
 
                 <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -2703,25 +2839,25 @@ const HTML_UI = `
                         <div class="dh-sub">以下操作不可逆，请确认理解每项影响后再执行。</div>
                     </div>
                 </div>
-                <div class="danger-list">
-                    <div class="danger-card">
-                        <div class="dc-body">
-                            <div class="dc-title">刷新全站海报缓存</div>
-                            <div class="dc-desc">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
+                <div class="ios-form-group danger-group" role="group" aria-label="危险操作">
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">刷新全站海报缓存</div>
+                            <div class="ifr-sub">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
                         </div>
                         <button type="button" class="btn-tier is-danger" onclick="purgeCache()">执行刷新</button>
                     </div>
-                    <div class="danger-card">
-                        <div class="dc-body">
-                            <div class="dc-title">覆盖部署 Worker</div>
-                            <div class="dc-desc">用本地源码覆盖线上 Worker 并重启节点。期间所有反代请求会出现 5–15 秒的连接抖动。</div>
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">覆盖部署 Worker</div>
+                            <div class="ifr-sub">用本地源码覆盖线上 Worker 并重启节点。期间所有反代请求会出现 5–15 秒的连接抖动。</div>
                         </div>
                         <button type="button" class="btn-tier is-danger" onclick="openWorkerUpdate()">打开部署面板</button>
                     </div>
-                    <div class="danger-card">
-                        <div class="dc-body">
-                            <div class="dc-title">退出登录</div>
-                            <div class="dc-desc">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">退出登录</div>
+                            <div class="ifr-sub">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
                         </div>
                         <button type="button" class="btn-tier is-danger" onclick="logout()">立即退出</button>
                     </div>
@@ -3106,11 +3242,13 @@ const HTML_UI = `
                 }
             }
             // 同步顶部紧凑栏标题 (大标题滚走后才可见)
+            // v2.5.0: 同步桌面 glass topbar 中的 .tb-section-title
             try {
+                var title = window.__iosSectionTitles ? (window.__iosSectionTitles[key] || '') : '';
                 var compact = document.getElementById('mobileTopbarCompact');
-                if (compact && window.__iosSectionTitles) {
-                    compact.textContent = window.__iosSectionTitles[key] || '';
-                }
+                if (compact) compact.textContent = title;
+                var tbSlot = document.getElementById('tbSectionTitle');
+                if (tbSlot) tbSlot.textContent = title;
                 if (document.body) document.body.classList.remove('is-scrolled');
             } catch (e) {}
             try { localStorage.setItem('emby_active_section', key); } catch (e) {}
@@ -4775,6 +4913,10 @@ const HTML_UI = `
                     const key = sec.getAttribute('data-section');
                     const meta = IOS_SECTION_TITLES[key];
                     if (!meta) return;
+                    // v2.5.0: the Danger section keeps its own .danger-hero
+                    // (warning icon + red title); injecting a generic
+                    // .ios-page-header on top would double the title.
+                    if (key === 'danger' && sec.querySelector(':scope > .danger-hero')) return;
                     const hdr = document.createElement('header');
                     hdr.className = 'ios-page-header';
                     hdr.innerHTML =
@@ -4804,13 +4946,16 @@ const HTML_UI = `
             }
 
             function syncCompactBarTitle() {
-                const compact = document.getElementById('mobileTopbarCompact');
-                if (!compact) return;
                 const activeSec = document.querySelector('.app-section.is-active');
                 if (!activeSec) return;
                 const key = activeSec.getAttribute('data-section');
                 const meta = IOS_SECTION_TITLES[key];
-                if (meta) compact.textContent = meta.title;
+                if (!meta) return;
+                const compact = document.getElementById('mobileTopbarCompact');
+                if (compact) compact.textContent = meta.title;
+                // v2.5.0: also populate desktop glass-topbar slot on initial paint.
+                const tbSlot = document.getElementById('tbSectionTitle');
+                if (tbSlot) tbSlot.textContent = meta.title;
             }
 
             function injectLogoutRow() {
