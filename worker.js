@@ -1,6 +1,6 @@
-// VERSION: 2.3.0
+// VERSION: 2.4.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.3.0";
+const CURRENT_VERSION = "2.4.0";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -65,6 +65,21 @@ const CSS_COMMON = `
             0 1px 0 rgba(255,255,255,0.55) inset,
             0 4px 10px rgba(15,23,42,0.05),
             0 18px 38px -12px rgba(15,23,42,0.18);
+
+        /* === iOS-native tokens v2.4.0 — mobile-only typography & shapes ===
+           iOS HIG values (34pt large title, 17pt headline, 16pt callout, 15pt body,
+           continuous-corner radii). Used ONLY inside @media (max-width: 768px). */
+        --text-headline: 17px;
+        --text-body-ios: 15px;
+        --text-large-title: 34px;
+        --text-large-title-md: 30px;   /* ≤480 shrink */
+        --text-large-title-sm: 28px;   /* ≤360 shrink */
+        --radius-ios: 18px;
+        --radius-ios-sm: 14px;
+        --hairline: rgba(60,60,67,0.18);
+        --ios-fill: rgba(120,120,128,0.16);
+        --ios-fill-quat: rgba(120,120,128,0.08);
+        --ios-overlay: rgba(0,0,0,0.32);
     }
 
     body.dark {
@@ -103,6 +118,12 @@ const CSS_COMMON = `
         --card-shadow-hover:
             0 0 0 1px var(--primary-ring) inset,
             0 14px 38px -10px rgba(0,0,0,0.7);
+
+        /* iOS-native tokens v2.4.0 — dark variant */
+        --hairline: rgba(84,84,88,0.55);
+        --ios-fill: rgba(118,118,128,0.24);
+        --ios-fill-quat: rgba(118,118,128,0.12);
+        --ios-overlay: rgba(0,0,0,0.55);
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
@@ -1397,6 +1418,344 @@ const CSS_COMMON = `
         .topbar > * { flex-shrink: 0; }
         .content { padding: var(--space-3-5); padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
     }
+
+    /* ============================================================
+       === Mobile iOS-native v5 (v2.4.0) ===
+       Refined iOS-native overhaul. Mobile-only (≤768px) — desktop
+       untouched. Layered on top of v1–v4 mobile rules. Consumes
+       design tokens from :root (incl. iOS-specific tokens added in
+       this version). Markup additions are minimal; most retrofits
+       are handled in CSS via the existing IDs/classes.
+       ============================================================ */
+
+    /* Skeleton shimmer — used during initial data hydration */
+    .skeleton {
+        display: inline-block; min-width: 64px; height: 1em;
+        border-radius: var(--radius-sm); color: transparent !important;
+        background:
+            linear-gradient(90deg,
+                var(--ios-fill-quat) 0%,
+                var(--ios-fill) 50%,
+                var(--ios-fill-quat) 100%);
+        background-size: 200% 100%;
+        animation: ios-shimmer 1.4s linear infinite;
+        pointer-events: none;
+    }
+    .skeleton::after { content: '·'; visibility: hidden; }
+    @keyframes ios-shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    /* iOS large-title + sticky compact bar (mobile only — components
+       are emitted in DOM for all viewports but hidden on desktop) */
+    .ios-page-header { display: none; }
+    #mobileTopbarCompact { display: none; }
+    .mob-brand { display: none; }
+    #moreSheet { display: none; }
+    .ios-form-group { display: contents; }
+
+    @media (max-width: 768px) {
+        /* --- Large-title page header per section --- */
+        .ios-page-header {
+            display: block;
+            padding: var(--space-1) var(--space-1) var(--space-3);
+            margin-bottom: var(--space-2);
+        }
+        .ios-large-title {
+            margin: 0;
+            font-size: var(--text-large-title);
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1.1;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+        .ios-sub {
+            margin: var(--space-1) 0 0;
+            font-size: var(--text-body-ios);
+            color: var(--text-sec);
+            line-height: 1.4;
+        }
+
+        /* --- Sticky compact top bar (fades in once large title scrolls away) --- */
+        #mobileTopbarCompact {
+            display: flex;
+            align-items: center; justify-content: center;
+            position: sticky; top: 0; z-index: 950;
+            height: 44px;
+            padding: 0 var(--space-4);
+            background: var(--topbar-glass);
+            -webkit-backdrop-filter: saturate(180%) blur(24px);
+                    backdrop-filter: saturate(180%) blur(24px);
+            border-bottom: 0.5px solid var(--hairline);
+            font-size: var(--text-headline);
+            font-weight: 600;
+            color: var(--text);
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        body.is-scrolled #mobileTopbarCompact {
+            opacity: 1;
+            transform: none;
+            pointer-events: auto;
+        }
+
+        /* --- Mobile chrome: collapse topbar to brand + theme toggle only --- */
+        .topbar {
+            overflow: visible !important;
+            justify-content: space-between !important;
+            padding: var(--space-3) var(--space-4) !important;
+        }
+        .topbar > * { display: none !important; }
+        .topbar > .mob-brand,
+        .topbar > #themeToggle { display: inline-flex !important; }
+        .topbar > #themeToggle { margin-left: auto !important; }
+        .mob-brand {
+            display: inline-flex; align-items: center; gap: var(--space-2);
+            font-size: var(--text-headline); font-weight: 700;
+            letter-spacing: -0.01em; color: var(--text);
+        }
+        .mob-brand .mb-logo {
+            width: 28px; height: 28px;
+            border-radius: var(--radius-sm);
+            background: var(--aurora-grad);
+            display: inline-flex; align-items: center; justify-content: center;
+            color: #fff;
+            box-shadow: 0 4px 10px -3px var(--primary-glow);
+        }
+        .mob-brand .mb-logo svg { width: 16px; height: 16px; }
+
+        /* --- Continuous-corner cards (overrides v1 mobile radius) --- */
+        .card {
+            border-radius: var(--radius-ios) !important;
+            padding: var(--space-4) var(--space-4) !important;
+        }
+        body:not(.dark) .card {
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.7) inset,
+                0 1px 2px rgba(15,23,42,0.04),
+                0 6px 18px -10px rgba(15,23,42,0.10) !important;
+        }
+        body.dark .card {
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                0 6px 22px -10px rgba(0,0,0,0.6) !important;
+        }
+
+        /* --- Status strip: 2×2 grid, no horizontal scroll --- */
+        .m-pills {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5px !important;
+            background: var(--hairline);
+            border-radius: var(--radius-ios-sm);
+            overflow: hidden;
+            margin: 0 0 var(--space-4) !important;
+            padding: 0 !important;
+            -webkit-mask-image: none !important;
+                    mask-image: none !important;
+            border: 0.5px solid var(--hairline);
+        }
+        .m-pill {
+            background: var(--card);
+            border: none !important;
+            border-radius: 0 !important;
+            padding: var(--space-3) var(--space-3-5) !important;
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-2);
+            font-size: var(--text-base);
+            min-height: 52px;
+            white-space: nowrap;
+        }
+        .m-pill .lbl {
+            color: var(--text-sec);
+            font-weight: 500;
+            font-size: var(--text-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            order: 0;
+        }
+        .m-pill .val {
+            font-weight: 700;
+            font-size: var(--text-xl);
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            order: 2;
+            margin-left: auto;
+        }
+        .m-pill .dot {
+            order: 1;
+            width: 8px; height: 8px;
+            margin-left: var(--space-1);
+        }
+        .m-pill.tappable:active { transform: scale(0.98); }
+
+        /* --- Bottom Tab Bar: 5-up with filled/outline icon swap --- */
+        #mobileTabBar {
+            grid-template-columns: repeat(5, 1fr) !important;
+            border-top: 0.5px solid var(--hairline);
+        }
+        #mobileTabBar button .ico-filled { display: none; }
+        #mobileTabBar button .ico-outline { display: inline-flex; }
+        #mobileTabBar button.active .ico-outline { display: none; }
+        #mobileTabBar button.active .ico-filled { display: inline-flex; }
+        #mobileTabBar button svg.ico-filled,
+        #mobileTabBar button svg.ico-outline {
+            width: 24px; height: 24px;
+        }
+        #mobileTabBar button svg.ico-filled { fill: currentColor; stroke: none; }
+        #mobileTabBar button svg.ico-outline {
+            fill: none; stroke: currentColor;
+            stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+        }
+
+        /* --- "更多" sheet (iOS action sheet style) --- */
+        #moreSheet {
+            display: block;
+            position: fixed; left: 0; right: 0; bottom: 0;
+            z-index: 1100;
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(.32,.72,.3,1);
+            pointer-events: none;
+        }
+        #moreSheet.is-open { transform: translateY(0); pointer-events: auto; }
+        #moreSheet::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: var(--ios-overlay);
+            opacity: 0;
+            transition: opacity 0.28s ease;
+            pointer-events: none;
+            z-index: -1;
+        }
+        #moreSheet.is-open::before { opacity: 1; pointer-events: auto; }
+        .more-sheet-card {
+            background: var(--card);
+            border-radius: var(--radius-ios) var(--radius-ios) 0 0;
+            padding: var(--space-3) var(--space-4)
+                     calc(var(--space-4) + env(safe-area-inset-bottom));
+            box-shadow: 0 -10px 36px rgba(0,0,0,0.18);
+        }
+        .more-sheet-grip {
+            display: block; margin: 0 auto var(--space-3);
+            width: 36px; height: 5px;
+            border-radius: var(--radius-pill);
+            background: var(--hairline);
+        }
+        .more-sheet-title {
+            font-size: var(--text-xs); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.10em;
+            color: var(--text-sec);
+            margin: 0 0 var(--space-2) var(--space-2);
+        }
+        .more-sheet-list {
+            background: var(--surface-2);
+            border-radius: var(--radius-ios-sm);
+            overflow: hidden;
+        }
+        body.dark .more-sheet-list { background: var(--surface); }
+        .more-sheet-row {
+            display: flex; align-items: center; gap: var(--space-3);
+            padding: var(--space-3-5) var(--space-4);
+            min-height: var(--touch-min);
+            font-size: var(--text-headline);
+            font-weight: 500;
+            color: var(--text);
+            background: transparent; border: none; cursor: pointer;
+            width: 100%; text-align: left;
+            border-bottom: 0.5px solid var(--hairline);
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.12s ease;
+        }
+        .more-sheet-row:last-child { border-bottom: none; }
+        .more-sheet-row:active { background: var(--ios-fill); }
+        .more-sheet-row svg {
+            width: 22px; height: 22px;
+            fill: none; stroke: currentColor;
+            stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+            flex-shrink: 0;
+            color: var(--primary);
+        }
+        .more-sheet-row .ms-chevron {
+            margin-left: auto;
+            color: var(--text-sec);
+            opacity: 0.45;
+            stroke-width: 2.2;
+        }
+        .more-sheet-row.is-danger { color: var(--err); }
+        .more-sheet-row.is-danger svg { color: var(--err); }
+
+        /* --- iOS inset-grouped form rows (used by Settings + Logout row) --- */
+        .ios-form-group {
+            display: block;
+            background: var(--card);
+            border-radius: var(--radius-ios-sm);
+            overflow: hidden;
+            border: 0.5px solid var(--hairline);
+            margin: 0 0 var(--space-5);
+        }
+        .ios-form-group-label {
+            font-size: var(--text-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-sec);
+            padding: 0 var(--space-4);
+            margin: var(--space-4) 0 var(--space-2);
+        }
+        .ios-form-row {
+            display: flex; align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-2-5) var(--space-4);
+            min-height: var(--touch-min);
+            border-bottom: 0.5px solid var(--hairline);
+            background: var(--card);
+            color: var(--text);
+            font-size: var(--text-headline);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .ios-form-row:last-child { border-bottom: none; }
+        .ios-form-row.is-tap { cursor: pointer; transition: background 0.12s ease; }
+        .ios-form-row.is-tap:active { background: var(--ios-fill); }
+        .ios-form-row .ifr-label { flex: 0 0 auto; font-weight: 500; }
+        .ios-form-row .ifr-value {
+            margin-left: auto;
+            color: var(--text-sec);
+            font-size: var(--text-headline);
+            font-variant-numeric: tabular-nums;
+        }
+        .ios-form-row .ifr-chevron {
+            color: var(--text-sec);
+            opacity: 0.45;
+            margin-left: var(--space-1);
+        }
+        .ios-form-row.is-danger { color: var(--err); }
+
+        /* --- Sheet detents for dashboard modal (default 85vh, expand to 96vh) --- */
+        #dashboardModal > .card { max-height: 85vh !important; }
+        #dashboardModal > .card.is-expanded { max-height: 96vh !important; }
+
+        /* --- Tactile feedback on bottom-tab buttons --- */
+        #mobileTabBar button:active { transform: scale(0.94); }
+    }
+
+    /* --- ≤480 specific tightening (5-tab labels stay readable) --- */
+    @media (max-width: 480px) {
+        .mob-brand { font-size: var(--text-base); }
+        .mob-brand .mb-logo { width: 26px; height: 26px; }
+        .ios-large-title { font-size: var(--text-large-title-md); }
+        .m-pill { padding: var(--space-2-5) var(--space-3) !important; min-height: 48px; }
+        .m-pill .val { font-size: var(--text-lg); }
+    }
+    @media (max-width: 360px) {
+        .ios-large-title { font-size: var(--text-large-title-sm); }
+        .m-pill .lbl { font-size: var(--text-xs); }
+    }
 `;
 
 const LOGIN_UI = `
@@ -1424,6 +1783,85 @@ const LOGIN_UI = `
         /* On phone, show the eyebrow / sub / foot copy and drop the boxed card */
         @media (max-width: 768px) {
             .login-eyebrow, .login-sub, .login-foot { display: block; }
+
+            /* === iOS-native login v5 (v2.4.0) === */
+            body.login-body {
+                background: linear-gradient(180deg, var(--bg) 0%, var(--card) 100%) !important;
+                align-items: stretch !important;
+                justify-content: flex-start !important;
+            }
+            body.login-body .login-box {
+                padding: 80px 24px 120px !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                max-width: 100% !important;
+                text-align: left !important;
+            }
+            body.login-body .login-logo {
+                width: 72px !important;
+                height: 72px !important;
+                border-radius: var(--radius-2xl) !important;
+                margin: 0 0 32px !important;
+                box-shadow: 0 14px 32px -8px var(--primary-glow);
+            }
+            body.login-body .login-logo svg {
+                width: 34px !important;
+                height: 34px !important;
+            }
+            body.login-body .login-eyebrow {
+                font-size: var(--text-xs) !important;
+                font-weight: 700 !important;
+                color: var(--text-sec);
+                letter-spacing: 0.10em;
+                text-transform: uppercase;
+                margin-bottom: var(--space-2) !important;
+            }
+            body.login-body .login-box h2 {
+                margin: 0 0 var(--space-2) 0 !important;
+                font-size: var(--text-large-title) !important;
+                font-weight: 700 !important;
+                letter-spacing: -0.025em !important;
+                text-align: left !important;
+                color: var(--text);
+            }
+            body.login-body .login-sub {
+                font-size: var(--text-headline) !important;
+                line-height: 1.45;
+                color: var(--text-sec);
+                margin: 0 0 36px 0 !important;
+            }
+            body.login-body .login-box input {
+                background: var(--card) !important;
+                border: 0.5px solid var(--hairline) !important;
+                border-radius: var(--radius-ios-sm) !important;
+                padding: 18px var(--space-4) !important;
+                font-size: var(--text-headline) !important;
+                margin-bottom: var(--space-3) !important;
+            }
+            body.login-body .login-box button {
+                position: fixed !important;
+                left: var(--space-4);
+                right: var(--space-4);
+                bottom: max(env(safe-area-inset-bottom), var(--space-4));
+                width: auto !important;
+                padding: 18px !important;
+                font-size: var(--text-headline) !important;
+                border-radius: var(--radius-ios-sm) !important;
+                background: var(--aurora-grad) !important;
+                box-shadow: 0 14px 32px -8px var(--primary-glow);
+                letter-spacing: 0.04em;
+                z-index: 2;
+            }
+            body.login-body .login-foot {
+                position: fixed !important;
+                bottom: calc(max(env(safe-area-inset-bottom), var(--space-4)) + 76px);
+                left: 0; right: 0;
+                text-align: center !important;
+                color: var(--text-sec) !important;
+                font-size: var(--text-xs) !important;
+                line-height: 1.6;
+                opacity: 0.55;
+            }
         }
     </style>
 </head>
@@ -1635,9 +2073,13 @@ const HTML_UI = `
 
         <div class="content">
 
-            <!-- Mobile-only status pills row (RTT / 模式 / 今日) -->
+            <!-- iOS-native sticky compact bar (visible after large title scrolls away) -->
+            <div id="mobileTopbarCompact" aria-hidden="true"></div>
+
+            <!-- Mobile-only status pills (v5: 2×2 grid — RTT / 健康 / 模式 / 今日) -->
             <div class="m-pills" id="mobilePills" aria-label="移动端状态">
-                <span class="m-pill"><span class="dot green"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+                <span class="m-pill"><span class="dot green" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+                <span class="m-pill"><span class="dot green" id="m-pill-health-dot"></span><span class="lbl">健康</span><span class="val" id="m-pill-health">--</span></span>
                 <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
                 <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
             </div>
@@ -2176,7 +2618,7 @@ const HTML_UI = `
                 <div class="kpi-tile is-primary">
                     <div class="kpi-label">在线节点</div>
                     <div class="kpi-value-row">
-                        <span class="kpi-value" id="kpi-online-nodes">--</span>
+                        <span class="kpi-value skeleton" id="kpi-online-nodes">--</span>
                         <span class="kpi-unit">/ <span id="kpi-total-nodes">--</span></span>
                     </div>
                     <div class="kpi-sub" id="kpi-online-sub">实时反代节点活跃度</div>
@@ -2188,14 +2630,14 @@ const HTML_UI = `
                 <div class="kpi-tile">
                     <div class="kpi-label">今日流量</div>
                     <div class="kpi-value-row">
-                        <span class="kpi-value" id="kpi-traffic">--</span>
+                        <span class="kpi-value skeleton" id="kpi-traffic">--</span>
                     </div>
                     <div class="kpi-sub">出入站合计 · 自然日重置</div>
                 </div>
                 <div class="kpi-tile">
                     <div class="kpi-label">系统健康度</div>
                     <div class="kpi-value-row">
-                        <span class="kpi-value" id="kpi-health">--</span>
+                        <span class="kpi-value skeleton" id="kpi-health">--</span>
                         <span class="kpi-unit">%</span>
                     </div>
                     <div class="kpi-health-bar"><span id="kpi-health-bar-fill"></span></div>
@@ -2203,7 +2645,7 @@ const HTML_UI = `
                 <div class="kpi-tile">
                     <div class="kpi-label">边缘 RTT</div>
                     <div class="kpi-value-row">
-                        <span class="kpi-value" id="kpi-rtt">--</span>
+                        <span class="kpi-value skeleton" id="kpi-rtt">--</span>
                         <span class="kpi-unit">ms</span>
                     </div>
                     <div class="kpi-sub">CF Worker → 你的设备</div>
@@ -2653,16 +3095,24 @@ const HTML_UI = `
             for (var j = 0; j < navs.length; j++) {
                 navs[j].classList.toggle('is-active', navs[j].getAttribute('data-section') === key);
             }
-            // 同步移动端底部 tab
+            // 同步移动端底部 tab (v5: tools+danger → "更多" 槽)
             var tabBar = document.getElementById('mobileTabBar');
             if (tabBar) {
-                var tabMap = { overview: 'home', speed: 'speed', stats: 'stats', settings: 'settings' };
+                var tabMap = { overview: 'home', speed: 'speed', stats: 'stats', settings: 'settings', tools: 'more', danger: 'more' };
                 var tabKey = tabMap[key];
                 var btns = tabBar.querySelectorAll('button[data-tab]');
                 for (var k = 0; k < btns.length; k++) {
                     btns[k].classList.toggle('active', btns[k].dataset.tab === tabKey);
                 }
             }
+            // 同步顶部紧凑栏标题 (大标题滚走后才可见)
+            try {
+                var compact = document.getElementById('mobileTopbarCompact');
+                if (compact && window.__iosSectionTitles) {
+                    compact.textContent = window.__iosSectionTitles[key] || '';
+                }
+                if (document.body) document.body.classList.remove('is-scrolled');
+            } catch (e) {}
             try { localStorage.setItem('emby_active_section', key); } catch (e) {}
             // 数据统计分区: 首次进入 lazy init 图表
             if (key === 'stats') {
@@ -3077,7 +3527,10 @@ const HTML_UI = `
         // Cheap & defensive: no state of its own; reads from existing DOM.
         function updateAuroraKpis() {
             const $ = function(id) { return document.getElementById(id); };
-            const setText = function(id, v) { const el = $(id); if (el) el.textContent = v; };
+            const setText = function(id, v) {
+                const el = $(id);
+                if (el) { el.textContent = v; el.classList.remove('skeleton'); }
+            };
             const cards = document.querySelectorAll('#list-grid .emby-card');
             const total = cards.length;
             let online = 0;
@@ -4102,25 +4555,54 @@ const HTML_UI = `
         </div>
     </div>
 
-    <!-- 移动端底部导航 Tab Bar (桌面端 CSS 隐藏) -->
-    <nav id="mobileTabBar" aria-label="移动端导航">
-        <button type="button" data-tab="home" class="active" aria-label="节点">
-            <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-            <span>节点</span>
+    <!-- 移动端底部导航 Tab Bar v5 (桌面端 CSS 隐藏) — 5 主项 + 更多 sheet -->
+    <nav id="mobileTabBar" aria-label="底部导航">
+        <button type="button" data-tab="home" class="active" aria-label="概览">
+            <svg class="ico-outline" viewBox="0 0 24 24"><path d="M3 12 12 4l9 8"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+            <svg class="ico-filled" viewBox="0 0 24 24"><path d="M11.3 3.5a1 1 0 0 1 1.4 0l8.6 7.6a1 1 0 0 1-.7 1.74H19V20a1 1 0 0 1-1 1h-3v-6h-4v6H8a1 1 0 0 1-1-1v-7.16H5.4a1 1 0 0 1-.7-1.74z"/></svg>
+            <span>概览</span>
         </button>
         <button type="button" data-tab="speed" aria-label="测速">
-            <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg class="ico-outline" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg class="ico-filled" viewBox="0 0 24 24"><path d="M13.4 2.13a.8.8 0 0 1 1.32.79L13.5 10h7.05a.8.8 0 0 1 .62 1.31l-10 12a.8.8 0 0 1-1.42-.61L10.95 14H3.9a.8.8 0 0 1-.62-1.31z"/></svg>
             <span>测速</span>
         </button>
         <button type="button" data-tab="stats" aria-label="数据">
-            <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+            <svg class="ico-outline" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/></svg>
+            <svg class="ico-filled" viewBox="0 0 24 24"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg>
             <span>数据</span>
         </button>
         <button type="button" data-tab="settings" aria-label="设置">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <svg class="ico-outline" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <svg class="ico-filled" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.34 7.34 0 0 0-1.7-.98l-.38-2.65a.5.5 0 0 0-.5-.42h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.61.24-1.18.57-1.7.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.22l2.49-1c.52.41 1.09.74 1.7.98l.38 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65c.61-.24 1.18-.57 1.7-.98l2.49 1a.5.5 0 0 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z"/></svg>
             <span>设置</span>
         </button>
+        <button type="button" data-tab="more" aria-label="更多" aria-haspopup="true">
+            <svg class="ico-outline" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
+            <svg class="ico-filled" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+            <span>更多</span>
+        </button>
     </nav>
+
+    <!-- 更多 sheet (mobile-only iOS action sheet for overflow sections) -->
+    <div id="moreSheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="moreSheetTitle" onclick="if(event.target===this) closeMoreSheet()">
+        <div class="more-sheet-card" role="document">
+            <span class="more-sheet-grip" aria-hidden="true"></span>
+            <h3 class="more-sheet-title" id="moreSheetTitle">更多入口</h3>
+            <div class="more-sheet-list">
+                <button type="button" class="more-sheet-row" data-section="tools">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <span>工具箱</span>
+                    <svg class="ms-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button type="button" class="more-sheet-row is-danger" data-section="danger">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>危险区</span>
+                    <svg class="ms-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // 📱 Mobile bottom Tab Bar + status pills (mobile only; desktop CSS hides them)
@@ -4128,11 +4610,15 @@ const HTML_UI = `
             function initMobileTabBar() {
                 const bar = document.getElementById('mobileTabBar');
                 if (!bar) return;
-                // tab → section 映射
+                // tab → section 映射 (v5: more = 更多 sheet, 不直接跳分区)
                 const tabToSection = { home: 'overview', speed: 'speed', stats: 'stats', settings: 'settings' };
                 bar.querySelectorAll('button[data-tab]').forEach(btn => {
                     btn.addEventListener('click', () => {
                         const tab = btn.dataset.tab;
+                        if (tab === 'more') {
+                            openMoreSheet();
+                            return;
+                        }
                         const section = tabToSection[tab];
                         if (section && typeof showSection === 'function') {
                             showSection(section);
@@ -4140,12 +4626,43 @@ const HTML_UI = `
                     });
                 });
             }
+            function initMoreSheet() {
+                const sheet = document.getElementById('moreSheet');
+                if (!sheet) return;
+                sheet.querySelectorAll('.more-sheet-row[data-section]').forEach(row => {
+                    row.addEventListener('click', () => {
+                        const section = row.dataset.section;
+                        closeMoreSheet();
+                        if (section && typeof showSection === 'function') {
+                            // 等 sheet 收回再切，避免动画卡顿
+                            setTimeout(() => showSection(section), 200);
+                        }
+                    });
+                });
+                // ESC / 背景点击关闭已由 onclick + keydown 处理
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && sheet.classList.contains('is-open')) closeMoreSheet();
+                });
+            }
+            window.openMoreSheet = function () {
+                const sheet = document.getElementById('moreSheet');
+                if (!sheet) return;
+                sheet.classList.add('is-open');
+                sheet.setAttribute('aria-hidden', 'false');
+            };
+            window.closeMoreSheet = function () {
+                const sheet = document.getElementById('moreSheet');
+                if (!sheet) return;
+                sheet.classList.remove('is-open');
+                sheet.setAttribute('aria-hidden', 'true');
+            };
             function initMobilePills() {
                 const sources = [
                     { src: 'rttValue',       dst: 'm-pill-rtt' },
                     { src: 'placeModeLabel', dst: 'm-pill-mode' },
                     { src: 'trafficToday',   dst: 'm-pill-today' },
                     { src: 'trafficToday',   dst: 'tb-traffic-today' },
+                    { src: 'tb-health-val',  dst: 'm-pill-health' },
                 ];
                 const sync = () => {
                     sources.forEach(({ src, dst }) => {
@@ -4176,8 +4693,7 @@ const HTML_UI = `
 
                 card.addEventListener('touchstart', (e) => {
                     if (!isMobile()) return;
-                    // Only start drag when sheet is scrolled to top AND finger lands on/near the grip (top 44px)
-                    if (card.scrollTop > 0) return;
+                    // Allow drag from grip area (top 44px) regardless of scrollTop — supports both directions
                     const t = e.touches[0];
                     const rect = card.getBoundingClientRect();
                     if (t.clientY - rect.top > 44) return;
@@ -4187,9 +4703,17 @@ const HTML_UI = `
 
                 card.addEventListener('touchmove', (e) => {
                     if (!dragging) return;
-                    dy = Math.max(0, e.touches[0].clientY - startY);
-                    // Light resistance after 200px so it feels rubbery, not slippery
-                    const eased = dy < 200 ? dy : 200 + (dy - 200) * 0.4;
+                    const raw = e.touches[0].clientY - startY;
+                    // Track both directions; up = expand intent (negative)
+                    dy = raw;
+                    let eased;
+                    if (raw >= 0) {
+                        // downward (dismiss): light resistance after 200px
+                        eased = raw < 200 ? raw : 200 + (raw - 200) * 0.4;
+                    } else {
+                        // upward (expand): visual hint only, cap at -32px
+                        eased = Math.max(raw * 0.35, -32);
+                    }
                     card.style.transform = 'translateY(' + eased + 'px)';
                 }, { passive: true });
 
@@ -4199,12 +4723,19 @@ const HTML_UI = `
                     card.classList.remove('is-dragging');
                     card.style.transition = 'transform 0.24s cubic-bezier(.32,.72,.3,1)';
                     if (dy > 120) {
+                        // Dismiss
                         card.style.transform = 'translateY(100%)';
                         setTimeout(() => {
                             if (typeof closeDashboard === 'function') closeDashboard();
                             card.style.transition = '';
                             card.style.transform = '';
+                            card.classList.remove('is-expanded');
                         }, 240);
+                    } else if (dy < -60) {
+                        // Expand to large detent
+                        card.classList.add('is-expanded');
+                        card.style.transform = '';
+                        setTimeout(() => { card.style.transition = ''; }, 240);
                     } else {
                         card.style.transform = '';
                         setTimeout(() => { card.style.transition = ''; }, 240);
@@ -4215,12 +4746,112 @@ const HTML_UI = `
                 card.addEventListener('touchcancel', finish);
             }
 
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => { initMobileTabBar(); initMobilePills(); initSheetGesture(); });
-            } else {
+            // === iOS-native chrome v5: brand, large-title, scroll observer, logout row ===
+            const IOS_SECTION_TITLES = {
+                overview: { title: '概览',        sub: '实时状态与核心指标' },
+                speed:    { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
+                stats:    { title: '数据统计',     sub: '流量、并发与历史趋势' },
+                settings: { title: '系统设置',     sub: '应用、通知与账户' },
+                tools:    { title: '工具箱',       sub: '实用工具集合' },
+                danger:   { title: '危险区',       sub: '不可逆操作，请谨慎' },
+            };
+            // 暴露给 showSection() 用来同步紧凑栏标题
+            window.__iosSectionTitles = Object.fromEntries(
+                Object.entries(IOS_SECTION_TITLES).map(([k, v]) => [k, v.title])
+            );
+
+            function injectMobileBrand() {
+                const topbar = document.getElementById('cf-trace-card');
+                if (!topbar || topbar.querySelector('.mob-brand')) return;
+                const brand = document.createElement('div');
+                brand.className = 'mob-brand';
+                brand.innerHTML = '<span class="mb-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>反代核心</span>';
+                topbar.insertBefore(brand, topbar.firstChild);
+            }
+
+            function injectSectionHeaders() {
+                document.querySelectorAll('.app-section').forEach(sec => {
+                    if (sec.querySelector(':scope > .ios-page-header')) return;
+                    const key = sec.getAttribute('data-section');
+                    const meta = IOS_SECTION_TITLES[key];
+                    if (!meta) return;
+                    const hdr = document.createElement('header');
+                    hdr.className = 'ios-page-header';
+                    hdr.innerHTML =
+                        '<h1 class="ios-large-title">' + meta.title + '</h1>' +
+                        '<p class="ios-sub">' + meta.sub + '</p>';
+                    sec.insertBefore(hdr, sec.firstChild);
+                });
+            }
+
+            function initScrollObserver() {
+                // Header for the currently visible section drives body.is-scrolled
+                const update = () => {
+                    const activeSec = document.querySelector('.app-section.is-active');
+                    if (!activeSec) return;
+                    const hdr = activeSec.querySelector(':scope > .ios-page-header');
+                    if (!hdr) { document.body.classList.remove('is-scrolled'); return; }
+                    const bottom = hdr.getBoundingClientRect().bottom;
+                    document.body.classList.toggle('is-scrolled', bottom < 8);
+                };
+                let ticking = false;
+                window.addEventListener('scroll', () => {
+                    if (ticking) return;
+                    ticking = true;
+                    requestAnimationFrame(() => { update(); ticking = false; });
+                }, { passive: true });
+                update();
+            }
+
+            function syncCompactBarTitle() {
+                const compact = document.getElementById('mobileTopbarCompact');
+                if (!compact) return;
+                const activeSec = document.querySelector('.app-section.is-active');
+                if (!activeSec) return;
+                const key = activeSec.getAttribute('data-section');
+                const meta = IOS_SECTION_TITLES[key];
+                if (meta) compact.textContent = meta.title;
+            }
+
+            function injectLogoutRow() {
+                const settings = document.querySelector('.app-section[data-section="settings"]');
+                if (!settings || document.getElementById('iosLogoutGroup')) return;
+                const group = document.createElement('div');
+                group.id = 'iosLogoutGroup';
+                group.className = 'ios-form-group';
+                group.style.marginTop = '24px';
+                group.innerHTML =
+                    '<button type="button" class="ios-form-row is-tap is-danger" id="iosLogoutBtn" style="width:100%;border:none;background:transparent;font:inherit;cursor:pointer;justify-content:center;font-weight:600;">退出登录</button>';
+                settings.appendChild(group);
+                group.querySelector('#iosLogoutBtn').addEventListener('click', () => {
+                    if (confirm('确认退出登录？')) {
+                        if (typeof logout === 'function') logout();
+                    }
+                });
+            }
+
+            function initIosChrome() {
+                if (!window.matchMedia('(max-width: 768px)').matches) {
+                    // Still inject markup so that on resize it works; CSS hides on desktop.
+                }
+                injectMobileBrand();
+                injectSectionHeaders();
+                injectLogoutRow();
+                initScrollObserver();
+                syncCompactBarTitle();
+            }
+
+            function bootAll() {
                 initMobileTabBar();
                 initMobilePills();
                 initSheetGesture();
+                initMoreSheet();
+                initIosChrome();
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bootAll);
+            } else {
+                bootAll();
             }
         })();
     </script>
