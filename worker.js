@@ -1,6 +1,6 @@
-// VERSION: 2.2.0
+// VERSION: 2.3.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.2.0";
+const CURRENT_VERSION = "2.3.0";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -49,6 +49,22 @@ const CSS_COMMON = `
         --primary-glow: rgba(0,113,227,0.32);
         --accent-glow: var(--primary-glow);
         --touch-min: 44px;
+
+        /* === Aurora system v2.3.0 — distinctive surface tokens ===
+           Brand gradient + glass surfaces. Adds visible identity without
+           rewriting layout. Used by sidebar-brand, .kpi-tile.is-primary,
+           .btn-submit hover, glass topbar. */
+        --aurora-grad: linear-gradient(135deg, #0071e3 0%, #5856d6 55%, #af52de 110%);
+        --aurora-grad-soft: radial-gradient(120% 80% at 0% 0%, rgba(88,86,214,0.10), transparent 60%);
+        --topbar-glass: rgba(255,255,255,0.72);
+        --card-shadow-lift:
+            0 1px 0 rgba(255,255,255,0.55) inset,
+            0 1px 2px rgba(15,23,42,0.04),
+            0 10px 28px -12px rgba(15,23,42,0.12);
+        --card-shadow-hover:
+            0 1px 0 rgba(255,255,255,0.55) inset,
+            0 4px 10px rgba(15,23,42,0.05),
+            0 18px 38px -12px rgba(15,23,42,0.18);
     }
 
     body.dark {
@@ -76,6 +92,17 @@ const CSS_COMMON = `
         --primary-soft: rgba(47,155,255,0.12);
         --primary-ring: rgba(47,155,255,0.24);
         --primary-glow: rgba(47,155,255,0.32);
+
+        /* Aurora system v2.3.0 — dark variant */
+        --aurora-grad: linear-gradient(135deg, #2f9bff 0%, #6e6ad9 55%, #c47ce0 110%);
+        --aurora-grad-soft: radial-gradient(140% 90% at 0% 0%, rgba(47,155,255,0.18), transparent 65%);
+        --topbar-glass: rgba(14,17,25,0.68);
+        --card-shadow-lift:
+            0 0 0 1px rgba(255,255,255,0.03) inset,
+            0 10px 30px -10px rgba(0,0,0,0.55);
+        --card-shadow-hover:
+            0 0 0 1px var(--primary-ring) inset,
+            0 14px 38px -10px rgba(0,0,0,0.7);
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
@@ -84,16 +111,16 @@ const CSS_COMMON = `
     .content-wrap { flex: 1; }
     input, select, button, textarea { font-family: inherit; outline: none; font-size: var(--text-lg); }
     
-    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-card); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: var(--space-6); border: 1px solid var(--border); transition: 0.3s; }
+    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-card); box-shadow: var(--card-shadow-lift); margin-bottom: var(--space-6); border: 1px solid var(--border); transition: 0.3s; }
     
     #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: var(--space-3) var(--space-6); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 9999; backdrop-filter: blur(10px); text-align: center; max-width: 90vw; word-wrap: break-word; }
     #toast.show { top: 20px; }
 
     .toolbar { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); align-items: center; }
-    .btn-submit { padding: var(--space-3) var(--space-5); background: var(--primary); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; white-space: nowrap; transition: 0.2s; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
-    .btn-submit:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 113, 227, 0.3); }
+    .btn-submit { padding: var(--space-3) var(--space-5); background: var(--aurora-grad); background-size: 180% 100%; background-position: 0% 0%; color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; white-space: nowrap; transition: background-position 0.45s ease, transform 0.18s ease, box-shadow 0.2s ease; box-shadow: 0 6px 16px -4px var(--primary-glow); }
+    .btn-submit:hover { background-position: 100% 0%; transform: translateY(-1px); box-shadow: 0 10px 24px -6px var(--primary-glow); }
     .btn-submit:active { transform: translateY(0); }
-    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; background: var(--primary); }
     
     .table-wrapper { width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; background: var(--card); }
     table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -196,7 +223,8 @@ const CSS_COMMON = `
     .a-stat:last-child { border-right: none; }
     /* symmetric stat columns — no first/last asymmetry (v2.2.0) */
     .a-stat-label { font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-1); }
-    .a-stat-val { font-size: var(--text-2xl); font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .a-stat-val { font-size: var(--text-2xl); font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+    .topbar .tb-stat .val { font-variant-numeric: tabular-nums; }
     .a-stat-val .unit { font-size: var(--text-xs); font-weight: 600; color: var(--text-sec); margin-left: 2px; }
     .a-stat-val.muted { color: var(--text-ter, #b0b0b5); }
     .a-stat-val.danger { color: var(--err); }
@@ -923,12 +951,19 @@ const CSS_COMMON = `
     .sidebar-brand {
         display: flex; align-items: center; gap: var(--space-3);
         padding: 20px 18px; border-bottom: 1px solid var(--border);
+        position: relative; overflow: hidden;
     }
+    .sidebar-brand::before {
+        content: ''; position: absolute; inset: 0;
+        background: var(--aurora-grad-soft);
+        pointer-events: none;
+    }
+    .sidebar-brand > * { position: relative; z-index: 1; }
     .sidebar-logo {
         width: 38px; height: 38px; border-radius: var(--radius-lg); flex-shrink: 0;
-        background: linear-gradient(135deg, var(--primary), #5856d6);
+        background: var(--aurora-grad);
         display: flex; align-items: center; justify-content: center;
-        color: #fff; box-shadow: 0 0 16px var(--accent-glow);
+        color: #fff; box-shadow: 0 4px 14px -2px var(--primary-glow), 0 0 0 1px rgba(255,255,255,0.06) inset;
     }
     .sidebar-logo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     .sidebar-brand-text { min-width: 0; }
@@ -939,15 +974,26 @@ const CSS_COMMON = `
         display: flex; align-items: center; gap: var(--space-3);
         padding: 11px 12px; border-radius: var(--radius-md); cursor: pointer;
         color: var(--text-sec); font-size: var(--text-base); font-weight: 600;
-        border: 1px solid transparent; transition: 0.15s; white-space: nowrap;
+        border: 1px solid transparent; transition: 0.18s ease; white-space: nowrap;
         font-family: inherit; background: transparent; width: 100%; text-align: left;
+        position: relative;
     }
-    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.18s ease; }
     .nav-item:hover { color: var(--text); background: rgba(120,120,140,0.08); }
+    .nav-item:hover svg { transform: translateX(1px); }
     .nav-item.is-active {
-        color: var(--primary); background: var(--accent-glow);
-        border-color: var(--primary-ring);
+        color: var(--primary);
+        background: linear-gradient(90deg, var(--primary-soft), transparent 80%);
+        border-color: transparent;
     }
+    .nav-item.is-active::before {
+        content: ''; position: absolute;
+        left: -1px; top: 9px; bottom: 9px;
+        width: 3px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        background: var(--aurora-grad);
+        box-shadow: 0 0 12px var(--primary-glow);
+    }
+    .sidebar.collapsed .nav-item.is-active::before { left: 0; top: 6px; bottom: 6px; }
     .sidebar-foot {
         padding: var(--space-3); border-top: 1px solid var(--border);
         display: flex; flex-direction: column; gap: var(--space-2);
@@ -975,12 +1021,20 @@ const CSS_COMMON = `
     /* --- 主区 --- */
     .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
-    /* --- 顶部状态栏 --- */
+    /* --- 顶部状态栏 (glass v2.3.0) --- */
     .topbar {
         display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
-        padding: var(--space-3-5) var(--space-6); background: var(--topbar-bg);
+        padding: var(--space-3-5) var(--space-6); background: var(--topbar-glass);
+        backdrop-filter: saturate(140%) blur(14px);
+        -webkit-backdrop-filter: saturate(140%) blur(14px);
         border-bottom: 1px solid var(--border);
         position: sticky; top: 0; z-index: 90;
+    }
+    .topbar::after {
+        content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--primary-ring), transparent);
+        opacity: 0.55; pointer-events: none;
     }
     .topbar .tb-stat {
         display: inline-flex; align-items: center; gap: var(--space-2);
@@ -1096,25 +1150,185 @@ const CSS_COMMON = `
     .app-section.is-active { display: block; animation: sec-fade 0.22s ease; }
     @keyframes sec-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* --- 危险操作底部条 --- */
-    .danger-bar {
-        display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
-        padding: var(--space-3) var(--space-6); border-top: 1px solid var(--err);
-        background: linear-gradient(90deg, var(--err-soft), transparent);
-        position: sticky; bottom: 0; z-index: 80;
+    /* --- 危险区分区 (v2.3.0, 替代旧的底部常驻危险操作条) --- */
+    /* Nav tab tint — sidebar entry hints at destructive intent without screaming */
+    .nav-item.is-danger-tab { color: var(--err); }
+    .nav-item.is-danger-tab:hover {
+        color: var(--err); background: var(--err-soft);
     }
-    .danger-bar .db-title {
-        display: inline-flex; align-items: center; gap: 7px;
-        font-size: var(--text-sm); font-weight: 700; color: var(--err); white-space: nowrap;
+    .nav-item.is-danger-tab.is-active {
+        color: var(--err);
+        background: linear-gradient(90deg, var(--err-soft), transparent 80%);
     }
-    .danger-bar .db-title .db-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); box-shadow: 0 0 8px var(--err); }
-    .danger-bar .db-sub { font-size: var(--text-sm); color: var(--text-sec); }
-    .danger-bar .db-spacer { flex: 1; min-width: 8px; }
+    .nav-item.is-danger-tab.is-active::before {
+        background: var(--err);
+        box-shadow: 0 0 12px var(--err);
+    }
+    /* Hero block — clearly destructive but composed, not chaotic */
+    .danger-hero {
+        display: flex; align-items: center; gap: var(--space-4);
+        padding: var(--space-5) var(--space-6);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--err-ring);
+        background: linear-gradient(135deg, var(--err-soft), transparent 70%);
+        margin-bottom: var(--space-5);
+        position: relative; overflow: hidden;
+    }
+    .danger-hero::before {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(120% 80% at 100% 0%, var(--err-soft), transparent 60%);
+        pointer-events: none;
+    }
+    .danger-hero > * { position: relative; z-index: 1; }
+    .danger-hero .dh-icon {
+        width: 48px; height: 48px; flex-shrink: 0;
+        border-radius: var(--radius-lg);
+        background: var(--err); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 6px 18px -4px rgba(255,59,48,0.45);
+    }
+    .danger-hero .dh-icon svg { width: 22px; height: 22px; }
+    .danger-hero .dh-title { margin: 0; font-size: var(--text-2xl); font-weight: 700; color: var(--err); letter-spacing: -0.01em; }
+    .danger-hero .dh-sub { font-size: var(--text-base); color: var(--text-sec); margin-top: 4px; }
+    /* Card list — one row per destructive action with full disclosure copy */
+    .danger-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .danger-card {
+        display: flex; align-items: center; gap: var(--space-5);
+        padding: var(--space-4) var(--space-5);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--err);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--card-shadow-lift);
+        transition: 0.22s ease;
+    }
+    .danger-card:hover {
+        border-color: var(--err-ring);
+        box-shadow: var(--card-shadow-hover);
+        transform: translateY(-1px);
+    }
+    .danger-card .dc-body { flex: 1; min-width: 0; }
+    .danger-card .dc-title { font-size: var(--text-lg); font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .danger-card .dc-desc { font-size: var(--text-sm); color: var(--text-sec); line-height: 1.55; }
+    .danger-card .btn-tier { flex-shrink: 0; }
+    @media (max-width: 640px) {
+        .danger-hero { padding: var(--space-4); }
+        .danger-hero .dh-title { font-size: var(--text-xl); }
+        .danger-card { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+        .danger-card .btn-tier { width: 100%; justify-content: center; }
+    }
+
+    /* ============================================================
+       Aurora KPI hero band (v2.3.0)
+       The visible centerpiece of the overview view — bento tiles
+       with one gradient primary tile (sparkline) and three neutral
+       tiles. Pulls live data from existing topbar IDs via JS.
+       ============================================================ */
+    .aurora-hero {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 1fr 1fr;
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+    }
+    .kpi-tile {
+        position: relative; overflow: hidden;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        padding: var(--space-5);
+        min-height: 124px;
+        box-shadow: var(--card-shadow-lift);
+        transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+    }
+    .kpi-tile:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+    }
+    .kpi-tile.is-primary {
+        color: #fff;
+        background: var(--aurora-grad);
+        border-color: transparent;
+        box-shadow:
+            0 1px 0 rgba(255,255,255,0.22) inset,
+            0 14px 36px -10px var(--primary-glow);
+    }
+    .kpi-tile.is-primary::before {
+        content: ''; position: absolute; inset: 0;
+        background:
+            radial-gradient(120% 80% at 100% 0%, rgba(255,255,255,0.28), transparent 55%),
+            radial-gradient(80% 60% at 0% 100%, rgba(0,0,0,0.10), transparent 60%);
+        pointer-events: none;
+    }
+    .kpi-tile > * { position: relative; z-index: 1; }
+    .kpi-label {
+        font-size: var(--text-xs);
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: var(--text-sec);
+        margin-bottom: var(--space-2-5);
+    }
+    .kpi-tile.is-primary .kpi-label { color: rgba(255,255,255,0.85); }
+    .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-2); }
+    .kpi-value {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+    }
+    .kpi-tile.is-primary .kpi-value { color: #fff; }
+    .kpi-unit {
+        font-size: var(--text-md);
+        font-weight: 600;
+        color: var(--text-sec);
+        font-variant-numeric: tabular-nums;
+    }
+    .kpi-tile.is-primary .kpi-unit { color: rgba(255,255,255,0.78); }
+    .kpi-sub {
+        margin-top: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-sec);
+    }
+    .kpi-tile.is-primary .kpi-sub { color: rgba(255,255,255,0.78); }
+    .kpi-spark {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        width: 100%; height: 44px;
+        pointer-events: none;
+    }
+    .kpi-spark .ks-line { fill: none; stroke: rgba(255,255,255,0.92); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .kpi-spark .ks-area { fill: rgba(255,255,255,0.18); stroke: none; }
+    .kpi-health-bar {
+        margin-top: var(--space-3);
+        height: 6px; width: 100%;
+        background: rgba(120,120,140,0.14);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+    }
+    .kpi-health-bar > span {
+        display: block; height: 100%; width: 0%;
+        border-radius: var(--radius-pill);
+        background: var(--aurora-grad);
+        box-shadow: 0 0 10px var(--primary-glow);
+        transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @media (max-width: 980px) {
+        .aurora-hero { grid-template-columns: 1fr 1fr; }
+        .aurora-hero .kpi-tile.is-primary { grid-column: 1 / -1; }
+        .kpi-value { font-size: 30px; }
+    }
+    @media (max-width: 520px) {
+        .aurora-hero { grid-template-columns: 1fr; gap: var(--space-3); }
+        .kpi-tile { min-height: 100px; padding: var(--space-4); }
+        .kpi-value { font-size: 28px; }
+    }
 
     /* 科技风卡片微光 (深色) */
-    body.dark .card { box-shadow: var(--card-shadow); }
+    body.dark .card { box-shadow: var(--card-shadow-lift); }
     body.dark .emby-card { box-shadow: var(--card-shadow); }
     body.dark .emby-card:hover { box-shadow: 0 0 0 1px var(--accent-glow), 0 10px 30px rgba(0,0,0,0.6); }
+    body.dark .kpi-tile { background: var(--card); }
 
     /* --- 节点状态徽章 --- */
     .node-badge {
@@ -1155,11 +1369,6 @@ const CSS_COMMON = `
         .topbar::-webkit-scrollbar { display: none; }
         .topbar > * { flex-shrink: 0; }
         .content { padding: var(--space-3-5); padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
-        .danger-bar {
-            position: static; padding: var(--space-3-5);
-            margin-bottom: calc(72px + env(safe-area-inset-bottom));
-        }
-        .danger-bar .db-sub { width: 100%; }
     }
 `;
 
@@ -1304,6 +1513,10 @@ const HTML_UI = `
                 <button type="button" class="nav-item" data-section="tools" onclick="showSection('tools')">
                     <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                     <span>工具箱</span>
+                </button>
+                <button type="button" class="nav-item is-danger-tab" data-section="danger" onclick="showSection('danger')">
+                    <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>危险区</span>
                 </button>
             </nav>
             <div class="sidebar-foot">
@@ -1924,6 +2137,43 @@ const HTML_UI = `
 
             <!-- ===== 分区: 概览 (节点管理) ===== -->
             <section id="sec-overview" class="app-section is-active" data-section="overview">
+            <div class="aurora-hero" aria-label="核心指标 概览">
+                <div class="kpi-tile is-primary">
+                    <div class="kpi-label">在线节点</div>
+                    <div class="kpi-value-row">
+                        <span class="kpi-value" id="kpi-online-nodes">--</span>
+                        <span class="kpi-unit">/ <span id="kpi-total-nodes">--</span></span>
+                    </div>
+                    <div class="kpi-sub" id="kpi-online-sub">实时反代节点活跃度</div>
+                    <svg class="kpi-spark" viewBox="0 0 240 44" preserveAspectRatio="none" aria-hidden="true">
+                        <path class="ks-area" id="kpi-spark-area" d="M0 36 L40 32 L80 24 L120 28 L160 18 L200 22 L240 12 L240 44 L0 44 Z"/>
+                        <path class="ks-line" id="kpi-spark-line" d="M0 36 L40 32 L80 24 L120 28 L160 18 L200 22 L240 12"/>
+                    </svg>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">今日流量</div>
+                    <div class="kpi-value-row">
+                        <span class="kpi-value" id="kpi-traffic">--</span>
+                    </div>
+                    <div class="kpi-sub">出入站合计 · 自然日重置</div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">系统健康度</div>
+                    <div class="kpi-value-row">
+                        <span class="kpi-value" id="kpi-health">--</span>
+                        <span class="kpi-unit">%</span>
+                    </div>
+                    <div class="kpi-health-bar"><span id="kpi-health-bar-fill"></span></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">边缘 RTT</div>
+                    <div class="kpi-value-row">
+                        <span class="kpi-value" id="kpi-rtt">--</span>
+                        <span class="kpi-unit">ms</span>
+                    </div>
+                    <div class="kpi-sub">CF Worker → 你的设备</div>
+                </div>
+            </div>
             <div class="card">
                 <div class="section-header-row">
                     <h2 class="section-title">已反代的媒体库</h2>
@@ -1965,17 +2215,43 @@ const HTML_UI = `
             </div>
             </section><!-- /sec-overview -->
 
-        </div><!-- /.content -->
+            <!-- ===== 危险区 (独立分区, 替换原底部常驻条 v2.3.0) ===== -->
+            <section id="sec-danger" class="app-section" data-section="danger" style="display:none;">
+                <div class="danger-hero">
+                    <div class="dh-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="dh-text">
+                        <h2 class="dh-title">危险操作区</h2>
+                        <div class="dh-sub">以下操作不可逆，请确认理解每项影响后再执行。</div>
+                    </div>
+                </div>
+                <div class="danger-list">
+                    <div class="danger-card">
+                        <div class="dc-body">
+                            <div class="dc-title">刷新全站海报缓存</div>
+                            <div class="dc-desc">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="purgeCache()">执行刷新</button>
+                    </div>
+                    <div class="danger-card">
+                        <div class="dc-body">
+                            <div class="dc-title">覆盖部署 Worker</div>
+                            <div class="dc-desc">用本地源码覆盖线上 Worker 并重启节点。期间所有反代请求会出现 5–15 秒的连接抖动。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="openWorkerUpdate()">打开部署面板</button>
+                    </div>
+                    <div class="danger-card">
+                        <div class="dc-body">
+                            <div class="dc-title">退出登录</div>
+                            <div class="dc-desc">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="logout()">立即退出</button>
+                    </div>
+                </div>
+            </section><!-- /sec-danger -->
 
-        <!-- ===== 危险操作区 (常驻底部条) ===== -->
-        <div class="danger-bar">
-            <span class="db-title"><span class="db-dot"></span>危险操作区</span>
-            <span class="db-sub">以下操作不可逆，请谨慎执行</span>
-            <span class="db-spacer"></span>
-            <button type="button" class="btn-tier is-danger is-sm" onclick="purgeCache()">刷新全站海报缓存</button>
-            <button type="button" class="btn-tier is-danger is-sm" onclick="openWorkerUpdate()">覆盖部署 Worker</button>
-            <button type="button" class="btn-tier is-danger is-sm" onclick="logout()">退出登录</button>
-        </div>
+        </div><!-- /.content -->
 
         </div><!-- /.app-main -->
     </div><!-- /.app-shell -->
@@ -2744,8 +3020,13 @@ const HTML_UI = `
             const total = cards.length;
             const dot = document.getElementById('tb-health-dot');
             const val = document.getElementById('tb-health-val');
-            if (!val) return;
-            if (total === 0) { val.textContent = '--'; if (dot) dot.className = 'dot green'; return; }
+            if (!val) { updateAuroraKpis(); return; }
+            if (total === 0) {
+                val.textContent = '--';
+                if (dot) dot.className = 'dot green';
+                updateAuroraKpis();
+                return;
+            }
             let online = 0;
             cards.forEach(c => {
                 const b = c.querySelector('.node-badge');
@@ -2754,6 +3035,34 @@ const HTML_UI = `
             const pct = Math.round(online / total * 100);
             val.textContent = pct + '%';
             if (dot) dot.className = 'dot ' + (pct >= 80 ? 'green' : pct >= 40 ? 'amber' : 'red');
+            updateAuroraKpis();
+        }
+
+        // Aurora KPI hero — mirror topbar live data into the hero band.
+        // Cheap & defensive: no state of its own; reads from existing DOM.
+        function updateAuroraKpis() {
+            const $ = function(id) { return document.getElementById(id); };
+            const setText = function(id, v) { const el = $(id); if (el) el.textContent = v; };
+            const cards = document.querySelectorAll('#list-grid .emby-card');
+            const total = cards.length;
+            let online = 0;
+            cards.forEach(function(c) {
+                const b = c.querySelector('.node-badge');
+                if (b && (b.classList.contains('is-online') || b.classList.contains('is-slow'))) online++;
+            });
+            setText('kpi-online-nodes', String(online));
+            setText('kpi-total-nodes', String(total));
+            const pct = total ? Math.round(online / total * 100) : 0;
+            setText('kpi-health', String(pct));
+            const bar = $('kpi-health-bar-fill');
+            if (bar) bar.style.width = pct + '%';
+            const traf = $('tb-traffic-today');
+            if (traf && traf.textContent) setText('kpi-traffic', traf.textContent);
+            const rtt = $('rttValue');
+            if (rtt && rtt.textContent) {
+                const m = rtt.textContent.match(/(\\d+(?:\\.\\d+)?)/);
+                setText('kpi-rtt', m ? m[1] : rtt.textContent);
+            }
         }
 
         function editNode(prefix, targetStr, mode, remark, icon, cacheImg) {
@@ -3812,6 +4121,7 @@ const HTML_UI = `
                             if (txt && txt !== '加载中...') d.textContent = txt;
                         }
                     });
+                    if (typeof updateAuroraKpis === 'function') updateAuroraKpis();
                 };
                 sync();
                 sources.forEach(({ src }) => {
