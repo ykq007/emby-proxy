@@ -491,13 +491,40 @@ const CSS_COMMON = `
     .tb-spacer { flex: 1; min-width: 8px; }
 
     .tb-icon-btn {
-        width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid transparent;
-        background: transparent; cursor: pointer; display: inline-flex;
-        align-items: center; justify-content: center; font-size: var(--text-xl); color: var(--text-sec);
-        transition: 0.15s; position: relative; padding: 0;
+        width: 36px; height: 36px; border-radius: var(--radius-md);
+        border: 1px solid var(--border); background: var(--surface-2);
+        cursor: pointer; display: inline-flex;
+        align-items: center; justify-content: center; color: var(--text-sec);
+        transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+        position: relative; padding: 0;
+        -webkit-tap-highlight-color: transparent;
     }
-    .tb-icon-btn:hover { background: rgba(120,120,120,0.08); color: var(--text); border-color: var(--border); }
-    .tb-icon-btn.danger:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+    .tb-icon-btn svg {
+        width: 17px; height: 17px; fill: none; stroke: currentColor;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+        transition: transform 0.25s ease;
+    }
+    .tb-icon-btn:hover {
+        color: var(--primary); border-color: var(--primary);
+        background: var(--primary-soft);
+        box-shadow: 0 2px 8px rgba(0,113,227,0.12);
+    }
+    .tb-icon-btn:hover svg { transform: scale(1.06); }
+    .tb-icon-btn:focus-visible {
+        outline: none; border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+    .tb-icon-btn:active { transform: scale(0.94); }
+    .tb-icon-btn.danger:hover {
+        color: var(--err); border-color: var(--err);
+        background: var(--err-soft);
+        box-shadow: 0 2px 8px rgba(255,59,48,0.14);
+    }
+    /* Theme toggle — show only the icon matching the current state */
+    .tb-icon-btn[data-theme] .ico { display: none; }
+    .tb-icon-btn[data-theme="auto"]  .ico-auto,
+    .tb-icon-btn[data-theme="light"] .ico-light,
+    .tb-icon-btn[data-theme="dark"]  .ico-dark { display: inline-flex; }
 
     .tb-drawer {
         background: var(--card); border: 1px solid var(--border);
@@ -1559,12 +1586,20 @@ const HTML_UI = `
 
                 <div class="topbar-spacer"></div>
 
-                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码">⚙️</button>
-                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" title="切换主题">🌓</button>
+                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" data-theme="auto" title="切换主题" aria-label="切换主题">
+                    <span class="ico ico-auto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg></span>
+                    <span class="ico ico-light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+                    <span class="ico ico-dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                </button>
                 <div class="topbar-user">
                     <span class="ava">A</span>
                     <span>admin</span>
-                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="退出系统">⏻</button>
+                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="退出系统" aria-label="退出系统">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
+                    </button>
                 </div>
             </header>
 
@@ -2578,10 +2613,10 @@ const HTML_UI = `
             document.body.classList.toggle('dark', dark);
             var btn = document.getElementById('themeToggle');
             if (btn) {
-                var map = { auto: '🌓', light: '☀️', dark: '🌙' };
                 var titleMap = { auto: '主题: 跟随系统', light: '主题: 浅色', dark: '主题: 深色' };
-                btn.textContent = map[pref] || '🌓';
+                btn.dataset.theme = pref;
                 btn.title = titleMap[pref] || '切换主题';
+                btn.setAttribute('aria-label', titleMap[pref] || '切换主题');
             }
             if (typeof trendChartInstance !== 'undefined' && trendChartInstance) {
                 updateChartColors(); trendChartInstance.update();
