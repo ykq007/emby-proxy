@@ -2720,8 +2720,10 @@ const STATUS_CSS = `
 @media (prefers-color-scheme: dark){
     :root{
         --bg:#07090f;--card:#12151d;--text:#e9edf5;--text-sec:#8b93a7;--border:#232838;
+        --ok:#30d158;--warn:#ff9f0a;--err:#ff453a;
         --ok-soft:rgba(52,199,89,0.14);--warn-soft:rgba(255,149,0,0.14);--err-soft:rgba(255,59,48,0.14);
         --hairline:rgba(120,120,128,0.32);
+        --aurora-grad:linear-gradient(135deg,#2f9bff 0%,#6e6ad9 55%,#c47ce0 110%);
         --card-shadow-lift:0 1px 0 rgba(255,255,255,0.04) inset,0 1px 2px rgba(0,0,0,0.4),0 10px 28px -12px rgba(0,0,0,0.6);
     }
 }
