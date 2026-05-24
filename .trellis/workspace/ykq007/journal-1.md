@@ -259,3 +259,36 @@ Re-ported emby-js monitor (status page + Emby probes + media counts) into worker
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Hide node names on public /status
+
+**Date**: 2026-05-24
+**Task**: Hide node names on public /status
+**Branch**: `main`
+
+### Summary
+
+Added admin global toggle to hide reverse-proxy node names + icons on the public /status page; flag stored in D1 global config and read by the public renderer.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c1d2681` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

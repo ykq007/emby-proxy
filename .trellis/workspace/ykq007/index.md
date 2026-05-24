@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-05-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~261 | Active |
+| `journal-1.md` | ~294 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-05-24 | Hide node names on public /status | `c1d2681` | `main` |
 | 7 | 2026-05-24 | Port emby-js monitor (re-port + upstream parity + recovery) | `bd599d4` | `main` |
 | 6 | 2026-05-24 | Status page: custom_headers forwarding + token harvest from proxied traffic | `a46d290`, `9667e4c` | `main` |
 | 5 | 2026-05-24 | Integrate jypost public status page | `498dbd9`, `0643091` | `main` |
