@@ -1,0 +1,14 @@
+{
+  "name": "emby-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "obfuscate": "node scripts/obfuscate.js worker.js dist/worker.obf.js",
+    "deploy": "npm run obfuscate && wrangler deploy",
+    "deploy:plain": "wrangler deploy --main worker.js"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.0",
+    "wrangler": "^4.0.0"
+  }
+}

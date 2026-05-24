@@ -1,0 +1,16 @@
+name = "makkapakka-emby-panel"
+main = "dist/worker.obf.js"
+compatibility_date = "2024-12-01"
+workers_dev = true
+keep_vars = true
+
+[triggers]
+crons = ["* * * * *", "0 0 * * *"]
+
+[placement]
+mode = "smart"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "makkapakka-emby-panel-db"
+database_id = "f49b1380-b55f-467c-b6d2-eff11c7016c0"

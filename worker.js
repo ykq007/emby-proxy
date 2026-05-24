@@ -6963,7 +6963,6 @@ async function probeAll(env) {
         if (insertStmts.length) await env.DB.batch(insertStmts);
         await runAlertFSM(env, routes, probes, now);
         await maybeRollupHourly(env, now);
-        await maybeFetchMediaCounts(env, routes, now);
     } catch (e) {
         console.log('probeAll error:', e.message);
     }
@@ -7544,6 +7543,44 @@ export default {
                 await fetch(target + '/', { method: 'HEAD', signal: controller.signal });
                 clearTimeout(timeoutId); return Response.json({ ms: Date.now() - start });
             } catch (e) { return Response.json({ ms: -1 }); }
+        }
+
+        // 手动触发探测（外部 cron / 调试用）。需 ?key=<ADMIN_TOKEN>。
+        if (url.pathname === '/api/_probe_now') {
+            const key = url.searchParams.get('key') || '';
+            if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
+                return new Response('forbidden', { status: 403 });
+            }
+            if (!env.DB) return new Response('no DB', { status: 500 });
+            const t0 = Date.now();
+            try {
+                await probeAll(env);
+                return Response.json({ ok: true, ms: Date.now() - t0 });
+            } catch (e) {
+                return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
+            }
+        }
+
+        // 手动触发媒体计数抓取（外部 cron 每日一次）。需 ?key=<ADMIN_TOKEN>。
+        if (url.pathname === '/api/_counts_now') {
+            const key = url.searchParams.get('key') || '';
+            if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
+                return new Response('forbidden', { status: 403 });
+            }
+            if (!env.DB) return new Response('no DB', { status: 500 });
+            const t0 = Date.now();
+            try {
+                await ensureSchema(env);
+                const { results: routes } = await env.DB.prepare(`
+                    SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
+                      FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
+                `).all();
+                const now = Math.floor(Date.now() / 1000);
+                await maybeFetchMediaCounts(env, routes || [], now);
+                return Response.json({ ok: true, routes: (routes || []).length, ms: Date.now() - t0 });
+            } catch (e) {
+                return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
+            }
         }
 
         // ==========================================
