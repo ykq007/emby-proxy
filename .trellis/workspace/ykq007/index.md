@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-05-24
+- **Total Sessions**: 10
+- **Last Active**: 2026-05-25
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~327 | Active |
+| `journal-1.md` | ~362 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-05-25 | 公开 /status & 管理总览：admin 设计对齐 + 心电图历史条 | `9c3b35e`, `d65929b`, `2865c86` | `main` |
 | 9 | 2026-05-24 | Country whitelist for reverse-proxy | `4bf7bd4` | `main` |
 | 8 | 2026-05-24 | Hide node names on public /status | `c1d2681` | `main` |
 | 7 | 2026-05-24 | Port emby-js monitor (re-port + upstream parity + recovery) | `bd599d4` | `main` |

@@ -325,3 +325,38 @@ Added admin-configurable cf-ipcountry allowlist that gates the reverse-proxy bra
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 公开 /status & 管理总览：admin 设计对齐 + 心电图历史条
+
+**Date**: 2026-05-25
+**Task**: 公开 /status & 管理总览：admin 设计对齐 + 心电图历史条
+**Branch**: `main`
+
+### Summary
+
+本会话围绕 /status 公开页迭代了三轮：先用 frontend-design skill 上线 Operations Bulletin 风格(Fraunces+Geist Mono+印章+LED ticker，9c3b35e)；用户反馈不匹配 admin 风格后，按 admin 设计 token (--primary / --aurora-grad / --radius-ios / SF Pro) 重建 KPI hero + 节点列表卡片，并在移动端 #moreSheet 加入「节点状态」入口 (d65929b)；最后用 ui-ux-pro-max skill 设计 ECG/心电图 历史条 (SVG QRS 尖峰 + 故障红柱 + 当前样本点)，新增 /api/status/probes 内部接口，把心电图条 + 24h/7d 可用率注入到 admin overview 的 emby-card (2865c86)，让公开页与后台总览视觉一致。三次都已 npm run deploy 推送至 makkapakka-emby-panel。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9c3b35e` | (see git log) |
+| `d65929b` | (see git log) |
+| `2865c86` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
