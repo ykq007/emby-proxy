@@ -7046,9 +7046,6 @@ async function loadStatusData(env, opts) {
     const since24 = now - 24 * 3600;
     const since7d = now - 7 * 86400;
     const today = nowLocalDayStr();
-    // 计算昨日（UTC+8）字符串
-    const yDate = new Date(Date.now() + 8 * 3600000 - 86400000);
-    const yesterday = yDate.toISOString().slice(0, 10);
 
     const cards = [];
     for (const r of routes) {
@@ -7056,8 +7053,14 @@ async function loadStatusData(env, opts) {
         const last60 = await env.DB.prepare(`SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`).bind(r.prefix).all();
         const raw24 = await env.DB.prepare(`SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`).bind(r.prefix, since24).first();
         const hourly7 = await env.DB.prepare(`SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`).bind(r.prefix, since7d).first();
-        const todayCounts = await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day = ?`).bind(r.prefix, today).first();
-        const yesterdayCounts = await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day = ?`).bind(r.prefix, yesterday).first();
+        // Fallback: 今日还没抓到(跨日窗口 / 外部 cron 未跑 / token 临时挂)时,回退到最近一天已有的计数,
+        // 保持 /status 永远不空白; delta 以"最近一天"对比"再前一天"。
+        const latestCounts = await env.DB.prepare(`SELECT day, movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day <= ? ORDER BY day DESC LIMIT 1`).bind(r.prefix, today).first();
+        const prevCounts = latestCounts
+            ? await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day < ? ORDER BY day DESC LIMIT 1`).bind(r.prefix, latestCounts.day).first()
+            : null;
+        const todayCounts = latestCounts;
+        const yesterdayCounts = prevCounts;
         const total24 = (raw24 && raw24.total) | 0;
         const ok24 = (raw24 && raw24.ok_count) | 0;
         const total7d = (hourly7 && hourly7.total) | 0;
