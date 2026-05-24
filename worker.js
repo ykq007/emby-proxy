@@ -3891,6 +3891,22 @@ const HTML_UI = `
                    '<polyline class="sk-line" points="' + line + '"/></svg>';
         }
 
+        // 拉取近 7 天每日流量并回填到每张节点卡的 sparkline 容器
+        async function loadRouteTrends() {
+            try {
+                const res = await fetch('/api/route-trends?days=7');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.ok || !Array.isArray(data.items)) return;
+                for (const it of data.items) {
+                    if (!it || !it.prefix || !Array.isArray(it.bytes)) continue;
+                    const slot = document.querySelector('.a-spark-slot[data-spark="' + CSS.escape(it.prefix) + '"]');
+                    if (!slot) continue;
+                    slot.innerHTML = nodeSparklineHtml(it.bytes);
+                }
+            } catch (e) { /* 静默降级：保留占位 */ }
+        }
+
         // =====================================
         // 数据大屏与统计逻辑 (适配手机端表格排版)
         // =====================================
@@ -4704,7 +4720,7 @@ const HTML_UI = `
                             \${badgeHtml}
                         </div>
 
-                        <div style="margin:2px 0;">\${sparkHtml}</div>
+                        <div class="a-spark-slot" data-spark="\${r.prefix}" style="margin:2px 0;">\${sparkHtml}</div>
 
                         <div class="a-stats">
                             <div class="a-stat">
@@ -4798,6 +4814,9 @@ const HTML_UI = `
 
                 // ECG 心电图 + 24h/7d 可用率（仅对开启了 show_on_status 的节点显示）
                 injectEcgStrips();
+
+                // 异步拉取节点近 7 天每日流量并回填 sparkline
+                loadRouteTrends();
 
             } catch (err) {
                 document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
@@ -8052,6 +8071,101 @@ export default {
                 });
             } catch (e) {
                 return Response.json({ success: false, error: e.message });
+            }
+        }
+
+        // ==========================================
+        // 节点近 N 天每日流量趋势 (sparkline 数据源)
+        // 口径：CF GraphQL httpRequestsAdaptiveGroups, 按 clientRequestPath_like "/<prefix>%" 过滤,
+        //       date 维度分组, 缺失日补 0, 顺序最早 → 今日 (UTC)。
+        // ==========================================
+        if (url.pathname === '/api/route-trends' && request.method === 'GET') {
+            const days = Math.max(1, Math.min(7, parseInt(url.searchParams.get('days') || '7', 10) || 7));
+
+            if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
+                return Response.json({ ok: false, reason: 'no-cf-token', days, items: [] });
+            }
+            if (!env.DB) {
+                return Response.json({ ok: false, reason: 'no-db', days, items: [] });
+            }
+
+            try {
+                const utcHour = Math.floor(Date.now() / 3600000);
+                const cacheKey = `${env.CF_ZONE_ID}|${days}|${utcHour}`;
+                globalThis.__routeTrendCache = globalThis.__routeTrendCache || new Map();
+                const cached = globalThis.__routeTrendCache.get(cacheKey);
+                const now = Date.now();
+                if (cached && cached.expireAt > now) {
+                    return Response.json(cached.payload);
+                }
+
+                const { results: routes } = await env.DB.prepare(`SELECT prefix FROM routes`).all();
+                if (!routes || routes.length === 0) {
+                    return Response.json({ ok: false, reason: 'no-routes', days, items: [] });
+                }
+
+                const todayUtc = new Date();
+                todayUtc.setUTCHours(0, 0, 0, 0);
+                const dayKeys = [];
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date(todayUtc.getTime() - i * 86400000);
+                    dayKeys.push(d.toISOString().split('T')[0]);
+                }
+                const startIso = new Date(todayUtc.getTime() - (days - 1) * 86400000).toISOString();
+                const endIso = new Date(todayUtc.getTime() + 86400000 - 1).toISOString();
+
+                const items = await Promise.all(routes.map(async (r) => {
+                    const empty = dayKeys.map(() => 0);
+                    try {
+                        const q = {
+                            query: `query {
+                              viewer {
+                                zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
+                                  httpRequestsAdaptiveGroups(
+                                    limit: ${days},
+                                    filter: {
+                                      clientRequestPath_like: "/${r.prefix}%",
+                                      datetime_geq: "${startIso}",
+                                      datetime_leq: "${endIso}"
+                                    },
+                                    orderBy: [date_ASC]
+                                  ) {
+                                    dimensions { date }
+                                    sum { edgeResponseBytes }
+                                  }
+                                }
+                              }
+                            }`
+                        };
+                        const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify(q)
+                        });
+                        const cfData = await cfRes.json();
+                        const groups = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups || [];
+                        const byDate = new Map();
+                        for (const g of groups) {
+                            byDate.set(g.dimensions?.date, g.sum?.edgeResponseBytes || 0);
+                        }
+                        const bytes = dayKeys.map(d => byDate.get(d) || 0);
+                        return { prefix: r.prefix, bytes };
+                    } catch (e) {
+                        return { prefix: r.prefix, bytes: empty };
+                    }
+                }));
+
+                const payload = {
+                    ok: true,
+                    days,
+                    generated_at: Math.floor(now / 1000),
+                    source: 'cf-graphql',
+                    items
+                };
+                globalThis.__routeTrendCache.set(cacheKey, { expireAt: now + 30 * 60 * 1000, payload });
+                return Response.json(payload);
+            } catch (e) {
+                return Response.json({ ok: false, reason: 'graphql-failed', error: e.message, days, items: [] });
             }
         }
 
