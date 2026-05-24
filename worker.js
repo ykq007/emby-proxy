@@ -3656,6 +3656,11 @@ const HTML_UI = `
                     <button type="button" class="btn-tier" onclick="loadEmbyStatusAdmin()">刷新</button>
                 </div>
                 <div id="embyShareResult" style="display:none; padding:10px 14px; background:rgba(0,136,204,0.08); border-radius:10px; margin-bottom:14px; font-size:var(--text-sm); word-break:break-all;"></div>
+                <div class="card" style="padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:var(--text-sm);">
+                        <input type="checkbox" id="embyHideNamesToggle" onchange="updateEmbyGlobalFlag('hide_node_names', this.checked ? 1 : 0)"> 在公开状态页隐藏节点名称与图标（统一显示为「节点 1、节点 2…」）
+                    </label>
+                </div>
                 <div id="embyStatusAdminList" style="display:flex; flex-direction:column; gap:10px;"></div>
                 <div id="embyStatusAdminEmpty" style="display:none; color:var(--text-sec); font-size:var(--text-sm); padding:20px 0;">尚未配置任何反代节点。请先在「概览」中添加节点。</div>
             </div>
@@ -4357,10 +4362,13 @@ const HTML_UI = `
             listEl.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm);">加载中...</div>';
             emptyEl.style.display = 'none';
             try {
-                const [routesRes, stateRes] = await Promise.all([
+                const [routesRes, stateRes, globalRes] = await Promise.all([
                     fetch('/api/routes').then(r => r.json()),
-                    fetch('/api/status/auth-state').then(r => r.json())
+                    fetch('/api/status/auth-state').then(r => r.json()),
+                    fetch('/api/status/global-flags').then(r => r.json()).catch(() => ({}))
                 ]);
+                const hideToggle = document.getElementById('embyHideNamesToggle');
+                if (hideToggle) hideToggle.checked = !!(globalRes && globalRes.hide_node_names);
                 const routes = Array.isArray(routesRes) ? routesRes : [];
                 const stateMap = {};
                 if (stateRes && stateRes.success && Array.isArray(stateRes.items)) {
@@ -4413,6 +4421,23 @@ const HTML_UI = `
                 listEl.innerHTML = rows.join('');
             } catch (e) {
                 listEl.innerHTML = '<div style="color:var(--bad); font-size:var(--text-sm);">加载失败：' + _embyEscape(e.message) + '</div>';
+            }
+        }
+        async function updateEmbyGlobalFlag(field, value) {
+            try {
+                const body = {};
+                body[field] = value;
+                const res = await fetch('/api/status/global-flags', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                } else {
+                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
             }
         }
         async function updateEmbyRouteFlag(prefix, field, value) {
@@ -6832,7 +6857,8 @@ function renderStatusHtml(data, opts) {
         return d.toISOString().slice(5, 16).replace('T', ' ');
     };
 
-    const cardsHtml = cards.map(c => {
+    const hideNames = !!opts.hideNames;
+    const cardsHtml = cards.map((c, i) => {
         const dot = c.ok ? '#30d158' : '#ff3b30';
         const histBars = c.history.map(h => {
             const color = h.ok ? '#30d158' : '#ff3b30';
@@ -6845,11 +6871,14 @@ function renderStatusHtml(data, opts) {
                 <span>剧集 <b>${c.counts.series}</b> ${c.counts_delta && c.counts_delta.series ? `<i class="s-delta ${c.counts_delta.series > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.series)}</i>` : ''}</span>
                 <span>集数 <b>${c.counts.episodes}</b> ${c.counts_delta && c.counts_delta.episodes ? `<i class="s-delta ${c.counts_delta.episodes > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.episodes)}</i>` : ''}</span>
             </div>` : '';
-        const iconHtml = c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback"></span>';
+        const displayName = hideNames ? `节点 ${i + 1}` : c.name;
+        const iconHtml = hideNames
+            ? '<span class="s-icon-fallback"></span>'
+            : (c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback"></span>');
         return `<div class="s-card">
             <div class="s-head">
                 ${iconHtml}
-                <div class="s-name">${htmlEscape(c.name)}</div>
+                <div class="s-name">${htmlEscape(displayName)}</div>
                 <span class="s-dot" style="background:${dot}"></span>
             </div>
             <div class="s-metrics">
@@ -7320,7 +7349,9 @@ export default {
             if (!env.DB) return new Response('DB not bound', { status: 500 });
             try {
                 const data = await loadStatusData(env, {});
-                return new Response(renderStatusHtml(data, { title: '节点状态' }), {
+                const hideRow = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`).first();
+                const hideNames = !!(hideRow && hideRow.v === '1');
+                return new Response(renderStatusHtml(data, { title: '节点状态', hideNames }), {
                     headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
                 });
             } catch (e) {
@@ -7919,6 +7950,24 @@ export default {
                   FROM routes
             `).all();
             return Response.json({ success: true, items: results || [] });
+        }
+        if (url.pathname === '/api/status/global-flags' && request.method === 'GET') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`).first();
+            return Response.json({ success: true, hide_node_names: (row && row.v === '1') ? 1 : 0 });
+        }
+        if (url.pathname === '/api/status/global-flags' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            try {
+                const body = await request.json();
+                if (body.hide_node_names !== undefined) {
+                    const v = body.hide_node_names ? '1' : '0';
+                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                }
+                return Response.json({ success: true });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
         }
         if (url.pathname === '/api/share/dashboard' && request.method === 'POST') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
