@@ -2753,6 +2753,10 @@ const HTML_UI = `
                     <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
                     <span>数据统计</span>
                 </button>
+                <button type="button" class="nav-item" data-section="embyStatus" onclick="showSection('embyStatus'); loadEmbyStatusAdmin();">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span>节点状态</span>
+                </button>
                 <button type="button" class="nav-item" data-section="settings" onclick="showSection('settings')">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     <span>系统设置</span>
@@ -2806,6 +2810,9 @@ const HTML_UI = `
 
                 <div class="topbar-spacer"><span class="tb-section-title" id="tbSectionTitle"></span></div>
 
+                <a class="tb-icon-btn" href="/status" target="_blank" rel="noopener" title="打开公开状态页" aria-label="打开公开状态页" style="text-decoration:none;">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
                 <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
@@ -3636,6 +3643,24 @@ const HTML_UI = `
             </div>
             </section><!-- /sec-tools -->
 
+            <!-- ===== 分区: 节点状态（emby-js 监控移植） ===== -->
+            <section id="sec-embyStatus" class="app-section" data-section="embyStatus" style="display:none;">
+            <div class="card">
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">节点状态监控</h2>
+                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">
+                    每分钟自动探测启用了「在状态页展示」的节点，记录 24 小时与 7 天可用率；连续失败 5 分钟自动发送 Telegram 告警，恢复后再发一条恢复通知。
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
+                    <a class="btn-tier" href="/status" target="_blank" rel="noopener">打开公开状态页</a>
+                    <button type="button" class="btn-tier" onclick="generateShareDashboardLink()">生成公开分享链接（1 小时）</button>
+                    <button type="button" class="btn-tier" onclick="loadEmbyStatusAdmin()">刷新</button>
+                </div>
+                <div id="embyShareResult" style="display:none; padding:10px 14px; background:rgba(0,136,204,0.08); border-radius:10px; margin-bottom:14px; font-size:var(--text-sm); word-break:break-all;"></div>
+                <div id="embyStatusAdminList" style="display:flex; flex-direction:column; gap:10px;"></div>
+                <div id="embyStatusAdminEmpty" style="display:none; color:var(--text-sec); font-size:var(--text-sm); padding:20px 0;">尚未配置任何反代节点。请先在「概览」中添加节点。</div>
+            </div>
+            </section><!-- /sec-embyStatus -->
+
             <!-- ===== 分区: 概览 (节点管理) ===== -->
             <section id="sec-overview" class="app-section is-active" data-section="overview">
             <div class="aurora-hero" aria-label="核心指标 概览">
@@ -4317,6 +4342,149 @@ const HTML_UI = `
             if (proxyNodesForPing.length === 0) return showToast('⚠️ 没有可供测速的反代节点');
             showToast('⚡ 正在对所有节点发起测速...');
             proxyNodesForPing.forEach((node, offset) => { setTimeout(() => pingTarget(node.idx, node.url), offset * 200); });
+        }
+
+        // ==========================================
+        // emby-js 监控移植：节点状态管理面板（admin）
+        // ==========================================
+        function _embyEscape(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        async function loadEmbyStatusAdmin() {
+            const listEl = document.getElementById('embyStatusAdminList');
+            const emptyEl = document.getElementById('embyStatusAdminEmpty');
+            if (!listEl || !emptyEl) return;
+            listEl.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm);">加载中...</div>';
+            emptyEl.style.display = 'none';
+            try {
+                const [routesRes, stateRes] = await Promise.all([
+                    fetch('/api/routes').then(r => r.json()),
+                    fetch('/api/status/auth-state').then(r => r.json())
+                ]);
+                const routes = Array.isArray(routesRes) ? routesRes : [];
+                const stateMap = {};
+                if (stateRes && stateRes.success && Array.isArray(stateRes.items)) {
+                    for (const it of stateRes.items) stateMap[it.prefix] = it;
+                }
+                if (!routes.length) {
+                    listEl.innerHTML = '';
+                    emptyEl.style.display = 'block';
+                    return;
+                }
+                const rows = routes.map(r => {
+                    const st = stateMap[r.prefix] || {};
+                    const showOn = !!(st.show_on_status || r.show_on_status);
+                    const autoAuth = !!(st.media_counts_auto_auth || r.media_counts_auto_auth);
+                    const alias = st.public_alias != null ? st.public_alias : (r.public_alias || '');
+                    const hasToken = !!st.has_token;
+                    const seenAt = st.emby_auth_seen_at ? new Date(st.emby_auth_seen_at * 1000).toLocaleString() : '—';
+                    const usedAt = st.emby_auth_used_at ? new Date(st.emby_auth_used_at * 1000).toLocaleString() : '—';
+                    return '' +
+                        '<div class="card" style="padding:14px; gap:10px; display:flex; flex-direction:column;">' +
+                            '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+                                '<b style="font-size:var(--text-md);">' + _embyEscape(r.remark || r.prefix) + '</b>' +
+                                '<code style="font-size:11px; opacity:.7;">/' + _embyEscape(r.prefix) + '</code>' +
+                            '</div>' +
+                            '<div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:var(--text-sm);">' +
+                                '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;">' +
+                                    '<input type="checkbox" ' + (showOn ? 'checked' : '') + ' onchange="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'show_on_status\', this.checked ? 1 : 0)"> 在状态页展示' +
+                                '</label>' +
+                                '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;" ' + (showOn ? '' : 'data-disabled="1" style="opacity:.5; pointer-events:none;"') + '>' +
+                                    '<input type="checkbox" ' + (autoAuth ? 'checked' : '') + ' ' + (showOn ? '' : 'disabled') + ' onchange="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'media_counts_auto_auth\', this.checked ? 1 : 0)"> 自动获取媒体计数' +
+                                '</label>' +
+                            '</div>' +
+                            (showOn ? (
+                                '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+                                    '<label style="font-size:var(--text-sm); color:var(--text-sec); flex:0 0 auto;">公开名称</label>' +
+                                    '<input type="text" value="' + _embyEscape(alias) + '" placeholder="留空则用备注" style="flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:inherit;" onblur="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'public_alias\', this.value)">' +
+                                    '<button type="button" class="btn-tier" onclick="generateShareCardLink(\'' + _embyEscape(r.prefix) + '\')">生成 SVG 卡片</button>' +
+                                '</div>'
+                            ) : '') +
+                            (autoAuth ? (
+                                '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--text-sec);">' +
+                                    '<span>令牌：' + (hasToken ? '已收割' : '尚未收割') + '</span>' +
+                                    '<span>首次：' + _embyEscape(seenAt) + '</span>' +
+                                    '<span>最近探测使用：' + _embyEscape(usedAt) + '</span>' +
+                                    (hasToken ? '<button type="button" class="btn-tier" style="padding:4px 10px; font-size:11px;" onclick="revokeEmbyAuth(\'' + _embyEscape(r.prefix) + '\')">撤销并重新收割</button>' : '') +
+                                '</div>'
+                            ) : '') +
+                        '</div>';
+                });
+                listEl.innerHTML = rows.join('');
+            } catch (e) {
+                listEl.innerHTML = '<div style="color:var(--bad); font-size:var(--text-sm);">加载失败：' + _embyEscape(e.message) + '</div>';
+            }
+        }
+        async function updateEmbyRouteFlag(prefix, field, value) {
+            try {
+                const body = { prefix };
+                body[field] = value;
+                const res = await fetch('/api/status/route-flags', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                    loadEmbyStatusAdmin();
+                } else {
+                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+            }
+        }
+        async function revokeEmbyAuth(prefix) {
+            if (!confirm('确认清除该节点的已收割令牌？下次代理请求会自动重新收割。')) return;
+            try {
+                const res = await fetch('/api/status/revoke-auth', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast('✅ 已清除');
+                    loadEmbyStatusAdmin();
+                } else {
+                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '失败'));
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+            }
+        }
+        async function generateShareDashboardLink() {
+            try {
+                const res = await fetch('/api/share/dashboard', { method: 'POST' });
+                const data = await res.json();
+                const box = document.getElementById('embyShareResult');
+                if (data.success) {
+                    box.style.display = 'block';
+                    box.innerHTML = '✅ 公开分享链接（1 小时有效）：<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
+                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('✅ 链接已复制'); } catch (e) {}
+                } else {
+                    box.style.display = 'block';
+                    box.innerHTML = '❌ ' + _embyEscape(data.error || '生成失败');
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+            }
+        }
+        async function generateShareCardLink(prefix) {
+            try {
+                const res = await fetch('/api/share/card', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix })
+                });
+                const data = await res.json();
+                const box = document.getElementById('embyShareResult');
+                if (data.success) {
+                    box.style.display = 'block';
+                    box.innerHTML = '✅ 节点 <code>/' + _embyEscape(prefix) + '</code> 的 SVG 卡片（1 小时有效）：<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
+                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('✅ 链接已复制'); } catch (e) {}
+                } else {
+                    box.style.display = 'block';
+                    box.innerHTML = '❌ ' + _embyEscape(data.error || '生成失败');
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+            }
         }
 
         async function exportConfig() {
@@ -5790,12 +5958,13 @@ const HTML_UI = `
 
             // === iOS-native chrome v5: brand, large-title, scroll observer, logout row ===
             const IOS_SECTION_TITLES = {
-                overview: { title: '概览',        sub: '实时状态与核心指标' },
-                speed:    { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
-                stats:    { title: '数据统计',     sub: '流量、并发与历史趋势' },
-                settings: { title: '系统设置',     sub: '应用、通知与账户' },
-                tools:    { title: '工具箱',       sub: '实用工具集合' },
-                danger:   { title: '危险区',       sub: '不可逆操作，请谨慎' },
+                overview:    { title: '概览',        sub: '实时状态与核心指标' },
+                speed:       { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
+                stats:       { title: '数据统计',     sub: '流量、并发与历史趋势' },
+                embyStatus:  { title: '节点状态',     sub: '探测、告警与公开分享' },
+                settings:    { title: '系统设置',     sub: '应用、通知与账户' },
+                tools:       { title: '工具箱',       sub: '实用工具集合' },
+                danger:      { title: '危险区',       sub: '不可逆操作，请谨慎' },
             };
             // 暴露给 showSection() 用来同步紧凑栏标题
             window.__iosSectionTitles = Object.fromEntries(
@@ -6213,6 +6382,593 @@ async function probeDomain(domain) {
     } catch (e) { clearTimeout(t); return { ms: -1, ok: false }; }
 }
 
+// ==========================================
+// emby-js 监控移植：节点探测 / 告警 FSM / 媒体计数 / 令牌收割
+// ==========================================
+const EMBY_PROBE_TIMEOUT_MS = 6000;
+const EMBY_RAW_RETENTION_S = 24 * 3600;
+const EMBY_HOURLY_RETENTION_S = 7 * 86400;
+const EMBY_OUTAGE_THRESHOLD_S = 300;       // 5 min 持续失败才告警
+const EMBY_HARVEST_DEBOUNCE_S = 600;       // 同令牌 10 min 内不重复写 D1
+const EMBY_HARVEST_IDLE_DROP_S = 7 * 86400;
+
+// 进程内令牌写入去抖（prefix -> { token, writtenAt })
+const HARVEST_MEM = new Map();
+
+function nowLocalDayStr() {
+    return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+}
+
+function probeTargetFor(routeTarget) {
+    const first = String(routeTarget || '').split(',').map(s => s.trim()).filter(Boolean)[0];
+    if (!first) return null;
+    return first.replace(/\/+$/, '');
+}
+
+function parseCustomHeadersForProbe(raw) {
+    if (!raw) return {};
+    const out = {};
+    const s = String(raw);
+    try {
+        const parsed = JSON.parse(s);
+        if (parsed && typeof parsed === 'object') {
+            for (const k of Object.keys(parsed)) {
+                if (/^[A-Za-z0-9_\-]+$/.test(k)) out[k] = String(parsed[k]);
+            }
+            return out;
+        }
+    } catch (_) { /* fall through */ }
+    for (const ln of s.split(/\r?\n/)) {
+        const m = /^\s*([A-Za-z0-9_\-]+)\s*:\s*(\S.*?)\s*$/.exec(ln);
+        if (m) out[m[1]] = m[2];
+    }
+    return out;
+}
+
+// 与 emby-js (pototazhang/emby-js) 上游一致：使用真实浏览器 UA，避免被 WAF/CF 拦截。
+const EMBY_PROBE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+async function probeOne(route) {
+    const base = probeTargetFor(route.target);
+    if (!base) return { prefix: route.prefix, ok: false, ms: 0, status: 0 };
+    const ctrl = new AbortController();
+    const tmr = setTimeout(() => ctrl.abort(), EMBY_PROBE_TIMEOUT_MS);
+    const start = Date.now();
+    const customHeaders = parseCustomHeadersForProbe(route.custom_headers);
+    const tryUrl = async (u) => fetch(u, {
+        method: 'GET', redirect: 'manual', signal: ctrl.signal,
+        headers: { 'User-Agent': EMBY_PROBE_UA, 'Accept': 'application/json,text/plain,*/*', 'X-Forward-Probe': '1', ...customHeaders },
+        cf: { cacheTtl: 0 }
+    });
+    try {
+        // 与上游一致的回退顺序：/emby/System/Info/Public → /System/Info/Public → /emby/Users/Public
+        let res = await tryUrl(base + '/emby/System/Info/Public');
+        if (res.status === 404) res = await tryUrl(base + '/System/Info/Public');
+        if (res.status === 404) res = await tryUrl(base + '/emby/Users/Public');
+        clearTimeout(tmr);
+        const ms = Date.now() - start;
+        // 与上游一致：401/403 视为 "服务器在线但需要鉴权"，仍记 ok。
+        const ok = (res.status >= 200 && res.status < 400) || res.status === 401 || res.status === 403;
+        return { prefix: route.prefix, ok, ms, status: res.status };
+    } catch (e) {
+        clearTimeout(tmr);
+        return { prefix: route.prefix, ok: false, ms: Date.now() - start, status: 0 };
+    }
+}
+
+async function maybeRollupHourly(env, now) {
+    try {
+        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`).first();
+        const last = row ? parseInt(row.v, 10) || 0 : 0;
+        if (Math.floor(now / 3600) <= Math.floor(last / 3600)) return;
+        const hourTs = Math.floor(now / 3600) * 3600 - 3600;
+        const hourEnd = hourTs + 3600;
+        const { results } = await env.DB.prepare(`
+            SELECT prefix,
+                   SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count,
+                   SUM(CASE WHEN ok=0 THEN 1 ELSE 0 END) AS fail_count,
+                   AVG(ms) AS avg_ms,
+                   MAX(ms) AS max_ms
+              FROM emby_probes
+             WHERE ts >= ? AND ts < ?
+          GROUP BY prefix
+        `).bind(hourTs, hourEnd).all();
+        const stmts = (results || []).map(r =>
+            env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_hourly(prefix, hour_ts, ok_count, fail_count, avg_ms, p95_ms) VALUES(?,?,?,?,?,?)`)
+                .bind(r.prefix, hourTs, r.ok_count | 0, r.fail_count | 0, Math.round(r.avg_ms || 0), Math.round(r.max_ms || 0))
+        );
+        stmts.push(env.DB.prepare(`DELETE FROM emby_probes WHERE ts < ?`).bind(now - EMBY_RAW_RETENTION_S));
+        stmts.push(env.DB.prepare(`DELETE FROM emby_probe_hourly WHERE hour_ts < ?`).bind(now - EMBY_HOURLY_RETENTION_S));
+        stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_rollup_ts', ?, CURRENT_TIMESTAMP)`).bind(String(now)));
+        // 闲置令牌回收
+        stmts.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0, emby_auth_used_at=0
+                                    WHERE emby_auth_cache != ''
+                                      AND emby_auth_seen_at > 0 AND (? - emby_auth_seen_at) > ?
+                                      AND (emby_auth_used_at = 0 OR (? - emby_auth_used_at) > ?)`)
+            .bind(now, EMBY_HARVEST_IDLE_DROP_S, now, EMBY_HARVEST_IDLE_DROP_S));
+        if (stmts.length) await env.DB.batch(stmts);
+    } catch (e) {
+        console.log('maybeRollupHourly error:', e.message);
+    }
+}
+
+async function runAlertFSM(env, routes, probes, now) {
+    try {
+        const stateRows = await env.DB.prepare(`SELECT prefix, first_fail_at, last_alert_at, alert_kind FROM emby_probe_state`).all();
+        const stateMap = new Map();
+        for (const r of (stateRows.results || [])) stateMap.set(r.prefix, r);
+        const routeMap = new Map(routes.map(r => [r.prefix, r]));
+
+        const stmts = [];
+        const sends = [];
+        for (const p of probes) {
+            const st = stateMap.get(p.prefix) || { first_fail_at: 0, last_alert_at: 0, alert_kind: 'none' };
+            const route = routeMap.get(p.prefix);
+            const name = (route && (route.public_alias || route.remark)) || p.prefix;
+            if (p.ok) {
+                if (st.alert_kind === 'offline') {
+                    const duration = st.first_fail_at > 0 ? (now - st.first_fail_at) : 0;
+                    sends.push({ kind: 'recovered', name, duration });
+                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
+                        .bind(p.prefix, 0, now, 'recovered'));
+                } else if (st.first_fail_at !== 0 || st.alert_kind !== 'none') {
+                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
+                        .bind(p.prefix, 0, st.last_alert_at | 0, 'none'));
+                }
+            } else {
+                const firstFail = st.first_fail_at > 0 ? st.first_fail_at : now;
+                if (st.alert_kind !== 'offline' && (now - firstFail) >= EMBY_OUTAGE_THRESHOLD_S) {
+                    sends.push({ kind: 'offline', name, duration: now - firstFail });
+                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
+                        .bind(p.prefix, firstFail, now, 'offline'));
+                } else if (st.first_fail_at === 0) {
+                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
+                        .bind(p.prefix, firstFail, st.last_alert_at | 0, st.alert_kind || 'none'));
+                }
+            }
+        }
+        if (stmts.length) await env.DB.batch(stmts);
+        if (sends.length && env.TG_BOT_TOKEN && env.TG_CHAT_ID) {
+            const fmtDur = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m` : `${Math.floor(s / 60)}m${s % 60}s`;
+            for (const s of sends) {
+                const msg = s.kind === 'offline'
+                    ? `🔴 *节点离线告警*\n\n📍 ${s.name}\n⏱️ 持续 ${fmtDur(s.duration)}`
+                    : `🟢 *节点已恢复*\n\n📍 ${s.name}\n⏱️ 本次离线 ${fmtDur(s.duration)}`;
+                try {
+                    await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: env.TG_CHAT_ID, text: msg, parse_mode: 'Markdown' })
+                    });
+                } catch (e) { /* swallow */ }
+            }
+        }
+    } catch (e) {
+        console.log('runAlertFSM error:', e.message);
+    }
+}
+
+function parseCustomHeaderEmbyToken(customHeadersRaw) {
+    if (!customHeadersRaw) return null;
+    const raw = String(customHeadersRaw);
+    let lines = [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+            for (const k of Object.keys(parsed)) lines.push(`${k}: ${parsed[k]}`);
+        }
+    } catch (_) {
+        lines = raw.split(/\r?\n/);
+    }
+    for (const ln of lines) {
+        const m = /^\s*(X-Emby-Token|X-MediaBrowser-Token)\s*:\s*(\S.*)$/i.exec(ln);
+        if (m) return m[2].trim();
+    }
+    return null;
+}
+
+// 与上游 emby-js buildEmbyClientHeaders 对齐：完整的 Emby 客户端身份头 + 真实 UA。
+// 同时把 token 写进 ?api_key= 查询串（上游 fetchEmbyMediaCounts 的做法），
+// 兼容部分仅认 query token 或仅认 X-Emby-Token 的 Emby 反代/WAF。
+function buildEmbyClientHeaders(token, prefix) {
+    const deviceId = String(prefix || 'forward');
+    const authHeader = [
+        'MediaBrowser Client="Forward"',
+        'Device="Forward"',
+        'DeviceId="' + deviceId.replace(/"/g, '') + '"',
+        'Version="1.0.0"',
+        'Token="' + String(token || '').replace(/"/g, '') + '"'
+    ].join(', ');
+    return {
+        'Accept': 'application/json',
+        'Authorization': authHeader,
+        'X-Emby-Authorization': authHeader,
+        'X-Emby-Client': 'Forward',
+        'X-Emby-Device-Name': 'Forward',
+        'X-Emby-Device-Id': deviceId,
+        'X-Emby-Client-Version': '1.0.0',
+        'X-Emby-Token': token,
+        'User-Agent': 'Forward/1.0.0'
+    };
+}
+
+async function fetchItemCounts(targetBase, token, customHeadersRaw, prefix) {
+    if (!targetBase || !token) return null;
+    const ctrl = new AbortController();
+    // 与上游一致：媒体计数允许 15s（大型库 /Items/Counts 可能慢）。
+    const tmr = setTimeout(() => ctrl.abort(), 15000);
+    try {
+        const base = targetBase.replace(/\/+$/, '');
+        const qs = 'Recursive=true&IncludeItemTypes=Movie,Series,Episode&api_key=' + encodeURIComponent(token);
+        const url = base + '/emby/Items/Counts?' + qs;
+        const headers = buildEmbyClientHeaders(token, prefix);
+        // 手动覆盖头（如 route.custom_headers 里指定的 X-Emby-Token）优先生效。
+        const extra = parseCustomHeadersForProbe(customHeadersRaw);
+        for (const k of Object.keys(extra)) headers[k] = extra[k];
+        let res = await fetch(url, { method: 'GET', redirect: 'manual', signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
+        // 兼容裸 Emby（无 /emby 前缀）部署
+        if (res.status === 404) {
+            const url2 = base + '/Items/Counts?' + qs;
+            res = await fetch(url2, { method: 'GET', redirect: 'manual', signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
+        }
+        clearTimeout(tmr);
+        if (res.status === 401 || res.status === 403) return { unauthorized: true };
+        if (!res.ok) return null;
+        const data = await res.json().catch(() => null);
+        if (!data) return null;
+        return {
+            movies: Number(data.MovieCount || 0) | 0,
+            series: Number(data.SeriesCount || 0) | 0,
+            episodes: Number(data.EpisodeCount || 0) | 0
+        };
+    } catch (e) {
+        clearTimeout(tmr);
+        return null;
+    }
+}
+
+async function tokenKey(env, prefix) {
+    const ikm = new TextEncoder().encode(String(env.ADMIN_TOKEN || ''));
+    const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
+    return await crypto.subtle.deriveKey(
+        { name: 'HKDF', hash: 'SHA-256',
+          salt: new TextEncoder().encode(String(prefix || '')),
+          info: new TextEncoder().encode('emby-proxy:harvested-token') },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false, ['encrypt', 'decrypt']
+    );
+}
+
+function b64encode(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+}
+function b64decode(str) {
+    const bin = atob(str);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+async function encryptToken(env, prefix, token) {
+    const key = await tokenKey(env, prefix);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(token));
+    return b64encode(iv) + '.' + b64encode(new Uint8Array(ct));
+}
+
+async function decryptToken(env, prefix, blob) {
+    if (!blob || typeof blob !== 'string' || blob.indexOf('.') < 0) return null;
+    const parts = blob.split('.');
+    if (parts.length !== 2) return null;
+    try {
+        const iv = b64decode(parts[0]);
+        const ct = b64decode(parts[1]);
+        if (iv.length !== 12) return null;
+        const key = await tokenKey(env, prefix);
+        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+        return new TextDecoder().decode(pt);
+    } catch (e) {
+        return null;
+    }
+}
+
+function extractEmbyToken(request) {
+    const h = request.headers;
+    let t = h.get('X-Emby-Token') || h.get('X-MediaBrowser-Token');
+    if (t) return t.trim();
+    const ea = h.get('X-Emby-Authorization');
+    if (ea) {
+        const m = /Token="?([^",\s]+)"?/i.exec(ea);
+        if (m) return m[1].trim();
+    }
+    const auth = h.get('Authorization');
+    if (auth) {
+        const m = /MediaBrowser[^,]*Token="?([^",\s]+)"?/i.exec(auth);
+        if (m) return m[1].trim();
+    }
+    try {
+        const u = new URL(request.url);
+        const q = u.searchParams.get('api_key');
+        if (q) return q.trim();
+    } catch (e) { /* ignore */ }
+    return null;
+}
+
+async function persistHarvestedToken(env, prefix, token, now) {
+    try {
+        const blob = await encryptToken(env, prefix, token);
+        await env.DB.prepare(`UPDATE routes SET emby_auth_cache = ?, emby_auth_seen_at = ? WHERE prefix = ?`)
+            .bind(blob, now, prefix).run();
+    } catch (e) {
+        console.log('persistHarvestedToken error:', e.message);
+    }
+}
+
+async function maybeFetchMediaCounts(env, routes, now) {
+    try {
+        const today = nowLocalDayStr();
+        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'emby_last_media_day'`).first();
+        const lastDay = row ? String(row.v || '') : '';
+        if (lastDay === today) return;
+        const writes = [];
+        let wroteCounts = false;
+        for (const r of routes) {
+            if (!r.media_counts_auto_auth) continue;
+            const base = probeTargetFor(r.target);
+            if (!base) continue;
+            let token = parseCustomHeaderEmbyToken(r.custom_headers);
+            let source = 'manual';
+            if (!token && r.emby_auth_cache) {
+                token = await decryptToken(env, r.prefix, r.emby_auth_cache);
+                source = 'harvested';
+            }
+            if (!token) continue;
+            const counts = await fetchItemCounts(base, token, r.custom_headers, r.prefix);
+            if (!counts) continue;
+            if (counts.unauthorized) {
+                if (source === 'harvested') {
+                    writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0 WHERE prefix=?`).bind(r.prefix));
+                    HARVEST_MEM.delete(r.prefix);
+                }
+                continue;
+            }
+            writes.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_media_counts(prefix, day, movies, series, episodes) VALUES(?,?,?,?,?)`)
+                .bind(r.prefix, today, counts.movies, counts.series, counts.episodes));
+            wroteCounts = true;
+            writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_used_at = ? WHERE prefix = ?`).bind(now, r.prefix));
+        }
+        if (wroteCounts) {
+            writes.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_media_day', ?, CURRENT_TIMESTAMP)`).bind(today));
+        }
+        if (writes.length) await env.DB.batch(writes);
+    } catch (e) {
+        console.log('maybeFetchMediaCounts error:', e.message);
+    }
+}
+
+function htmlEscape(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function newShareToken() {
+    const b = new Uint8Array(24);
+    crypto.getRandomValues(b);
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, '0');
+    return s;
+}
+
+// 安全只读：仅取公开渲染允许的字段。严禁触达 target / custom_headers / emby_auth_cache。
+async function loadStatusData(env, opts) {
+    opts = opts || {};
+    const limitPrefix = opts.prefix || null;
+    const where = limitPrefix
+        ? `WHERE show_on_status = 1 AND prefix = ?`
+        : `WHERE show_on_status = 1`;
+    const stmt = env.DB.prepare(`SELECT prefix, public_alias, remark, icon, sort_order, media_counts_auto_auth
+                                  FROM routes ${where} ORDER BY sort_order ASC, prefix ASC`);
+    const { results: routes } = limitPrefix ? await stmt.bind(limitPrefix).all() : await stmt.all();
+    if (!routes || !routes.length) return { routes: [], cards: [] };
+
+    const now = Math.floor(Date.now() / 1000);
+    const since24 = now - 24 * 3600;
+    const since7d = now - 7 * 86400;
+    const today = nowLocalDayStr();
+    // 计算昨日（UTC+8）字符串
+    const yDate = new Date(Date.now() + 8 * 3600000 - 86400000);
+    const yesterday = yDate.toISOString().slice(0, 10);
+
+    const cards = [];
+    for (const r of routes) {
+        const lastProbe = await env.DB.prepare(`SELECT ok, ms, status, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 1`).bind(r.prefix).first();
+        const last60 = await env.DB.prepare(`SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`).bind(r.prefix).all();
+        const raw24 = await env.DB.prepare(`SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`).bind(r.prefix, since24).first();
+        const hourly7 = await env.DB.prepare(`SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`).bind(r.prefix, since7d).first();
+        const todayCounts = await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day = ?`).bind(r.prefix, today).first();
+        const yesterdayCounts = await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day = ?`).bind(r.prefix, yesterday).first();
+        const total24 = (raw24 && raw24.total) | 0;
+        const ok24 = (raw24 && raw24.ok_count) | 0;
+        const total7d = (hourly7 && hourly7.total) | 0;
+        const ok7d = (hourly7 && hourly7.ok_count) | 0;
+        cards.push({
+            prefix: r.prefix,
+            name: r.public_alias || r.remark || r.prefix,
+            icon: r.icon || '',
+            ok: !!(lastProbe && lastProbe.ok),
+            latest_ms: lastProbe ? (lastProbe.ms | 0) : 0,
+            latest_ts: lastProbe ? (lastProbe.ts | 0) : 0,
+            avail_24h: total24 > 0 ? (ok24 / total24) : null,
+            avail_7d: total7d > 0 ? (ok7d / total7d) : null,
+            history: (last60.results || []).map(p => ({ ok: p.ok, ms: p.ms | 0 })).reverse(),
+            counts: todayCounts ? { movies: todayCounts.movies | 0, series: todayCounts.series | 0, episodes: todayCounts.episodes | 0 } : null,
+            counts_delta: (todayCounts && yesterdayCounts) ? {
+                movies: (todayCounts.movies | 0) - (yesterdayCounts.movies | 0),
+                series: (todayCounts.series | 0) - (yesterdayCounts.series | 0),
+                episodes: (todayCounts.episodes | 0) - (yesterdayCounts.episodes | 0)
+            } : null,
+            show_counts: !!r.media_counts_auto_auth
+        });
+    }
+    return { routes, cards };
+}
+
+function renderStatusHtml(data, opts) {
+    opts = opts || {};
+    const title = htmlEscape(opts.title || '节点状态');
+    const cards = data.cards;
+    const total = cards.length;
+    const online = cards.filter(c => c.ok).length;
+    const offline = total - online;
+    const pct = (v) => v == null ? '—' : (v * 100).toFixed(1) + '%';
+    const fmtDelta = (n) => n === 0 ? '' : (n > 0 ? `+${n}` : String(n));
+    const fmtTs = (ts) => {
+        if (!ts) return '—';
+        const d = new Date((ts + 8 * 3600) * 1000);
+        return d.toISOString().slice(5, 16).replace('T', ' ');
+    };
+
+    const cardsHtml = cards.map(c => {
+        const dot = c.ok ? '#30d158' : '#ff3b30';
+        const histBars = c.history.map(h => {
+            const color = h.ok ? '#30d158' : '#ff3b30';
+            const height = h.ok ? Math.max(8, Math.min(100, (h.ms || 0) / 20)) : 100;
+            return `<span class="s-bar" style="background:${color};height:${height}%" title="${htmlEscape(h.ok ? h.ms + 'ms' : 'fail')}"></span>`;
+        }).join('');
+        const countsRow = (c.show_counts && c.counts) ? `
+            <div class="s-counts">
+                <span>电影 <b>${c.counts.movies}</b> ${c.counts_delta && c.counts_delta.movies ? `<i class="s-delta ${c.counts_delta.movies > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.movies)}</i>` : ''}</span>
+                <span>剧集 <b>${c.counts.series}</b> ${c.counts_delta && c.counts_delta.series ? `<i class="s-delta ${c.counts_delta.series > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.series)}</i>` : ''}</span>
+                <span>集数 <b>${c.counts.episodes}</b> ${c.counts_delta && c.counts_delta.episodes ? `<i class="s-delta ${c.counts_delta.episodes > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.episodes)}</i>` : ''}</span>
+            </div>` : '';
+        const iconHtml = c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback"></span>';
+        return `<div class="s-card">
+            <div class="s-head">
+                ${iconHtml}
+                <div class="s-name">${htmlEscape(c.name)}</div>
+                <span class="s-dot" style="background:${dot}"></span>
+            </div>
+            <div class="s-metrics">
+                <div><span class="s-k">当前延迟</span><span class="s-v">${c.ok ? (c.latest_ms + ' ms') : '离线'}</span></div>
+                <div><span class="s-k">24小时</span><span class="s-v">${pct(c.avail_24h)}</span></div>
+                <div><span class="s-k">7天</span><span class="s-v">${pct(c.avail_7d)}</span></div>
+            </div>
+            <div class="s-strip">${histBars || '<span class="s-empty">暂无探测数据</span>'}</div>
+            ${countsRow}
+            <div class="s-foot">最近探测 ${fmtTs(c.latest_ts)}</div>
+        </div>`;
+    }).join('');
+
+    const emptyHtml = total === 0 ? `<div class="s-empty-large">尚未启用任何节点状态展示</div>` : '';
+
+    return `<!doctype html><html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+<style>
+:root { --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#86868b; --border:rgba(0,0,0,0.08); --ok:#30d158; --bad:#ff3b30; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#98989d; --border:rgba(255,255,255,0.1); }
+}
+* { box-sizing: border-box; }
+body { margin:0; padding:24px 16px; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); }
+.s-wrap { max-width: 1100px; margin: 0 auto; }
+.s-title { font-size: 28px; font-weight: 700; margin: 0 0 16px; }
+.s-agg { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.s-agg .s-chip { padding:10px 16px; background:var(--card); border:1px solid var(--border); border-radius:14px; font-size:14px; }
+.s-agg .s-chip b { font-size:18px; margin-left:6px; }
+.s-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
+.s-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.s-head { display:flex; align-items:center; gap:10px; }
+.s-icon, .s-icon-fallback { width:28px; height:28px; border-radius:8px; object-fit:cover; background:rgba(0,0,0,0.06); flex:0 0 auto; }
+.s-name { flex:1; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.s-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
+.s-metrics { display:flex; gap:14px; }
+.s-metrics > div { flex:1; display:flex; flex-direction:column; gap:2px; }
+.s-k { font-size:11px; color:var(--muted); }
+.s-v { font-size:15px; font-weight:600; }
+.s-strip { display:flex; align-items:flex-end; gap:1px; height:32px; background:rgba(0,0,0,0.04); border-radius:6px; padding:2px; overflow:hidden; }
+.s-bar { flex:1; min-width:2px; border-radius:1px; opacity:.85; }
+.s-counts { display:flex; gap:10px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+.s-counts b { color:var(--text); margin-left:3px; }
+.s-delta { font-style:normal; margin-left:4px; font-size:11px; padding:1px 4px; border-radius:4px; }
+.s-delta.up { color:var(--ok); background:rgba(48,209,88,0.12); }
+.s-delta.down { color:var(--bad); background:rgba(255,59,48,0.12); }
+.s-foot { font-size:11px; color:var(--muted); }
+.s-empty { color:var(--muted); font-size:12px; padding:6px 8px; }
+.s-empty-large { text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
+</style></head><body>
+<div class="s-wrap">
+  <h1 class="s-title">${title}</h1>
+  <div class="s-agg">
+    <span class="s-chip">总节点<b>${total}</b></span>
+    <span class="s-chip">在线<b style="color:var(--ok)">${online}</b></span>
+    <span class="s-chip">离线<b style="color:var(--bad)">${offline}</b></span>
+  </div>
+  <div class="s-grid">${cardsHtml}</div>
+  ${emptyHtml}
+</div>
+</body></html>`;
+}
+
+function renderCardSvg(card) {
+    const w = 360, h = 120;
+    const ok = card.ok;
+    const dotColor = ok ? '#30d158' : '#ff3b30';
+    const statusText = ok ? '在线' : '离线';
+    const pct = (v) => v == null ? '—' : (v * 100).toFixed(1) + '%';
+    const name = String(card.name || '').slice(0, 40);
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <style>
+      .bg { fill:#1c1c1e; }
+      .text { fill:#f5f5f7; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
+      .name { font-size:16px; font-weight:600; }
+      .label { font-size:11px; fill:#98989d; }
+      .value { font-size:14px; font-weight:600; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="${w}" height="${h}" rx="14"/>
+  <circle cx="22" cy="24" r="6" fill="${dotColor}"/>
+  <text class="text name" x="38" y="29">${htmlEscape(name)}</text>
+  <text class="text label" x="20" y="60">状态</text>
+  <text class="text value" x="20" y="78" fill="${dotColor}">${statusText}</text>
+  <text class="text label" x="130" y="60">7天可用</text>
+  <text class="text value" x="130" y="78">${pct(card.avail_7d)}</text>
+  <text class="text label" x="240" y="60">延迟</text>
+  <text class="text value" x="240" y="78">${ok ? card.latest_ms + ' ms' : '—'}</text>
+  <text class="text label" x="20" y="104">由 emby-proxy 监控</text>
+</svg>`;
+}
+
+async function probeAll(env) {
+    try {
+        await ensureSchema(env);
+        if (!env.DB) return;
+        const now = Math.floor(Date.now() / 1000);
+        const { results: routes } = await env.DB.prepare(`
+            SELECT prefix, target, remark, public_alias, custom_headers,
+                   show_on_status, media_counts_auto_auth, emby_auth_cache
+              FROM routes WHERE show_on_status = 1
+        `).all();
+        if (!routes || !routes.length) return;
+        const probes = await Promise.all(routes.map(r => probeOne(r)));
+        const insertStmts = probes.map(p =>
+            env.DB.prepare(`INSERT OR REPLACE INTO emby_probes(prefix, ts, ok, ms, status) VALUES(?,?,?,?,?)`)
+                .bind(p.prefix, now, p.ok ? 1 : 0, p.ms | 0, p.status | 0));
+        if (insertStmts.length) await env.DB.batch(insertStmts);
+        await runAlertFSM(env, routes, probes, now);
+        await maybeRollupHourly(env, now);
+        await maybeFetchMediaCounts(env, routes, now);
+    } catch (e) {
+        console.log('probeAll error:', e.message);
+    }
+}
+
 // 共享 schema 初始化（幂等）
 let _schemaReady = false;
 async function ensureSchema(env) {
@@ -6226,6 +6982,43 @@ async function ensureSchema(env) {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS kv_config (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS optimized_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE, note TEXT DEFAULT '', builtin INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, last_ms INTEGER DEFAULT -1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS dns_config (id INTEGER PRIMARY KEY CHECK (id = 1), cf_api_token TEXT DEFAULT '', cf_zone_id TEXT DEFAULT '', cf_record_id TEXT DEFAULT '', target_alias TEXT DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+        // emby-js 监控移植：节点状态、探测历史、媒体计数、公开分享
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN show_on_status INTEGER DEFAULT 0`); } catch (e) { }
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN public_alias TEXT DEFAULT ''`); } catch (e) { }
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN media_counts_auto_auth INTEGER DEFAULT 0`); } catch (e) { }
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_cache TEXT DEFAULT ''`); } catch (e) { }
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_seen_at INTEGER DEFAULT 0`); } catch (e) { }
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_used_at INTEGER DEFAULT 0`); } catch (e) { }
+        // 旧 /status 移植尝试可能在 D1 留下同名表但 schema 不同。自愈：探测目标列；缺失则 DROP + 重建。
+        // 这两张表只放遥测数据，无用户配置，重建无副作用。
+        const probeRecreate = async (table, createSql, indexSql, probeCol) => {
+            try {
+                await env.DB.prepare(`SELECT ${probeCol} FROM ${table} LIMIT 0`).all();
+            } catch (e) {
+                if (/no such column|no such table/i.test(e.message || '')) {
+                    try { await env.DB.exec(`DROP TABLE IF EXISTS ${table}`); } catch (_) {}
+                }
+            }
+            await env.DB.exec(createSql);
+            if (indexSql) await env.DB.exec(indexSql);
+        };
+        await probeRecreate(
+            'emby_probes',
+            `CREATE TABLE IF NOT EXISTS emby_probes (prefix TEXT NOT NULL, ts INTEGER NOT NULL, ok INTEGER NOT NULL, ms INTEGER NOT NULL, status INTEGER DEFAULT 0, PRIMARY KEY(prefix, ts))`,
+            `CREATE INDEX IF NOT EXISTS idx_emby_probes_prefix_ts ON emby_probes(prefix, ts)`,
+            'ms'
+        );
+        await probeRecreate(
+            'emby_probe_hourly',
+            `CREATE TABLE IF NOT EXISTS emby_probe_hourly (prefix TEXT NOT NULL, hour_ts INTEGER NOT NULL, ok_count INTEGER NOT NULL, fail_count INTEGER NOT NULL, avg_ms INTEGER NOT NULL, p95_ms INTEGER NOT NULL, PRIMARY KEY(prefix, hour_ts))`,
+            null,
+            'hour_ts'
+        );
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probe_state (prefix TEXT PRIMARY KEY, first_fail_at INTEGER DEFAULT 0, last_alert_at INTEGER DEFAULT 0, alert_kind TEXT DEFAULT 'none')`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_media_counts (prefix TEXT NOT NULL, day TEXT NOT NULL, movies INTEGER DEFAULT 0, series INTEGER DEFAULT 0, episodes INTEGER DEFAULT 0, PRIMARY KEY(prefix, day))`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_public_share (token TEXT PRIMARY KEY, scope TEXT NOT NULL, prefix TEXT DEFAULT '', expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL)`);
+        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_emby_public_share_scope_prefix ON emby_public_share(scope, prefix)`);
 
         // Seed 内置优选域名（依赖 UNIQUE(domain) 去重，幂等）
         const seedStmts = DEFAULT_OPTIMIZED_DOMAINS.map(d =>
@@ -6356,8 +7149,20 @@ async function attempt403Cascade(targetUrl, baseHeaders, fetchInit, currentMode)
 }
 
 export default {
-    // 每天自动运行发送 TG 统计
+    // 定时触发器：1 分钟 cron 跑节点探测；每日 0 点 cron 推送 TG 统计
     async scheduled(event, env, ctx) {
+        const cron = event && event.cron || '';
+        if (cron === '0 0 * * *') {
+            if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
+                ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
+            }
+            return;
+        }
+        if (cron === '* * * * *') {
+            if (env.DB) ctx.waitUntil(probeAll(env));
+            return;
+        }
+        // 未配置 / 未知 cron：兼容旧部署，仅触发 TG 日报
         if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
             ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
         }
@@ -6507,6 +7312,70 @@ export default {
 
         if (request.method === "OPTIONS") {
             return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "*", "Access-Control-Max-Age": "86400" } });
+        }
+
+        // ==========================================
+        // emby-js 监控移植：公开页面（无需 admin 鉴权）
+        // ==========================================
+        if (url.pathname === '/status' && request.method === 'GET') {
+            if (!env.DB) return new Response('DB not bound', { status: 500 });
+            try {
+                const data = await loadStatusData(env, {});
+                return new Response(renderStatusHtml(data, { title: '节点状态' }), {
+                    headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
+                });
+            } catch (e) {
+                return new Response('Status error: ' + e.message, { status: 500 });
+            }
+        }
+        if (url.pathname.startsWith('/public/') && request.method === 'GET') {
+            if (!env.DB) return new Response('DB not bound', { status: 500 });
+            const token = url.pathname.slice('/public/'.length);
+            if (!/^[a-f0-9]{32,80}$/.test(token)) {
+                return new Response('Invalid token', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
+            }
+            try {
+                const row = await env.DB.prepare(`SELECT scope, expires_at FROM emby_public_share WHERE token = ? AND scope = 'dashboard'`).bind(token).first();
+                if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
+                    return new Response('链接已过期或失效', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
+                }
+                const data = await loadStatusData(env, {});
+                return new Response(renderStatusHtml(data, { title: '节点状态（公开）' }), {
+                    headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
+                });
+            } catch (e) {
+                return new Response('Public status error: ' + e.message, { status: 500 });
+            }
+        }
+        if (url.pathname.startsWith('/card/') && url.pathname.endsWith('.svg') && request.method === 'GET') {
+            if (!env.DB) return new Response('DB not bound', { status: 500 });
+            const token = url.pathname.slice('/card/'.length, -'.svg'.length);
+            if (!/^[a-f0-9]{32,80}$/.test(token)) {
+                return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">链接无效</text></svg>', {
+                    status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
+                });
+            }
+            try {
+                const row = await env.DB.prepare(`SELECT scope, prefix, expires_at FROM emby_public_share WHERE token = ? AND scope = 'card'`).bind(token).first();
+                if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
+                    return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">链接已过期</text></svg>', {
+                        status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
+                    });
+                }
+                const data = await loadStatusData(env, { prefix: row.prefix });
+                if (!data.cards.length) {
+                    return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">节点已下线或未开启状态</text></svg>', {
+                        status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
+                    });
+                }
+                return new Response(renderCardSvg(data.cards[0]), {
+                    headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8', 'Cache-Control': 'public, max-age=60' }
+                });
+            } catch (e) {
+                return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">渲染失败</text></svg>', {
+                    status: 500, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
+                });
+            }
         }
 
         const EXPECTED_TOKEN = env.ADMIN_TOKEN;
@@ -6960,12 +7829,95 @@ export default {
                     if (!r.prefix || !r.target) { skipped.push({ prefix: r.prefix || '(空)', reason: '缺少 prefix 或 target' }); continue; }
                     const reason = validateRoutePrefix(r.prefix);
                     if (reason) { skipped.push({ prefix: r.prefix, reason }); continue; }
-                    await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                        .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '').run();
+                    await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                        .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.show_on_status ? 1 : 0, r.public_alias || '', r.media_counts_auto_auth ? 1 : 0).run();
                     imported++;
                 }
                 return Response.json({ success: true, imported, skipped });
             } catch (e) { return Response.json({ success: false, error: e.message }); }
+        }
+
+        // ==========================================
+        // emby-js 监控移植：节点状态开关 + 公开分享 + 令牌撤销
+        // ==========================================
+        if (url.pathname === '/api/status/route-flags' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            try {
+                const body = await request.json();
+                const prefix = String(body.prefix || '').trim();
+                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
+                const exists = await env.DB.prepare(`SELECT prefix FROM routes WHERE prefix = ?`).bind(prefix).first();
+                if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
+                const fields = [];
+                const values = [];
+                if (body.show_on_status !== undefined) { fields.push('show_on_status = ?'); values.push(body.show_on_status ? 1 : 0); }
+                if (body.public_alias !== undefined) { fields.push('public_alias = ?'); values.push(String(body.public_alias || '').trim()); }
+                if (body.media_counts_auto_auth !== undefined) { fields.push('media_counts_auto_auth = ?'); values.push(body.media_counts_auto_auth ? 1 : 0); }
+                if (!fields.length) return Response.json({ success: false, error: '无字段需要更新' }, { status: 400 });
+                values.push(prefix);
+                await env.DB.prepare(`UPDATE routes SET ${fields.join(', ')} WHERE prefix = ?`).bind(...values).run();
+                return Response.json({ success: true });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+        }
+        if (url.pathname === '/api/status/revoke-auth' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            try {
+                const body = await request.json();
+                const prefix = String(body.prefix || '').trim();
+                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
+                await env.DB.prepare(`UPDATE routes SET emby_auth_cache = '', emby_auth_seen_at = 0, emby_auth_used_at = 0 WHERE prefix = ?`).bind(prefix).run();
+                HARVEST_MEM.delete(prefix);
+                return Response.json({ success: true });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+        }
+        if (url.pathname === '/api/status/auth-state' && request.method === 'GET') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            const { results } = await env.DB.prepare(`
+                SELECT prefix, show_on_status, public_alias, media_counts_auto_auth,
+                       CASE WHEN emby_auth_cache = '' THEN 0 ELSE 1 END AS has_token,
+                       emby_auth_seen_at, emby_auth_used_at
+                  FROM routes
+            `).all();
+            return Response.json({ success: true, items: results || [] });
+        }
+        if (url.pathname === '/api/share/dashboard' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            try {
+                const token = newShareToken();
+                const now = Math.floor(Date.now() / 1000);
+                const expires = now + 3600;
+                await env.DB.batch([
+                    env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'dashboard'`),
+                    env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'dashboard', '', ?, ?)`).bind(token, expires, now)
+                ]);
+                const origin = new URL(request.url).origin;
+                return Response.json({ success: true, token, url: `${origin}/public/${token}`, expires_at: expires });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
+        }
+        if (url.pathname === '/api/share/card' && request.method === 'POST') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            await ensureSchema(env);
+            try {
+                const body = await request.json();
+                const prefix = String(body.prefix || '').trim();
+                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
+                const exists = await env.DB.prepare(`SELECT show_on_status FROM routes WHERE prefix = ?`).bind(prefix).first();
+                if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
+                if (!exists.show_on_status) return Response.json({ success: false, error: '该节点未开启“在状态页展示”，无法生成分享卡片' }, { status: 400 });
+                const token = newShareToken();
+                const now = Math.floor(Date.now() / 1000);
+                const expires = now + 3600;
+                await env.DB.batch([
+                    env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'card' AND prefix = ?`).bind(prefix),
+                    env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'card', ?, ?, ?)`).bind(token, prefix, expires, now)
+                ]);
+                const origin = new URL(request.url).origin;
+                return Response.json({ success: true, token, url: `${origin}/card/${token}.svg`, expires_at: expires });
+            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
         }
 
         if (url.pathname.startsWith('/api/routes')) {
@@ -7065,17 +8017,28 @@ export default {
                     return Response.json({ success: false, error: `路由别名 "${data.prefix}" 不可用：${invalidReason}` }, { status: 400 });
                 }
                 let currentSortOrder = 0;
+                let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0 };
                 if (data.oldPrefix && data.oldPrefix !== data.prefix) {
-                    const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
-                    if (oldRow) currentSortOrder = oldRow.sort_order;
+                    const oldRow = await env.DB.prepare('SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
+                    if (oldRow) {
+                        currentSortOrder = oldRow.sort_order;
+                        prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
+                    }
                     await env.DB.prepare('DELETE FROM routes WHERE prefix = ?').bind(data.oldPrefix).run();
                 } else {
-                    const oldRow = await env.DB.prepare('SELECT sort_order FROM routes WHERE prefix = ?').bind(data.prefix).first();
-                    if (oldRow) currentSortOrder = oldRow.sort_order;
+                    const oldRow = await env.DB.prepare('SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?').bind(data.prefix).first();
+                    if (oldRow) {
+                        currentSortOrder = oldRow.sort_order;
+                        prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
+                    }
                 }
 
-                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '').run();
+                const showOnStatus = data.show_on_status === undefined ? prevStatusFields.show_on_status : (data.show_on_status ? 1 : 0);
+                const publicAlias = data.public_alias === undefined ? prevStatusFields.public_alias : String(data.public_alias || '').trim();
+                const mediaAuto = data.media_counts_auto_auth === undefined ? prevStatusFields.media_counts_auto_auth : (data.media_counts_auto_auth ? 1 : 0);
+
+                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '', showOnStatus, publicAlias, mediaAuto).run();
                 return Response.json({ success: true });
             }
 
@@ -7101,7 +8064,7 @@ export default {
 
             try {
                 if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers FROM routes WHERE prefix = ?`);
+                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, media_counts_auto_auth FROM routes WHERE prefix = ?`);
                 const route = await stmt.bind(prefix).first();
                 if (!route) return new Response(`404: Node not found`, { status: 404 });
 
@@ -7109,6 +8072,19 @@ export default {
                 matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
                 targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
                 customHeadersRaw = route.custom_headers || '';
+
+                // emby-js 监控移植：被动令牌收割（仅当节点显式开启 media_counts_auto_auth）
+                if (route.media_counts_auto_auth === 1 && ctx && ctx.waitUntil) {
+                    const tok = extractEmbyToken(request);
+                    if (tok) {
+                        const nowSec = Math.floor(Date.now() / 1000);
+                        const last = HARVEST_MEM.get(prefix);
+                        if (!last || last.token !== tok || (nowSec - last.writtenAt) > EMBY_HARVEST_DEBOUNCE_S) {
+                            HARVEST_MEM.set(prefix, { token: tok, writtenAt: nowSec });
+                            ctx.waitUntil(persistHarvestedToken(env, prefix, tok, nowSec));
+                        }
+                    }
+                }
 
                 if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
             } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
