@@ -2753,7 +2753,7 @@ const HTML_UI = `
                     <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
                     <span>数据统计</span>
                 </button>
-                <button type="button" class="nav-item" data-section="embyStatus" onclick="showSection('embyStatus'); loadEmbyStatusAdmin();">
+                <button type="button" class="nav-item" data-section="embyStatus" onclick="showSection('embyStatus')">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
                     <span>节点状态</span>
                 </button>
@@ -4183,6 +4183,10 @@ const HTML_UI = `
                     if (trendChartInstance) trendChartInstance.resize();
                     if (locationChartInstance) locationChartInstance.resize();
                 }, 60); }
+            }
+            // 节点状态分区: 进入即加载（避免必须手动点"刷新"）
+            if (key === 'embyStatus' && typeof loadEmbyStatusAdmin === 'function') {
+                loadEmbyStatusAdmin();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
