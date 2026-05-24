@@ -6453,11 +6453,6 @@ async function ensureSchema(env) {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probe_hourly (prefix TEXT NOT NULL, hour TEXT NOT NULL, probe_count INTEGER NOT NULL, ok_count INTEGER NOT NULL, avg_ms INTEGER, PRIMARY KEY (prefix, hour))`);
         try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN show_on_status INTEGER DEFAULT 0`); } catch (e) { }
         try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN public_alias TEXT DEFAULT ''`); } catch (e) { }
-        // 隐私说明：emby_auth_cache 存放最近一次代理请求中提取到的 Emby/Jellyfin
-        // bearer token（用户级别）。任何能读取此 D1 的人都能用该 token 冒充该用户
-        // 访问对应 Emby 实例。风险等级 = 存 API key（≤ 存密码）。若不可接受，
-        // 将该路由的 show_on_status 设为 0 即可阻止采集（probe 也会自动停止）。
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_cache TEXT DEFAULT ''`); } catch (e) { }
 
         _schemaReady = true;
     } catch (e) {
@@ -6474,40 +6469,6 @@ const EMBY_PROBE_TIMEOUT_MS = 8000;
 const EMBY_PROBE_RAW_RETAIN_HOURS = 48;
 const EMBY_PROBE_HOURLY_RETAIN_DAYS = 30;
 
-// 从代理请求里提取 Emby/Jellyfin bearer token，覆盖客户端常见的 5 种发送形式。
-// 同步、纯字符串处理；调用方必须 try/catch（提取失败绝不能拖垮代理热路径）。
-function extractEmbyToken(request, url) {
-    // 1. 显式 X-Emby-Token / X-MediaBrowser-Token
-    const direct = request.headers.get('X-Emby-Token') || request.headers.get('X-MediaBrowser-Token');
-    if (direct) return direct.trim();
-
-    // 2. X-Emby-Authorization: MediaBrowser Client="...", Token="..."
-    const xea = request.headers.get('X-Emby-Authorization');
-    if (xea) {
-        const m = xea.match(/Token\s*=\s*"([^"]+)"/i);
-        if (m) return m[1];
-    }
-
-    // 3. Authorization: MediaBrowser Token="..." （Jellyfin 老式格式）
-    const auth = request.headers.get('Authorization');
-    if (auth) {
-        const m = auth.match(/Token\s*=\s*"([^"]+)"/i);
-        if (m) return m[1];
-    }
-
-    // 4. 查询串 api_key / ApiKey
-    const q = url && url.searchParams;
-    if (q) {
-        const qk = q.get('api_key') || q.get('ApiKey') || q.get('apikey');
-        if (qk) return qk;
-    }
-    return '';
-}
-
-// 节流：上一次为某 prefix 写入 D1 的 token（worker 进程内存）。
-// 命中即跳过 D1 写，避免每个代理请求都打一次写。
-const _embyTokenCache = new Map();
-
 async function probeRoute(env, route) {
     const targets = String(route.target || '').split(',').map(s => s.trim()).filter(Boolean);
     if (targets.length === 0) {
@@ -6520,7 +6481,6 @@ async function probeRoute(env, route) {
     // 没有这些头，counts 会一直是 null，公开页底部的"总计电影/剧集/单集"也就出不来。
     const headers = { 'Accept': 'application/json' };
     const rawHeaders = String(route.custom_headers || '');
-    let hasManualEmbyToken = false;
     for (const line of rawHeaders.split('\n')) {
         const s = line.trim();
         if (!s || s.startsWith('#')) continue;
@@ -6528,16 +6488,7 @@ async function probeRoute(env, route) {
         if (idx <= 0) continue;
         const k = s.slice(0, idx).trim();
         const v = s.slice(idx + 1).trim();
-        if (k && v) {
-            headers[k] = v;
-            const lk = k.toLowerCase();
-            if (lk === 'x-emby-token' || lk === 'x-mediabrowser-token') hasManualEmbyToken = true;
-        }
-    }
-    // 如果用户没手动设鉴权头，回退到代理热路径采集到的 emby_auth_cache。
-    // 优先级：custom_headers 显式设置 > 自动采集（用户行为永远赢）。
-    if (!hasManualEmbyToken && route.emby_auth_cache) {
-        headers['X-Emby-Token'] = String(route.emby_auth_cache);
+        if (k && v) headers[k] = v;
     }
 
     const start = Date.now();
@@ -6557,10 +6508,8 @@ async function probeRoute(env, route) {
             server_name = String(sysJson.ServerName || sysJson.serverName || '').slice(0, 64);
         } catch (e) { /* 非 JSON：仍视为在线 */ }
 
-        // 媒体计数：可能 401（无鉴权头或缓存 token 已失效），失败不影响 ok。
-        // counts_unauthorized=true 用于通知调用方清除该 prefix 的 emby_auth_cache。
+        // 媒体计数：可能 401（无鉴权头时），失败不影响 ok。
         let item_counts = null;
-        let counts_unauthorized = false;
         try {
             const cntRes = await fetch(base + '/Items/Counts', {
                 method: 'GET',
@@ -6569,15 +6518,12 @@ async function probeRoute(env, route) {
             });
             if (cntRes.ok) {
                 item_counts = await cntRes.json();
-            } else if ((cntRes.status === 401 || cntRes.status === 403) && route.emby_auth_cache && !hasManualEmbyToken) {
-                // 缓存 token 已失效；标记清除。
-                counts_unauthorized = true;
             }
         } catch (e) { /* 静默：counts 是 best-effort */ }
 
-        return { ok: true, response_ms, server_name, item_counts, error: '', counts_unauthorized };
+        return { ok: true, response_ms, server_name, item_counts, error: '' };
     } catch (e) {
-        return { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(e && e.message || e).slice(0, 200), counts_unauthorized: false };
+        return { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(e && e.message || e).slice(0, 200) };
     }
 }
 
@@ -6588,7 +6534,7 @@ async function probeAllAndStore(env) {
     let routes = [];
     try {
         const { results } = await env.DB.prepare(
-            `SELECT prefix, target, public_alias, custom_headers, emby_auth_cache FROM routes WHERE show_on_status = 1`
+            `SELECT prefix, target, public_alias, custom_headers FROM routes WHERE show_on_status = 1`
         ).all();
         routes = results || [];
     } catch (e) {
@@ -6606,7 +6552,7 @@ async function probeAllAndStore(env) {
         const r = routes[i];
         const s = settled[i];
         const result = s.status === 'fulfilled' ? s.value
-            : { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(s.reason && s.reason.message || s.reason || 'unknown').slice(0, 200), counts_unauthorized: false };
+            : { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(s.reason && s.reason.message || s.reason || 'unknown').slice(0, 200) };
 
         inserts.push(env.DB.prepare(
             `INSERT INTO emby_probes (prefix, ok, response_ms, server_name, item_counts, error) VALUES (?, ?, ?, ?, ?, ?)`
@@ -6618,12 +6564,6 @@ async function probeAllAndStore(env) {
             result.item_counts ? JSON.stringify(result.item_counts) : '',
             result.error || ''
         ));
-
-        // 缓存 token 失效时清掉 D1 与内存中的缓存，等待下次代理请求重新采集。
-        if (result.counts_unauthorized) {
-            inserts.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache = '' WHERE prefix = ?`).bind(r.prefix));
-            _embyTokenCache.delete(r.prefix);
-        }
 
         const key = r.prefix;
         const agg = hourlyByKey.get(key) || { probe_count: 0, ok_count: 0, ms_sum: 0, ms_n: 0 };
@@ -7645,8 +7585,6 @@ export default {
         let customHeadersRaw = '';
         const decodedPath = decodeURIComponent(url.pathname); let matchedPrefix = null;
         let proxyOrigin = new URL(request.url).origin;
-        // 提升作用域：harvest 块需要 show_on_status 来决定是否采集 token
-        let routeShowOnStatus = 0;
 
         if (decodedPath.startsWith('/http://') || decodedPath.startsWith('/https://')) {
             targetUrls = [decodedPath.substring(1)]; remainingPath = '';
@@ -7656,7 +7594,7 @@ export default {
 
             try {
                 if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, show_on_status FROM routes WHERE prefix = ?`);
+                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers FROM routes WHERE prefix = ?`);
                 const route = await stmt.bind(prefix).first();
                 if (!route) return new Response(`404: Node not found`, { status: 404 });
 
@@ -7664,7 +7602,6 @@ export default {
                 matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
                 targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
                 customHeadersRaw = route.custom_headers || '';
-                routeShowOnStatus = route.show_on_status ? 1 : 0;
 
                 if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
             } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
@@ -7713,25 +7650,6 @@ export default {
                 stmts.push(env.DB.prepare(`INSERT INTO visitor_logs (prefix, ip, country, ua) VALUES (?, ?, ?, ?)`).bind(matchedPrefix, clientIp, clientCountry, clientUa));
 
                 ctx.waitUntil(env.DB.batch(stmts));
-            } catch (e) { }
-        }
-
-        // ==========================================
-        // 2.7.5 公开 /status 状态页 - 从已认证的代理请求中采集 Emby bearer token
-        // 仅对已开启 show_on_status 的路由采集；通过 ctx.waitUntil 异步写 D1，
-        // 配合 _embyTokenCache 内存去重，热路径上几乎零开销。失败必须静默。
-        // 隐私权衡：见 ensureSchema 处关于 emby_auth_cache 的注释。
-        // ==========================================
-        if (matchedPrefix && routeShowOnStatus && env.DB && ctx && ctx.waitUntil) {
-            try {
-                const tok = extractEmbyToken(request, url);
-                if (tok && _embyTokenCache.get(matchedPrefix) !== tok) {
-                    _embyTokenCache.set(matchedPrefix, tok);
-                    ctx.waitUntil(
-                        env.DB.prepare(`UPDATE routes SET emby_auth_cache = ? WHERE prefix = ?`)
-                            .bind(tok, matchedPrefix).run()
-                    );
-                }
             } catch (e) { }
         }
 
