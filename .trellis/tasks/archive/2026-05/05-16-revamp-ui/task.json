@@ -1,0 +1,28 @@
+{
+  "id": "revamp-ui",
+  "name": "revamp-ui",
+  "title": "Revamp worker.js UI",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "ykq007",
+  "assignee": "ykq007",
+  "createdAt": "2026-05-16",
+  "completedAt": "2026-05-19",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-17-mobile-adaptation"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

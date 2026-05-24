@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/ui-design-system.md", "reason": "Verify all new v5 rules use design tokens (no raw px outside the scale), live inside @media (max-width: 768px), and don't mutate desktop rules."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Verify version bump 2.3.0 -> 2.4.0, light + dark mode parity, prefers-reduced-motion respected, 44pt minimum tap targets."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Prefer extending existing IDs/classes (.m-pills, #mobileTabBar, #dashboardModal, .card, .ios-form-row) over inventing parallel structures."}
