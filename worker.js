@@ -6880,6 +6880,14 @@ function renderStatusHtml(data, opts) {
     const total = cards.length;
     const online = cards.filter(c => c.ok).length;
     const offline = total - online;
+    // tier each card: live (ok && <200ms) / warn (ok && >=200ms) / down (!ok)
+    const tieredCards = cards.map(c => {
+        let tier = 'live';
+        if (!c.ok) tier = 'down';
+        else if ((c.latest_ms | 0) >= 200) tier = 'warn';
+        return { ...c, tier };
+    });
+    const slowCount = tieredCards.filter(c => c.tier === 'warn').length;
     const pct = (v) => v == null ? '—' : (v * 100).toFixed(1) + '%';
     const fmtDelta = (n) => n === 0 ? '' : (n > 0 ? `+${n}` : String(n));
     const fmtTs = (ts) => {
@@ -6887,313 +6895,295 @@ function renderStatusHtml(data, opts) {
         const d = new Date((ts + 8 * 3600) * 1000);
         return d.toISOString().slice(5, 16).replace('T', ' ');
     };
+    const fmtHHMM = (ts) => {
+        if (!ts) return '—';
+        const d = new Date((ts + 8 * 3600) * 1000);
+        return d.toISOString().slice(11, 16);
+    };
+    // station date/time (UTC+8) for initial server render
+    const nowMs = Date.now();
+    const stationISO = new Date(nowMs + 8 * 3600 * 1000).toISOString();
+    const stationDate = stationISO.slice(0, 10).replace(/-/g, '.');
+    const stationTime = stationISO.slice(11, 16);
+    // ISSUE number = days since 2026-01-01 (UTC+8)
+    const issueNum = Math.max(1, Math.floor((nowMs + 8 * 3600 * 1000 - Date.UTC(2026, 0, 1)) / 86400000) + 1);
+    // last probe time across all cards
+    const lastProbeTs = cards.reduce((m, c) => Math.max(m, c.latest_ts | 0), 0);
+    // average latency of live nodes
+    const liveOnes = cards.filter(c => c.ok);
+    const avgMs = liveOnes.length ? Math.round(liveOnes.reduce((s, c) => s + (c.latest_ms | 0), 0) / liveOnes.length) : 0;
 
-    // Health ring math
+    // Stamp tier + percentage
     const overallPct = total === 0 ? null : (online / total);
-    const ringVar = overallPct == null ? '--ring-track'
-        : overallPct >= 0.99 ? '--ok'
-        : overallPct >= 0.95 ? '--warn'
-        : '--bad';
-    const R = 52;
-    const CIRC = 2 * Math.PI * R; // ~326.726
-    const dashOffset = overallPct == null ? CIRC : (1 - overallPct) * CIRC;
-    const pctText = overallPct == null ? '—' : (overallPct * 100).toFixed(1) + '%';
+    const stampTier = overallPct == null ? 'ok'
+        : overallPct >= 0.99 ? 'ok'
+        : overallPct >= 0.95 ? 'warn'
+        : 'bad';
+    const pctWhole = overallPct == null ? '—' : Math.round(overallPct * 1000) / 10;
+    const pctIntStr = overallPct == null ? '—' : (pctWhole >= 100 ? '100' : pctWhole.toFixed(1));
 
     const hideNames = !!opts.hideNames;
-    const cardsHtml = cards.map((c, i) => {
+    const rowsHtml = tieredCards.map((c, i) => {
         const histBars = c.history.map(h => {
-            const cls = h.ok ? 's-bar ok' : 's-bar bad';
+            const cls = h.ok ? 'bar ok' : 'bar bad';
             const height = h.ok ? Math.max(8, Math.min(100, (h.ms || 0) / 20)) : 100;
             return `<span class="${cls}" style="height:${height}%" title="${htmlEscape(h.ok ? h.ms + 'ms' : 'fail')}"></span>`;
         }).join('');
+        const stripHtml = histBars || '<span class="empty">暂无探测数据</span>';
         const countsRow = (c.show_counts && c.counts) ? `
-            <div class="s-counts">
-                <span>电影 <b>${c.counts.movies}</b> ${c.counts_delta && c.counts_delta.movies ? `<i class="s-delta ${c.counts_delta.movies > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.movies)}</i>` : ''}</span>
-                <span>剧集 <b>${c.counts.series}</b> ${c.counts_delta && c.counts_delta.series ? `<i class="s-delta ${c.counts_delta.series > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.series)}</i>` : ''}</span>
-                <span>集数 <b>${c.counts.episodes}</b> ${c.counts_delta && c.counts_delta.episodes ? `<i class="s-delta ${c.counts_delta.episodes > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.episodes)}</i>` : ''}</span>
+            <div class="row-counts">
+                <span>电影<b>${c.counts.movies}</b>${c.counts_delta && c.counts_delta.movies ? `<i class="delta ${c.counts_delta.movies > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.movies)}</i>` : ''}</span>
+                <span>剧集<b>${c.counts.series}</b>${c.counts_delta && c.counts_delta.series ? `<i class="delta ${c.counts_delta.series > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.series)}</i>` : ''}</span>
+                <span>集数<b>${c.counts.episodes}</b>${c.counts_delta && c.counts_delta.episodes ? `<i class="delta ${c.counts_delta.episodes > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.episodes)}</i>` : ''}</span>
             </div>` : '';
         const displayName = hideNames ? `节点 ${i + 1}` : c.name;
-        const iconHtml = hideNames
-            ? '<span class="s-icon-fallback"></span>'
-            : (c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback"></span>');
-        const dotCls = c.ok ? 's-dot live' : 's-dot dead';
-        return `<article class="s-card">
-            <div class="s-card-bg" aria-hidden="true"></div>
-            <div class="s-head">
+        const iconHtml = (!hideNames && c.icon)
+            ? `<img class="row-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">`
+            : '<span class="row-icon" aria-hidden="true"></span>';
+        const statusLabel = c.tier === 'down' ? 'Down' : (c.tier === 'warn' ? 'Slow' : 'Live');
+        // is-live marks "shows in 在线 filter" — includes both live and warn (slow) tiers
+        const rowCls = c.tier === 'down' ? 'row is-down'
+            : c.tier === 'warn' ? 'row is-warn is-live'
+            : 'row is-live';
+        const num = String(i + 1).padStart(2, '0');
+        const latencyHtml = c.ok
+            ? `<div class="metric-v">${c.latest_ms}<span class="u">ms</span></div>`
+            : `<div class="metric-v is-bad">offline</div>`;
+        return `<article class="${rowCls}">
+            <div class="row-head">
+                <span class="row-num">№ ${num}</span>
                 ${iconHtml}
-                <div class="s-name">${htmlEscape(displayName)}</div>
-                <span class="${dotCls}" aria-label="${c.ok ? '在线' : '离线'}"></span>
+                <span class="row-name">${htmlEscape(displayName)}</span>
+                <span class="row-status"><span class="dot" aria-hidden="true"></span>${statusLabel}</span>
             </div>
-            <div class="s-metrics">
-                <div><span class="s-k">当前延迟</span><span class="s-v ${c.ok ? '' : 'is-bad'}">${c.ok ? `${c.latest_ms}<span class="s-u">ms</span>` : '离线'}</span></div>
-                <div><span class="s-k">24小时</span><span class="s-v">${pct(c.avail_24h)}</span></div>
-                <div><span class="s-k">7天</span><span class="s-v">${pct(c.avail_7d)}</span></div>
+            <div class="row-metrics">
+                <div class="metric">${latencyHtml}<div class="metric-k">当前延迟 · Now</div></div>
+                <div class="metric"><div class="metric-v">${pct(c.avail_24h)}</div><div class="metric-k">24 小时</div></div>
+                <div class="metric"><div class="metric-v">${pct(c.avail_7d)}</div><div class="metric-k">7 天</div></div>
             </div>
-            <div class="s-strip">${histBars || '<span class="s-empty">暂无探测数据</span>'}</div>
+            <div class="row-strip" aria-hidden="true">${stripHtml}</div>
             ${countsRow}
-            <div class="s-foot">最近探测 ${fmtTs(c.latest_ts)}</div>
+            <div class="row-foot">Last probe · ${fmtTs(c.latest_ts)}${c.tier === 'down' ? ' · alerting' : ''}</div>
         </article>`;
     }).join('');
 
-    const emptyHtml = total === 0 ? `<div class="s-empty-large">尚未启用任何节点状态展示</div>` : '';
+    // Stamp SVG: text along outer arc + double rings + center pct
+    const stampSvg = `<svg class="ring-text" viewBox="0 0 100 100" aria-hidden="true">
+        <defs><path id="stamp-arc" d="M 50,50 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0"/></defs>
+        <text font-family="Geist Mono, monospace" font-size="6.4" letter-spacing="3.2" fill="currentColor">
+          <textPath href="#stamp-arc" startOffset="0">OPERATIONS · BULLETIN · STATION · EMBY · </textPath>
+        </text>
+    </svg>`;
 
-    const ringSvg = `<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
-        <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--ring-track)" stroke-width="10"></circle>
-        ${overallPct == null ? '' : `<circle class="ring-fg" cx="60" cy="60" r="${R}" fill="none" stroke="var(${ringVar})" stroke-width="10" stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(3)}" stroke-dashoffset="${dashOffset.toFixed(3)}" transform="rotate(-90 60 60)"></circle>`}
-    </svg>
-    <div class="ring-center">
-        <div class="ring-pct">${pctText}</div>
-        <div class="ring-cap">AVAILABILITY</div>
-    </div>`;
+    // Ticker text built from real data
+    let tickerLine;
+    if (total === 0) {
+        tickerLine = '▸ NO NODES CONFIGURED · OPEN ADMIN TO ADD';
+    } else if (offline === 0 && slowCount === 0) {
+        tickerLine = `▸ ALL SYSTEMS NOMINAL <i>·</i> ${online}/${total} LIVE <i>·</i> AVG <b>${avgMs}MS</b> <i>·</i> LAST PROBE <b>${htmlEscape(fmtHHMM(lastProbeTs))}</b>`;
+    } else if (offline === 0) {
+        tickerLine = `▸ ${slowCount} NODE${slowCount > 1 ? 'S' : ''} ELEVATED LATENCY <i>·</i> ${online}/${total} LIVE <i>·</i> AVG <b>${avgMs}MS</b>`;
+    } else {
+        const downNames = tieredCards.filter(c => c.tier === 'down').slice(0, 2).map((c, idx) => htmlEscape(hideNames ? `NODE ${cards.indexOf(c) + 1}` : String(c.name).toUpperCase())).join(' / ');
+        tickerLine = `▸ ${offline} NODE${offline > 1 ? 'S' : ''} OFFLINE <i>·</i> ${downNames} <i>·</i> ${online}/${total} LIVE <i>·</i> LAST PROBE <b>${htmlEscape(fmtHHMM(lastProbeTs))}</b>`;
+    }
+    const tickerSecondary = `▸ ISSUE ${issueNum} <i>·</i> AUTO REFRESH 10S <i>·</i> EMBY STATION`;
 
-    // Theme bootstrap script — inline, must run before paint to avoid FOUC.
-    const themeBoot = `(function(){try{var t=localStorage.getItem('status_theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
-    const themeToggleScript = `(function(){var b=document.getElementById('themeToggle');if(!b)return;function sync(){var t=document.documentElement.dataset.theme||'dark';b.setAttribute('aria-pressed',t==='dark'?'true':'false');b.dataset.theme=t;}sync();b.addEventListener('click',function(){var cur=document.documentElement.dataset.theme||'dark';var next=cur==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('status_theme',next);}catch(e){}sync();});})();`;
+    const emptyHtml = total === 0 ? `<div class="row" style="text-align:center;color:var(--ink-soft);padding:48px 0;">尚未启用任何节点状态展示</div>` : '';
+
+    // Theme bootstrap — inline, must run before paint to avoid FOUC.
+    const themeBoot = `(function(){try{var t=localStorage.getItem('status_theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();`;
+
+    const inlineScript = `
+(function(){
+  var b=document.getElementById('themeToggle');
+  if(b){
+    function sync(){var t=document.documentElement.dataset.theme||'light';b.setAttribute('aria-pressed',t==='dark'?'true':'false');}
+    sync();
+    b.addEventListener('click',function(){
+      var cur=document.documentElement.dataset.theme||'light';
+      var next=cur==='dark'?'light':'dark';
+      document.documentElement.dataset.theme=next;
+      try{localStorage.setItem('status_theme',next);}catch(e){}
+      sync();
+    });
+  }
+  var nav=document.getElementById('filter'), list=document.getElementById('list');
+  if(nav&&list){
+    nav.addEventListener('click',function(e){
+      var btn=e.target.closest('button[data-filter]'); if(!btn) return;
+      nav.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed','false'); });
+      btn.setAttribute('aria-pressed','true');
+      list.setAttribute('data-filter', btn.dataset.filter);
+    });
+  }
+  var dEl=document.getElementById('mDate'), tEl=document.getElementById('mTime');
+  if(dEl&&tEl){
+    function tick(){
+      var d=new Date(Date.now()+8*3600*1000);
+      var s=d.toISOString();
+      dEl.textContent=s.slice(0,10).replace(/-/g,'.');
+      tEl.textContent=s.slice(11,16)+' +08';
+    }
+    setInterval(tick, 30000);
+  }
+  // Auto-refresh whole page every 60s to pull new probe data
+  setTimeout(function(){ try{ location.reload(); }catch(e){} }, 60000);
+})();`;
 
     return `<!doctype html><html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Geist+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script>${themeBoot}</script>
 <style>
-:root[data-theme="dark"] {
-  --bg-base:#0b0b14; --bg-deep:#050509;
-  --aurora-1:rgba(120,90,255,.55); --aurora-2:rgba(0,220,200,.40); --aurora-3:rgba(255,80,160,.32);
-  --glass-bg:rgba(255,255,255,.045); --glass-bd:rgba(255,255,255,.10); --glass-hi:rgba(255,255,255,.14);
-  --text:#e8e8f0; --text-sec:rgba(232,232,240,.62); --text-ter:rgba(232,232,240,.40);
-  --ring-track:rgba(255,255,255,.10); --grain-op:.045;
-  --ok:#34e3a4; --warn:#ffd166; --bad:#ff5577;
-  --ok-soft:rgba(52,227,164,.16); --bad-soft:rgba(255,85,119,.16);
-  --strip-bg:rgba(255,255,255,.04);
-}
-:root[data-theme="light"] {
-  --bg-base:#f4f1ec; --bg-deep:#ece8e1;
-  --aurora-1:rgba(120,90,255,.22); --aurora-2:rgba(0,180,200,.20); --aurora-3:rgba(255,110,170,.18);
-  --glass-bg:rgba(255,255,255,.58); --glass-bd:rgba(20,20,40,.10); --glass-hi:rgba(255,255,255,.80);
-  --text:#1b1b22; --text-sec:rgba(27,27,34,.62); --text-ter:rgba(27,27,34,.42);
-  --ring-track:rgba(20,20,40,.10); --grain-op:.025;
-  --ok:#16a37a; --warn:#d99514; --bad:#e23a5b;
-  --ok-soft:rgba(22,163,122,.14); --bad-soft:rgba(226,58,91,.14);
-  --strip-bg:rgba(20,20,40,.06);
-}
-* { box-sizing:border-box; }
-html, body { margin:0; padding:0; }
-body {
-  min-height:100vh;
-  padding:32px 24px 64px;
-  font-family:'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  color:var(--text);
-  background:var(--bg-deep);
-  background-image:radial-gradient(ellipse at 50% -10%, var(--bg-base), var(--bg-deep) 60%);
-  position:relative;
-  overflow-x:hidden;
-  transition:background-color .25s ease, color .25s ease;
-}
-body::before, body::after {
-  content:""; position:fixed; pointer-events:none; z-index:0;
-  width:60vw; height:60vw; border-radius:50%;
-  filter:blur(90px); opacity:.95; transition:opacity .25s ease;
-}
-body::before {
-  top:-18vw; left:-12vw;
-  background:radial-gradient(circle at 30% 30%, var(--aurora-1), transparent 60%),
-             radial-gradient(circle at 70% 70%, var(--aurora-2), transparent 60%);
-}
-body::after {
-  bottom:-22vw; right:-18vw;
-  background:radial-gradient(circle at 50% 50%, var(--aurora-3), transparent 65%),
-             radial-gradient(circle at 30% 70%, var(--aurora-2), transparent 60%);
-}
-.grain {
-  position:fixed; inset:0; pointer-events:none; z-index:1;
-  opacity:var(--grain-op); mix-blend-mode:overlay;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
-.s-wrap { position:relative; z-index:2; max-width:1180px; margin:0 auto; }
-.s-header {
-  display:flex; align-items:center; gap:28px;
-  padding:20px 0 32px;
-}
-.s-title-block { flex:1; min-width:0; }
-.s-title {
-  font-family:'Space Grotesk', 'Inter', sans-serif;
-  font-weight:700; font-size:clamp(28px, 4vw, 44px);
-  letter-spacing:-.02em; margin:0;
-  background:linear-gradient(135deg, var(--text) 0%, var(--text-sec) 100%);
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-}
-.s-subtitle {
-  margin-top:6px; font-size:13px; color:var(--text-ter);
-  font-family:'JetBrains Mono', monospace; letter-spacing:.08em; text-transform:uppercase;
-}
-.health {
-  position:relative; flex:0 0 auto;
-  width:140px; height:140px;
-  display:flex; align-items:center; justify-content:center;
-}
-.health .ring { position:absolute; inset:10px; }
-.health .ring-fg { transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1), stroke .25s ease; }
-.health .ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
-.health .ring-pct {
-  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:24px;
-  letter-spacing:-.02em; color:var(--text); line-height:1;
-}
-.health .ring-cap {
-  margin-top:6px; font-family:'JetBrains Mono', monospace; font-size:8px;
-  letter-spacing:.18em; color:var(--text-ter);
-}
-.s-agg {
-  display:flex; flex-direction:column; gap:10px; min-width:120px;
-}
-.s-chip {
-  display:flex; align-items:baseline; justify-content:space-between; gap:14px;
-  padding:10px 16px; border-radius:14px;
-  background:var(--glass-bg); border:1px solid var(--glass-bd);
-  backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
-  font-size:12px; color:var(--text-sec); letter-spacing:.04em;
-}
-.s-chip b { font-family:'Space Grotesk', sans-serif; font-size:20px; font-weight:600; color:var(--text); }
-.s-chip.ok b { color:var(--ok); }
-.s-chip.bad b { color:var(--bad); }
-.theme-toggle {
-  position:absolute; top:24px; right:24px;
-  width:42px; height:42px; padding:0;
-  border-radius:50%; cursor:pointer;
-  background:var(--glass-bg); border:1px solid var(--glass-bd);
-  backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
-  color:var(--text); display:flex; align-items:center; justify-content:center;
-  transition:transform .2s ease, border-color .2s ease, background .25s ease;
-}
-.theme-toggle:hover { transform:rotate(15deg); border-color:var(--glass-hi); }
-.theme-toggle svg { width:18px; height:18px; }
-:root[data-theme="dark"] .theme-toggle .sun { display:none; }
-:root[data-theme="light"] .theme-toggle .moon { display:none; }
-.s-grid {
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
-  gap:16px;
-}
-.s-card {
-  position:relative; padding:18px;
-  border-radius:20px;
-  background:var(--glass-bg); border:1px solid var(--glass-bd);
-  backdrop-filter:blur(20px) saturate(150%); -webkit-backdrop-filter:blur(20px) saturate(150%);
-  box-shadow:inset 0 1px 0 var(--glass-hi);
-  display:flex; flex-direction:column; gap:12px;
-  transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
-}
-.s-card:hover {
-  transform:translateY(-3px);
-  border-color:var(--glass-hi);
-  box-shadow:inset 0 1px 0 var(--glass-hi), 0 14px 44px -14px rgba(120,90,255,.45);
-}
-.s-head { display:flex; align-items:center; gap:12px; }
-.s-icon, .s-icon-fallback {
-  width:32px; height:32px; border-radius:10px;
-  background:var(--strip-bg); object-fit:cover; flex:0 0 auto;
-  border:1px solid var(--glass-bd);
-}
-.s-name {
-  flex:1; min-width:0;
-  font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:15px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  letter-spacing:-.005em;
-}
-.s-dot {
-  position:relative;
-  width:10px; height:10px; border-radius:50%; flex:0 0 auto;
-}
-.s-dot.live { background:var(--ok); box-shadow:0 0 0 0 var(--ok-soft); animation:pulse 2.4s ease-out infinite; }
-.s-dot.dead { background:var(--bad); box-shadow:0 0 0 4px var(--bad-soft); }
-@keyframes pulse {
-  0% { box-shadow:0 0 0 0 var(--ok-soft); }
-  70% { box-shadow:0 0 0 10px rgba(52,227,164,0); }
-  100% { box-shadow:0 0 0 0 rgba(52,227,164,0); }
-}
-.s-metrics { display:flex; gap:14px; }
-.s-metrics > div { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
-.s-k {
-  font-family:'JetBrains Mono', monospace;
-  font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-  color:var(--text-ter);
-}
-.s-v {
-  font-family:'Space Grotesk', sans-serif;
-  font-size:18px; font-weight:600; color:var(--text);
-  letter-spacing:-.01em;
-}
-.s-v.is-bad { color:var(--bad); }
-.s-u { font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:500; color:var(--text-ter); margin-left:3px; letter-spacing:.05em; }
-.s-strip {
-  display:flex; align-items:flex-end; gap:2px; height:36px;
-  background:var(--strip-bg); border-radius:8px; padding:3px; overflow:hidden;
-  border:1px solid var(--glass-bd);
-}
-.s-bar { flex:1; min-width:2px; border-radius:2px; opacity:.88; transition:opacity .15s ease; }
-.s-bar:hover { opacity:1; }
-.s-bar.ok { background:linear-gradient(180deg, var(--ok) 0%, color-mix(in oklab, var(--ok), transparent 35%) 100%); }
-.s-bar.bad { background:var(--bad); }
-@supports not (background: color-mix(in oklab, red, blue)) {
-  .s-bar.ok { background:var(--ok); }
-}
-.s-counts {
-  display:flex; gap:14px; font-size:12px; color:var(--text-sec); flex-wrap:wrap;
-  padding-top:4px; border-top:1px solid var(--glass-bd);
-}
-.s-counts b { font-family:'JetBrains Mono', monospace; color:var(--text); margin-left:4px; font-weight:500; }
-.s-delta { font-style:normal; margin-left:5px; font-size:10px; padding:2px 5px; border-radius:5px; font-family:'JetBrains Mono', monospace; font-weight:500; }
-.s-delta.up { color:var(--ok); background:var(--ok-soft); }
-.s-delta.down { color:var(--bad); background:var(--bad-soft); }
-.s-foot {
-  font-family:'JetBrains Mono', monospace;
-  font-size:10px; letter-spacing:.05em; color:var(--text-ter);
-}
-.s-empty { color:var(--text-ter); font-size:12px; padding:6px 8px; }
-.s-empty-large {
-  text-align:center; color:var(--text-sec); padding:80px 0; font-size:14px;
-  background:var(--glass-bg); border:1px solid var(--glass-bd); border-radius:20px;
-  backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
-}
-@media (max-width: 720px) {
-  body { padding:24px 16px 48px; }
-  .s-header { flex-direction:column; align-items:flex-start; gap:20px; padding:16px 0 24px; }
-  .s-agg { flex-direction:row; flex-wrap:wrap; width:100%; }
-  .s-chip { flex:1; min-width:100px; }
-  .theme-toggle { top:16px; right:16px; }
-}
-@media (max-width: 480px) {
-  .s-grid { grid-template-columns:1fr; gap:12px; }
-  .health { width:108px; height:108px; }
-  .health .ring-pct { font-size:20px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .s-dot.live { animation:none; }
-  .s-card, .health .ring-fg, .theme-toggle { transition:none; }
-}
+:root[data-theme="light"]{--paper:#f3ece0;--paper-2:#ebe3d2;--paper-3:#e3d9c2;--ink:#1c160f;--ink-soft:rgba(28,22,15,.66);--ink-ter:rgba(28,22,15,.42);--rule:rgba(28,22,15,.20);--hair:rgba(28,22,15,.10);--ok:#2d5a3f;--ok-soft:rgba(45,90,63,.12);--bad:#b9381f;--bad-soft:rgba(185,56,31,.10);--warn:#b5811a;--stamp-ring:#b9381f;--led-bg:#1c160f;--led-on:#f0a020;--led-off:rgba(240,160,32,.18);}
+:root[data-theme="dark"]{--paper:#14161c;--paper-2:#0d0f14;--paper-3:#1c1f27;--ink:#ece3d3;--ink-soft:rgba(236,227,211,.66);--ink-ter:rgba(236,227,211,.42);--rule:rgba(236,227,211,.18);--hair:rgba(236,227,211,.08);--ok:#6fd49a;--ok-soft:rgba(111,212,154,.14);--bad:#ff7a5c;--bad-soft:rgba(255,122,92,.14);--warn:#f0c36b;--stamp-ring:#ff7a5c;--led-bg:#05070b;--led-on:#ffb347;--led-off:rgba(255,179,71,.14);}
+*{box-sizing:border-box}html,body{margin:0;padding:0}html{background:var(--paper)}
+body{font-family:'Instrument Sans',ui-sans-serif,system-ui,-apple-system,"PingFang SC","Noto Sans SC",sans-serif;color:var(--ink);background:var(--paper);min-height:100vh;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;transition:background-color .25s ease,color .25s ease}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(120vw 80vh at 100% 0%,var(--paper-2),transparent 60%),radial-gradient(80vw 60vh at 0% 100%,var(--paper-2),transparent 55%);opacity:.7}
+.masthead{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--paper);border-bottom:1px solid var(--rule);font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+@supports (backdrop-filter:blur(8px)){.masthead{background:color-mix(in oklab,var(--paper) 88%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}}
+.mast-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.mast-stationid{color:var(--ink);font-weight:600}
+.mast-date{margin-left:auto;font-variant-numeric:tabular-nums}
+.mast-time{font-variant-numeric:tabular-nums}
+.theme-btn{width:30px;height:30px;padding:0;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .25s ease,border-color .2s ease}
+.theme-btn:hover{border-color:var(--ink);transform:rotate(14deg)}
+.theme-btn svg{width:14px;height:14px}
+:root[data-theme="dark"] .theme-btn .sun{display:inline}:root[data-theme="dark"] .theme-btn .moon{display:none}
+:root[data-theme="light"] .theme-btn .sun{display:none}:root[data-theme="light"] .theme-btn .moon{display:inline}
+.wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:24px 18px 56px}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px 16px;align-items:end;padding-bottom:18px}
+.hero-title{grid-column:1 / -1;font-family:'Fraunces',ui-serif,Georgia,serif;font-variation-settings:"opsz" 144,"SOFT" 50,"WONK" 0;font-weight:600;font-size:clamp(42px,12vw,68px);line-height:.95;letter-spacing:-.025em;margin:0;color:var(--ink)}
+.hero-title em{font-style:italic;font-variation-settings:"opsz" 144,"SOFT" 100,"WONK" 1,"slnt" -8;color:var(--bad);font-weight:500}
+.hero-kicker{grid-column:1 / -1;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-ter);margin-top:8px;display:flex;align-items:center;gap:10px}
+.hero-kicker::before,.hero-kicker::after{content:"";height:1px;background:var(--rule);flex:1}
+.hero-kicker span{flex:0 0 auto}
+.stamp-row{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:18px;padding:6px 0 4px}
+.stamp{position:relative;width:108px;height:108px;display:flex;align-items:center;justify-content:center;transform:rotate(-4deg)}
+.stamp svg.ring-text{position:absolute;inset:0;width:100%;height:100%;animation:stamp-spin 32s linear infinite;color:var(--stamp-ring)}
+@keyframes stamp-spin{to{transform:rotate(360deg)}}
+.stamp::before,.stamp::after{content:"";position:absolute;border-radius:50%;border:1px solid var(--stamp-ring);pointer-events:none}
+.stamp::before{inset:0}.stamp::after{inset:6px;border-width:4px;opacity:.92}
+.stamp-core{position:relative;z-index:2;width:64px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--stamp-ring);text-align:center}
+.stamp-pct{font-family:'Fraunces',serif;font-variation-settings:"opsz" 144,"SOFT" 30;font-weight:600;font-size:26px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stamp-cap{font-family:'Geist Mono',monospace;font-size:8px;letter-spacing:.22em;text-transform:uppercase;margin-top:4px;opacity:.78}
+.stamp[data-tier="ok"]{--stamp-ring:var(--ok)}
+.stamp[data-tier="warn"]{--stamp-ring:var(--warn)}
+.stamp[data-tier="bad"]{--stamp-ring:var(--bad)}
+.tally{display:grid;grid-template-columns:1fr;gap:6px}
+.tally-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--rule);padding-bottom:6px}
+.tally-row:last-child{border-bottom:none;padding-bottom:0}
+.tally-key{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-ter)}
+.tally-val{font-family:'Fraunces',serif;font-variation-settings:"opsz" 144;font-weight:600;font-size:24px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--ink)}
+.tally-val.is-ok{color:var(--ok)}.tally-val.is-bad{color:var(--bad)}
+.ticker{margin:20px 0 4px;background:var(--led-bg);border-radius:6px;padding:9px 14px;overflow:hidden;position:relative;border:1px solid var(--rule);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),inset 0 1px 8px rgba(255,170,80,.12)}
+.ticker::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle,rgba(255,255,255,.12) 0.6px,transparent 0.7px);background-size:3px 3px;mix-blend-mode:overlay;opacity:.45}
+.ticker-track{display:flex;gap:48px;white-space:nowrap;font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--led-on);text-shadow:0 0 6px rgba(255,170,80,.55);animation:ticker 28s linear infinite}
+.ticker-track span{flex:0 0 auto}
+.ticker-track i{font-style:normal;color:var(--led-off);margin:0 6px}
+.ticker-track b{font-weight:500;color:#ffd082}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.filter{margin:22px 0 6px;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--rule)}
+.filter button{appearance:none;background:transparent;border:none;color:var(--ink-soft);font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:12px 14px;cursor:pointer;position:relative;min-height:44px}
+.filter button[aria-pressed="true"]{color:var(--ink);font-weight:600}
+.filter button[aria-pressed="true"]::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;background:var(--ink)}
+.filter .filter-count{color:var(--ink-ter);margin-left:4px;font-weight:500}
+.list{margin-top:2px}
+.row{position:relative;padding:18px 4px 16px;border-bottom:1px solid var(--hair);display:grid;grid-template-columns:1fr;gap:10px;opacity:0;animation:fadein .4s ease both}
+.row:last-child{border-bottom:none}
+.row:nth-child(1){animation-delay:.04s}.row:nth-child(2){animation-delay:.10s}.row:nth-child(3){animation-delay:.16s}.row:nth-child(4){animation-delay:.22s}.row:nth-child(5){animation-delay:.28s}.row:nth-child(6){animation-delay:.34s}.row:nth-child(7){animation-delay:.40s}.row:nth-child(8){animation-delay:.46s}.row:nth-child(9){animation-delay:.52s}.row:nth-child(10){animation-delay:.58s}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.row-head{display:flex;align-items:baseline;gap:10px}
+.row-num{font-family:'Fraunces',serif;font-style:italic;font-variation-settings:"opsz" 144,"WONK" 1,"slnt" -8;font-weight:500;font-size:15px;color:var(--ink-ter);font-variant-numeric:tabular-nums;flex:0 0 auto;letter-spacing:-.01em}
+.row-icon{width:22px;height:22px;border-radius:5px;object-fit:cover;background:var(--paper-3);border:1px solid var(--hair);flex:0 0 auto;display:inline-block}
+.row-name{flex:1;min-width:0;font-family:'Instrument Sans',sans-serif;font-weight:600;font-size:17px;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.row-status .dot{width:9px;height:9px;border-radius:50%;position:relative;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.row.is-down .row-status{color:var(--bad)}
+.row.is-down .row-status .dot{background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+.row.is-down .row-status .dot::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1.5px;background:var(--bad);transform:translateX(-50%) rotate(38deg);border-radius:1px}
+.row.is-warn .row-status{color:var(--warn)}
+.row.is-warn .row-status .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(181,129,26,.18)}
+.row-metrics{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;padding:4px 0 2px}
+.metric{display:flex;flex-direction:column;gap:2px;min-width:0}
+.metric-v{font-family:'Fraunces',serif;font-variation-settings:"opsz" 144,"SOFT" 50;font-weight:600;font-size:30px;line-height:1.02;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
+.metric-v .u{font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;margin-left:3px;color:var(--ink-ter);letter-spacing:.04em}
+.metric-v.is-bad{color:var(--bad);font-style:italic;font-variation-settings:"opsz" 144,"WONK" 1,"slnt" -6}
+.metric-k{font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-ter)}
+.row-strip{display:flex;align-items:flex-end;gap:1.5px;height:30px;padding:3px 4px;background:var(--paper-2);border:1px solid var(--hair);border-radius:3px;overflow:hidden}
+.bar{flex:1;min-width:2px;border-radius:1px}
+.bar.ok{background:var(--ok);opacity:.92}
+.bar.bad{background:var(--bad)}
+.row-strip .empty{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-ter);padding:4px}
+.row-counts{display:flex;flex-wrap:wrap;gap:14px 18px;font-size:13px;color:var(--ink-soft);padding-top:8px;border-top:1px dashed var(--rule)}
+.row-counts b{font-family:'Geist Mono',monospace;font-weight:600;color:var(--ink);margin-left:5px;font-variant-numeric:tabular-nums}
+.row-counts .delta{font-style:normal;margin-left:5px;font-family:'Geist Mono',monospace;font-size:10px;padding:2px 5px;border-radius:3px}
+.row-counts .delta.up{color:var(--ok);background:var(--ok-soft)}
+.row-counts .delta.down{color:var(--bad);background:var(--bad-soft)}
+.row-foot{display:flex;align-items:center;gap:8px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-ter)}
+.row-foot::before{content:"";flex:0 0 18px;height:1px;background:var(--rule)}
+.list[data-filter="live"] .row:not(.is-live){display:none}
+.list[data-filter="down"] .row:not(.is-down){display:none}
+.colophon{margin-top:32px;padding-top:18px;border-top:2px solid var(--ink);display:flex;align-items:baseline;justify-content:space-between;gap:14px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-ter)}
+.colophon .mark{font-family:'Fraunces',serif;font-style:italic;font-size:13px;font-variation-settings:"opsz" 144,"WONK" 1,"slnt" -8;color:var(--ink-soft);letter-spacing:0;text-transform:none}
+@media (min-width:560px){.wrap{padding:32px 32px 80px}.stamp-row{gap:28px}.stamp{transform:rotate(-6deg);width:128px;height:128px}.stamp-core{width:78px;height:78px}.stamp-pct{font-size:32px}}
+@media (min-width:880px){.wrap{padding:48px 48px 96px}.hero{grid-template-columns:1fr auto;align-items:end}.hero-title{grid-column:1}.hero-kicker{grid-column:1;max-width:520px}.stamp-row{grid-column:2;grid-row:1 / span 2;align-self:end;grid-template-columns:auto;padding:0}.tally{display:none}.stamp{width:148px;height:148px}.stamp-core{width:92px;height:92px}.stamp-pct{font-size:38px}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion: reduce){.ticker-track{animation:none;transform:none}.stamp svg.ring-text{animation:none}.row{animation:none;opacity:1}.theme-btn{transition:none}}
 </style></head><body>
-<div class="grain" aria-hidden="true"></div>
-<button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题" aria-pressed="false">
-  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-</button>
-<div class="s-wrap">
-  <header class="s-header">
-    <div class="s-title-block">
-      <h1 class="s-title">${title}</h1>
-      <div class="s-subtitle">Realtime · Auto refresh</div>
+<header class="masthead" role="banner">
+  <span class="mast-dot" aria-hidden="true"></span>
+  <span class="mast-stationid">EMBY · STATION</span>
+  <span class="mast-date" id="mDate">${stationDate}</span>
+  <span class="mast-time" id="mTime">${stationTime} +08</span>
+  <button class="theme-btn" id="themeToggle" type="button" aria-label="切换主题" aria-pressed="false">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+</header>
+<main class="wrap">
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title" class="hero-title">节点<em>状态</em></h1>
+    <div class="hero-kicker"><span>Operations Bulletin · Issue ${issueNum}</span></div>
+    <div class="stamp-row">
+      <div class="stamp" data-tier="${stampTier}" role="img" aria-label="整体可用率 ${pctIntStr}%">
+        ${stampSvg}
+        <div class="stamp-core">
+          <div class="stamp-pct">${pctIntStr === '—' ? '—' : pctIntStr}<span style="font-size:.45em;font-weight:500">${pctIntStr === '—' ? '' : '%'}</span></div>
+          <div class="stamp-cap">Available</div>
+        </div>
+      </div>
+      <div class="tally">
+        <div class="tally-row"><span class="tally-key">总节点 · Total</span><span class="tally-val">${total}</span></div>
+        <div class="tally-row"><span class="tally-key">在线 · Live</span><span class="tally-val is-ok">${online}</span></div>
+        <div class="tally-row"><span class="tally-key">离线 · Down</span><span class="tally-val${offline > 0 ? ' is-bad' : ''}">${offline}</span></div>
+      </div>
     </div>
-    <div class="health">${ringSvg}</div>
-    <div class="s-agg">
-      <span class="s-chip"><span>总节点</span><b>${total}</b></span>
-      <span class="s-chip ok"><span>在线</span><b>${online}</b></span>
-      <span class="s-chip bad"><span>离线</span><b>${offline}</b></span>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>${tickerLine}</span><span>${tickerSecondary}</span>
+        <span>${tickerLine}</span><span>${tickerSecondary}</span>
+      </div>
     </div>
-  </header>
-  <main class="s-grid">${cardsHtml}</main>
-  ${emptyHtml}
-</div>
-<script>${themeToggleScript}</script>
+    <p class="sr-only">总节点 ${total} 个，在线 ${online} 个，离线 ${offline} 个，整体可用率 ${pctIntStr === '—' ? '未知' : pctIntStr + '%'}</p>
+  </section>
+  <nav class="filter" id="filter" aria-label="筛选节点">
+    <button data-filter="all" aria-pressed="true">全部<span class="filter-count"> ${total}</span></button>
+    <button data-filter="live" aria-pressed="false">在线<span class="filter-count"> ${online}</span></button>
+    <button data-filter="down" aria-pressed="false">离线<span class="filter-count"> ${offline}</span></button>
+  </nav>
+  <section class="list" id="list" data-filter="all">${rowsHtml}${emptyHtml}</section>
+  <footer class="colophon">
+    <span>Auto refresh · 60s · Emby Station</span>
+    <span class="mark">— set in Fraunces &amp; Geist Mono</span>
+  </footer>
+</main>
+<script>${inlineScript}</script>
 </body></html>`;
 }
 
