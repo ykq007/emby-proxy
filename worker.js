@@ -6888,13 +6888,23 @@ function renderStatusHtml(data, opts) {
         return d.toISOString().slice(5, 16).replace('T', ' ');
     };
 
+    // Health ring math
+    const overallPct = total === 0 ? null : (online / total);
+    const ringVar = overallPct == null ? '--ring-track'
+        : overallPct >= 0.99 ? '--ok'
+        : overallPct >= 0.95 ? '--warn'
+        : '--bad';
+    const R = 52;
+    const CIRC = 2 * Math.PI * R; // ~326.726
+    const dashOffset = overallPct == null ? CIRC : (1 - overallPct) * CIRC;
+    const pctText = overallPct == null ? '—' : (overallPct * 100).toFixed(1) + '%';
+
     const hideNames = !!opts.hideNames;
     const cardsHtml = cards.map((c, i) => {
-        const dot = c.ok ? '#30d158' : '#ff3b30';
         const histBars = c.history.map(h => {
-            const color = h.ok ? '#30d158' : '#ff3b30';
+            const cls = h.ok ? 's-bar ok' : 's-bar bad';
             const height = h.ok ? Math.max(8, Math.min(100, (h.ms || 0) / 20)) : 100;
-            return `<span class="s-bar" style="background:${color};height:${height}%" title="${htmlEscape(h.ok ? h.ms + 'ms' : 'fail')}"></span>`;
+            return `<span class="${cls}" style="height:${height}%" title="${htmlEscape(h.ok ? h.ms + 'ms' : 'fail')}"></span>`;
         }).join('');
         const countsRow = (c.show_counts && c.counts) ? `
             <div class="s-counts">
@@ -6906,71 +6916,284 @@ function renderStatusHtml(data, opts) {
         const iconHtml = hideNames
             ? '<span class="s-icon-fallback"></span>'
             : (c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback"></span>');
-        return `<div class="s-card">
+        const dotCls = c.ok ? 's-dot live' : 's-dot dead';
+        return `<article class="s-card">
+            <div class="s-card-bg" aria-hidden="true"></div>
             <div class="s-head">
                 ${iconHtml}
                 <div class="s-name">${htmlEscape(displayName)}</div>
-                <span class="s-dot" style="background:${dot}"></span>
+                <span class="${dotCls}" aria-label="${c.ok ? '在线' : '离线'}"></span>
             </div>
             <div class="s-metrics">
-                <div><span class="s-k">当前延迟</span><span class="s-v">${c.ok ? (c.latest_ms + ' ms') : '离线'}</span></div>
+                <div><span class="s-k">当前延迟</span><span class="s-v ${c.ok ? '' : 'is-bad'}">${c.ok ? `${c.latest_ms}<span class="s-u">ms</span>` : '离线'}</span></div>
                 <div><span class="s-k">24小时</span><span class="s-v">${pct(c.avail_24h)}</span></div>
                 <div><span class="s-k">7天</span><span class="s-v">${pct(c.avail_7d)}</span></div>
             </div>
             <div class="s-strip">${histBars || '<span class="s-empty">暂无探测数据</span>'}</div>
             ${countsRow}
             <div class="s-foot">最近探测 ${fmtTs(c.latest_ts)}</div>
-        </div>`;
+        </article>`;
     }).join('');
 
     const emptyHtml = total === 0 ? `<div class="s-empty-large">尚未启用任何节点状态展示</div>` : '';
 
+    const ringSvg = `<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+        <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--ring-track)" stroke-width="10"></circle>
+        ${overallPct == null ? '' : `<circle class="ring-fg" cx="60" cy="60" r="${R}" fill="none" stroke="var(${ringVar})" stroke-width="10" stroke-linecap="round" stroke-dasharray="${CIRC.toFixed(3)}" stroke-dashoffset="${dashOffset.toFixed(3)}" transform="rotate(-90 60 60)"></circle>`}
+    </svg>
+    <div class="ring-center">
+        <div class="ring-pct">${pctText}</div>
+        <div class="ring-cap">AVAILABILITY</div>
+    </div>`;
+
+    // Theme bootstrap script — inline, must run before paint to avoid FOUC.
+    const themeBoot = `(function(){try{var t=localStorage.getItem('status_theme');if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
+    const themeToggleScript = `(function(){var b=document.getElementById('themeToggle');if(!b)return;function sync(){var t=document.documentElement.dataset.theme||'dark';b.setAttribute('aria-pressed',t==='dark'?'true':'false');b.dataset.theme=t;}sync();b.addEventListener('click',function(){var cur=document.documentElement.dataset.theme||'dark';var next=cur==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('status_theme',next);}catch(e){}sync();});})();`;
+
     return `<!doctype html><html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script>${themeBoot}</script>
 <style>
-:root { --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#86868b; --border:rgba(0,0,0,0.08); --ok:#30d158; --bad:#ff3b30; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#98989d; --border:rgba(255,255,255,0.1); }
+:root[data-theme="dark"] {
+  --bg-base:#0b0b14; --bg-deep:#050509;
+  --aurora-1:rgba(120,90,255,.55); --aurora-2:rgba(0,220,200,.40); --aurora-3:rgba(255,80,160,.32);
+  --glass-bg:rgba(255,255,255,.045); --glass-bd:rgba(255,255,255,.10); --glass-hi:rgba(255,255,255,.14);
+  --text:#e8e8f0; --text-sec:rgba(232,232,240,.62); --text-ter:rgba(232,232,240,.40);
+  --ring-track:rgba(255,255,255,.10); --grain-op:.045;
+  --ok:#34e3a4; --warn:#ffd166; --bad:#ff5577;
+  --ok-soft:rgba(52,227,164,.16); --bad-soft:rgba(255,85,119,.16);
+  --strip-bg:rgba(255,255,255,.04);
 }
-* { box-sizing: border-box; }
-body { margin:0; padding:24px 16px; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); }
-.s-wrap { max-width: 1100px; margin: 0 auto; }
-.s-title { font-size: 28px; font-weight: 700; margin: 0 0 16px; }
-.s-agg { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
-.s-agg .s-chip { padding:10px 16px; background:var(--card); border:1px solid var(--border); border-radius:14px; font-size:14px; }
-.s-agg .s-chip b { font-size:18px; margin-left:6px; }
-.s-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
-.s-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:10px; }
-.s-head { display:flex; align-items:center; gap:10px; }
-.s-icon, .s-icon-fallback { width:28px; height:28px; border-radius:8px; object-fit:cover; background:rgba(0,0,0,0.06); flex:0 0 auto; }
-.s-name { flex:1; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.s-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
+:root[data-theme="light"] {
+  --bg-base:#f4f1ec; --bg-deep:#ece8e1;
+  --aurora-1:rgba(120,90,255,.22); --aurora-2:rgba(0,180,200,.20); --aurora-3:rgba(255,110,170,.18);
+  --glass-bg:rgba(255,255,255,.58); --glass-bd:rgba(20,20,40,.10); --glass-hi:rgba(255,255,255,.80);
+  --text:#1b1b22; --text-sec:rgba(27,27,34,.62); --text-ter:rgba(27,27,34,.42);
+  --ring-track:rgba(20,20,40,.10); --grain-op:.025;
+  --ok:#16a37a; --warn:#d99514; --bad:#e23a5b;
+  --ok-soft:rgba(22,163,122,.14); --bad-soft:rgba(226,58,91,.14);
+  --strip-bg:rgba(20,20,40,.06);
+}
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; }
+body {
+  min-height:100vh;
+  padding:32px 24px 64px;
+  font-family:'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:var(--text);
+  background:var(--bg-deep);
+  background-image:radial-gradient(ellipse at 50% -10%, var(--bg-base), var(--bg-deep) 60%);
+  position:relative;
+  overflow-x:hidden;
+  transition:background-color .25s ease, color .25s ease;
+}
+body::before, body::after {
+  content:""; position:fixed; pointer-events:none; z-index:0;
+  width:60vw; height:60vw; border-radius:50%;
+  filter:blur(90px); opacity:.95; transition:opacity .25s ease;
+}
+body::before {
+  top:-18vw; left:-12vw;
+  background:radial-gradient(circle at 30% 30%, var(--aurora-1), transparent 60%),
+             radial-gradient(circle at 70% 70%, var(--aurora-2), transparent 60%);
+}
+body::after {
+  bottom:-22vw; right:-18vw;
+  background:radial-gradient(circle at 50% 50%, var(--aurora-3), transparent 65%),
+             radial-gradient(circle at 30% 70%, var(--aurora-2), transparent 60%);
+}
+.grain {
+  position:fixed; inset:0; pointer-events:none; z-index:1;
+  opacity:var(--grain-op); mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.s-wrap { position:relative; z-index:2; max-width:1180px; margin:0 auto; }
+.s-header {
+  display:flex; align-items:center; gap:28px;
+  padding:20px 0 32px;
+}
+.s-title-block { flex:1; min-width:0; }
+.s-title {
+  font-family:'Space Grotesk', 'Inter', sans-serif;
+  font-weight:700; font-size:clamp(28px, 4vw, 44px);
+  letter-spacing:-.02em; margin:0;
+  background:linear-gradient(135deg, var(--text) 0%, var(--text-sec) 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.s-subtitle {
+  margin-top:6px; font-size:13px; color:var(--text-ter);
+  font-family:'JetBrains Mono', monospace; letter-spacing:.08em; text-transform:uppercase;
+}
+.health {
+  position:relative; flex:0 0 auto;
+  width:140px; height:140px;
+  display:flex; align-items:center; justify-content:center;
+}
+.health .ring { position:absolute; inset:10px; }
+.health .ring-fg { transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1), stroke .25s ease; }
+.health .ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+.health .ring-pct {
+  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:24px;
+  letter-spacing:-.02em; color:var(--text); line-height:1;
+}
+.health .ring-cap {
+  margin-top:6px; font-family:'JetBrains Mono', monospace; font-size:8px;
+  letter-spacing:.18em; color:var(--text-ter);
+}
+.s-agg {
+  display:flex; flex-direction:column; gap:10px; min-width:120px;
+}
+.s-chip {
+  display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  padding:10px 16px; border-radius:14px;
+  background:var(--glass-bg); border:1px solid var(--glass-bd);
+  backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
+  font-size:12px; color:var(--text-sec); letter-spacing:.04em;
+}
+.s-chip b { font-family:'Space Grotesk', sans-serif; font-size:20px; font-weight:600; color:var(--text); }
+.s-chip.ok b { color:var(--ok); }
+.s-chip.bad b { color:var(--bad); }
+.theme-toggle {
+  position:absolute; top:24px; right:24px;
+  width:42px; height:42px; padding:0;
+  border-radius:50%; cursor:pointer;
+  background:var(--glass-bg); border:1px solid var(--glass-bd);
+  backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%);
+  color:var(--text); display:flex; align-items:center; justify-content:center;
+  transition:transform .2s ease, border-color .2s ease, background .25s ease;
+}
+.theme-toggle:hover { transform:rotate(15deg); border-color:var(--glass-hi); }
+.theme-toggle svg { width:18px; height:18px; }
+:root[data-theme="dark"] .theme-toggle .sun { display:none; }
+:root[data-theme="light"] .theme-toggle .moon { display:none; }
+.s-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+  gap:16px;
+}
+.s-card {
+  position:relative; padding:18px;
+  border-radius:20px;
+  background:var(--glass-bg); border:1px solid var(--glass-bd);
+  backdrop-filter:blur(20px) saturate(150%); -webkit-backdrop-filter:blur(20px) saturate(150%);
+  box-shadow:inset 0 1px 0 var(--glass-hi);
+  display:flex; flex-direction:column; gap:12px;
+  transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.s-card:hover {
+  transform:translateY(-3px);
+  border-color:var(--glass-hi);
+  box-shadow:inset 0 1px 0 var(--glass-hi), 0 14px 44px -14px rgba(120,90,255,.45);
+}
+.s-head { display:flex; align-items:center; gap:12px; }
+.s-icon, .s-icon-fallback {
+  width:32px; height:32px; border-radius:10px;
+  background:var(--strip-bg); object-fit:cover; flex:0 0 auto;
+  border:1px solid var(--glass-bd);
+}
+.s-name {
+  flex:1; min-width:0;
+  font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:15px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  letter-spacing:-.005em;
+}
+.s-dot {
+  position:relative;
+  width:10px; height:10px; border-radius:50%; flex:0 0 auto;
+}
+.s-dot.live { background:var(--ok); box-shadow:0 0 0 0 var(--ok-soft); animation:pulse 2.4s ease-out infinite; }
+.s-dot.dead { background:var(--bad); box-shadow:0 0 0 4px var(--bad-soft); }
+@keyframes pulse {
+  0% { box-shadow:0 0 0 0 var(--ok-soft); }
+  70% { box-shadow:0 0 0 10px rgba(52,227,164,0); }
+  100% { box-shadow:0 0 0 0 rgba(52,227,164,0); }
+}
 .s-metrics { display:flex; gap:14px; }
-.s-metrics > div { flex:1; display:flex; flex-direction:column; gap:2px; }
-.s-k { font-size:11px; color:var(--muted); }
-.s-v { font-size:15px; font-weight:600; }
-.s-strip { display:flex; align-items:flex-end; gap:1px; height:32px; background:rgba(0,0,0,0.04); border-radius:6px; padding:2px; overflow:hidden; }
-.s-bar { flex:1; min-width:2px; border-radius:1px; opacity:.85; }
-.s-counts { display:flex; gap:10px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
-.s-counts b { color:var(--text); margin-left:3px; }
-.s-delta { font-style:normal; margin-left:4px; font-size:11px; padding:1px 4px; border-radius:4px; }
-.s-delta.up { color:var(--ok); background:rgba(48,209,88,0.12); }
-.s-delta.down { color:var(--bad); background:rgba(255,59,48,0.12); }
-.s-foot { font-size:11px; color:var(--muted); }
-.s-empty { color:var(--muted); font-size:12px; padding:6px 8px; }
-.s-empty-large { text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
+.s-metrics > div { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
+.s-k {
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-ter);
+}
+.s-v {
+  font-family:'Space Grotesk', sans-serif;
+  font-size:18px; font-weight:600; color:var(--text);
+  letter-spacing:-.01em;
+}
+.s-v.is-bad { color:var(--bad); }
+.s-u { font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:500; color:var(--text-ter); margin-left:3px; letter-spacing:.05em; }
+.s-strip {
+  display:flex; align-items:flex-end; gap:2px; height:36px;
+  background:var(--strip-bg); border-radius:8px; padding:3px; overflow:hidden;
+  border:1px solid var(--glass-bd);
+}
+.s-bar { flex:1; min-width:2px; border-radius:2px; opacity:.88; transition:opacity .15s ease; }
+.s-bar:hover { opacity:1; }
+.s-bar.ok { background:linear-gradient(180deg, var(--ok) 0%, color-mix(in oklab, var(--ok), transparent 35%) 100%); }
+.s-bar.bad { background:var(--bad); }
+@supports not (background: color-mix(in oklab, red, blue)) {
+  .s-bar.ok { background:var(--ok); }
+}
+.s-counts {
+  display:flex; gap:14px; font-size:12px; color:var(--text-sec); flex-wrap:wrap;
+  padding-top:4px; border-top:1px solid var(--glass-bd);
+}
+.s-counts b { font-family:'JetBrains Mono', monospace; color:var(--text); margin-left:4px; font-weight:500; }
+.s-delta { font-style:normal; margin-left:5px; font-size:10px; padding:2px 5px; border-radius:5px; font-family:'JetBrains Mono', monospace; font-weight:500; }
+.s-delta.up { color:var(--ok); background:var(--ok-soft); }
+.s-delta.down { color:var(--bad); background:var(--bad-soft); }
+.s-foot {
+  font-family:'JetBrains Mono', monospace;
+  font-size:10px; letter-spacing:.05em; color:var(--text-ter);
+}
+.s-empty { color:var(--text-ter); font-size:12px; padding:6px 8px; }
+.s-empty-large {
+  text-align:center; color:var(--text-sec); padding:80px 0; font-size:14px;
+  background:var(--glass-bg); border:1px solid var(--glass-bd); border-radius:20px;
+  backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+}
+@media (max-width: 720px) {
+  body { padding:24px 16px 48px; }
+  .s-header { flex-direction:column; align-items:flex-start; gap:20px; padding:16px 0 24px; }
+  .s-agg { flex-direction:row; flex-wrap:wrap; width:100%; }
+  .s-chip { flex:1; min-width:100px; }
+  .theme-toggle { top:16px; right:16px; }
+}
+@media (max-width: 480px) {
+  .s-grid { grid-template-columns:1fr; gap:12px; }
+  .health { width:108px; height:108px; }
+  .health .ring-pct { font-size:20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-dot.live { animation:none; }
+  .s-card, .health .ring-fg, .theme-toggle { transition:none; }
+}
 </style></head><body>
+<div class="grain" aria-hidden="true"></div>
+<button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题" aria-pressed="false">
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+</button>
 <div class="s-wrap">
-  <h1 class="s-title">${title}</h1>
-  <div class="s-agg">
-    <span class="s-chip">总节点<b>${total}</b></span>
-    <span class="s-chip">在线<b style="color:var(--ok)">${online}</b></span>
-    <span class="s-chip">离线<b style="color:var(--bad)">${offline}</b></span>
-  </div>
-  <div class="s-grid">${cardsHtml}</div>
+  <header class="s-header">
+    <div class="s-title-block">
+      <h1 class="s-title">${title}</h1>
+      <div class="s-subtitle">Realtime · Auto refresh</div>
+    </div>
+    <div class="health">${ringSvg}</div>
+    <div class="s-agg">
+      <span class="s-chip"><span>总节点</span><b>${total}</b></span>
+      <span class="s-chip ok"><span>在线</span><b>${online}</b></span>
+      <span class="s-chip bad"><span>离线</span><b>${offline}</b></span>
+    </div>
+  </header>
+  <main class="s-grid">${cardsHtml}</main>
   ${emptyHtml}
 </div>
+<script>${themeToggleScript}</script>
 </body></html>`;
 }
 
