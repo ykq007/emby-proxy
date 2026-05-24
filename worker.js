@@ -1409,6 +1409,58 @@ const CSS_COMMON = `
     body.dark .emby-card:hover { box-shadow: 0 0 0 1px var(--accent-glow), 0 10px 30px rgba(0,0,0,0.6); }
     body.dark .kpi-tile { background: var(--card); }
 
+    /* --- ECG 心电图 strip (overview + status) --- */
+    .ecg-strip {
+        background: linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%);
+        background-image:
+            linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%),
+            repeating-linear-gradient(0deg, transparent 0, transparent 7px, var(--hairline) 7px, var(--hairline) 7.5px),
+            repeating-linear-gradient(90deg, transparent 0, transparent 11px, var(--hairline) 11px, var(--hairline) 11.5px);
+        background-blend-mode: normal, soft-light, soft-light;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 6px 8px;
+        position: relative; overflow: hidden;
+    }
+    .ecg-strip .ecg-svg { width: 100%; height: 36px; display: block; }
+    .ecg-strip .ecg-line {
+        stroke: var(--primary); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
+        filter: drop-shadow(0 0 2px var(--primary-glow));
+    }
+    .ecg-strip .ecg-base { stroke: var(--hairline); stroke-width: .6; stroke-dasharray: 2 3; }
+    .ecg-strip .ecg-mid  { stroke: var(--hairline); stroke-width: .4; opacity: .5; }
+    .ecg-strip .ecg-fail {
+        stroke: var(--err); stroke-width: 1.6; stroke-linecap: round;
+        filter: drop-shadow(0 0 2px var(--err));
+    }
+    .ecg-strip .ecg-dot.ok  { fill: var(--primary); }
+    .ecg-strip .ecg-dot.bad { fill: var(--err); }
+    .ecg-strip .ecg-empty   { font-size: 9px; fill: var(--text-sec); font-family: inherit; }
+
+    .ecg-mount {
+        margin: 6px 0 8px;
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    .ecg-meta {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        font-size: var(--text-xs); color: var(--text-sec);
+        font-variant-numeric: tabular-nums;
+    }
+    .ecg-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 2px 9px; border-radius: var(--radius-pill);
+        font-size: var(--text-xs); font-weight: 700;
+    }
+    .ecg-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .ecg-pill.ok  { color: var(--ok);  background: var(--ok-soft); }
+    .ecg-pill.ok  .dot { background: var(--ok);  box-shadow: 0 0 6px var(--ok); }
+    .ecg-pill.bad { color: var(--err); background: var(--err-soft); }
+    .ecg-pill.bad .dot { background: var(--err); }
+    .ecg-stat b {
+        color: var(--text-sec); font-weight: 700; margin-right: 4px;
+        letter-spacing: .04em; text-transform: uppercase; font-size: 10px;
+    }
+
     /* --- 节点状态徽章 --- */
     .node-badge {
         display: inline-flex; align-items: center; gap: 5px;
@@ -4744,9 +4796,86 @@ const HTML_UI = `
                 if (tbCount) tbCount.textContent = String(data.length);
                 updateTopbarHealth();
 
+                // ECG 心电图 + 24h/7d 可用率（仅对开启了 show_on_status 的节点显示）
+                injectEcgStrips();
+
             } catch (err) {
                 document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
             }
+        }
+
+        // 客户端 ECG/心电图 生成器（与服务端 ecgStripSvg 算法一致）
+        function buildEcgSvg(history) {
+            const W = 240, H = 36, padX = 2, padY = 4;
+            const innerW = W - padX * 2, innerH = H - padY * 2;
+            const baseY = padY + innerH - 2;
+            const samples = Array.isArray(history) ? history.slice(-60) : [];
+            if (!samples.length) {
+                return \`<svg class="ecg-svg" viewBox="0 0 \${W} \${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="\${padX}" y1="\${baseY}" x2="\${W-padX}" y2="\${baseY}" class="ecg-base"/><text x="\${W/2}" y="\${H/2+3}" class="ecg-empty" text-anchor="middle">暂无探测</text></svg>\`;
+            }
+            const n = samples.length;
+            const stepX = n > 1 ? innerW / (n - 1) : innerW;
+            const msToY = ms => { const c = Math.max(0, Math.min(400, ms || 0)); return baseY - (c / 400) * (innerH * 0.85); };
+            let okPath = '', failMarks = '', lastX = padX, inOk = false;
+            for (let i = 0; i < n; i++) {
+                const s = samples[i], x = padX + stepX * i;
+                if (s.ok) {
+                    const peakY = msToY(s.ms);
+                    const preX = Math.max(lastX, x - stepX * 0.45);
+                    const upX = x - stepX * 0.18, dnX = x + stepX * 0.10, tailX = x + stepX * 0.25;
+                    okPath += (inOk ? 'L' : 'M') + preX.toFixed(2) + ' ' + baseY + ' L' + upX.toFixed(2) + ' ' + baseY + ' L' + x.toFixed(2) + ' ' + peakY.toFixed(2) + ' L' + dnX.toFixed(2) + ' ' + baseY + ' L' + tailX.toFixed(2) + ' ' + baseY;
+                    inOk = true; lastX = tailX;
+                } else {
+                    if (inOk) { okPath += ' L' + (x - stepX * 0.3).toFixed(2) + ' ' + baseY; inOk = false; }
+                    failMarks += '<line x1="' + x.toFixed(2) + '" y1="' + (padY + 1).toFixed(2) + '" x2="' + x.toFixed(2) + '" y2="' + baseY.toFixed(2) + '" class="ecg-fail"/>';
+                    lastX = x;
+                }
+            }
+            if (inOk) okPath += ' L' + (padX + innerW).toFixed(2) + ' ' + baseY;
+            const last = samples[n - 1], lastY = last.ok ? msToY(last.ms) : baseY;
+            const dotCls = last.ok ? 'ecg-dot ok' : 'ecg-dot bad';
+            return '<svg class="ecg-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+                '<line x1="' + padX + '" y1="' + baseY + '" x2="' + (W - padX) + '" y2="' + baseY + '" class="ecg-base"/>' +
+                '<line x1="' + padX + '" y1="' + (padY + innerH * 0.5).toFixed(2) + '" x2="' + (W - padX) + '" y2="' + (padY + innerH * 0.5).toFixed(2) + '" class="ecg-mid"/>' +
+                (okPath ? '<path d="' + okPath + '" class="ecg-line" fill="none"/>' : '') +
+                failMarks +
+                '<circle cx="' + (padX + innerW).toFixed(2) + '" cy="' + lastY.toFixed(2) + '" r="2.4" class="' + dotCls + '"/>' +
+                '</svg>';
+        }
+
+        async function injectEcgStrips() {
+            try {
+                const res = await fetch('/api/status/probes');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.success || !Array.isArray(data.cards)) return;
+                const byPrefix = {};
+                for (const c of data.cards) byPrefix[c.prefix] = c;
+                const cards = document.querySelectorAll('#list-grid .emby-card');
+                cards.forEach(card => {
+                    const prefix = card.getAttribute('data-prefix');
+                    if (!prefix) return;
+                    const c = byPrefix[prefix];
+                    if (!c) return; // 该节点未开启状态探测
+                    if (card.querySelector('.ecg-mount')) return; // 已注入，跳过
+                    const pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
+                    const block = document.createElement('div');
+                    block.className = 'ecg-mount';
+                    block.innerHTML =
+                        '<div class="ecg-strip" aria-label="近 60 次探测心电图">' + buildEcgSvg(c.history) + '</div>' +
+                        '<div class="ecg-meta">' +
+                            '<span class="ecg-pill ' + (c.ok ? 'ok' : 'bad') + '">' +
+                                '<span class="dot"></span>' + (c.ok ? '在线 ' + (c.latest_ms | 0) + 'ms' : '离线') +
+                            '</span>' +
+                            '<span class="ecg-stat"><b>24h</b> ' + pct(c.avail_24h) + '</span>' +
+                            '<span class="ecg-stat"><b>7d</b> ' + pct(c.avail_7d) + '</span>' +
+                        '</div>';
+                    // 插入到 sparkHtml 之后、a-stats 之前。寻找 .a-stats 节点。
+                    const stats = card.querySelector('.a-stats');
+                    if (stats) card.insertBefore(block, stats);
+                    else card.appendChild(block);
+                });
+            } catch (e) { /* silent */ }
         }
 
         // 依据节点徽章统计健康度并刷新顶栏
@@ -6816,6 +6945,83 @@ function htmlEscape(s) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ECG/心电图-style history strip. Takes [{ok, ms}, …] (oldest→newest, up to ~60 samples).
+// Returns inline SVG string. Static — no animation, baseline + QRS-like spikes.
+// Width 240, height 36, ok line uses currentColor or var(--primary), fail spikes use var(--err).
+function ecgStripSvg(history, opts) {
+    opts = opts || {};
+    const W = 240, H = 36;
+    const padX = 2, padY = 4;
+    const innerW = W - padX * 2;
+    const innerH = H - padY * 2;
+    const baseY = padY + innerH - 2; // isoelectric baseline near bottom
+    const samples = Array.isArray(history) ? history.slice(-60) : [];
+    if (!samples.length) {
+        return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
+            <text x="${W / 2}" y="${H / 2 + 3}" class="ecg-empty" text-anchor="middle">暂无探测</text>
+        </svg>`;
+    }
+    const n = samples.length;
+    const stepX = n > 1 ? innerW / (n - 1) : innerW;
+    // map ms to y (lower y = higher spike). Cap at 400ms for visual range.
+    const msToY = (ms) => {
+        const capped = Math.max(0, Math.min(400, ms || 0));
+        // base = baseY; peak height = up to innerH * 0.85
+        return baseY - (capped / 400) * (innerH * 0.85);
+    };
+    // Build path: small baseline jitter + QRS-like spike per sample
+    // Each sample is rendered as: baseline → tiny pre-tick → spike up to y → drop back to baseline → next
+    let okPath = '';
+    let failMarks = '';
+    let lastX = padX;
+    let cursor = padX;
+    let inOkRun = false;
+    for (let i = 0; i < n; i++) {
+        const s = samples[i];
+        const x = padX + stepX * i;
+        if (s.ok) {
+            const peakY = msToY(s.ms);
+            // Lead-in flat segment, then a QRS spike (up-tick, peak, down-tick), then return to baseline.
+            const preX = Math.max(lastX, x - stepX * 0.45);
+            const upX  = x - stepX * 0.18;
+            const dnX  = x + stepX * 0.10;
+            const tailX = x + stepX * 0.25;
+            if (!inOkRun) {
+                okPath += `M${preX.toFixed(2)} ${baseY}`;
+                inOkRun = true;
+            } else {
+                okPath += `L${preX.toFixed(2)} ${baseY}`;
+            }
+            okPath += ` L${upX.toFixed(2)} ${baseY} L${x.toFixed(2)} ${peakY.toFixed(2)} L${dnX.toFixed(2)} ${baseY} L${tailX.toFixed(2)} ${baseY}`;
+            lastX = tailX;
+        } else {
+            // Render failure as a tall red spike + close prior ok run.
+            if (inOkRun) {
+                okPath += ` L${(x - stepX * 0.3).toFixed(2)} ${baseY}`;
+                inOkRun = false;
+            }
+            failMarks += `<line x1="${x.toFixed(2)}" y1="${(padY + 1).toFixed(2)}" x2="${x.toFixed(2)}" y2="${baseY.toFixed(2)}" class="ecg-fail"/>`;
+            lastX = x;
+        }
+    }
+    if (inOkRun) {
+        okPath += ` L${(padX + innerW).toFixed(2)} ${baseY}`;
+    }
+    // Current-sample marker
+    const lastSample = samples[n - 1];
+    const lastX2 = padX + innerW;
+    const lastY = lastSample.ok ? msToY(lastSample.ms) : baseY;
+    const lastClass = lastSample.ok ? 'ecg-dot ok' : 'ecg-dot bad';
+    return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
+        <line x1="${padX}" y1="${(padY + innerH * 0.5).toFixed(2)}" x2="${W - padX}" y2="${(padY + innerH * 0.5).toFixed(2)}" class="ecg-mid"/>
+        ${okPath ? `<path d="${okPath}" class="ecg-line" fill="none"/>` : ''}
+        ${failMarks}
+        <circle cx="${lastX2.toFixed(2)}" cy="${lastY.toFixed(2)}" r="2.4" class="${lastClass}"/>
+    </svg>`;
+}
+
 function newShareToken() {
     const b = new Uint8Array(24);
     crypto.getRandomValues(b);
@@ -6903,11 +7109,7 @@ function renderStatusHtml(data, opts) {
 
     const hideNames = !!opts.hideNames;
     const cardsHtml = cards.map((c, i) => {
-        const histBars = c.history.map(h => {
-            const cls = h.ok ? 'sbar ok' : 'sbar bad';
-            const height = h.ok ? Math.max(8, Math.min(100, (h.ms || 0) / 20)) : 100;
-            return `<span class="${cls}" style="height:${height}%" title="${htmlEscape(h.ok ? h.ms + 'ms' : 'fail')}"></span>`;
-        }).join('');
+        const ecgHtml = ecgStripSvg(c.history);
         const countsRow = (c.show_counts && c.counts) ? `
             <div class="s-counts">
                 <span>电影 <b>${c.counts.movies}</b>${c.counts_delta && c.counts_delta.movies ? `<i class="s-delta ${c.counts_delta.movies > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.movies)}</i>` : ''}</span>
@@ -6935,7 +7137,7 @@ function renderStatusHtml(data, opts) {
                 <div class="metric"><div class="metric-k">24 小时</div><div class="metric-v">${pct(c.avail_24h)}</div></div>
                 <div class="metric"><div class="metric-k">7 天</div><div class="metric-v">${pct(c.avail_7d)}</div></div>
             </div>
-            <div class="node-strip" aria-hidden="true">${histBars || '<span class="s-empty">暂无探测数据</span>'}</div>
+            <div class="ecg-strip" aria-label="近 60 次探测心电图">${ecgHtml}</div>
             ${countsRow}
             <div class="node-foot">最近探测 · ${fmtTs(c.latest_ts)}</div>
         </article>`;
@@ -7175,15 +7377,38 @@ body{
 .metric-v .s-u{ font-size:var(--text-sm); font-weight:600; color:var(--text-sec); margin-left:2px; }
 .metric-v .is-bad{ color:var(--err); font-size:var(--text-xl); }
 
-.node-strip{
-  display:flex; align-items:flex-end; gap:2px; height:32px;
-  background:var(--surface-2); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:3px; overflow:hidden;
+/* —— ECG history strip —— */
+.ecg-strip{
+  background:linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:6px 8px;
+  position:relative; overflow:hidden;
+  /* faint medical-grid backdrop */
+  background-image:
+    linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%),
+    repeating-linear-gradient(0deg, transparent 0, transparent 7px, var(--hairline) 7px, var(--hairline) 7.5px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 11px, var(--hairline) 11px, var(--hairline) 11.5px);
+  background-blend-mode: normal, soft-light, soft-light;
 }
-.sbar{ flex:1; min-width:2px; border-radius:2px; }
-.sbar.ok{ background:var(--ok); opacity:.85; }
-.sbar.bad{ background:var(--err); }
-.node-strip .s-empty{ color:var(--text-sec); font-size:var(--text-xs); padding:4px 6px; }
+.ecg-svg{ width:100%; height:36px; display:block; }
+.ecg-svg .ecg-line{
+  stroke:var(--primary); stroke-width:1.4; stroke-linecap:round; stroke-linejoin:round;
+  filter:drop-shadow(0 0 2px var(--primary-glow));
+}
+.ecg-svg .ecg-base{
+  stroke:var(--hairline); stroke-width:.6; stroke-dasharray:2 3;
+}
+.ecg-svg .ecg-mid{
+  stroke:var(--hairline); stroke-width:.4; opacity:.5;
+}
+.ecg-svg .ecg-fail{
+  stroke:var(--err); stroke-width:1.6; stroke-linecap:round;
+  filter:drop-shadow(0 0 2px var(--err));
+}
+.ecg-svg .ecg-dot.ok{ fill:var(--primary); }
+.ecg-svg .ecg-dot.bad{ fill:var(--err); }
+.ecg-svg .ecg-empty{ font-size:9px; fill:var(--text-sec); font-family:inherit; }
 
 .s-counts{
   display:flex; flex-wrap:wrap; gap:var(--space-3) var(--space-5);
@@ -8305,6 +8530,16 @@ export default {
                 HARVEST_MEM.delete(prefix);
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+        }
+        // Admin probe data: same shape as /status (cards[]) — drives ECG strips on overview.
+        if (url.pathname === '/api/status/probes' && request.method === 'GET') {
+            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
+            try {
+                const data = await loadStatusData(env, {});
+                return Response.json({ success: true, cards: data.cards });
+            } catch (e) {
+                return Response.json({ success: false, error: e.message }, { status: 500 });
+            }
         }
         if (url.pathname === '/api/status/auth-state' && request.method === 'GET') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
