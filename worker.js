@@ -4387,17 +4387,17 @@ const HTML_UI = `
                             '</div>' +
                             '<div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:var(--text-sm);">' +
                                 '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;">' +
-                                    '<input type="checkbox" ' + (showOn ? 'checked' : '') + ' onchange="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'show_on_status\', this.checked ? 1 : 0)"> 在状态页展示' +
+                                    '<input type="checkbox" ' + (showOn ? 'checked' : '') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'show_on_status\\', this.checked ? 1 : 0)"> 在状态页展示' +
                                 '</label>' +
                                 '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;" ' + (showOn ? '' : 'data-disabled="1" style="opacity:.5; pointer-events:none;"') + '>' +
-                                    '<input type="checkbox" ' + (autoAuth ? 'checked' : '') + ' ' + (showOn ? '' : 'disabled') + ' onchange="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'media_counts_auto_auth\', this.checked ? 1 : 0)"> 自动获取媒体计数' +
+                                    '<input type="checkbox" ' + (autoAuth ? 'checked' : '') + ' ' + (showOn ? '' : 'disabled') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'media_counts_auto_auth\\', this.checked ? 1 : 0)"> 自动获取媒体计数' +
                                 '</label>' +
                             '</div>' +
                             (showOn ? (
                                 '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
                                     '<label style="font-size:var(--text-sm); color:var(--text-sec); flex:0 0 auto;">公开名称</label>' +
-                                    '<input type="text" value="' + _embyEscape(alias) + '" placeholder="留空则用备注" style="flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:inherit;" onblur="updateEmbyRouteFlag(\'' + _embyEscape(r.prefix) + '\',\'public_alias\', this.value)">' +
-                                    '<button type="button" class="btn-tier" onclick="generateShareCardLink(\'' + _embyEscape(r.prefix) + '\')">生成 SVG 卡片</button>' +
+                                    '<input type="text" value="' + _embyEscape(alias) + '" placeholder="留空则用备注" style="flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:inherit;" onblur="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'public_alias\\', this.value)">' +
+                                    '<button type="button" class="btn-tier" onclick="generateShareCardLink(\\'' + _embyEscape(r.prefix) + '\\')">生成 SVG 卡片</button>' +
                                 '</div>'
                             ) : '') +
                             (autoAuth ? (
@@ -4405,7 +4405,7 @@ const HTML_UI = `
                                     '<span>令牌：' + (hasToken ? '已收割' : '尚未收割') + '</span>' +
                                     '<span>首次：' + _embyEscape(seenAt) + '</span>' +
                                     '<span>最近探测使用：' + _embyEscape(usedAt) + '</span>' +
-                                    (hasToken ? '<button type="button" class="btn-tier" style="padding:4px 10px; font-size:11px;" onclick="revokeEmbyAuth(\'' + _embyEscape(r.prefix) + '\')">撤销并重新收割</button>' : '') +
+                                    (hasToken ? '<button type="button" class="btn-tier" style="padding:4px 10px; font-size:11px;" onclick="revokeEmbyAuth(\\'' + _embyEscape(r.prefix) + '\\')">撤销并重新收割</button>' : '') +
                                 '</div>'
                             ) : '') +
                         '</div>';
