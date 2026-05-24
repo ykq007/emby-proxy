@@ -6475,27 +6475,11 @@ async function probeRoute(env, route) {
         return { ok: false, response_ms: null, server_name: '', item_counts: null, error: 'no target' };
     }
     const base = targets[0].replace(/\/+$/, '');
-
-    // 解析 route.custom_headers，把 Emby/Jellyfin 鉴权头一起带上。
-    // /Items/Counts 在受保护的实例上会要求 X-Emby-Token / X-MediaBrowser-Token / Authorization；
-    // 没有这些头，counts 会一直是 null，公开页底部的"总计电影/剧集/单集"也就出不来。
-    const headers = { 'Accept': 'application/json' };
-    const rawHeaders = String(route.custom_headers || '');
-    for (const line of rawHeaders.split('\n')) {
-        const s = line.trim();
-        if (!s || s.startsWith('#')) continue;
-        const idx = s.indexOf(':');
-        if (idx <= 0) continue;
-        const k = s.slice(0, idx).trim();
-        const v = s.slice(idx + 1).trim();
-        if (k && v) headers[k] = v;
-    }
-
     const start = Date.now();
     try {
         const sysRes = await fetch(base + '/System/Info/Public', {
             method: 'GET',
-            headers,
+            headers: { 'Accept': 'application/json' },
             signal: AbortSignal.timeout(EMBY_PROBE_TIMEOUT_MS)
         });
         const response_ms = Date.now() - start;
@@ -6508,12 +6492,12 @@ async function probeRoute(env, route) {
             server_name = String(sysJson.ServerName || sysJson.serverName || '').slice(0, 64);
         } catch (e) { /* 非 JSON：仍视为在线 */ }
 
-        // 媒体计数：可能 401（无鉴权头时），失败不影响 ok。
+        // 媒体计数：可能 401（受保护实例），失败不影响 ok。
         let item_counts = null;
         try {
             const cntRes = await fetch(base + '/Items/Counts', {
                 method: 'GET',
-                headers,
+                headers: { 'Accept': 'application/json' },
                 signal: AbortSignal.timeout(EMBY_PROBE_TIMEOUT_MS)
             });
             if (cntRes.ok) {
@@ -6534,7 +6518,7 @@ async function probeAllAndStore(env) {
     let routes = [];
     try {
         const { results } = await env.DB.prepare(
-            `SELECT prefix, target, public_alias, custom_headers FROM routes WHERE show_on_status = 1`
+            `SELECT prefix, target, public_alias FROM routes WHERE show_on_status = 1`
         ).all();
         routes = results || [];
     } catch (e) {
