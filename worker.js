@@ -2771,14 +2771,14 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 `;
 
 function renderStatusPage({ cards, agg, generated }) {
-    // 顶部聚合只保留服务器健康度（总数/在线/离线）。
-    // 媒体计数（电影/剧集/单集）按节点显示在各自卡片底部，更直观，且避免误导
-    // （某节点未授权时聚合数会偏低，按节点显示则一目了然哪个节点缺数据）。
     const aggHtml = `
         <div class="stp-agg">
             <div class="stp-agg-item"><div class="stp-agg-label">总数</div><div class="stp-agg-value">${agg.total}</div></div>
             <div class="stp-agg-item"><div class="stp-agg-label">在线</div><div class="stp-agg-value" style="color:var(--ok)">${agg.online}</div></div>
             <div class="stp-agg-item"><div class="stp-agg-label">离线</div><div class="stp-agg-value" style="color:var(--err)">${agg.offline}</div></div>
+            ${agg.movies != null ? `<div class="stp-agg-item"><div class="stp-agg-label">电影</div><div class="stp-agg-value">${fmtNum(agg.movies)}</div></div>` : ''}
+            ${agg.series != null ? `<div class="stp-agg-item"><div class="stp-agg-label">剧集</div><div class="stp-agg-value">${fmtNum(agg.series)}</div></div>` : ''}
+            ${agg.episodes != null ? `<div class="stp-agg-item"><div class="stp-agg-label">单集</div><div class="stp-agg-value">${fmtNum(agg.episodes)}</div></div>` : ''}
         </div>`;
 
     const cardsHtml = cards.length === 0
@@ -6940,12 +6940,19 @@ export default {
                 `).all();
 
                 const cards = [];
-                let agg = { total: 0, online: 0, offline: 0 };
+                let agg = { total: 0, online: 0, offline: 0, movies: null, series: null, episodes: null };
+                let movieSum = 0, seriesSum = 0, epSum = 0, anyCounts = false;
 
                 for (const r of (rows || [])) {
                     let counts = null;
                     if (r.item_counts) {
                         try { counts = JSON.parse(r.item_counts); } catch (e) { counts = null; }
+                    }
+                    if (counts) {
+                        anyCounts = true;
+                        if (counts.MovieCount != null) movieSum += Number(counts.MovieCount) || 0;
+                        if (counts.SeriesCount != null) seriesSum += Number(counts.SeriesCount) || 0;
+                        if (counts.EpisodeCount != null) epSum += Number(counts.EpisodeCount) || 0;
                     }
                     cards.push({
                         display_name: r.public_alias || r.remark || r.server_name || r.prefix,
@@ -6972,6 +6979,12 @@ export default {
                     agg.total += 1;
                     agg.offline += 1;
                 }
+                if (anyCounts) {
+                    agg.movies = movieSum;
+                    agg.series = seriesSum;
+                    agg.episodes = epSum;
+                }
+
                 const generated = new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19) + ' (UTC+8)';
                 const html = renderStatusPage({ cards, agg, generated });
                 return new Response(html, {
