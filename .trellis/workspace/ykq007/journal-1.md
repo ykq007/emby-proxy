@@ -292,3 +292,36 @@ Added admin global toggle to hide reverse-proxy node names + icons on the public
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Country whitelist for reverse-proxy
+
+**Date**: 2026-05-24
+**Task**: Country whitelist for reverse-proxy
+**Branch**: `main`
+
+### Summary
+
+Added admin-configurable cf-ipcountry allowlist that gates the reverse-proxy branch (both /<prefix>/ and /http(s):// forms). Fail-closed on missing/XX; empty value = feature off. Storage in kv_config; UI extends /api/status/global-flags round-trip. /status and admin endpoints inherently exempt. Deployed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4bf7bd4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

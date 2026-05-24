@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-05-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~294 | Active |
+| `journal-1.md` | ~327 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-05-24 | Country whitelist for reverse-proxy | `4bf7bd4` | `main` |
 | 8 | 2026-05-24 | Hide node names on public /status | `c1d2681` | `main` |
 | 7 | 2026-05-24 | Port emby-js monitor (re-port + upstream parity + recovery) | `bd599d4` | `main` |
 | 6 | 2026-05-24 | Status page: custom_headers forwarding + token harvest from proxied traffic | `a46d290`, `9667e4c` | `main` |
