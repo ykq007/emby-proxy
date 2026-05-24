@@ -2677,176 +2677,6 @@ const LOGIN_UI = `
 </html>
 `;
 
-// ==========================================
-// 公开 /status 状态页 — 自带样式（仅复用顶级设计 token），不依赖管理面板 shell。
-// 受 jypost public.php 启发，全部数据来自 D1，由 scheduled() 写入。
-// ==========================================
-function escHtml(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-function fmtNum(n) {
-    if (n == null || isNaN(n)) return '—';
-    const v = Number(n);
-    if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
-    if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
-    if (v >= 1e3) return (v / 1e3).toFixed(1) + 'k';
-    return String(v);
-}
-function statusBadgeClass(card) {
-    if (!card.ok) return 'is-err';
-    if (card.uptime_pct == null) return 'is-ok';
-    if (card.uptime_pct >= 99) return 'is-ok';
-    if (card.uptime_pct >= 90) return 'is-warn';
-    return 'is-err';
-}
-
-// 状态页静态壳样式（独立令牌子集，便于无登录访问；仍与管理面板 v2.4 iOS-native 令牌同步）
-const STATUS_CSS = `
-:root{
-    --primary:#0071e3;--bg:#f5f5f7;--card:#ffffff;--text:#1d1d1f;--text-sec:#86868b;
-    --border:#d2d2d7;--ok:#34c759;--warn:#ff9500;--err:#ff3b30;
-    --ok-soft:rgba(52,199,89,0.10);--warn-soft:rgba(255,149,0,0.10);--err-soft:rgba(255,59,48,0.10);
-    --ok-ring:rgba(52,199,89,0.20);--warn-ring:rgba(255,149,0,0.20);--err-ring:rgba(255,59,48,0.20);
-    --space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-7:32px;
-    --text-xs:11px;--text-sm:12px;--text-md:13px;--text-base:14px;--text-lg:15px;--text-xl:16px;
-    --text-2xl:20px;--text-3xl:28px;--text-large-title:34px;
-    --radius-md:8px;--radius-ios:18px;--radius-ios-sm:14px;--radius-pill:999px;
-    --aurora-grad:linear-gradient(135deg,#0071e3 0%,#5856d6 55%,#af52de 110%);
-    --card-shadow-lift:0 1px 0 rgba(255,255,255,0.55) inset,0 1px 2px rgba(15,23,42,0.04),0 10px 28px -12px rgba(15,23,42,0.12);
-    --hairline:rgba(60,60,67,0.18);
-}
-@media (prefers-color-scheme: dark){
-    :root{
-        --bg:#07090f;--card:#12151d;--text:#e9edf5;--text-sec:#8b93a7;--border:#232838;
-        --ok-soft:rgba(52,199,89,0.14);--warn-soft:rgba(255,149,0,0.14);--err-soft:rgba(255,59,48,0.14);
-        --hairline:rgba(120,120,128,0.32);
-        --card-shadow-lift:0 1px 0 rgba(255,255,255,0.04) inset,0 1px 2px rgba(0,0,0,0.4),0 10px 28px -12px rgba(0,0,0,0.6);
-    }
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
-.stp-page{max-width:1200px;margin:0 auto;padding:var(--space-7) var(--space-5) var(--space-7)}
-.stp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-6)}
-.stp-title{font-size:var(--text-large-title);font-weight:700;letter-spacing:-0.02em;margin:0;background:var(--aurora-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.stp-sub{color:var(--text-sec);font-size:var(--text-md);margin-top:var(--space-2)}
-.stp-actions{display:flex;gap:var(--space-2);align-items:center}
-.stp-refresh{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:var(--text-sm);padding:8px 14px;border-radius:var(--radius-pill);cursor:pointer;transition:all .15s ease;box-shadow:var(--card-shadow-lift)}
-.stp-refresh:hover{transform:translateY(-1px);border-color:var(--primary);color:var(--primary)}
-.stp-admin-link{color:var(--text-sec);font-size:var(--text-sm);text-decoration:none;padding:8px 12px;border-radius:var(--radius-pill);border:1px solid transparent}
-.stp-admin-link:hover{color:var(--text);border-color:var(--border)}
-.stp-agg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3);margin-bottom:var(--space-6);background:var(--card);padding:var(--space-5);border-radius:var(--radius-ios);box-shadow:var(--card-shadow-lift);border:1px solid var(--hairline)}
-.stp-agg-item{display:flex;flex-direction:column;gap:4px}
-.stp-agg-label{font-size:var(--text-xs);color:var(--text-sec);text-transform:uppercase;letter-spacing:0.06em}
-.stp-agg-value{font-size:var(--text-2xl);font-weight:600;letter-spacing:-0.01em}
-.stp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--space-4)}
-.stp-card{background:var(--card);border:1px solid var(--hairline);border-radius:var(--radius-ios);padding:var(--space-5);box-shadow:var(--card-shadow-lift);display:flex;flex-direction:column;gap:var(--space-3);position:relative;overflow:hidden}
-.stp-card-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
-.stp-card-name{font-size:var(--text-lg);font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stp-badge{display:inline-flex;align-items:center;gap:6px;font-size:var(--text-xs);font-weight:600;padding:4px 10px;border-radius:var(--radius-pill);white-space:nowrap}
-.stp-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px var(--_dot-ring,transparent)}
-.stp-badge.is-ok{background:var(--ok-soft);color:var(--ok);--_dot-ring:var(--ok-ring)}
-.stp-badge.is-warn{background:var(--warn-soft);color:var(--warn);--_dot-ring:var(--warn-ring)}
-.stp-badge.is-err{background:var(--err-soft);color:var(--err);--_dot-ring:var(--err-ring)}
-.stp-metrics{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3) var(--space-4)}
-.stp-metric-label{font-size:var(--text-xs);color:var(--text-sec);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px}
-.stp-metric-value{font-size:var(--text-xl);font-weight:600;letter-spacing:-0.01em}
-.stp-uptime-bar{height:6px;background:var(--bg);border-radius:var(--radius-pill);overflow:hidden;margin-top:var(--space-2)}
-.stp-uptime-fill{height:100%;background:var(--ok);border-radius:inherit;transition:width .3s ease}
-.stp-uptime-fill.is-warn{background:var(--warn)}
-.stp-uptime-fill.is-err{background:var(--err)}
-.stp-counts{display:flex;gap:var(--space-3);flex-wrap:wrap;border-top:1px solid var(--hairline);padding-top:var(--space-3)}
-.stp-count{display:flex;flex-direction:column;gap:2px;min-width:64px}
-.stp-count-n{font-size:var(--text-lg);font-weight:600}
-.stp-count-l{font-size:var(--text-xs);color:var(--text-sec)}
-.stp-foot{font-size:var(--text-xs);color:var(--text-sec);margin-top:var(--space-2)}
-.stp-empty{text-align:center;padding:var(--space-7);color:var(--text-sec);background:var(--card);border-radius:var(--radius-ios);border:1px dashed var(--border)}
-@media (max-width:480px){
-    .stp-page{padding:var(--space-5) var(--space-4)}
-    .stp-title{font-size:28px}
-}
-`;
-
-function renderStatusPage({ cards, agg, generated }) {
-    const aggHtml = `
-        <div class="stp-agg">
-            <div class="stp-agg-item"><div class="stp-agg-label">总数</div><div class="stp-agg-value">${agg.total}</div></div>
-            <div class="stp-agg-item"><div class="stp-agg-label">在线</div><div class="stp-agg-value" style="color:var(--ok)">${agg.online}</div></div>
-            <div class="stp-agg-item"><div class="stp-agg-label">离线</div><div class="stp-agg-value" style="color:var(--err)">${agg.offline}</div></div>
-            ${agg.movies != null ? `<div class="stp-agg-item"><div class="stp-agg-label">电影</div><div class="stp-agg-value">${fmtNum(agg.movies)}</div></div>` : ''}
-            ${agg.series != null ? `<div class="stp-agg-item"><div class="stp-agg-label">剧集</div><div class="stp-agg-value">${fmtNum(agg.series)}</div></div>` : ''}
-            ${agg.episodes != null ? `<div class="stp-agg-item"><div class="stp-agg-label">单集</div><div class="stp-agg-value">${fmtNum(agg.episodes)}</div></div>` : ''}
-        </div>`;
-
-    const cardsHtml = cards.length === 0
-        ? `<div class="stp-empty">尚未配置任何对外公开的节点。<br>在管理面板路由表中开启 "状态页公开" 即可在此显示。</div>`
-        : `<div class="stp-grid">${cards.map(c => {
-            const badgeClass = statusBadgeClass(c);
-            const badgeText = c.ok ? '在线' : '离线';
-            const uptimeFillClass = c.uptime_pct == null ? '' : (c.uptime_pct >= 99 ? '' : c.uptime_pct >= 90 ? 'is-warn' : 'is-err');
-            const counts = c.item_counts || {};
-            const countCells = [
-                { n: counts.MovieCount, l: '电影' },
-                { n: counts.SeriesCount, l: '剧集' },
-                { n: counts.EpisodeCount, l: '单集' }
-            ].filter(x => x.n != null);
-            return `
-                <div class="stp-card">
-                    <div class="stp-card-head">
-                        <div class="stp-card-name" title="${escHtml(c.display_name)}">${escHtml(c.display_name)}</div>
-                        <span class="stp-badge ${badgeClass}">${badgeText}</span>
-                    </div>
-                    <div class="stp-metrics">
-                        <div>
-                            <div class="stp-metric-label">响应</div>
-                            <div class="stp-metric-value">${c.response_ms != null ? c.response_ms + ' ms' : '—'}</div>
-                        </div>
-                        <div>
-                            <div class="stp-metric-label">24h 均值</div>
-                            <div class="stp-metric-value">${c.avg_ms_24h != null ? Math.round(c.avg_ms_24h) + ' ms' : '—'}</div>
-                        </div>
-                        <div style="grid-column:1 / -1">
-                            <div class="stp-metric-label">24h 在线率</div>
-                            <div class="stp-metric-value">${c.uptime_pct != null ? c.uptime_pct.toFixed(2) + '%' : '—'}</div>
-                            <div class="stp-uptime-bar"><div class="stp-uptime-fill ${uptimeFillClass}" style="width:${c.uptime_pct != null ? Math.max(0, Math.min(100, c.uptime_pct)) : 0}%"></div></div>
-                        </div>
-                    </div>
-                    ${countCells.length ? `<div class="stp-counts">${countCells.map(x => `<div class="stp-count"><div class="stp-count-n">${fmtNum(x.n)}</div><div class="stp-count-l">${x.l}</div></div>`).join('')}</div>` : ''}
-                    <div class="stp-foot">${c.last_check ? '最后检测：' + escHtml(c.last_check) : '尚未检测'}</div>
-                </div>`;
-        }).join('')}</div>`;
-
-    return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>服务状态</title>
-<style>${STATUS_CSS}</style>
-</head>
-<body>
-<div class="stp-page">
-    <div class="stp-head">
-        <div>
-            <h1 class="stp-title">服务状态</h1>
-            <div class="stp-sub">最后生成：${escHtml(generated)} · 每 30 秒自动刷新</div>
-        </div>
-        <div class="stp-actions">
-            <a class="stp-admin-link" href="/" target="_blank" rel="noopener">管理面板 ↗</a>
-            <button class="stp-refresh" onclick="location.reload()">立即刷新</button>
-        </div>
-    </div>
-    ${aggHtml}
-    ${cardsHtml}
-</div>
-<script>setTimeout(function(){location.reload();},30000);</script>
-</body>
-</html>`;
-}
-
-const STATUS_PLACEHOLDER_HTML = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>服务状态</title><style>${STATUS_CSS}</style></head><body><div class="stp-page"><h1 class="stp-title">服务状态</h1><div class="stp-empty">监控尚未启用：未绑定 D1 数据库。</div></div></body></html>`;
-
 const HTML_UI = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -2976,9 +2806,6 @@ const HTML_UI = `
 
                 <div class="topbar-spacer"><span class="tb-section-title" id="tbSectionTitle"></span></div>
 
-                <a class="tb-icon-btn" href="/status" target="_blank" rel="noopener" title="打开公开状态页（/status）" aria-label="打开公开状态页">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
-                </a>
                 <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
@@ -4486,32 +4313,6 @@ const HTML_UI = `
             if (d) d.classList.toggle('open');
         }
 
-        // 公开 /status 状态页：每个节点的对外可见性开关（乐观更新 + 失败回滚）
-        async function togglePublicStatus(el) {
-            const prefix = el.getAttribute('data-prefix');
-            const on = el.getAttribute('data-on') === '1';
-            const next = !on;
-            // 立即反映 UI
-            el.setAttribute('data-on', next ? '1' : '0');
-            el.classList.toggle('good', next);
-            el.textContent = next ? '✓ 状态页公开' : '状态页未公开';
-            try {
-                const res = await fetch('/api/routes/public-flag', {
-                    method: 'POST',
-                    body: JSON.stringify({ prefix: prefix, show_on_status: next ? 1 : 0 })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.error || '保存失败');
-                showToast(next ? '✅ 已在公开 /status 显示' : '已从公开 /status 隐藏');
-            } catch (e) {
-                // 回滚
-                el.setAttribute('data-on', on ? '1' : '0');
-                el.classList.toggle('good', on);
-                el.textContent = on ? '✓ 状态页公开' : '状态页未公开';
-                showToast('❌ 切换失败: ' + e.message);
-            }
-        }
-
         function pingAllNodes() {
             if (proxyNodesForPing.length === 0) return showToast('⚠️ 没有可供测速的反代节点');
             showToast('⚡ 正在对所有节点发起测速...');
@@ -4654,9 +4455,6 @@ const HTML_UI = `
                             \${headerKeys.length
                                 ? \`<span class="a-tag primary" onclick="toggleDetails(this)" title="点击查看自定义请求头"><svg><use href="#i-key"/></svg>\${headerKeys.length} 个自定义头</span>\`
                                 : ''}
-                            <span class="a-tag\${r.show_on_status ? ' good' : ''} a-tag-status-toggle" data-prefix="\${r.prefix}" data-on="\${r.show_on_status ? 1 : 0}" onclick="togglePublicStatus(this)" style="cursor:pointer" title="点击切换是否在公开 /status 状态页显示该节点">
-                                \${r.show_on_status ? '✓ 状态页公开' : '状态页未公开'}
-                            </span>
                             <span class="a-tag">最后活跃 \${lastPlay}</span>
                         </div>
 
@@ -6444,145 +6242,11 @@ async function ensureSchema(env) {
         } else {
             _manualRedirectHosts = new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
         }
-
-        // 公开 /status 状态页支持：探测结果原始表 + 小时级聚合表 + 路由表的两个新列
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probes (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT NOT NULL, ts DATETIME DEFAULT CURRENT_TIMESTAMP, ok INTEGER NOT NULL, response_ms INTEGER, server_name TEXT DEFAULT '', item_counts TEXT DEFAULT '', error TEXT DEFAULT '')`);
-        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_emby_probes_prefix_ts ON emby_probes(prefix, ts)`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probe_hourly (prefix TEXT NOT NULL, hour TEXT NOT NULL, probe_count INTEGER NOT NULL, ok_count INTEGER NOT NULL, avg_ms INTEGER, PRIMARY KEY (prefix, hour))`);
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN show_on_status INTEGER DEFAULT 0`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN public_alias TEXT DEFAULT ''`); } catch (e) { }
-
         _schemaReady = true;
     } catch (e) {
         // 不抛错：DB 失败不能阻塞 Worker
         console.log('ensureSchema error:', e.message);
     }
-}
-
-// ==========================================
-// 公开 /status 状态页 — Emby 探针 & 聚合
-// 取代 jypost 的 monitor.py：直接由 Worker scheduled 触发，结果写入 D1。
-// ==========================================
-const EMBY_PROBE_TIMEOUT_MS = 8000;
-const EMBY_PROBE_RAW_RETAIN_HOURS = 48;
-const EMBY_PROBE_HOURLY_RETAIN_DAYS = 30;
-
-async function probeRoute(env, route) {
-    const targets = String(route.target || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (targets.length === 0) {
-        return { ok: false, response_ms: null, server_name: '', item_counts: null, error: 'no target' };
-    }
-    const base = targets[0].replace(/\/+$/, '');
-    const start = Date.now();
-    try {
-        const sysRes = await fetch(base + '/System/Info/Public', {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(EMBY_PROBE_TIMEOUT_MS)
-        });
-        const response_ms = Date.now() - start;
-        if (!sysRes.ok) {
-            return { ok: false, response_ms: null, server_name: '', item_counts: null, error: `HTTP ${sysRes.status}` };
-        }
-        let server_name = '';
-        try {
-            const sysJson = await sysRes.json();
-            server_name = String(sysJson.ServerName || sysJson.serverName || '').slice(0, 64);
-        } catch (e) { /* 非 JSON：仍视为在线 */ }
-
-        // 媒体计数：可能 401（受保护实例），失败不影响 ok。
-        let item_counts = null;
-        try {
-            const cntRes = await fetch(base + '/Items/Counts', {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-                signal: AbortSignal.timeout(EMBY_PROBE_TIMEOUT_MS)
-            });
-            if (cntRes.ok) {
-                item_counts = await cntRes.json();
-            }
-        } catch (e) { /* 静默：counts 是 best-effort */ }
-
-        return { ok: true, response_ms, server_name, item_counts, error: '' };
-    } catch (e) {
-        return { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(e && e.message || e).slice(0, 200) };
-    }
-}
-
-async function probeAllAndStore(env) {
-    if (!env.DB) return;
-    await ensureSchema(env);
-    const tickStart = Date.now();
-    let routes = [];
-    try {
-        const { results } = await env.DB.prepare(
-            `SELECT prefix, target, public_alias FROM routes WHERE show_on_status = 1`
-        ).all();
-        routes = results || [];
-    } catch (e) {
-        console.log('probeAllAndStore: select routes failed', e.message);
-        return;
-    }
-    if (routes.length === 0) return;
-
-    const settled = await Promise.allSettled(routes.map(r => probeRoute(env, r)));
-    const inserts = [];
-    const hourlyByKey = new Map();
-    const nowHour = new Date().toISOString().slice(0, 13) + ':00:00';
-
-    for (let i = 0; i < routes.length; i++) {
-        const r = routes[i];
-        const s = settled[i];
-        const result = s.status === 'fulfilled' ? s.value
-            : { ok: false, response_ms: null, server_name: '', item_counts: null, error: String(s.reason && s.reason.message || s.reason || 'unknown').slice(0, 200) };
-
-        inserts.push(env.DB.prepare(
-            `INSERT INTO emby_probes (prefix, ok, response_ms, server_name, item_counts, error) VALUES (?, ?, ?, ?, ?, ?)`
-        ).bind(
-            r.prefix,
-            result.ok ? 1 : 0,
-            result.response_ms,
-            result.server_name || '',
-            result.item_counts ? JSON.stringify(result.item_counts) : '',
-            result.error || ''
-        ));
-
-        const key = r.prefix;
-        const agg = hourlyByKey.get(key) || { probe_count: 0, ok_count: 0, ms_sum: 0, ms_n: 0 };
-        agg.probe_count += 1;
-        if (result.ok) agg.ok_count += 1;
-        if (result.ok && typeof result.response_ms === 'number') { agg.ms_sum += result.response_ms; agg.ms_n += 1; }
-        hourlyByKey.set(key, agg);
-    }
-
-    // upsert 小时聚合
-    for (const [prefix, agg] of hourlyByKey) {
-        const avg = agg.ms_n > 0 ? Math.round(agg.ms_sum / agg.ms_n) : null;
-        // SQLite ON CONFLICT: 表达式中的裸列名 = 旧值（更新前），excluded.* = 新提议值。
-        // 因此 (avg*count) 加权按旧/新分子分母叠加。
-        inserts.push(env.DB.prepare(
-            `INSERT INTO emby_probe_hourly (prefix, hour, probe_count, ok_count, avg_ms) VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(prefix, hour) DO UPDATE SET
-               probe_count = probe_count + excluded.probe_count,
-               ok_count    = ok_count    + excluded.ok_count,
-               avg_ms      = CASE WHEN excluded.avg_ms IS NULL THEN avg_ms
-                                  WHEN avg_ms IS NULL THEN excluded.avg_ms
-                                  ELSE ((avg_ms * probe_count) + (excluded.avg_ms * excluded.probe_count))
-                                       / (probe_count + excluded.probe_count) END`
-        ).bind(prefix, nowHour, agg.probe_count, agg.ok_count, avg));
-    }
-
-    // 写入 + 清理
-    try {
-        if (inserts.length) await env.DB.batch(inserts);
-        await env.DB.exec(`DELETE FROM emby_probes WHERE ts < datetime('now', '-${EMBY_PROBE_RAW_RETAIN_HOURS} hours')`);
-        await env.DB.exec(`DELETE FROM emby_probe_hourly WHERE hour < datetime('now', '-${EMBY_PROBE_HOURLY_RETAIN_DAYS} days')`);
-    } catch (e) {
-        console.log('probeAllAndStore: write/prune failed', e.message);
-    }
-
-    const ok = settled.filter(s => s.status === 'fulfilled' && s.value.ok).length;
-    console.log('emby_probe tick', { probed: routes.length, ok, failed: routes.length - ok, ms: Date.now() - tickStart });
 }
 async function getManualRedirectHosts(env) {
     if (_manualRedirectHosts) return _manualRedirectHosts;
@@ -6692,19 +6356,9 @@ async function attempt403Cascade(targetUrl, baseHeaders, fetchInit, currentMode)
 }
 
 export default {
-    // 定时任务调度：
-    //   - 每分钟 cron (`* * * * *`)：仅运行 Emby 探针，避免 TG 消息洪泛。
-    //   - 其它 cron（例如每天 `0 0 * * *`）：保留发送 TG 统计的既有行为，
-    //     同时也跑一次探针（无害；仅在用户未配置 1 分钟 cron 时是低频）。
+    // 每天自动运行发送 TG 统计
     async scheduled(event, env, ctx) {
-        const cronExpr = (event && event.cron) || '';
-        const isMinutely = cronExpr === '* * * * *';
-
-        if (env.DB) {
-            ctx.waitUntil(probeAllAndStore(env));
-        }
-
-        if (!isMinutely && env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
+        if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
             ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
         }
     },
@@ -6820,106 +6474,6 @@ export default {
                     'Access-Control-Allow-Origin': '*'
                 }
             });
-        }
-
-        // ==========================================
-        // 公开 /status 状态页（无登录）
-        // 数据来自 scheduled() 写入的 emby_probes；页面零额外探测，仅查 D1。
-        // ==========================================
-        if (url.pathname === '/status' && request.method === 'GET') {
-            if (!env.DB) {
-                return new Response(STATUS_PLACEHOLDER_HTML, { headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=60' } });
-            }
-            try {
-                // 每条 prefix 的最新一条探针 + 24h 在线率 + 24h 平均响应。
-                // SQLite 窗口函数：D1 已支持。
-                const { results: rows } = await env.DB.prepare(`
-                    WITH latest AS (
-                        SELECT prefix, ok, response_ms, server_name, item_counts, ts,
-                               ROW_NUMBER() OVER (PARTITION BY prefix ORDER BY ts DESC) AS rn
-                        FROM emby_probes
-                    )
-                    SELECT l.prefix, l.ok, l.response_ms, l.server_name, l.item_counts,
-                           datetime(l.ts, '+8 hours') AS last_check_cst,
-                           r.public_alias, r.remark, r.target,
-                           (SELECT 100.0 * SUM(ok) / COUNT(*) FROM emby_probes
-                              WHERE prefix = l.prefix AND ts >= datetime('now', '-24 hours')) AS uptime_pct,
-                           (SELECT AVG(response_ms) FROM emby_probes
-                              WHERE prefix = l.prefix AND ts >= datetime('now', '-24 hours') AND ok = 1) AS avg_ms_24h
-                    FROM latest l
-                    JOIN routes r ON r.prefix = l.prefix
-                    WHERE l.rn = 1 AND r.show_on_status = 1
-                    ORDER BY r.sort_order ASC, r.prefix ASC
-                `).all();
-
-                // 同时拉一次"已勾选但还没探针记录"的路由（首次部署后还没有 cron 跑过的情况）。
-                const { results: pending } = await env.DB.prepare(`
-                    SELECT r.prefix, r.public_alias, r.remark, r.target
-                    FROM routes r
-                    LEFT JOIN emby_probes p ON p.prefix = r.prefix
-                    WHERE r.show_on_status = 1 AND p.id IS NULL
-                    GROUP BY r.prefix
-                `).all();
-
-                const cards = [];
-                let agg = { total: 0, online: 0, offline: 0, movies: null, series: null, episodes: null };
-                let movieSum = 0, seriesSum = 0, epSum = 0, anyCounts = false;
-
-                for (const r of (rows || [])) {
-                    let counts = null;
-                    if (r.item_counts) {
-                        try { counts = JSON.parse(r.item_counts); } catch (e) { counts = null; }
-                    }
-                    if (counts) {
-                        anyCounts = true;
-                        if (counts.MovieCount != null) movieSum += Number(counts.MovieCount) || 0;
-                        if (counts.SeriesCount != null) seriesSum += Number(counts.SeriesCount) || 0;
-                        if (counts.EpisodeCount != null) epSum += Number(counts.EpisodeCount) || 0;
-                    }
-                    cards.push({
-                        display_name: r.public_alias || r.remark || r.server_name || r.prefix,
-                        ok: !!r.ok,
-                        response_ms: r.response_ms,
-                        avg_ms_24h: r.avg_ms_24h,
-                        uptime_pct: r.uptime_pct,
-                        item_counts: counts,
-                        last_check: r.last_check_cst
-                    });
-                    agg.total += 1;
-                    if (r.ok) agg.online += 1; else agg.offline += 1;
-                }
-                for (const r of (pending || [])) {
-                    cards.push({
-                        display_name: r.public_alias || r.remark || r.prefix,
-                        ok: false,
-                        response_ms: null,
-                        avg_ms_24h: null,
-                        uptime_pct: null,
-                        item_counts: null,
-                        last_check: ''
-                    });
-                    agg.total += 1;
-                    agg.offline += 1;
-                }
-                if (anyCounts) {
-                    agg.movies = movieSum;
-                    agg.series = seriesSum;
-                    agg.episodes = epSum;
-                }
-
-                const generated = new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19) + ' (UTC+8)';
-                const html = renderStatusPage({ cards, agg, generated });
-                return new Response(html, {
-                    headers: {
-                        'Content-Type': 'text/html;charset=UTF-8',
-                        // 边缘缓存吸收刷新风暴；与 30s 自动刷新匹配。
-                        'Cache-Control': 'public, max-age=15'
-                    }
-                });
-            } catch (e) {
-                console.log('/status render error:', e.message);
-                return new Response(STATUS_PLACEHOLDER_HTML, { headers: { 'Content-Type': 'text/html;charset=UTF-8' }, status: 200 });
-            }
         }
 
         // ==========================================
@@ -7393,35 +6947,6 @@ export default {
                 const items = await request.json();
                 const stmts = items.map(item => env.DB.prepare('UPDATE routes SET sort_order = ? WHERE prefix = ?').bind(item.sort_order, item.prefix));
                 await env.DB.batch(stmts);
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }); }
-        }
-
-        // 公开 /status 状态页：切换路由的对外可见性 / 公开别名（独立小端点，避免污染主 upsert）
-        if (url.pathname === '/api/routes/public-flag' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
-            try {
-                const body = await request.json();
-                const prefix = String(body.prefix || '').trim();
-                if (!prefix) return Response.json({ success: false, error: 'prefix 不能为空' }, { status: 400 });
-
-                const sets = [];
-                const binds = [];
-                if (body.show_on_status !== undefined) {
-                    sets.push('show_on_status = ?');
-                    binds.push(body.show_on_status ? 1 : 0);
-                }
-                if (body.public_alias !== undefined) {
-                    sets.push('public_alias = ?');
-                    binds.push(String(body.public_alias || '').slice(0, 64));
-                }
-                if (sets.length === 0) return Response.json({ success: false, error: '没有可更新字段' }, { status: 400 });
-
-                binds.push(prefix);
-                const res = await env.DB.prepare(`UPDATE routes SET ${sets.join(', ')} WHERE prefix = ?`).bind(...binds).run();
-                if (res.meta && res.meta.changes === 0) {
-                    return Response.json({ success: false, error: '未找到该路由' }, { status: 404 });
-                }
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }); }
         }
