@@ -3656,10 +3656,16 @@ const HTML_UI = `
                     <button type="button" class="btn-tier" onclick="loadEmbyStatusAdmin()">刷新</button>
                 </div>
                 <div id="embyShareResult" style="display:none; padding:10px 14px; background:rgba(0,136,204,0.08); border-radius:10px; margin-bottom:14px; font-size:var(--text-sm); word-break:break-all;"></div>
-                <div class="card" style="padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="card" style="padding:12px 14px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
                     <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:var(--text-sm);">
                         <input type="checkbox" id="embyHideNamesToggle" onchange="updateEmbyGlobalFlag('hide_node_names', this.checked ? 1 : 0)"> 在公开状态页隐藏节点名称与图标（统一显示为「节点 1、节点 2…」）
                     </label>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="min-width:120px; font-size:var(--text-sm);">代理国家白名单</span>
+                        <input type="text" id="proxyCountryAllowlist" placeholder="例：CN,HK,TW（留空=关闭）" style="flex:1; min-width:200px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); color:inherit;">
+                        <button type="button" class="btn-tier" onclick="saveCountryAllowlist()">保存</button>
+                    </div>
+                    <div style="font-size:var(--text-sm); color:var(--text-sec);">仅允许来自这些国家的客户端走反代；公开 /status 页与管理端点不受影响。留空即关闭。</div>
                 </div>
                 <div id="embyStatusAdminList" style="display:flex; flex-direction:column; gap:10px;"></div>
                 <div id="embyStatusAdminEmpty" style="display:none; color:var(--text-sec); font-size:var(--text-sm); padding:20px 0;">尚未配置任何反代节点。请先在「概览」中添加节点。</div>
@@ -4369,6 +4375,8 @@ const HTML_UI = `
                 ]);
                 const hideToggle = document.getElementById('embyHideNamesToggle');
                 if (hideToggle) hideToggle.checked = !!(globalRes && globalRes.hide_node_names);
+                const ccInput = document.getElementById('proxyCountryAllowlist');
+                if (ccInput) ccInput.value = (globalRes && globalRes.country_allowlist) ? globalRes.country_allowlist : '';
                 const routes = Array.isArray(routesRes) ? routesRes : [];
                 const stateMap = {};
                 if (stateRes && stateRes.success && Array.isArray(stateRes.items)) {
@@ -4421,6 +4429,25 @@ const HTML_UI = `
                 listEl.innerHTML = rows.join('');
             } catch (e) {
                 listEl.innerHTML = '<div style="color:var(--bad); font-size:var(--text-sm);">加载失败：' + _embyEscape(e.message) + '</div>';
+            }
+        }
+        async function saveCountryAllowlist() {
+            const input = document.getElementById('proxyCountryAllowlist');
+            if (!input) return;
+            try {
+                const res = await fetch('/api/status/global-flags', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ country_allowlist: input.value || '' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                    loadEmbyStatusAdmin();
+                } else {
+                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('❌ ' + e.message);
             }
         }
         async function updateEmbyGlobalFlag(field, value) {
@@ -6997,6 +7024,18 @@ async function probeAll(env) {
     }
 }
 
+async function loadCountryAllowlist(env) {
+    if (!env.DB) return null;
+    try {
+        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`).first();
+        if (!row || !row.v) return null;
+        const set = new Set(String(row.v).split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
+        return set.size ? set : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 // 共享 schema 初始化（幂等）
 let _schemaReady = false;
 async function ensureSchema(env) {
@@ -7955,7 +7994,12 @@ export default {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
             await ensureSchema(env);
             const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`).first();
-            return Response.json({ success: true, hide_node_names: (row && row.v === '1') ? 1 : 0 });
+            const ccRow = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`).first();
+            return Response.json({
+                success: true,
+                hide_node_names: (row && row.v === '1') ? 1 : 0,
+                country_allowlist: (ccRow && ccRow.v) ? ccRow.v : ''
+            });
         }
         if (url.pathname === '/api/status/global-flags' && request.method === 'POST') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
@@ -7965,6 +8009,14 @@ export default {
                 if (body.hide_node_names !== undefined) {
                     const v = body.hide_node_names ? '1' : '0';
                     await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                }
+                if (body.country_allowlist !== undefined) {
+                    const raw = String(body.country_allowlist || '');
+                    const codes = Array.from(new Set(
+                        raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+                    ));
+                    const v = codes.join(',');
+                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('proxy_country_allowlist', ?, CURRENT_TIMESTAMP)`).bind(v).run();
                 }
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
@@ -8177,6 +8229,15 @@ export default {
         }
 
         if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
+
+        // 国家白名单网关：仅当 allowlist 非空时启用；未命中或缺失 cf-ipcountry 一律拦截（fail-closed）
+        const _allowSet = await loadCountryAllowlist(env);
+        if (_allowSet) {
+            const _cc = (request.headers.get('cf-ipcountry') || '').toUpperCase();
+            if (!_cc || _cc === 'XX' || !_allowSet.has(_cc)) {
+                return new Response('Forbidden: country not allowed', { status: 403 });
+            }
+        }
 
         // ==========================================
         // 2.6.5 WebSocket 反代 (Emby 会话保活 / 远程控制 / SyncPlay)
