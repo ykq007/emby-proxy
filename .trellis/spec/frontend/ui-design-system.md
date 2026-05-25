@@ -1,4 +1,4 @@
-# UI Design System (v2.4.0)
+# UI Design System (v2.5.1)
 
 Introduced by the UI Suggestions implementation. Applies to the admin panel rendered from `HTML_UI` in `worker.js`.
 
@@ -209,6 +209,19 @@ Cards (`.card`, `.emby-card`, `.curl-modal`, `.tb-bar` etc.) all use `--radius-2
 ```
 
 **Never** write a raw status hex (`#34c759`, `#ff3b30`, `#ff9500`, dark-mode variants) or a `rgba(0,113,227,*)` / `rgba(47,155,255,*)` inside a component rule — pick the closest token. Dark-mode overrides are already wired inside `body.dark`, so component rules don't need theme branches.
+
+**v2.5.1 sweep**: three lingering bypasses were eliminated — `.tb-icon-btn:hover box-shadow` (now `var(--primary-ring)`), `LOGIN_UI body::before` decorative glow (now `var(--primary-glow)` + `transparent`), and the Chart.js trend dataset (now reads `--primary` / `--primary-soft` via `getComputedStyle(document.documentElement)` at both chart construction and `updateChartColors()`).
+
+**Pattern: Chart.js color tokens** — Chart.js datasets are constructed once and cached, so they don't inherit live CSS-var changes the way DOM nodes do. Read tokens explicitly:
+
+```js
+const cs = getComputedStyle(document.documentElement);
+const primary     = (cs.getPropertyValue('--primary')      || '#0071e3').trim();
+const primarySoft = (cs.getPropertyValue('--primary-soft') || 'rgba(0,113,227,0.1)').trim();
+new Chart(ctx, { data: { datasets: [{ borderColor: primary, backgroundColor: primarySoft, /* … */ }] } });
+```
+
+On theme toggle, also write the new values into `chartInstance.data.datasets[i]` and call `chart.update()` (or do it inside the existing `updateChartColors()` helper). The fallback literal is kept so a chart still renders if the CSS var is missing at boot.
 
 ### Touch token
 
@@ -934,3 +947,50 @@ grep -cE 'border-(top|bottom):\s*1px solid var\(--border\)' worker.js   # expect
 # Version bumped
 grep '^const CURRENT_VERSION' worker.js   # must read "2.5.0" or higher
 ```
+
+## A11y baseline (v2.5.1)
+
+A single low-specificity block in `CSS_COMMON` (just before the first
+`@media (max-width: 768px)`) provides keyboard focus rings and motion-safety
+across the whole admin panel. Adding new interactive components no longer
+requires a per-component `:focus-visible` rule.
+
+```css
+:where(button, [role="button"], a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+**Why `:where()`**: zero specificity. Existing per-component focus rules
+(e.g. `.tb-icon-btn:focus-visible`) win automatically — no migration needed.
+
+**Rule**: new interactive elements do NOT need their own `:focus-visible`
+unless they require a *non-default* outline (e.g. inset ring, color-shifted
+to fit a colored background). The baseline covers default semantics.
+
+**Reduced-motion scope**: applies to every animated/transitioned element,
+including Aurora gradient hovers, KPI sparkline, sheet-detent drag, glass
+topbar fade, `.tb-section-title` translateY, mobile compact-bar slide-in.
+Do not introduce JS-driven animations that bypass CSS transitions without
+also gating them on `window.matchMedia('(prefers-reduced-motion: reduce)')`.
+
+### Audit gates (count-based — line numbers drift)
+
+```bash
+# At least the baseline + the per-component .tb-icon-btn rule
+[ "$(grep -c ':focus-visible' worker.js)" -ge 2 ] && echo ok
+
+# Existing dark-mode listener + new CSS_COMMON block
+[ "$(grep -c 'prefers-reduced-motion' worker.js)" -ge 2 ] && echo ok
+```
+
+Use count-based assertions: the a11y block sits inside `CSS_COMMON` and any
+edit above it shifts line numbers.
