@@ -2735,7 +2735,7 @@ const HTML_UI = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MakkaPakka的反代面板</title>
+    <title>Emby 反代面板</title>
     <style>${CSS_COMMON}</style>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -3794,10 +3794,6 @@ const HTML_UI = `
             </div>
 
             <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
-                <a href="https://t.me/MakkaPakkaOvO" target="_blank" style="text-decoration: none; color: var(--text); font-weight: 600; display: inline-flex; align-items: center; padding: 12px 24px; background: var(--card); border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); transition: 0.3s; font-size: var(--text-base); border: 1px solid var(--border);">
-                    ${SVG_TG}
-                    联系作者 MakkaPakkaOvO
-                </a>
                 <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
                     <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
                 </div>
@@ -7796,6 +7792,20 @@ export default {
         if (cron === '0 0 * * *') {
             if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
                 ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
+            }
+            if (env.DB) {
+                ctx.waitUntil((async () => {
+                    try {
+                        await ensureSchema(env);
+                        const { results: routes } = await env.DB.prepare(`
+                            SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
+                              FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
+                        `).all();
+                        await maybeFetchMediaCounts(env, routes || [], Math.floor(Date.now() / 1000));
+                    } catch (e) {
+                        console.log('scheduled maybeFetchMediaCounts error:', e && e.message || e);
+                    }
+                })());
             }
             return;
         }
