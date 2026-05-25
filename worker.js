@@ -1,6 +1,6 @@
 // VERSION: 2.4.0
 // 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.5.0";
+const CURRENT_VERSION = "2.5.1";
 const GITHUB_RAW_URL = "这里填下你的在线更新地址";
 
 // ==========================================
@@ -532,7 +532,7 @@ const CSS_COMMON = `
     .tb-icon-btn:hover {
         color: var(--primary); border-color: var(--primary);
         background: var(--primary-soft);
-        box-shadow: 0 2px 8px rgba(0,113,227,0.12);
+        box-shadow: 0 2px 8px var(--primary-ring);
     }
     .tb-icon-btn:hover svg { transform: scale(1.06); }
     .tb-icon-btn:focus-visible {
@@ -569,6 +569,22 @@ const CSS_COMMON = `
     }
     .tb-drawer select:focus, .tb-drawer input:focus { border-color: var(--primary); }
     .tb-drawer .status { margin-top: var(--space-2-5); font-size: var(--text-sm); color: var(--text-sec); display: flex; align-items: center; gap: var(--space-1-5); }
+
+    /* === A11y baseline (v2.5.1) ===
+       Keyboard focus ring + reduced-motion. Uses :where() so specificity is 0,
+       leaving existing per-component :focus-visible rules (e.g. .tb-icon-btn)
+       untouched. */
+    :where(button, [role="button"], a, input, select, textarea, summary):focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+        border-radius: var(--radius-sm);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
 
     @media (max-width: 768px) {
         .tb-bar { padding: var(--space-2-5) var(--space-3); gap: var(--space-2); }
@@ -2524,7 +2540,7 @@ const LOGIN_UI = `
         ${CSS_COMMON}
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; margin: 0; background: #f0f2f5; position: relative; overflow-x: hidden; }
         body::before, body::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
-        body::before { top: -120px; right: -80px; width: 320px; height: 320px; background: radial-gradient(circle, rgba(0,113,227,0.22), rgba(0,113,227,0) 70%); }
+        body::before { top: -120px; right: -80px; width: 320px; height: 320px; background: radial-gradient(circle, var(--primary-glow), transparent 70%); }
         body::after { bottom: -100px; left: -100px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(88,86,214,0.18), rgba(88,86,214,0) 70%); }
         /* v2.5.0: desktop login refreshed in iOS-native voice — gradient
            medallion, large title, inset input. CTA stays inside the card. */
@@ -3855,6 +3871,13 @@ const HTML_UI = `
         function updateChartColors() {
             Chart.defaults.color = document.body.classList.contains('dark') ? '#98989d' : '#86868b';
             Chart.defaults.borderColor = document.body.classList.contains('dark') ? '#38383a' : '#d2d2d7';
+            const cs = getComputedStyle(document.documentElement);
+            const primary = (cs.getPropertyValue('--primary') || '#0071e3').trim();
+            const primarySoft = (cs.getPropertyValue('--primary-soft') || 'rgba(0,113,227,0.1)').trim();
+            if (trendChartInstance && trendChartInstance.data && trendChartInstance.data.datasets[0]) {
+                trendChartInstance.data.datasets[0].borderColor = primary;
+                trendChartInstance.data.datasets[0].backgroundColor = primarySoft;
+            }
         }
 
         // 节点状态徽章: 依据延迟/活跃度映射 在线/延迟/离线
@@ -4018,7 +4041,7 @@ const HTML_UI = `
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [{ label: '有效播放 (次)', data: counts, borderColor: '#0071e3', backgroundColor: 'rgba(0,113,227,0.1)', fill: true, tension: 0.3 }]
+                        datasets: [{ label: '有效播放 (次)', data: counts, borderColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary') || '#0071e3').trim(), backgroundColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary-soft') || 'rgba(0,113,227,0.1)').trim(), fill: true, tension: 0.3 }]
                     },
                     options: { responsive: true, plugins: { title: { display: true, text: '过去 7 天全站播放并发趋势', font: {size: 16} } } }
                 });

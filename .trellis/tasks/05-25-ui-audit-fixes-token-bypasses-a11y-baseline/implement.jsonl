@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/frontend/ui-design-system.md", "reason": "Source of truth for token usage rules + audit gates. Confirms --primary-ring / --primary-glow tokens, CURRENT_VERSION bump convention, and that new CSS_COMMON additions must use tokens."}
