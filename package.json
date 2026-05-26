@@ -3,11 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "build": "esbuild src/index.js --bundle --format=esm --target=es2022 --outfile=worker.js --legal-comments=inline --banner:js=\"// AUTO-GENERATED from src/ — do not edit directly. Run 'npm run build'.\"",
     "obfuscate": "node scripts/obfuscate.js worker.js dist/worker.obf.js",
-    "deploy": "npm run obfuscate && wrangler deploy",
-    "deploy:plain": "wrangler deploy --main worker.js"
+    "deploy": "npm run build && npm run obfuscate && wrangler deploy",
+    "deploy:plain": "npm run build && wrangler deploy --main worker.js",
+    "snapshot:write": "node scripts/snapshot-ui.mjs --write",
+    "snapshot:check": "node scripts/snapshot-ui.mjs --check"
   },
   "devDependencies": {
+    "esbuild": "^0.28.0",
     "javascript-obfuscator": "^4.1.0",
     "wrangler": "^4.0.0"
   }
