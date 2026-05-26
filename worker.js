@@ -6727,6 +6727,9 @@ async function runAlertFSM(env, routes, probes, now) {
         for (const r of (stateRows.results || [])) stateMap.set(r.prefix, r);
         const routeMap = new Map(routes.map(r => [r.prefix, r]));
 
+        const upsertAlert = (prefix, firstFail, lastAlert, kind) =>
+            env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
+                .bind(prefix, firstFail, lastAlert, kind);
         const stmts = [];
         const sends = [];
         for (const p of probes) {
@@ -6737,21 +6740,17 @@ async function runAlertFSM(env, routes, probes, now) {
                 if (st.alert_kind === 'offline') {
                     const duration = st.first_fail_at > 0 ? (now - st.first_fail_at) : 0;
                     sends.push({ kind: 'recovered', name, duration });
-                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
-                        .bind(p.prefix, 0, now, 'recovered'));
+                    stmts.push(upsertAlert(p.prefix, 0, now, 'recovered'));
                 } else if (st.first_fail_at !== 0 || st.alert_kind !== 'none') {
-                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
-                        .bind(p.prefix, 0, st.last_alert_at | 0, 'none'));
+                    stmts.push(upsertAlert(p.prefix, 0, st.last_alert_at | 0, 'none'));
                 }
             } else {
                 const firstFail = st.first_fail_at > 0 ? st.first_fail_at : now;
                 if (st.alert_kind !== 'offline' && (now - firstFail) >= EMBY_OUTAGE_THRESHOLD_S) {
                     sends.push({ kind: 'offline', name, duration: now - firstFail });
-                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
-                        .bind(p.prefix, firstFail, now, 'offline'));
+                    stmts.push(upsertAlert(p.prefix, firstFail, now, 'offline'));
                 } else if (st.first_fail_at === 0) {
-                    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
-                        .bind(p.prefix, firstFail, st.last_alert_at | 0, st.alert_kind || 'none'));
+                    stmts.push(upsertAlert(p.prefix, firstFail, st.last_alert_at | 0, st.alert_kind || 'none'));
                 }
             }
         }
