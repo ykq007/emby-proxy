@@ -6413,16 +6413,16 @@ async function getCFTraffic(env, type) {
 // 用于生成 TG 播报消息的核心工具函数 (单面板 + 流量之王统计版)
 async function sendTgStats(env, chatId) {
     try {
-        const totalQuery = await env.DB.prepare(`SELECT COUNT(*) as count FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours')`).first();
-        const topRegionQuery = await env.DB.prepare(`SELECT country, COUNT(*) as c FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours') GROUP BY country ORDER BY c DESC LIMIT 1`).first();
-        const topNodeQuery = await env.DB.prepare(`
-            SELECT r.remark, COUNT(v.id) as c 
-            FROM visitor_logs v 
-            LEFT JOIN routes r ON v.prefix = r.prefix 
-            WHERE date(v.timestamp, '+8 hours') = date('now', '+8 hours') 
-            GROUP BY v.prefix 
+        const totalQuery = await dbFirst(env, `SELECT COUNT(*) as count FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours')`);
+        const topRegionQuery = await dbFirst(env, `SELECT country, COUNT(*) as c FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours') GROUP BY country ORDER BY c DESC LIMIT 1`);
+        const topNodeQuery = await dbFirst(env, `
+            SELECT r.remark, COUNT(v.id) as c
+            FROM visitor_logs v
+            LEFT JOIN routes r ON v.prefix = r.prefix
+            WHERE date(v.timestamp, '+8 hours') = date('now', '+8 hours')
+            GROUP BY v.prefix
             ORDER BY c DESC LIMIT 1
-        `).first();
+        `);
 
         // 获取多时间维度流量
         const [trafficToday, traffic7d, traffic30d] = await Promise.all([
@@ -6436,7 +6436,7 @@ async function sendTgStats(env, chatId) {
         if (env.CF_API_TOKEN && env.CF_ZONE_ID && env.DB) {
             try {
                 // 1. 获取所有节点
-                const { results: routes } = await env.DB.prepare(`SELECT prefix, remark FROM routes`).all();
+                const { results: routes } = await dbAll(env, `SELECT prefix, remark FROM routes`);
                 if (routes && routes.length > 0) {
                     const end = new Date();
                     const beijingTime = new Date(end.getTime() + 8 * 3600000);
@@ -6686,12 +6686,12 @@ async function probeOne(route) {
 
 async function maybeRollupHourly(env, now) {
     try {
-        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`).first();
+        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`);
         const last = row ? parseInt(row.v, 10) || 0 : 0;
         if (Math.floor(now / 3600) <= Math.floor(last / 3600)) return;
         const hourTs = Math.floor(now / 3600) * 3600 - 3600;
         const hourEnd = hourTs + 3600;
-        const { results } = await env.DB.prepare(`
+        const { results } = await dbAll(env, `
             SELECT prefix,
                    SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count,
                    SUM(CASE WHEN ok=0 THEN 1 ELSE 0 END) AS fail_count,
@@ -6700,7 +6700,7 @@ async function maybeRollupHourly(env, now) {
               FROM emby_probes
              WHERE ts >= ? AND ts < ?
           GROUP BY prefix
-        `).bind(hourTs, hourEnd).all();
+        `, hourTs, hourEnd);
         const stmts = (results || []).map(r =>
             env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_hourly(prefix, hour_ts, ok_count, fail_count, avg_ms, p95_ms) VALUES(?,?,?,?,?,?)`)
                 .bind(r.prefix, hourTs, r.ok_count | 0, r.fail_count | 0, Math.round(r.avg_ms || 0), Math.round(r.max_ms || 0))
@@ -6722,7 +6722,7 @@ async function maybeRollupHourly(env, now) {
 
 async function runAlertFSM(env, routes, probes, now) {
     try {
-        const stateRows = await env.DB.prepare(`SELECT prefix, first_fail_at, last_alert_at, alert_kind FROM emby_probe_state`).all();
+        const stateRows = await dbAll(env, `SELECT prefix, first_fail_at, last_alert_at, alert_kind FROM emby_probe_state`);
         const stateMap = new Map();
         for (const r of (stateRows.results || [])) stateMap.set(r.prefix, r);
         const routeMap = new Map(routes.map(r => [r.prefix, r]));
@@ -6928,8 +6928,7 @@ function extractEmbyToken(request) {
 async function persistHarvestedToken(env, prefix, token, now) {
     try {
         const blob = await encryptToken(env, prefix, token);
-        await env.DB.prepare(`UPDATE routes SET emby_auth_cache = ?, emby_auth_seen_at = ? WHERE prefix = ?`)
-            .bind(blob, now, prefix).run();
+        await dbRun(env, `UPDATE routes SET emby_auth_cache = ?, emby_auth_seen_at = ? WHERE prefix = ?`, blob, now, prefix);
     } catch (e) {
         console.log('persistHarvestedToken error:', e.message);
     }
@@ -6938,7 +6937,7 @@ async function persistHarvestedToken(env, prefix, token, now) {
 async function maybeFetchMediaCounts(env, routes, now) {
     try {
         const today = nowLocalDayStr();
-        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'emby_last_media_day'`).first();
+        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_media_day'`);
         const lastDay = row ? String(row.v || '') : '';
         if (lastDay === today) return;
         const writes = [];
@@ -7098,15 +7097,15 @@ export async function loadStatusData(env, opts) {
 
     const cards = [];
     for (const r of routes) {
-        const lastProbe = await env.DB.prepare(`SELECT ok, ms, status, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 1`).bind(r.prefix).first();
-        const last60 = await env.DB.prepare(`SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`).bind(r.prefix).all();
-        const raw24 = await env.DB.prepare(`SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`).bind(r.prefix, since24).first();
-        const hourly7 = await env.DB.prepare(`SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`).bind(r.prefix, since7d).first();
+        const lastProbe = await dbFirst(env, `SELECT ok, ms, status, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 1`, r.prefix);
+        const last60 = await dbAll(env, `SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`, r.prefix);
+        const raw24 = await dbFirst(env, `SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`, r.prefix, since24);
+        const hourly7 = await dbFirst(env, `SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`, r.prefix, since7d);
         // Fallback: 今日还没抓到(跨日窗口 / 外部 cron 未跑 / token 临时挂)时,回退到最近一天已有的计数,
         // 保持 /status 永远不空白; delta 以"最近一天"对比"再前一天"。
-        const latestCounts = await env.DB.prepare(`SELECT day, movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day <= ? ORDER BY day DESC LIMIT 1`).bind(r.prefix, today).first();
+        const latestCounts = await dbFirst(env, `SELECT day, movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day <= ? ORDER BY day DESC LIMIT 1`, r.prefix, today);
         const prevCounts = latestCounts
-            ? await env.DB.prepare(`SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day < ? ORDER BY day DESC LIMIT 1`).bind(r.prefix, latestCounts.day).first()
+            ? await dbFirst(env, `SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day < ? ORDER BY day DESC LIMIT 1`, r.prefix, latestCounts.day)
             : null;
         const todayCounts = latestCounts;
         const yesterdayCounts = prevCounts;
@@ -7610,11 +7609,11 @@ async function probeAll(env) {
         await ensureSchema(env);
         if (!env.DB) return;
         const now = Math.floor(Date.now() / 1000);
-        const { results: routes } = await env.DB.prepare(`
+        const { results: routes } = await dbAll(env, `
             SELECT prefix, target, remark, public_alias, custom_headers,
                    show_on_status, media_counts_auto_auth, emby_auth_cache
               FROM routes WHERE show_on_status = 1
-        `).all();
+        `);
         if (!routes || !routes.length) return;
         const probes = await Promise.all(routes.map(r => probeOne(r)));
         const insertStmts = probes.map(p =>
@@ -7631,13 +7630,23 @@ async function probeAll(env) {
 async function loadCountryAllowlist(env) {
     if (!env.DB) return null;
     try {
-        const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`).first();
+        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
         if (!row || !row.v) return null;
         const set = new Set(String(row.v).split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
         return set.size ? set : null;
     } catch (e) {
         return null;
     }
+}
+
+function dbRun(env, sql, ...binds) {
+    return env.DB.prepare(sql).bind(...binds).run();
+}
+function dbAll(env, sql, ...binds) {
+    return env.DB.prepare(sql).bind(...binds).all();
+}
+function dbFirst(env, sql, ...binds) {
+    return env.DB.prepare(sql).bind(...binds).first();
 }
 
 // 共享 schema 初始化（幂等）
@@ -7698,10 +7707,9 @@ async function ensureSchema(env) {
         if (seedStmts.length) await env.DB.batch(seedStmts);
 
         // Seed manual redirect domains 默认值
-        const existing = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`).first();
+        const existing = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
         if (!existing) {
-            await env.DB.prepare(`INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`)
-                .bind(DEFAULT_MANUAL_REDIRECT_DOMAINS.join('\n')).run();
+            await dbRun(env, `INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`, DEFAULT_MANUAL_REDIRECT_DOMAINS.join('\n'));
             _manualRedirectHosts = new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map(s => s.toLowerCase()));
         } else {
             _manualRedirectHosts = new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
@@ -7831,10 +7839,10 @@ export default {
                 ctx.waitUntil((async () => {
                     try {
                         await ensureSchema(env);
-                        const { results: routes } = await env.DB.prepare(`
+                        const { results: routes } = await dbAll(env, `
                             SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
                               FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
-                        `).all();
+                        `);
                         await maybeFetchMediaCounts(env, routes || [], Math.floor(Date.now() / 1000));
                     } catch (e) {
                         console.log('scheduled maybeFetchMediaCounts error:', e && e.message || e);
@@ -7996,7 +8004,7 @@ export default {
             if (!env.DB) return new Response('DB not bound', { status: 500 });
             try {
                 const data = await loadStatusData(env, {});
-                const hideRow = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`).first();
+                const hideRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
                 const hideNames = !!(hideRow && hideRow.v === '1');
                 return new Response(renderStatusHtml(data, { title: '节点状态', hideNames }), {
                     headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
@@ -8012,7 +8020,7 @@ export default {
                 return new Response('Invalid token', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
             }
             try {
-                const row = await env.DB.prepare(`SELECT scope, expires_at FROM emby_public_share WHERE token = ? AND scope = 'dashboard'`).bind(token).first();
+                const row = await dbFirst(env, `SELECT scope, expires_at FROM emby_public_share WHERE token = ? AND scope = 'dashboard'`, token);
                 if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
                     return new Response('链接已过期或失效', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
                 }
@@ -8033,7 +8041,7 @@ export default {
                 });
             }
             try {
-                const row = await env.DB.prepare(`SELECT scope, prefix, expires_at FROM emby_public_share WHERE token = ? AND scope = 'card'`).bind(token).first();
+                const row = await dbFirst(env, `SELECT scope, prefix, expires_at FROM emby_public_share WHERE token = ? AND scope = 'card'`, token);
                 if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
                     return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">链接已过期</text></svg>', {
                         status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
@@ -8092,9 +8100,9 @@ export default {
                     getCFTraffic(env, 30)
                 ]);
 
-                const trend = await env.DB.prepare(`SELECT date(timestamp, '+8 hours') as date, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY date(timestamp, '+8 hours') ORDER BY date ASC`).all();
-                const locations = await env.DB.prepare(`SELECT country, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY country ORDER BY count DESC`).all();
-                const recents = await env.DB.prepare(`SELECT prefix, datetime(timestamp, '+8 hours') as timestamp, ip, country, ua FROM visitor_logs ORDER BY timestamp DESC LIMIT 20`).all();
+                const trend = await dbAll(env, `SELECT date(timestamp, '+8 hours') as date, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY date(timestamp, '+8 hours') ORDER BY date ASC`);
+                const locations = await dbAll(env, `SELECT country, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY country ORDER BY count DESC`);
+                const recents = await dbAll(env, `SELECT prefix, datetime(timestamp, '+8 hours') as timestamp, ip, country, ua FROM visitor_logs ORDER BY timestamp DESC LIMIT 20`);
 
                 return Response.json({
                     success: true,
@@ -8133,7 +8141,7 @@ export default {
                     return Response.json(cached.payload);
                 }
 
-                const { results: routes } = await env.DB.prepare(`SELECT prefix FROM routes`).all();
+                const { results: routes } = await dbAll(env, `SELECT prefix FROM routes`);
                 if (!routes || routes.length === 0) {
                     return Response.json({ ok: false, reason: 'no-routes', days, items: [] });
                 }
@@ -8344,10 +8352,10 @@ export default {
             const t0 = Date.now();
             try {
                 await ensureSchema(env);
-                const { results: routes } = await env.DB.prepare(`
+                const { results: routes } = await dbAll(env, `
                     SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
                       FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
-                `).all();
+                `);
                 const now = Math.floor(Date.now() / 1000);
                 await maybeFetchMediaCounts(env, routes || [], now);
                 return Response.json({ ok: true, routes: (routes || []).length, ms: Date.now() - t0 });
@@ -8394,7 +8402,7 @@ export default {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
             await ensureSchema(env);
             if (request.method === 'GET') {
-                const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`).first();
+                const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
                 const domains = String(row?.v || '').split('\n').map(s => s.trim()).filter(Boolean);
                 return Response.json({ success: true, domains });
             }
@@ -8404,7 +8412,7 @@ export default {
                     const list = Array.isArray(body.domains) ? body.domains : [];
                     const cleaned = list.map(s => String(s || '').trim().toLowerCase()).filter(s => s && /^[a-z0-9.-]+$/.test(s));
                     const v = cleaned.join('\n');
-                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('manual_redirect_domains', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('manual_redirect_domains', ?, CURRENT_TIMESTAMP)`, v);
                     _manualRedirectHosts = new Set(cleaned);
                     return Response.json({ success: true, domains: cleaned });
                 } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
@@ -8418,7 +8426,7 @@ export default {
         if (url.pathname === '/api/optimized-domains' && request.method === 'GET') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
             await ensureSchema(env);
-            const { results } = await env.DB.prepare(`SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`).all();
+            const { results } = await dbAll(env, `SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`);
             return Response.json({ success: true, items: results || [] });
         }
         if (url.pathname === '/api/optimized-domains' && request.method === 'POST') {
@@ -8428,7 +8436,7 @@ export default {
                 const { domain, note } = await request.json();
                 const d = String(domain || '').trim().toLowerCase();
                 if (!d || !/^[a-z0-9.-]+$/.test(d)) return Response.json({ success: false, error: '域名格式非法' }, { status: 400 });
-                await env.DB.prepare(`INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 0, 1)`).bind(d, String(note || '')).run();
+                await dbRun(env, `INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 0, 1)`, d, String(note || ''));
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
         }
@@ -8437,20 +8445,20 @@ export default {
             await ensureSchema(env);
             const id = parseInt(url.pathname.split('/').pop(), 10);
             if (!id) return Response.json({ success: false, error: 'invalid id' }, { status: 400 });
-            const row = await env.DB.prepare(`SELECT * FROM optimized_domains WHERE id = ?`).bind(id).first();
+            const row = await dbFirst(env, `SELECT * FROM optimized_domains WHERE id = ?`, id);
             if (!row) return Response.json({ success: false, error: '记录不存在' }, { status: 404 });
             if (request.method === 'PATCH') {
                 try {
                     const body = await request.json();
                     const enabled = body.enabled === undefined ? row.enabled : (body.enabled ? 1 : 0);
                     const note = body.note === undefined ? row.note : String(body.note || '');
-                    await env.DB.prepare(`UPDATE optimized_domains SET enabled = ?, note = ? WHERE id = ?`).bind(enabled, note, id).run();
+                    await dbRun(env, `UPDATE optimized_domains SET enabled = ?, note = ? WHERE id = ?`, enabled, note, id);
                     return Response.json({ success: true });
                 } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
             }
             if (request.method === 'DELETE') {
                 if (row.builtin) return Response.json({ success: false, error: '内置域名不可删除（可禁用）' }, { status: 400 });
-                await env.DB.prepare(`DELETE FROM optimized_domains WHERE id = ?`).bind(id).run();
+                await dbRun(env, `DELETE FROM optimized_domains WHERE id = ?`, id);
                 return Response.json({ success: true });
             }
             return new Response("Method not allowed", { status: 405 });
@@ -8458,7 +8466,7 @@ export default {
         if (url.pathname === '/api/optimized-domains/speedtest' && request.method === 'POST') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
             await ensureSchema(env);
-            const { results } = await env.DB.prepare(`SELECT id, domain FROM optimized_domains WHERE enabled = 1`).all();
+            const { results } = await dbAll(env, `SELECT id, domain FROM optimized_domains WHERE enabled = 1`);
             const rows = results || [];
             const measured = await Promise.all(rows.map(async r => {
                 const probe = await probeDomain(r.domain);
@@ -8639,8 +8647,8 @@ export default {
                     if (!r.prefix || !r.target) { skipped.push({ prefix: r.prefix || '(空)', reason: '缺少 prefix 或 target' }); continue; }
                     const reason = validateRoutePrefix(r.prefix);
                     if (reason) { skipped.push({ prefix: r.prefix, reason }); continue; }
-                    await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                        .bind(r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.show_on_status ? 1 : 0, r.public_alias || '', r.media_counts_auto_auth ? 1 : 0).run();
+                    await dbRun(env, 'INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.show_on_status ? 1 : 0, r.public_alias || '', r.media_counts_auto_auth ? 1 : 0);
                     imported++;
                 }
                 return Response.json({ success: true, imported, skipped });
@@ -8657,7 +8665,7 @@ export default {
                 const body = await request.json();
                 const prefix = String(body.prefix || '').trim();
                 if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                const exists = await env.DB.prepare(`SELECT prefix FROM routes WHERE prefix = ?`).bind(prefix).first();
+                const exists = await dbFirst(env, `SELECT prefix FROM routes WHERE prefix = ?`, prefix);
                 if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
                 const fields = [];
                 const values = [];
@@ -8666,7 +8674,7 @@ export default {
                 if (body.media_counts_auto_auth !== undefined) { fields.push('media_counts_auto_auth = ?'); values.push(body.media_counts_auto_auth ? 1 : 0); }
                 if (!fields.length) return Response.json({ success: false, error: '无字段需要更新' }, { status: 400 });
                 values.push(prefix);
-                await env.DB.prepare(`UPDATE routes SET ${fields.join(', ')} WHERE prefix = ?`).bind(...values).run();
+                await dbRun(env, `UPDATE routes SET ${fields.join(', ')} WHERE prefix = ?`, ...values);
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
         }
@@ -8677,7 +8685,7 @@ export default {
                 const body = await request.json();
                 const prefix = String(body.prefix || '').trim();
                 if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                await env.DB.prepare(`UPDATE routes SET emby_auth_cache = '', emby_auth_seen_at = 0, emby_auth_used_at = 0 WHERE prefix = ?`).bind(prefix).run();
+                await dbRun(env, `UPDATE routes SET emby_auth_cache = '', emby_auth_seen_at = 0, emby_auth_used_at = 0 WHERE prefix = ?`, prefix);
                 HARVEST_MEM.delete(prefix);
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
@@ -8695,19 +8703,19 @@ export default {
         if (url.pathname === '/api/status/auth-state' && request.method === 'GET') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
             await ensureSchema(env);
-            const { results } = await env.DB.prepare(`
+            const { results } = await dbAll(env, `
                 SELECT prefix, show_on_status, public_alias, media_counts_auto_auth,
                        CASE WHEN emby_auth_cache = '' THEN 0 ELSE 1 END AS has_token,
                        emby_auth_seen_at, emby_auth_used_at
                   FROM routes
-            `).all();
+            `);
             return Response.json({ success: true, items: results || [] });
         }
         if (url.pathname === '/api/status/global-flags' && request.method === 'GET') {
             if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
             await ensureSchema(env);
-            const row = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`).first();
-            const ccRow = await env.DB.prepare(`SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`).first();
+            const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
+            const ccRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
             return Response.json({
                 success: true,
                 hide_node_names: (row && row.v === '1') ? 1 : 0,
@@ -8721,7 +8729,7 @@ export default {
                 const body = await request.json();
                 if (body.hide_node_names !== undefined) {
                     const v = body.hide_node_names ? '1' : '0';
-                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`, v);
                 }
                 if (body.country_allowlist !== undefined) {
                     const raw = String(body.country_allowlist || '');
@@ -8729,7 +8737,7 @@ export default {
                         raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
                     ));
                     const v = codes.join(',');
-                    await env.DB.prepare(`INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('proxy_country_allowlist', ?, CURRENT_TIMESTAMP)`).bind(v).run();
+                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('proxy_country_allowlist', ?, CURRENT_TIMESTAMP)`, v);
                 }
                 return Response.json({ success: true });
             } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
@@ -8756,7 +8764,7 @@ export default {
                 const body = await request.json();
                 const prefix = String(body.prefix || '').trim();
                 if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                const exists = await env.DB.prepare(`SELECT show_on_status FROM routes WHERE prefix = ?`).bind(prefix).first();
+                const exists = await dbFirst(env, `SELECT show_on_status FROM routes WHERE prefix = ?`, prefix);
                 if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
                 if (!exists.show_on_status) return Response.json({ success: false, error: '该节点未开启“在状态页展示”，无法生成分享卡片' }, { status: 400 });
                 const token = newShareToken();
@@ -8794,14 +8802,14 @@ export default {
             // 🚀 【方案A修复版】：独立并发查流，完美绕过 CF 免费版复杂度限制！
             if (request.method === 'GET') {
                 const todayStr = new Date(Date.now() + 8 * 3600000).toISOString().split('T')[0];
-                const { results: routes } = await env.DB.prepare(`
-                    SELECT r.*, 
+                const { results: routes } = await dbAll(env, `
+                    SELECT r.*,
                     IFNULL(s.count, 0) as todayReqs,
                     (SELECT SUM(count) FROM request_stats WHERE prefix = r.prefix) as totalReqs
-                    FROM routes r 
-                    LEFT JOIN request_stats s ON r.prefix = s.prefix AND s.date = ? 
+                    FROM routes r
+                    LEFT JOIN request_stats s ON r.prefix = s.prefix AND s.date = ?
                     ORDER BY r.sort_order ASC, r.prefix ASC
-                `).bind(todayStr).all();
+                `, todayStr);
 
                 if (env.CF_API_TOKEN && env.CF_ZONE_ID && routes && routes.length > 0) {
                     const end = new Date();
@@ -8870,14 +8878,14 @@ export default {
                 let currentSortOrder = 0;
                 let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0 };
                 if (data.oldPrefix && data.oldPrefix !== data.prefix) {
-                    const oldRow = await env.DB.prepare('SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?').bind(data.oldPrefix).first();
+                    const oldRow = await dbFirst(env, 'SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?', data.oldPrefix);
                     if (oldRow) {
                         currentSortOrder = oldRow.sort_order;
                         prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
                     }
-                    await env.DB.prepare('DELETE FROM routes WHERE prefix = ?').bind(data.oldPrefix).run();
+                    await dbRun(env, 'DELETE FROM routes WHERE prefix = ?', data.oldPrefix);
                 } else {
-                    const oldRow = await env.DB.prepare('SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?').bind(data.prefix).first();
+                    const oldRow = await dbFirst(env, 'SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?', data.prefix);
                     if (oldRow) {
                         currentSortOrder = oldRow.sort_order;
                         prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
@@ -8888,13 +8896,13 @@ export default {
                 const publicAlias = data.public_alias === undefined ? prevStatusFields.public_alias : String(data.public_alias || '').trim();
                 const mediaAuto = data.media_counts_auto_auth === undefined ? prevStatusFields.media_counts_auto_auth : (data.media_counts_auto_auth ? 1 : 0);
 
-                await env.DB.prepare('INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                    .bind(data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '', showOnStatus, publicAlias, mediaAuto).run();
+                await dbRun(env, 'INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '', showOnStatus, publicAlias, mediaAuto);
                 return Response.json({ success: true });
             }
 
             if (request.method === 'DELETE') {
-                const prefix = url.searchParams.get('prefix'); await env.DB.prepare('DELETE FROM routes WHERE prefix = ?').bind(prefix).run(); return Response.json({ success: true });
+                const prefix = url.searchParams.get('prefix'); await dbRun(env, 'DELETE FROM routes WHERE prefix = ?', prefix); return Response.json({ success: true });
             }
             return new Response("Method not allowed", { status: 405 });
         }
