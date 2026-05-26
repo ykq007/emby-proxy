@@ -1,3 +1,7 @@
+import { dbAll, dbFirst } from '../db/helpers.js';
+import { nowLocalDayStr, htmlEscape } from '../util/text.js';
+import { ecgStripSvg } from '../ui/svg.js';
+
 export async function loadStatusData(env, opts) {
     opts = opts || {};
     const limitPrefix = opts.prefix || null;

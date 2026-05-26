@@ -1,3 +1,8 @@
+import { dbRun } from '../db/helpers.js';
+
+// 进程内令牌写入去抖（prefix -> { token, writtenAt })
+export const HARVEST_MEM = new Map();
+
 export async function tokenKey(env, prefix) {
     const ikm = new TextEncoder().encode(String(env.ADMIN_TOKEN || ''));
     const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);

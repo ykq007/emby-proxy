@@ -1,3 +1,9 @@
+import { dbRun, dbFirst } from '../db/helpers.js';
+import { parseCustomHeadersForProbe, parseCustomHeaderEmbyToken, buildEmbyClientHeaders } from './headers.js';
+import { encryptToken, decryptToken, persistHarvestedToken, HARVEST_MEM } from './tokens.js';
+import { nowLocalDayStr } from '../util/text.js';
+import { probeTargetFor } from '../probes/probe.js';
+
 export async function fetchItemCounts(targetBase, token, customHeadersRaw, prefix) {
     if (!targetBase || !token) return null;
     const ctrl = new AbortController();

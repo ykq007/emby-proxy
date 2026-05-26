@@ -1,3 +1,8 @@
+import { dbRun, dbFirst } from './helpers.js';
+import { DEFAULT_MANUAL_REDIRECT_DOMAINS, DEFAULT_OPTIMIZED_DOMAINS, updateManualRedirectHosts } from '../routing/validate.js';
+
+let _schemaReady = false;
+
 export async function ensureSchema(env) {
     if (_schemaReady || !env.DB) return;
     try {
@@ -57,12 +62,13 @@ export async function ensureSchema(env) {
         const existing = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
         if (!existing) {
             await dbRun(env, `INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`, DEFAULT_MANUAL_REDIRECT_DOMAINS.join('\n'));
-            _manualRedirectHosts = new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map(s => s.toLowerCase()));
+            updateManualRedirectHosts(new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map(s => s.toLowerCase())));
         } else {
-            _manualRedirectHosts = new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
+            updateManualRedirectHosts(new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean)));
         }
         _schemaReady = true;
     } catch (e) {
         // 不抛错：DB 失败不能阻塞 Worker
         console.log('ensureSchema error:', e.message);
     }
+}

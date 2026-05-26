@@ -1,3 +1,10 @@
+import { dbRun, dbAll, dbFirst } from '../db/helpers.js';
+
+const EMBY_RAW_RETENTION_S = 24 * 3600;
+const EMBY_HOURLY_RETENTION_S = 7 * 86400;
+const EMBY_OUTAGE_THRESHOLD_S = 300;
+const EMBY_HARVEST_IDLE_DROP_S = 7 * 86400;
+
 export async function maybeRollupHourly(env, now) {
     try {
         const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`);

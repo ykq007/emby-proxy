@@ -1,3 +1,11 @@
+import { dbRun, dbAll } from '../db/helpers.js';
+import { ensureSchema } from '../db/schema.js';
+import { parseCustomHeadersForProbe } from '../emby/headers.js';
+import { runAlertFSM, maybeRollupHourly } from './alerts.js';
+
+const EMBY_PROBE_TIMEOUT_MS = 6000;
+const EMBY_PROBE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 export function probeTargetFor(routeTarget) {
     const first = String(routeTarget || '').split(',').map(s => s.trim()).filter(Boolean)[0];
     if (!first) return null;

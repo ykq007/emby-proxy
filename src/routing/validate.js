@@ -1,3 +1,18 @@
+import { dbFirst } from '../db/helpers.js';
+import { ensureSchema } from '../db/schema.js';
+
+// F1: 路由别名保留前缀（与系统/CF 路径冲突的不允许注册为代理别名）
+export const RESERVED_ALIASES = new Set([
+    'api', 'admin', '__client_rtt__',
+    'login', 'logout',
+    'assets', 'static', 'public',
+    'health', 'healthz', 'ping', 'status',
+    'emby', 'web', 'stats',
+    'favicon.ico', 'robots.txt',
+    'apple-touch-icon', 'sw.js', 'manifest.json', 'cdn-cgi'
+]);
+export const PREFIX_REGEX = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+
 export function validateRoutePrefix(raw) {
     const prefix = String(raw || '').trim();
     if (!prefix) return '别名为空';
@@ -7,7 +22,7 @@ export function validateRoutePrefix(raw) {
 }
 
 // F3: 直接透传 3xx Location 的上游域名白名单（云盘签名直链等）
-const DEFAULT_MANUAL_REDIRECT_DOMAINS = [
+export const DEFAULT_MANUAL_REDIRECT_DOMAINS = [
     'cn-beijing-data.aliyundrive.net',
     'cn-shenzhen-data.aliyundrive.net',
     'alicdn-adrive-cn-data-yk.alicdn.com',
@@ -18,6 +33,12 @@ const DEFAULT_MANUAL_REDIRECT_DOMAINS = [
     'cos.ap-shanghai.myqcloud.com'
 ];
 let _manualRedirectHosts = null; // Set<string>，由 ensureSchema/POST 端点初始化
+
+/** Called by ensureSchema and the POST /api/manual-redirect-domains handler */
+export function updateManualRedirectHosts(value) {
+    _manualRedirectHosts = value;
+}
+
 export function hostMatchesAllowlist(host, set) {
     if (!host || !set || set.size === 0) return false;
     const h = host.toLowerCase();
@@ -29,7 +50,7 @@ export function hostMatchesAllowlist(host, set) {
 }
 
 // F4: 内置 12 个 CF 友好优选域名（首次部署自动 seed）
-const DEFAULT_OPTIMIZED_DOMAINS = [
+export const DEFAULT_OPTIMIZED_DOMAINS = [
     { domain: 'cf.090227.xyz',         note: 'ZhiXuanWang 优选合集' },
     { domain: 'cf.zhetengsha.eu.org',  note: '社区维护' },
     { domain: 'cdn.2020111.xyz',       note: '2020111 推送' },
@@ -77,4 +98,3 @@ export async function getManualRedirectHosts(env) {
     await ensureSchema(env);
     return _manualRedirectHosts || new Set();
 }
-

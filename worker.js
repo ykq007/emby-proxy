@@ -1,15 +1,244 @@
-// VERSION: 2.4.0
-// 🟢 面板核心配置区 (放在最顶端方便修改)
-const CURRENT_VERSION = "2.5.1";
-const GITHUB_RAW_URL = "这里填下你的在线更新地址";
+// AUTO-GENERATED from src/ — do not edit directly. Run 'npm run build'.
 
-// ==========================================
-// 1. 网页界面-单播报版本
-// ==========================================
+// src/util/version.js
+var CURRENT_VERSION = "2.5.1";
+var GITHUB_RAW_URL = "\u8FD9\u91CC\u586B\u4E0B\u4F60\u7684\u5728\u7EBF\u66F4\u65B0\u5730\u5740";
 
-const SVG_TG = `<svg viewBox="0 0 24 24" style="width:20px;height:20px;margin-right:8px;fill:#0088cc;"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>`;
+// src/util/json.js
+function jsonResponse(body, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      ...extraHeaders
+    }
+  });
+}
 
-export const CSS_COMMON = `
+// src/util/text.js
+function nowLocalDayStr() {
+  return new Date(Date.now() + 8 * 36e5).toISOString().slice(0, 10);
+}
+function htmlEscape(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// src/util/share.js
+function newShareToken() {
+  const b = new Uint8Array(24);
+  crypto.getRandomValues(b);
+  let s = "";
+  for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+  return s;
+}
+
+// src/db/helpers.js
+function dbRun(env, sql, ...binds) {
+  return env.DB.prepare(sql).bind(...binds).run();
+}
+function dbAll(env, sql, ...binds) {
+  return env.DB.prepare(sql).bind(...binds).all();
+}
+function dbFirst(env, sql, ...binds) {
+  return env.DB.prepare(sql).bind(...binds).first();
+}
+
+// src/routing/validate.js
+var RESERVED_ALIASES = /* @__PURE__ */ new Set([
+  "api",
+  "admin",
+  "__client_rtt__",
+  "login",
+  "logout",
+  "assets",
+  "static",
+  "public",
+  "health",
+  "healthz",
+  "ping",
+  "status",
+  "emby",
+  "web",
+  "stats",
+  "favicon.ico",
+  "robots.txt",
+  "apple-touch-icon",
+  "sw.js",
+  "manifest.json",
+  "cdn-cgi"
+]);
+var PREFIX_REGEX = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+function validateRoutePrefix(raw) {
+  const prefix = String(raw || "").trim();
+  if (!prefix) return "\u522B\u540D\u4E3A\u7A7A";
+  if (!PREFIX_REGEX.test(prefix)) return "\u522B\u540D\u683C\u5F0F\u975E\u6CD5\uFF08\u4EC5\u5141\u8BB8\u5B57\u6BCD/\u6570\u5B57/_/-\uFF0C\u4E14\u4E0D\u8D85\u8FC7 64 \u4F4D\uFF0C\u4E0D\u80FD\u4EE5\u7279\u6B8A\u5B57\u7B26\u5F00\u5934\uFF09";
+  if (RESERVED_ALIASES.has(prefix.toLowerCase())) return `\u522B\u540D "${prefix}" \u4E3A\u7CFB\u7EDF\u4FDD\u7559\u524D\u7F00`;
+  return null;
+}
+var DEFAULT_MANUAL_REDIRECT_DOMAINS = [
+  "cn-beijing-data.aliyundrive.net",
+  "cn-shenzhen-data.aliyundrive.net",
+  "alicdn-adrive-cn-data-yk.alicdn.com",
+  "115.com",
+  "115cdn.com",
+  "anxia.com",
+  "pcs.drive.quark.cn",
+  "video-pcs.drive.quark.cn",
+  "mypikpak.com",
+  "mypikpak.net",
+  "aliyuncs.com",
+  "myqcloud.com",
+  "myhuaweicloud.com",
+  "cos.ap-shanghai.myqcloud.com"
+];
+var _manualRedirectHosts = null;
+function updateManualRedirectHosts(value) {
+  _manualRedirectHosts = value;
+}
+function hostMatchesAllowlist(host, set) {
+  if (!host || !set || set.size === 0) return false;
+  const h = host.toLowerCase();
+  if (set.has(h)) return true;
+  for (const d of set) {
+    if (h.endsWith("." + d)) return true;
+  }
+  return false;
+}
+var DEFAULT_OPTIMIZED_DOMAINS = [
+  { domain: "cf.090227.xyz", note: "ZhiXuanWang \u4F18\u9009\u5408\u96C6" },
+  { domain: "cf.zhetengsha.eu.org", note: "\u793E\u533A\u7EF4\u62A4" },
+  { domain: "cdn.2020111.xyz", note: "2020111 \u63A8\u9001" },
+  { domain: "xn--b6gac.eu.org", note: "IPv6 \u53CB\u597D" },
+  { domain: "cloudflare.182682.xyz", note: "182682 \u63A8\u9001" },
+  { domain: "cf.877771.xyz", note: "877771 \u63A8\u9001" },
+  { domain: "cf.0sm.com", note: "0sm \u63A8\u9001" },
+  { domain: "visa.com.sg", note: "\u4E9A\u592A\u4F4E\u5EF6\u8FDF" },
+  { domain: "visa.com.hk", note: "\u9999\u6E2F" },
+  { domain: "time.is", note: "\u6B27\u6D32\u4F4E\u5EF6\u8FDF" },
+  { domain: "cf-ns.com", note: "\u901A\u7528" },
+  { domain: "icook.tw", note: "\u53F0\u6E7E" }
+];
+async function probeDomain(domain) {
+  const start = Date.now();
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 4e3);
+  try {
+    const res = await fetch(`https://${domain}/cdn-cgi/trace`, {
+      method: "HEAD",
+      redirect: "manual",
+      signal: controller.signal,
+      cf: { cacheTtl: 0 }
+    });
+    clearTimeout(t);
+    if (res.status >= 500) return { ms: -1, ok: false };
+    return { ms: Date.now() - start, ok: true };
+  } catch (e) {
+    clearTimeout(t);
+    return { ms: -1, ok: false };
+  }
+}
+async function loadCountryAllowlist(env) {
+  if (!env.DB) return null;
+  try {
+    const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
+    if (!row || !row.v) return null;
+    const set = new Set(String(row.v).split(",").map((s) => s.trim().toUpperCase()).filter(Boolean));
+    return set.size ? set : null;
+  } catch (e) {
+    return null;
+  }
+}
+async function getManualRedirectHosts(env) {
+  if (_manualRedirectHosts) return _manualRedirectHosts;
+  await ensureSchema(env);
+  return _manualRedirectHosts || /* @__PURE__ */ new Set();
+}
+
+// src/db/schema.js
+var _schemaReady = false;
+async function ensureSchema(env) {
+  if (_schemaReady || !env.DB) return;
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS kv_config (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS optimized_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE, note TEXT DEFAULT '', builtin INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, last_ms INTEGER DEFAULT -1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS dns_config (id INTEGER PRIMARY KEY CHECK (id = 1), cf_api_token TEXT DEFAULT '', cf_zone_id TEXT DEFAULT '', cf_record_id TEXT DEFAULT '', target_alias TEXT DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN show_on_status INTEGER DEFAULT 0`);
+    } catch (e) {
+    }
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN public_alias TEXT DEFAULT ''`);
+    } catch (e) {
+    }
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN media_counts_auto_auth INTEGER DEFAULT 0`);
+    } catch (e) {
+    }
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_cache TEXT DEFAULT ''`);
+    } catch (e) {
+    }
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_seen_at INTEGER DEFAULT 0`);
+    } catch (e) {
+    }
+    try {
+      await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_used_at INTEGER DEFAULT 0`);
+    } catch (e) {
+    }
+    const probeRecreate = async (table, createSql, indexSql, probeCol) => {
+      try {
+        await env.DB.prepare(`SELECT ${probeCol} FROM ${table} LIMIT 0`).all();
+      } catch (e) {
+        if (/no such column|no such table/i.test(e.message || "")) {
+          try {
+            await env.DB.exec(`DROP TABLE IF EXISTS ${table}`);
+          } catch (_) {
+          }
+        }
+      }
+      await env.DB.exec(createSql);
+      if (indexSql) await env.DB.exec(indexSql);
+    };
+    await probeRecreate(
+      "emby_probes",
+      `CREATE TABLE IF NOT EXISTS emby_probes (prefix TEXT NOT NULL, ts INTEGER NOT NULL, ok INTEGER NOT NULL, ms INTEGER NOT NULL, status INTEGER DEFAULT 0, PRIMARY KEY(prefix, ts))`,
+      `CREATE INDEX IF NOT EXISTS idx_emby_probes_prefix_ts ON emby_probes(prefix, ts)`,
+      "ms"
+    );
+    await probeRecreate(
+      "emby_probe_hourly",
+      `CREATE TABLE IF NOT EXISTS emby_probe_hourly (prefix TEXT NOT NULL, hour_ts INTEGER NOT NULL, ok_count INTEGER NOT NULL, fail_count INTEGER NOT NULL, avg_ms INTEGER NOT NULL, p95_ms INTEGER NOT NULL, PRIMARY KEY(prefix, hour_ts))`,
+      null,
+      "hour_ts"
+    );
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probe_state (prefix TEXT PRIMARY KEY, first_fail_at INTEGER DEFAULT 0, last_alert_at INTEGER DEFAULT 0, alert_kind TEXT DEFAULT 'none')`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_media_counts (prefix TEXT NOT NULL, day TEXT NOT NULL, movies INTEGER DEFAULT 0, series INTEGER DEFAULT 0, episodes INTEGER DEFAULT 0, PRIMARY KEY(prefix, day))`);
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_public_share (token TEXT PRIMARY KEY, scope TEXT NOT NULL, prefix TEXT DEFAULT '', expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL)`);
+    await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_emby_public_share_scope_prefix ON emby_public_share(scope, prefix)`);
+    const seedStmts = DEFAULT_OPTIMIZED_DOMAINS.map(
+      (d) => env.DB.prepare(`INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 1, 1)`).bind(d.domain, d.note)
+    );
+    if (seedStmts.length) await env.DB.batch(seedStmts);
+    const existing = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
+    if (!existing) {
+      await dbRun(env, `INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`, DEFAULT_MANUAL_REDIRECT_DOMAINS.join("\n"));
+      updateManualRedirectHosts(new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map((s) => s.toLowerCase())));
+    } else {
+      updateManualRedirectHosts(new Set(String(existing.v || "").split("\n").map((s) => s.trim().toLowerCase()).filter(Boolean)));
+    }
+    _schemaReady = true;
+  } catch (e) {
+    console.log("ensureSchema error:", e.message);
+  }
+}
+
+// src/ui/css.js
+var CSS_COMMON = `
     :root {
         --primary: #0071e3;
         --primary-hover: #005cbf;
@@ -18,7 +247,7 @@ export const CSS_COMMON = `
         --text: #1d1d1f;
         --text-sec: #86868b;
         --border: #d2d2d7;
-        /* 科技风扩展变量 (浅色版) */
+        /* \u79D1\u6280\u98CE\u6269\u5C55\u53D8\u91CF (\u6D45\u8272\u7248) */
         --surface: #ffffff;
         --surface-2: #f0f1f4;
         --sidebar-bg: #ffffff;
@@ -28,11 +257,11 @@ export const CSS_COMMON = `
         --err: #ff3b30;
         --card-shadow: 0 4px 20px rgba(0,0,0,0.05);
 
-        /* === Alignment system v2.2.0 — design tokens ===
+        /* === Alignment system v2.2.0 \u2014 design tokens ===
            Spec: .trellis/spec/frontend/ui-design-system.md "Alignment system" */
         --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
         --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 48px;
-        /* half-steps — only for legitimate optical compaction (icon paddings,
+        /* half-steps \u2014 only for legitimate optical compaction (icon paddings,
            inline-row gaps, dense card spacing). Prefer whole steps in new code. */
         --space-1-5: 6px; --space-2-5: 10px; --space-3-5: 14px;
         --text-2xs:  9px; --text-xs:  11px; --text-sm:  12px; --text-md: 13px;
@@ -50,7 +279,7 @@ export const CSS_COMMON = `
         --accent-glow: var(--primary-glow);
         --touch-min: 44px;
 
-        /* === Aurora system v2.3.0 — distinctive surface tokens ===
+        /* === Aurora system v2.3.0 \u2014 distinctive surface tokens ===
            Brand gradient + glass surfaces. Adds visible identity without
            rewriting layout. Used by sidebar-brand, .kpi-tile.is-primary,
            .btn-submit hover, glass topbar. */
@@ -66,18 +295,18 @@ export const CSS_COMMON = `
             0 4px 10px rgba(15,23,42,0.05),
             0 18px 38px -12px rgba(15,23,42,0.18);
 
-        /* === iOS-native tokens v2.4.0 — typography & shapes ===
+        /* === iOS-native tokens v2.4.0 \u2014 typography & shapes ===
            iOS HIG values (34pt large title, 17pt headline, 16pt callout, 15pt body,
            continuous-corner radii).
-           v2.5.0: desktop port — ios-page-header / ios-form-* / tb-section-title
+           v2.5.0: desktop port \u2014 ios-page-header / ios-form-* / tb-section-title
            promoted out of the mobile MQ; mobile-only tokens (large-title shrinks)
            are still scoped via media queries. */
         --text-headline: 17px;
         --text-body-ios: 15px;
         --text-large-title: 34px;
-        --text-large-title-md: 30px;   /* ≤480 shrink */
-        --text-large-title-sm: 28px;   /* ≤360 shrink */
-        --text-large-title-lg: 40px;   /* ≥769px desktop */
+        --text-large-title-md: 30px;   /* \u2264480 shrink */
+        --text-large-title-sm: 28px;   /* \u2264360 shrink */
+        --text-large-title-lg: 40px;   /* \u2265769px desktop */
         --radius-ios: 18px;
         --radius-ios-sm: 14px;
         --hairline: rgba(60,60,67,0.18);
@@ -94,7 +323,7 @@ export const CSS_COMMON = `
         --text: #e9edf5;
         --text-sec: #8b93a7;
         --border: #232838;
-        /* 科技风扩展变量 (深色版) */
+        /* \u79D1\u6280\u98CE\u6269\u5C55\u53D8\u91CF (\u6DF1\u8272\u7248) */
         --surface: #12151d;
         --surface-2: #181c27;
         --sidebar-bg: #0c0e15;
@@ -104,7 +333,7 @@ export const CSS_COMMON = `
         --err: #ff453a;
         --card-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 6px 26px rgba(0,0,0,0.55);
 
-        /* Alignment system v2.2.0 — dark-mode overrides for tokens whose value differs */
+        /* Alignment system v2.2.0 \u2014 dark-mode overrides for tokens whose value differs */
         --ok-soft:   rgba(48,209,88,0.12);  --ok-ring:   rgba(48,209,88,0.24);
         --warn-soft: rgba(255,159,10,0.12); --warn-ring: rgba(255,159,10,0.24);
         --err-soft:  rgba(255,69,58,0.12);  --err-ring:  rgba(255,69,58,0.24);
@@ -112,7 +341,7 @@ export const CSS_COMMON = `
         --primary-ring: rgba(47,155,255,0.24);
         --primary-glow: rgba(47,155,255,0.32);
 
-        /* Aurora system v2.3.0 — dark variant */
+        /* Aurora system v2.3.0 \u2014 dark variant */
         --aurora-grad: linear-gradient(135deg, #2f9bff 0%, #6e6ad9 55%, #c47ce0 110%);
         --aurora-grad-soft: radial-gradient(140% 90% at 0% 0%, rgba(47,155,255,0.18), transparent 65%);
         --topbar-glass: rgba(14,17,25,0.68);
@@ -123,7 +352,7 @@ export const CSS_COMMON = `
             0 0 0 1px var(--primary-ring) inset,
             0 14px 38px -10px rgba(0,0,0,0.7);
 
-        /* iOS-native tokens v2.4.0 — dark variant */
+        /* iOS-native tokens v2.4.0 \u2014 dark variant */
         --hairline: rgba(84,84,88,0.55);
         --ios-fill: rgba(118,118,128,0.24);
         --ios-fill-quat: rgba(118,118,128,0.12);
@@ -157,9 +386,9 @@ export const CSS_COMMON = `
     .action-group { display: inline-flex; gap: var(--space-2); background: rgba(120,120,120,0.05); padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-md); border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
     /* === Icon button family (v2.2.0) ===
        Canonical ghost-bordered icon button. Three intent classes share base rules:
-         .icon-btn      — generic (= .a-icon-btn)
-         .a-icon-btn    — node-card / table action buttons
-         .tb-icon-btn   — topbar borderless variant (own rule below)
+         .icon-btn      \u2014 generic (= .a-icon-btn)
+         .a-icon-btn    \u2014 node-card / table action buttons
+         .tb-icon-btn   \u2014 topbar borderless variant (own rule below)
        Size modifiers (apply to any): .is-sm 28x28 / .is-md 32x32 / .is-lg 36x36 */
     .icon-btn, .a-icon-btn {
         width: 32px; height: 32px; border-radius: var(--radius-md);
@@ -213,14 +442,14 @@ export const CSS_COMMON = `
     #iconGrid::-webkit-scrollbar { width: 6px; }
     #iconGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-pill); }
 
-    /* 拖拽排序核心适配样式 */
+    /* \u62D6\u62FD\u6392\u5E8F\u6838\u5FC3\u9002\u914D\u6837\u5F0F */
     .emby-card.sortable-ghost { opacity: 0.4; }
     .emby-card.sortable-drag { cursor: grabbing !important; }
     .drag-handle { cursor: grab; padding-right: 10px; font-size: var(--text-2xl); color: var(--text-sec); display: flex; align-items: center; user-select: none; touch-action: none;}
     .drag-handle:active { cursor: grabbing; color: var(--primary); }
 
     /* ============================================================
-       节点卡片精简 (Node Card Redesign) — Lucide 风格，去 emoji
+       \u8282\u70B9\u5361\u7247\u7CBE\u7B80 (Node Card Redesign) \u2014 Lucide \u98CE\u683C\uFF0C\u53BB emoji
        ============================================================ */
     .emby-card.idle { opacity: 0.85; }
     .a-head { display: flex; align-items: center; gap: var(--space-3); }
@@ -246,7 +475,7 @@ export const CSS_COMMON = `
     .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 0.5px solid var(--hairline); border-bottom: 0.5px solid var(--hairline); }
     .a-stat { padding: 0 var(--space-3); border-right: 1px solid var(--border); min-width: 0; }
     .a-stat:last-child { border-right: none; }
-    /* symmetric stat columns — no first/last asymmetry (v2.2.0) */
+    /* symmetric stat columns \u2014 no first/last asymmetry (v2.2.0) */
     .a-stat-label { font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-1); }
     .a-stat-val { font-size: var(--text-2xl); font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
     .topbar .tb-stat .val { font-variant-numeric: tabular-nums; }
@@ -268,7 +497,7 @@ export const CSS_COMMON = `
 
     .a-foot { display: flex; align-items: center; gap: var(--space-1-5); }
     .a-foot-spacer { flex: 1; }
-    /* .a-icon-btn — see consolidated rule above (icon-button family). */
+    /* .a-icon-btn \u2014 see consolidated rule above (icon-button family). */
     .a-btn-edit { padding: 7px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: var(--text-md); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-1-5); }
     .a-btn-edit:hover { border-color: var(--primary); color: var(--primary); }
     .a-btn-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
@@ -284,10 +513,10 @@ export const CSS_COMMON = `
     .a-detail-actions .a-icon-btn { width: 26px; height: 26px; }
     .a-detail-actions .a-icon-btn svg { width: 12px; height: 12px; }
 
-    /* 节点卡片是 ping-badge 的容器之一，但新版把 ping 放进 stat val，不再需要徽章样式 */
+    /* \u8282\u70B9\u5361\u7247\u662F ping-badge \u7684\u5BB9\u5668\u4E4B\u4E00\uFF0C\u4F46\u65B0\u7248\u628A ping \u653E\u8FDB stat val\uFF0C\u4E0D\u518D\u9700\u8981\u5FBD\u7AE0\u6837\u5F0F */
 
     /* ============================================================
-       UI Suggestions v2.0.7 — 4-tier button system, dropdown menus,
+       UI Suggestions v2.0.7 \u2014 4-tier button system, dropdown menus,
        Headers Editor, sectioned deploy form. All rules below this
        banner are additive; legacy .btn-submit and emoji buttons
        elsewhere in the panel are intentionally left untouched.
@@ -450,7 +679,7 @@ export const CSS_COMMON = `
     .curl-modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2-5); margin-top: var(--space-3-5); }
 
     /* ============================================================
-       Top Bar Redesign — consolidate update alert + CF trace +
+       Top Bar Redesign \u2014 consolidate update alert + CF trace +
        placement select + page header into a single status bar
        with pills, dismissable update banner, and expandable drawer.
        ============================================================ */
@@ -545,7 +774,7 @@ export const CSS_COMMON = `
         background: var(--err-soft);
         box-shadow: 0 2px 8px rgba(255,59,48,0.14);
     }
-    /* Theme toggle — show only the icon matching the current state */
+    /* Theme toggle \u2014 show only the icon matching the current state */
     .tb-icon-btn[data-theme] .ico { display: none; }
     .tb-icon-btn[data-theme="auto"]  .ico-auto,
     .tb-icon-btn[data-theme="light"] .ico-light,
@@ -615,7 +844,7 @@ export const CSS_COMMON = `
 
     /* iOS-style mobile adaptation
        References the Mobile Adaptation prototype: bottom-sheet modals,
-       large title + status pills, sticky bottom CTA, ≥44pt tap targets. */
+       large title + status pills, sticky bottom CTA, \u226544pt tap targets. */
     @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     @media (max-width: 768px) {
@@ -628,7 +857,7 @@ export const CSS_COMMON = `
         .search-input { width: 100%; }
         .node-grid { grid-template-columns: 1fr; gap: var(--space-3); }
 
-        /* Tap-target sizing — iOS HIG minimum --touch-min (44px) for all primary interactive elements */
+        /* Tap-target sizing \u2014 iOS HIG minimum --touch-min (44px) for all primary interactive elements */
         .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit,
         .btn-tier, .icon-btn, .a-icon-btn, .tb-icon-btn { min-height: var(--touch-min); }
         .icon-btn, .a-icon-btn, .tb-icon-btn { min-width: var(--touch-min); }
@@ -641,7 +870,7 @@ export const CSS_COMMON = `
             font-size: var(--text-xl); /* prevent iOS zoom on focus */
         }
 
-        /* Table → stacked card rows (kept from previous design) */
+        /* Table \u2192 stacked card rows (kept from previous design) */
         .table-wrapper { border: none; background: transparent; overflow: visible; }
         table, thead, tbody, th, td, tr { display: block; width: 100%; }
         thead { display: none; }
@@ -652,7 +881,7 @@ export const CSS_COMMON = `
         td[colspan]::before { display: none !important; }
         td::before { content: attr(data-label); font-weight: 600; color: var(--text-sec); flex-shrink: 0; margin-right: auto; text-align: left; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.04em; }
 
-        /* Modals → bottom sheet */
+        /* Modals \u2192 bottom sheet */
         #dashboardModal {
             padding: 0 !important;
             display: flex !important;
@@ -683,7 +912,7 @@ export const CSS_COMMON = `
         #dashboardModal h2 span { font-size: var(--text-sm); }
         #dashboardModal .table-wrapper td { font-size: var(--text-md); }
 
-        /* CF trace card → horizontal scrollable status strip */
+        /* CF trace card \u2192 horizontal scrollable status strip */
         #cf-trace-card {
             padding: 10px 14px !important;
             gap: 10px !important;
@@ -780,7 +1009,7 @@ export const CSS_COMMON = `
     }
 
     /* ============================================================
-       Mobile Adaptation v3 — Bottom Tab Bar, status pills row,
+       Mobile Adaptation v3 \u2014 Bottom Tab Bar, status pills row,
        sticky form CTA, login gradient logo. Desktop hides everything.
        Reference: design/Mobile Adaptation.html + mobile-screens.jsx.
        ============================================================ */
@@ -820,7 +1049,7 @@ export const CSS_COMMON = `
         }
         .m-pills::-webkit-scrollbar { display: none; }
 
-        /* Mobile: topbar 精简, 调度 pill 由移动端状态行接管 */
+        /* Mobile: topbar \u7CBE\u7B80, \u8C03\u5EA6 pill \u7531\u79FB\u52A8\u7AEF\u72B6\u6001\u884C\u63A5\u7BA1 */
         #cf-trace-card #placePill { display: none; }
         #cf-trace-card .topbar-spacer { display: none; }
 
@@ -872,20 +1101,20 @@ export const CSS_COMMON = `
     }
 
     /* ============================================================
-       Mobile UX v4 — fluid type, mid-breakpoints, landscape /
+       Mobile UX v4 \u2014 fluid type, mid-breakpoints, landscape /
        short-height adaptation, tactile feedback, edge-fade scroll
        affordance, sheet drag-to-dismiss visual hooks.
-       Layered on top of v1–v3; desktop remains untouched.
+       Layered on top of v1\u2013v3; desktop remains untouched.
        ============================================================ */
 
-    /* Fluid typography & spacing — gentle on desktop, real impact on mobile */
+    /* Fluid typography & spacing \u2014 gentle on desktop, real impact on mobile */
     @media (max-width: 1024px) {
         .header h1 { font-size: clamp(20px, 4.5vw, 26px); letter-spacing: -0.02em; }
         h2 { font-size: clamp(16px, 3.4vw, 20px); }
         .card { padding: clamp(14px, 3vw, 22px); }
     }
 
-    /* Mid-range (481–768px): large phone landscape & small tablet portrait — 2-col where it helps */
+    /* Mid-range (481\u2013768px): large phone landscape & small tablet portrait \u2014 2-col where it helps */
     @media (min-width: 481px) and (max-width: 768px) {
         .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
         .a-row, .a-row.two { grid-template-columns: 1fr 1fr !important; }
@@ -893,7 +1122,7 @@ export const CSS_COMMON = `
         #addForm > div:nth-of-type(2) > * { width: auto !important; flex: 1 1 200px; }
     }
 
-    /* Small phones (≤360px): tighten everything one more notch */
+    /* Small phones (\u2264360px): tighten everything one more notch */
     @media (max-width: 360px) {
         body { padding: var(--space-2-5); padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important; }
         .card { padding: var(--space-3); border-radius: var(--radius-lg); margin-bottom: var(--space-3); }
@@ -949,7 +1178,7 @@ export const CSS_COMMON = `
         }
     }
 
-    /* Tactile feedback — only on touch pointers, never on desktop */
+    /* Tactile feedback \u2014 only on touch pointers, never on desktop */
     @media (hover: none) and (pointer: coarse) {
         .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn,
         .a-btn-edit, .pill, .login-box button, #mobileTabBar button,
@@ -965,11 +1194,11 @@ export const CSS_COMMON = `
         }
         /* Strip desktop hover lift when we're on touch */
         .btn-submit:hover { transform: none; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
-        /* iOS HIG: form rows must remain ≥44pt on touch */
+        /* iOS HIG: form rows must remain \u226544pt on touch */
         .ios-form-row { min-height: var(--touch-min); }
     }
 
-    /* Edge-fade affordance for horizontal scrollers — signals "swipe-able" */
+    /* Edge-fade affordance for horizontal scrollers \u2014 signals "swipe-able" */
     @media (max-width: 768px) {
         .m-pills, #cf-trace-card {
             -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
@@ -1004,13 +1233,13 @@ export const CSS_COMMON = `
     }
 
     /* ============================================================
-       Admin UI Redesign — 反代核心·安全中心 仪表盘布局
-       侧边栏 + 顶部状态栏 + 分区内容 + 危险操作底部条
+       Admin UI Redesign \u2014 \u53CD\u4EE3\u6838\u5FC3\xB7\u5B89\u5168\u4E2D\u5FC3 \u4EEA\u8868\u76D8\u5E03\u5C40
+       \u4FA7\u8FB9\u680F + \u9876\u90E8\u72B6\u6001\u680F + \u5206\u533A\u5185\u5BB9 + \u5371\u9669\u64CD\u4F5C\u5E95\u90E8\u6761
        ============================================================ */
     body.shell-on { padding: 0 !important; }
     .app-shell { display: flex; min-height: 100vh; width: 100%; }
 
-    /* --- 侧边栏 --- */
+    /* --- \u4FA7\u8FB9\u680F --- */
     .sidebar {
         width: 248px; flex-shrink: 0; background: var(--sidebar-bg);
         border-right: 1px solid var(--border);
@@ -1078,7 +1307,7 @@ export const CSS_COMMON = `
     .sidebar-collapse svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform 0.2s; }
     .sidebar-version { text-align: center; font-size: var(--text-xs); color: var(--text-sec); }
 
-    /* 折叠态 */
+    /* \u6298\u53E0\u6001 */
     .sidebar.collapsed { width: 68px; }
     .sidebar.collapsed .sidebar-brand-text,
     .sidebar.collapsed .nav-item span,
@@ -1088,10 +1317,10 @@ export const CSS_COMMON = `
     .sidebar.collapsed .nav-item { justify-content: center; padding: 11px 0; }
     .sidebar.collapsed .sidebar-collapse svg { transform: rotate(180deg); }
 
-    /* --- 主区 --- */
+    /* --- \u4E3B\u533A --- */
     .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
-    /* --- 顶部状态栏 (glass v2.3.0) --- */
+    /* --- \u9876\u90E8\u72B6\u6001\u680F (glass v2.3.0) --- */
     .topbar {
         display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
         padding: var(--space-3-5) var(--space-6); background: var(--topbar-glass);
@@ -1127,7 +1356,7 @@ export const CSS_COMMON = `
         border-left: 4px solid var(--err);
         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     }
-    /* Trailing action row — last button pushed to the right edge */
+    /* Trailing action row \u2014 last button pushed to the right edge */
     .row-end { display: flex; gap: var(--space-2-5); flex-wrap: wrap; align-items: center; }
     .row-end > .row-end-spacer { margin-left: auto; }
 
@@ -1163,7 +1392,7 @@ export const CSS_COMMON = `
     .pos-abs { position: absolute; }
     .flex-1 { flex: 1; }
     .flex-1-min0 { flex: 1; min-width: 0; }
-    /* DNS record-type badges (cyan = AAAA, purple = system accent) — non-status palette */
+    /* DNS record-type badges (cyan = AAAA, purple = system accent) \u2014 non-status palette */
     .badge.is-info   { background: rgba(50,173,230,0.10);  color: #32ade6; margin-right: var(--space-1); }
     .badge.is-accent { background: rgba(175,82,222,0.10); color: #af52de; margin-right: var(--space-1); }
 
@@ -1235,14 +1464,14 @@ export const CSS_COMMON = `
         font-size: var(--text-sm); font-weight: 700;
     }
 
-    /* --- 内容区与分区 --- */
+    /* --- \u5185\u5BB9\u533A\u4E0E\u5206\u533A --- */
     .content { flex: 1; padding: var(--space-6); max-width: 1400px; width: 100%; margin: 0 auto; }
     .app-section { display: none; }
     .app-section.is-active { display: block; animation: sec-fade 0.22s ease; }
     @keyframes sec-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* --- 危险区分区 (v2.3.0, 替代旧的底部常驻危险操作条) --- */
-    /* Nav tab tint — sidebar entry hints at destructive intent without screaming */
+    /* --- \u5371\u9669\u533A\u5206\u533A (v2.3.0, \u66FF\u4EE3\u65E7\u7684\u5E95\u90E8\u5E38\u9A7B\u5371\u9669\u64CD\u4F5C\u6761) --- */
+    /* Nav tab tint \u2014 sidebar entry hints at destructive intent without screaming */
     .nav-item.is-danger-tab { color: var(--err); }
     .nav-item.is-danger-tab:hover {
         color: var(--err); background: var(--err-soft);
@@ -1255,7 +1484,7 @@ export const CSS_COMMON = `
         background: var(--err);
         box-shadow: 0 0 12px var(--err);
     }
-    /* Hero block — clearly destructive but composed, not chaotic */
+    /* Hero block \u2014 clearly destructive but composed, not chaotic */
     .danger-hero {
         display: flex; align-items: center; gap: var(--space-4);
         padding: var(--space-5) var(--space-6);
@@ -1315,7 +1544,7 @@ export const CSS_COMMON = `
 
     /* ============================================================
        Aurora KPI hero band (v2.3.0)
-       The visible centerpiece of the overview view — bento tiles
+       The visible centerpiece of the overview view \u2014 bento tiles
        with one gradient primary tile (sparkline) and three neutral
        tiles. Pulls live data from existing topbar IDs via JS.
        ============================================================ */
@@ -1419,13 +1648,13 @@ export const CSS_COMMON = `
         .kpi-value { font-size: 28px; }
     }
 
-    /* 科技风卡片微光 (深色) */
+    /* \u79D1\u6280\u98CE\u5361\u7247\u5FAE\u5149 (\u6DF1\u8272) */
     body.dark .card { box-shadow: var(--card-shadow-lift); }
     body.dark .emby-card { box-shadow: var(--card-shadow); }
     body.dark .emby-card:hover { box-shadow: 0 0 0 1px var(--accent-glow), 0 10px 30px rgba(0,0,0,0.6); }
     body.dark .kpi-tile { background: var(--card); }
 
-    /* --- ECG 心电图 strip (overview + status) --- */
+    /* --- ECG \u5FC3\u7535\u56FE strip (overview + status) --- */
     .ecg-strip {
         background: linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%);
         background-image:
@@ -1477,7 +1706,7 @@ export const CSS_COMMON = `
         letter-spacing: .04em; text-transform: uppercase; font-size: 10px;
     }
 
-    /* --- 节点状态徽章 --- */
+    /* --- \u8282\u70B9\u72B6\u6001\u5FBD\u7AE0 --- */
     .node-badge {
         display: inline-flex; align-items: center; gap: 5px;
         padding: 3px 9px; border-radius: var(--radius-pill);
@@ -1493,7 +1722,7 @@ export const CSS_COMMON = `
     .node-badge.is-idle { color: var(--text-sec); background: rgba(142,142,147,0.14); }
     .node-badge.is-idle .bdot { background: var(--text-sec); }
 
-    /* --- 迷你 SVG 折线图 --- */
+    /* --- \u8FF7\u4F60 SVG \u6298\u7EBF\u56FE --- */
     .node-spark { width: 100%; height: 38px; display: block; }
     .node-spark .sk-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .node-spark .sk-area { fill: var(--accent-glow); opacity: 0.5; }
@@ -1503,7 +1732,7 @@ export const CSS_COMMON = `
         border: 1px dashed var(--border); border-radius: var(--radius-md);
     }
 
-    /* --- 移动端: 隐藏侧边栏, 沿用底部 tab --- */
+    /* --- \u79FB\u52A8\u7AEF: \u9690\u85CF\u4FA7\u8FB9\u680F, \u6CBF\u7528\u5E95\u90E8 tab --- */
     @media (max-width: 768px) {
         body.shell-on { padding: 0 !important; }
         .app-shell { display: block; }
@@ -1520,14 +1749,14 @@ export const CSS_COMMON = `
 
     /* ============================================================
        === Mobile iOS-native v5 (v2.4.0) ===
-       Refined iOS-native overhaul. Mobile-only (≤768px) — desktop
-       untouched. Layered on top of v1–v4 mobile rules. Consumes
+       Refined iOS-native overhaul. Mobile-only (\u2264768px) \u2014 desktop
+       untouched. Layered on top of v1\u2013v4 mobile rules. Consumes
        design tokens from :root (incl. iOS-specific tokens added in
        this version). Markup additions are minimal; most retrofits
        are handled in CSS via the existing IDs/classes.
        ============================================================ */
 
-    /* Skeleton shimmer — used during initial data hydration */
+    /* Skeleton shimmer \u2014 used during initial data hydration */
     .skeleton {
         display: inline-block; min-width: 64px; height: 1em;
         border-radius: var(--radius-sm); color: transparent !important;
@@ -1540,13 +1769,13 @@ export const CSS_COMMON = `
         animation: ios-shimmer 1.4s linear infinite;
         pointer-events: none;
     }
-    .skeleton::after { content: '·'; visibility: hidden; }
+    .skeleton::after { content: '\xB7'; visibility: hidden; }
     @keyframes ios-shimmer {
         0%   { background-position: 200% 0; }
         100% { background-position: -200% 0; }
     }
 
-    /* iOS large-title + sticky compact bar — v2.5.0 promoted to desktop.
+    /* iOS large-title + sticky compact bar \u2014 v2.5.0 promoted to desktop.
        Mobile chrome (#mobileTopbarCompact, .mob-brand, #moreSheet) stays
        hidden on desktop; .ios-form-group default cleared (own block below).
        #iosLogoutGroup is mobile-only (desktop already has a topbar logout
@@ -1579,7 +1808,7 @@ export const CSS_COMMON = `
         line-height: 1.4;
     }
 
-    /* --- iOS inset-grouped form rows — v2.5.0 promoted to desktop. --- */
+    /* --- iOS inset-grouped form rows \u2014 v2.5.0 promoted to desktop. --- */
     .ios-form-group {
         display: block;
         background: var(--card);
@@ -1712,7 +1941,7 @@ export const CSS_COMMON = `
                 0 6px 22px -10px rgba(0,0,0,0.6) !important;
         }
 
-        /* --- Status strip: 2×2 grid, no horizontal scroll --- */
+        /* --- Status strip: 2\xD72 grid, no horizontal scroll --- */
         .m-pills {
             display: grid !important;
             grid-template-columns: 1fr 1fr;
@@ -1781,7 +2010,7 @@ export const CSS_COMMON = `
             stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
         }
 
-        /* --- "更多" sheet (iOS action sheet style) --- */
+        /* --- "\u66F4\u591A" sheet (iOS action sheet style) --- */
         #moreSheet {
             display: block;
             position: fixed; left: 0; right: 0; bottom: 0;
@@ -1871,13 +2100,13 @@ export const CSS_COMMON = `
         #mobileTabBar button:active { transform: scale(0.94); }
 
         /* ============================================================
-           === Mobile v5 — 测速 & DNS specialist (v2.6.0) ===
+           === Mobile v5 \u2014 \u6D4B\u901F & DNS specialist (v2.6.0) ===
            Purpose-built layout for #sec-speed. Layered on top of the
            generic v5 mobile rules above. All selectors scoped to
            #sec-speed; desktop guards live outside the MQ further down.
            ============================================================ */
 
-        /* 7.1 — Large-title page header (mobile only) */
+        /* 7.1 \u2014 Large-title page header (mobile only) */
         #sec-speed .sd-page-header {
             display: block;
             padding: var(--space-2) var(--space-1) var(--space-3);
@@ -1898,7 +2127,7 @@ export const CSS_COMMON = `
         #sec-speed .card .section-header-row { display: none; }
         #sec-speed .card > div[style*="display:flex"][style*="space-between"] > h2.section-title { display: none; }
 
-        /* 7.2 — Current effective DNS resolution hero card */
+        /* 7.2 \u2014 Current effective DNS resolution hero card */
         #sec-speed .sd-dns-card {
             background: var(--card);
             border: 0.5px solid var(--hairline);
@@ -1970,7 +2199,7 @@ export const CSS_COMMON = `
         }
         #sec-speed .sd-dns-card .text-muted { color: var(--text-sec); font-size: var(--text-md); }
 
-        /* 7.3 — ISP segmented control (horizontally scrollable) */
+        /* 7.3 \u2014 ISP segmented control (horizontally scrollable) */
         #sec-speed .sd-isp-seg {
             display: flex;
             gap: var(--space-1-5);
@@ -2009,7 +2238,7 @@ export const CSS_COMMON = `
         }
         #sec-speed .sd-isp-seg [role="tab"]:active { transform: scale(0.96); }
 
-        /* 7.4 — Action stack (primary CTA + secondary ghosts + overflow) */
+        /* 7.4 \u2014 Action stack (primary CTA + secondary ghosts + overflow) */
         #sec-speed .sd-action-stack {
             display: flex; flex-direction: column;
             gap: var(--space-2);
@@ -2067,7 +2296,7 @@ export const CSS_COMMON = `
         }
         #sec-speed .sd-cta-more svg { color: var(--text-sec); }
 
-        /* 7.5 — Floating selection bar (slides up from bottom of #speed-anchor) */
+        /* 7.5 \u2014 Floating selection bar (slides up from bottom of #speed-anchor) */
         #sec-speed #speed-anchor { position: relative; }
         #sec-speed .sd-selection-bar {
             position: fixed;
@@ -2120,7 +2349,7 @@ export const CSS_COMMON = `
         #sec-speed .sd-sel-btn:active { transform: scale(0.96); }
         body.dark #sec-speed .sd-sel-btn { box-shadow: 0 6px 16px -4px rgba(48,209,88,0.45); }
 
-        /* 7.6 — Collapsible custom source */
+        /* 7.6 \u2014 Collapsible custom source */
         #sec-speed .sd-custom-fold {
             margin-bottom: var(--space-3);
         }
@@ -2158,8 +2387,8 @@ export const CSS_COMMON = `
             border-top-right-radius: 0 !important;
         }
 
-        /* 7.7 — Node row redesign — grid layout via display:contents on cells */
-        /* Override generic ≤768 table-stacking for the speed table only */
+        /* 7.7 \u2014 Node row redesign \u2014 grid layout via display:contents on cells */
+        /* Override generic \u2264768 table-stacking for the speed table only */
         #sec-speed #testTableBody tr {
             display: grid !important;
             grid-template-columns: 24px 1fr auto;
@@ -2185,16 +2414,16 @@ export const CSS_COMMON = `
         #sec-speed #testTableBody td {
             display: contents !important;
         }
-        /* Hide the generic data-label ::before labels — our grid has its own visual hierarchy */
+        /* Hide the generic data-label ::before labels \u2014 our grid has its own visual hierarchy */
         #sec-speed #testTableBody td::before { display: none !important; content: '' !important; }
         /* Slot each cell's children into the grid */
-        #sec-speed #testTableBody td[data-label="勾选节点"] { contain: layout; }
-        #sec-speed #testTableBody td[data-label="勾选节点"] > * { grid-area: check; align-self: center; justify-self: start; }
-        #sec-speed #testTableBody td[data-label="专属节点"] > * { grid-area: ip; align-self: center; }
-        #sec-speed #testTableBody td[data-label="预估延迟"] > * { grid-area: bar; align-self: center; }
-        #sec-speed #testTableBody td[data-label="连通状态"] > * { grid-area: stat; align-self: center; justify-self: start; }
-        #sec-speed #testTableBody td[data-label="记录/归属地"] > * { grid-area: chip; align-self: center; justify-self: end; }
-        #sec-speed #testTableBody td[data-label="快捷操作"] > * { grid-area: acts; align-self: center; justify-self: end; }
+        #sec-speed #testTableBody td[data-label="\u52FE\u9009\u8282\u70B9"] { contain: layout; }
+        #sec-speed #testTableBody td[data-label="\u52FE\u9009\u8282\u70B9"] > * { grid-area: check; align-self: center; justify-self: start; }
+        #sec-speed #testTableBody td[data-label="\u4E13\u5C5E\u8282\u70B9"] > * { grid-area: ip; align-self: center; }
+        #sec-speed #testTableBody td[data-label="\u9884\u4F30\u5EF6\u8FDF"] > * { grid-area: bar; align-self: center; }
+        #sec-speed #testTableBody td[data-label="\u8FDE\u901A\u72B6\u6001"] > * { grid-area: stat; align-self: center; justify-self: start; }
+        #sec-speed #testTableBody td[data-label="\u8BB0\u5F55/\u5F52\u5C5E\u5730"] > * { grid-area: chip; align-self: center; justify-self: end; }
+        #sec-speed #testTableBody td[data-label="\u5FEB\u6377\u64CD\u4F5C"] > * { grid-area: acts; align-self: center; justify-self: end; }
         /* Empty-state row keeps colspan-style centering */
         #sec-speed #testTableBody td[colspan] {
             display: block !important;
@@ -2210,8 +2439,8 @@ export const CSS_COMMON = `
             border: 0.5px dashed var(--hairline);
         }
         /* IP cell typography */
-        #sec-speed #testTableBody td[data-label="专属节点"] .ip-text,
-        #sec-speed #testTableBody td[data-label="专属节点"] strong {
+        #sec-speed #testTableBody td[data-label="\u4E13\u5C5E\u8282\u70B9"] .ip-text,
+        #sec-speed #testTableBody td[data-label="\u4E13\u5C5E\u8282\u70B9"] strong {
             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
             font-size: var(--text-base);
             font-weight: 700;
@@ -2263,29 +2492,29 @@ export const CSS_COMMON = `
         #sec-speed .sd-lat-wrap.is-warn .sd-lat-val { color: var(--warn); }
         #sec-speed .sd-lat-wrap.is-err  .sd-lat-val { color: var(--err); }
         #sec-speed .sd-lat-wrap.is-loading .sd-lat-val { color: var(--text-sec); }
-        /* Connectivity status cell — strip down inline styles */
-        #sec-speed #testTableBody td[data-label="连通状态"] {
+        /* Connectivity status cell \u2014 strip down inline styles */
+        #sec-speed #testTableBody td[data-label="\u8FDE\u901A\u72B6\u6001"] {
             font-size: var(--text-sm);
         }
         /* Region/record-type chip cell */
-        #sec-speed #testTableBody td[data-label="记录/归属地"] {
+        #sec-speed #testTableBody td[data-label="\u8BB0\u5F55/\u5F52\u5C5E\u5730"] {
             font-size: var(--text-xs);
             color: var(--text-sec);
             text-align: right;
         }
-        /* Action cell — keep the existing button compact */
-        #sec-speed #testTableBody td[data-label="快捷操作"] .btn-dns {
+        /* Action cell \u2014 keep the existing button compact */
+        #sec-speed #testTableBody td[data-label="\u5FEB\u6377\u64CD\u4F5C"] .btn-dns {
             padding: 6px 12px;
             font-size: var(--text-sm);
             border-radius: var(--radius-pill);
             min-height: 32px;
             min-width: auto;
         }
-        /* Checkbox — chunkier touch surface */
+        /* Checkbox \u2014 chunkier touch surface */
         #sec-speed #testTableBody .ip-checkbox {
             width: 20px; height: 20px;
         }
-        /* Hide the legacy status hint banner on mobile — info is now contextual */
+        /* Hide the legacy status hint banner on mobile \u2014 info is now contextual */
         #sec-speed #statusText {
             font-size: var(--text-sm) !important;
             padding: var(--space-2-5) var(--space-3) !important;
@@ -2293,7 +2522,7 @@ export const CSS_COMMON = `
             margin-bottom: var(--space-3) !important;
         }
 
-        /* 7.8 — 优选 CDN 域名 card */
+        /* 7.8 \u2014 \u4F18\u9009 CDN \u57DF\u540D card */
         #sec-speed #optimizedDomainsBody tr.sd-od-row {
             display: grid !important;
             grid-template-columns: 1fr auto;
@@ -2318,8 +2547,8 @@ export const CSS_COMMON = `
         }
         #sec-speed #optimizedDomainsBody td { display: contents !important; }
         #sec-speed #optimizedDomainsBody td::before { display: none !important; content: '' !important; }
-        #sec-speed #optimizedDomainsBody td[data-label="域名"] > * { grid-area: domain; }
-        #sec-speed #optimizedDomainsBody td[data-label="域名"] code {
+        #sec-speed #optimizedDomainsBody td[data-label="\u57DF\u540D"] > * { grid-area: domain; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u57DF\u540D"] code {
             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
             font-size: var(--text-base);
             font-weight: 700;
@@ -2327,7 +2556,7 @@ export const CSS_COMMON = `
             font-variant-numeric: tabular-nums;
             word-break: break-all;
         }
-        #sec-speed #optimizedDomainsBody td[data-label="备注"] {
+        #sec-speed #optimizedDomainsBody td[data-label="\u5907\u6CE8"] {
             display: block !important;
             grid-area: note;
             color: var(--text-sec);
@@ -2336,15 +2565,15 @@ export const CSS_COMMON = `
             padding: 0;
             border: none;
         }
-        #sec-speed #optimizedDomainsBody td[data-label="备注"]:empty { display: none !important; }
-        #sec-speed #optimizedDomainsBody td[data-label="内置"] { display: none !important; }
-        #sec-speed #optimizedDomainsBody td[data-label="启用"] > * { grid-area: toggle; justify-self: end; align-self: center; }
-        #sec-speed #optimizedDomainsBody td[data-label="启用"] input[type="checkbox"] {
+        #sec-speed #optimizedDomainsBody td[data-label="\u5907\u6CE8"]:empty { display: none !important; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u5185\u7F6E"] { display: none !important; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u542F\u7528"] > * { grid-area: toggle; justify-self: end; align-self: center; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u542F\u7528"] input[type="checkbox"] {
             width: 20px; height: 20px;
             accent-color: var(--primary);
         }
-        #sec-speed #optimizedDomainsBody td[data-label="上次测速"] > * { grid-area: ms; justify-self: start; }
-        #sec-speed #optimizedDomainsBody td[data-label="操作"] > * { grid-area: actions; justify-self: end; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u4E0A\u6B21\u6D4B\u901F"] > * { grid-area: ms; justify-self: start; }
+        #sec-speed #optimizedDomainsBody td[data-label="\u64CD\u4F5C"] > * { grid-area: actions; justify-self: end; }
         #sec-speed .sd-od-ms {
             display: inline-flex; align-items: center;
             padding: 4px 10px;
@@ -2410,7 +2639,7 @@ export const CSS_COMMON = `
             line-height: 1.5;
         }
 
-        /* 7.9 — Overflow sheet (#sdMoreSheet) — mirrors #moreSheet pattern */
+        /* 7.9 \u2014 Overflow sheet (#sdMoreSheet) \u2014 mirrors #moreSheet pattern */
         #sec-speed #sdMoreSheet,
         #sdMoreSheet {
             display: block;
@@ -2456,12 +2685,12 @@ export const CSS_COMMON = `
         body.dark #sdMoreSheet .sd-sheet-cancel { background: var(--surface); }
         #sdMoreSheet .sd-sheet-cancel:active { background: var(--ios-fill); }
 
-        /* 7.10 — Hide legacy desktop controls on mobile inside #sec-speed */
+        /* 7.10 \u2014 Hide legacy desktop controls on mobile inside #sec-speed */
         #sec-speed #speed-anchor > .toolbar { display: none !important; }
         #sec-speed #ipType { display: none !important; }
     }
 
-    /* --- ≤480 specific tightening (5-tab labels stay readable) --- */
+    /* --- \u2264480 specific tightening (5-tab labels stay readable) --- */
     @media (max-width: 480px) {
         .mob-brand { font-size: var(--text-base); }
         .mob-brand .mb-logo { width: 26px; height: 26px; }
@@ -2475,7 +2704,7 @@ export const CSS_COMMON = `
     }
 
     /* ============================================================
-       === Desktop guards for 测速 & DNS mobile-only chrome (v2.6.0) ===
+       === Desktop guards for \u6D4B\u901F & DNS mobile-only chrome (v2.6.0) ===
        Everything below renders only on mobile; on desktop we collapse
        the new elements to display:none so the original desktop layout
        is byte-identical to pre-v2.6.0.
@@ -2520,7 +2749,7 @@ export const CSS_COMMON = `
            to the plain text the original code expected. */
         #sec-speed .sd-lat-wrap { display: none !important; }
         #sec-speed .sd-lat-fallback { display: inline; color: inherit; }
-        /* 优选CDN ms chip looks fine on desktop — strip the pill background so
+        /* \u4F18\u9009CDN ms chip looks fine on desktop \u2014 strip the pill background so
            it reads as plain text in the original layout. */
         #sec-speed .sd-od-ms {
             display: inline; padding: 0; background: transparent !important; color: inherit;
@@ -2529,20 +2758,21 @@ export const CSS_COMMON = `
     }
 `;
 
-export const LOGIN_UI = `
+// src/ui/login.js
+var LOGIN_UI = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>系统授权</title>
+    <title>\u7CFB\u7EDF\u6388\u6743</title>
     <style>
         ${CSS_COMMON}
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; margin: 0; background: #f0f2f5; position: relative; overflow-x: hidden; }
         body::before, body::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
         body::before { top: -120px; right: -80px; width: 320px; height: 320px; background: radial-gradient(circle, var(--primary-glow), transparent 70%); }
         body::after { bottom: -100px; left: -100px; width: 280px; height: 280px; background: radial-gradient(circle, rgba(88,86,214,0.18), rgba(88,86,214,0) 70%); }
-        /* v2.5.0: desktop login refreshed in iOS-native voice — gradient
+        /* v2.5.0: desktop login refreshed in iOS-native voice \u2014 gradient
            medallion, large title, inset input. CTA stays inside the card. */
         .login-box {
             position: relative; z-index: 1;
@@ -2721,12 +2951,12 @@ export const LOGIN_UI = `
         <div class="login-logo" aria-hidden="true">
             <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </div>
-        <div class="login-eyebrow">反代核心 · 安全中心</div>
-        <h2>欢迎回来</h2>
-        <p class="login-sub">输入管理员密钥继续。<br>未授权访问将被自动拒绝并记录。</p>
-        <input type="password" id="tokenInput" placeholder="请输入密钥 TOKEN" onkeydown="if(event.key==='Enter') login()">
-        <button onclick="login()">验 证 登 录</button>
-        <div class="login-foot">v${CURRENT_VERSION} · Cloudflare Worker<br>仅供学习与技术测试使用</div>
+        <div class="login-eyebrow">\u53CD\u4EE3\u6838\u5FC3 \xB7 \u5B89\u5168\u4E2D\u5FC3</div>
+        <h2>\u6B22\u8FCE\u56DE\u6765</h2>
+        <p class="login-sub">\u8F93\u5165\u7BA1\u7406\u5458\u5BC6\u94A5\u7EE7\u7EED\u3002<br>\u672A\u6388\u6743\u8BBF\u95EE\u5C06\u88AB\u81EA\u52A8\u62D2\u7EDD\u5E76\u8BB0\u5F55\u3002</p>
+        <input type="password" id="tokenInput" placeholder="\u8BF7\u8F93\u5165\u5BC6\u94A5 TOKEN" onkeydown="if(event.key==='Enter') login()">
+        <button onclick="login()">\u9A8C \u8BC1 \u767B \u5F55</button>
+        <div class="login-foot">v${CURRENT_VERSION} \xB7 Cloudflare Worker<br>\u4EC5\u4F9B\u5B66\u4E60\u4E0E\u6280\u672F\u6D4B\u8BD5\u4F7F\u7528</div>
     </div>
     <script>
         function showToast(msg) {
@@ -2736,25 +2966,26 @@ export const LOGIN_UI = `
         }
         function login() {
             const token = document.getElementById('tokenInput').value.trim();
-            if(!token) return showToast('请输入正确的密钥');
+            if(!token) return showToast('\u8BF7\u8F93\u5165\u6B63\u786E\u7684\u5BC6\u94A5');
             document.cookie = 'admin_token=' + encodeURIComponent(token) + '; path=/; max-age=2592000;';
             window.location.reload();
         }
-    </script>
+    <\/script>
 </body>
 </html>
 `;
 
-export const HTML_UI = `
+// src/ui/dashboard.js
+var HTML_UI = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Emby 反代面板</title>
+    <title>Emby \u53CD\u4EE3\u9762\u677F</title>
     <style>${CSS_COMMON}</style>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
 </head>
 <body class="shell-on">
     <div id="toast"></div>
@@ -2784,107 +3015,107 @@ export const HTML_UI = `
 
     <div id="workerUpdateModal" class="wu-overlay" style="display:none;">
         <div class="card is-danger-highlight">
-            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="关闭">✖</button>
-            <h2 class="wu-title">🚀 一键覆盖/更新 Worker 核心层代码</h2>
-            <div class="wu-warning">⚠️ 警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过！</div>
-            <textarea id="codeArea" class="wu-textarea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..."></textarea>
+            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="\u5173\u95ED">\u2716</button>
+            <h2 class="wu-title">\u{1F680} \u4E00\u952E\u8986\u76D6/\u66F4\u65B0 Worker \u6838\u5FC3\u5C42\u4EE3\u7801</h2>
+            <div class="wu-warning">\u26A0\uFE0F \u8B66\u544A\uFF1A\u63D0\u4EA4\u9519\u8BEF\u7684\u4EE3\u7801\u4F1A\u5BFC\u81F4\u9762\u677F\u77AC\u95F4\u5D29\u6E83\uFF08500 \u9519\u8BEF\uFF09\u3002\u8BF7\u786E\u4FDD\u4EE3\u7801\u5DF2\u5728\u672C\u5730\u6D4B\u8BD5\u901A\u8FC7\uFF01</div>
+            <textarea id="codeArea" class="wu-textarea" rows="8" placeholder="\u65B9\u5F0F\u4E00\uFF1A\u5728\u6B64\u5904\u76F4\u63A5\u7C98\u8D34\u4FEE\u6539\u597D\u7684\u6700\u65B0\u4EE3\u7801\u5168\u6587..."></textarea>
             <div class="row-end">
-                <span class="wu-label">或 方式二：</span>
+                <span class="wu-label">\u6216 \u65B9\u5F0F\u4E8C\uFF1A</span>
                 <input type="file" id="fileInput" class="wu-file-input" accept=".js">
-                <button type="button" class="btn-tier is-danger row-end-spacer" id="deployBtn" onclick="deployWorker()">立即覆盖部署并重启节点</button>
+                <button type="button" class="btn-tier is-danger row-end-spacer" id="deployBtn" onclick="deployWorker()">\u7ACB\u5373\u8986\u76D6\u90E8\u7F72\u5E76\u91CD\u542F\u8282\u70B9</button>
             </div>
         </div>
     </div>
 
     <div class="app-shell">
-        <!-- ===== 侧边栏 ===== -->
+        <!-- ===== \u4FA7\u8FB9\u680F ===== -->
         <aside class="sidebar" id="appSidebar">
             <div class="sidebar-brand">
                 <div class="sidebar-logo" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </div>
                 <div class="sidebar-brand-text">
-                    <div class="sidebar-brand-title">反代核心 · 安全中心</div>
-                    <div class="sidebar-brand-sub">Emby 反向代理管理喵板</div>
+                    <div class="sidebar-brand-title">\u53CD\u4EE3\u6838\u5FC3 \xB7 \u5B89\u5168\u4E2D\u5FC3</div>
+                    <div class="sidebar-brand-sub">Emby \u53CD\u5411\u4EE3\u7406\u7BA1\u7406\u55B5\u677F</div>
                 </div>
             </div>
             <nav class="sidebar-nav">
                 <button type="button" class="nav-item is-active" data-section="overview" onclick="showSection('overview')">
                     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-                    <span>概览</span>
+                    <span>\u6982\u89C8</span>
                 </button>
                 <button type="button" class="nav-item" data-section="speed" onclick="showSection('speed')">
                     <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    <span>线路测速 &amp; DNS</span>
+                    <span>\u7EBF\u8DEF\u6D4B\u901F &amp; DNS</span>
                 </button>
                 <button type="button" class="nav-item" data-section="stats" onclick="showSection('stats')">
                     <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-                    <span>数据统计</span>
+                    <span>\u6570\u636E\u7EDF\u8BA1</span>
                 </button>
                 <button type="button" class="nav-item" data-section="embyStatus" onclick="showSection('embyStatus')">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
-                    <span>节点状态</span>
+                    <span>\u8282\u70B9\u72B6\u6001</span>
                 </button>
                 <button type="button" class="nav-item" data-section="settings" onclick="showSection('settings')">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    <span>系统设置</span>
+                    <span>\u7CFB\u7EDF\u8BBE\u7F6E</span>
                 </button>
                 <button type="button" class="nav-item" data-section="tools" onclick="showSection('tools')">
                     <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                    <span>工具箱</span>
+                    <span>\u5DE5\u5177\u7BB1</span>
                 </button>
                 <button type="button" class="nav-item is-danger-tab" data-section="danger" onclick="showSection('danger')">
                     <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span>危险区</span>
+                    <span>\u5371\u9669\u533A</span>
                 </button>
             </nav>
             <div class="sidebar-foot">
                 <button type="button" class="sidebar-collapse" id="sidebarCollapseBtn" onclick="toggleSidebar()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
-                    <span>收起侧栏</span>
+                    <span>\u6536\u8D77\u4FA7\u680F</span>
                 </button>
                 <div class="sidebar-version">v${CURRENT_VERSION}</div>
             </div>
         </aside>
 
         <div class="app-main">
-            <!-- ===== 顶部状态栏 (保留 #cf-trace-card 供 JS 使用) ===== -->
+            <!-- ===== \u9876\u90E8\u72B6\u6001\u680F (\u4FDD\u7559 #cf-trace-card \u4F9B JS \u4F7F\u7528) ===== -->
             <header id="cf-trace-card" class="topbar">
-                <div class="tb-stat" title="你的设备到云端边缘节点的真实往返延迟">
+                <div class="tb-stat" title="\u4F60\u7684\u8BBE\u5907\u5230\u4E91\u7AEF\u8FB9\u7F18\u8282\u70B9\u7684\u771F\u5B9E\u5F80\u8FD4\u5EF6\u8FDF">
                     <span class="dot green" id="rttDot"></span>
-                    <span class="lbl">运行</span>
-                    <span class="val" id="rttValue">测算中</span>
+                    <span class="lbl">\u8FD0\u884C</span>
+                    <span class="val" id="rttValue">\u6D4B\u7B97\u4E2D</span>
                 </div>
                 <div class="tb-stat">
-                    <span class="lbl">节点</span>
+                    <span class="lbl">\u8282\u70B9</span>
                     <span class="val" id="tb-node-count">--</span>
                 </div>
                 <div class="tb-stat">
-                    <span class="lbl">今日流量</span>
+                    <span class="lbl">\u4ECA\u65E5\u6D41\u91CF</span>
                     <span class="val" id="tb-traffic-today">--</span>
                 </div>
                 <div class="tb-stat" id="tb-health">
                     <span class="dot green" id="tb-health-dot"></span>
-                    <span class="lbl">健康度</span>
+                    <span class="lbl">\u5065\u5EB7\u5EA6</span>
                     <span class="val" id="tb-health-val">--</span>
                 </div>
                 <div class="tb-stat pill expandable is-clickable" id="placePill" onclick="togglePlacementDrawer()">
-                    <span class="lbl">调度</span>
-                    <span id="placeModeLabel">智能</span>
-                    <span class="caret">▾</span>
+                    <span class="lbl">\u8C03\u5EA6</span>
+                    <span id="placeModeLabel">\u667A\u80FD</span>
+                    <span class="caret">\u25BE</span>
                 </div>
                 <span class="val" id="trace-entry" style="display:none;">--</span>
                 <span class="val" id="trace-egress" style="display:none;">--</span>
 
                 <div class="topbar-spacer"><span class="tb-section-title" id="tbSectionTitle"></span></div>
 
-                <a class="tb-icon-btn" href="/status" target="_blank" rel="noopener" title="打开公开状态页" aria-label="打开公开状态页" style="text-decoration:none;">
+                <a class="tb-icon-btn" href="/status" target="_blank" rel="noopener" title="\u6253\u5F00\u516C\u5F00\u72B6\u6001\u9875" aria-label="\u6253\u5F00\u516C\u5F00\u72B6\u6001\u9875" style="text-decoration:none;">
                     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
                 </a>
-                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
+                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="\u66F4\u65B0 Worker \u6838\u5FC3\u4EE3\u7801" aria-label="\u66F4\u65B0 Worker \u6838\u5FC3\u4EE3\u7801">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
-                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" data-theme="auto" title="切换主题" aria-label="切换主题">
+                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" data-theme="auto" title="\u5207\u6362\u4E3B\u9898" aria-label="\u5207\u6362\u4E3B\u9898">
                     <span class="ico ico-auto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg></span>
                     <span class="ico ico-light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
                     <span class="ico ico-dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
@@ -2892,7 +3123,7 @@ export const HTML_UI = `
                 <div class="topbar-user">
                     <span class="ava">A</span>
                     <span>admin</span>
-                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="退出系统" aria-label="退出系统">
+                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="\u9000\u51FA\u7CFB\u7EDF" aria-label="\u9000\u51FA\u7CFB\u7EDF">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
                     </button>
                 </div>
@@ -2901,31 +3132,31 @@ export const HTML_UI = `
             <!-- Slim, dismissable update banner -->
             <div id="updateAlert" class="tb-banner" style="display: none; margin: 14px 24px 0;">
                 <span class="b-tag">NEW</span>
-                <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
-                <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
-                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
+                <span class="b-msg" id="updateMsg">\u5F53\u524D\u7248\u672C: v1.0.0 | \u6700\u65B0\u7248\u672C: v?.?.?</span>
+                <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">\u4E00\u952E\u5347\u7EA7</button>
+                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="\u5FFD\u7565">\u2715</button>
             </div>
 
             <!-- Placement drawer (collapsed by default) -->
             <div class="tb-drawer banner-spaced" id="placeDrawer" >
-                <h3>Worker 调度模式</h3>
-                <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
+                <h3>Worker \u8C03\u5EA6\u6A21\u5F0F</h3>
+                <div class="sub">\u63A7\u5236 Worker \u5B9E\u9645\u843D\u5730\u7684\u7269\u7406\u673A\u623F\uFF0C\u540E\u53F0\u5B89\u5168\u8C03\u5EA6\uFF0C\u4E0D\u66B4\u9732\u4EFB\u4F55\u79C1\u94A5</div>
                 <div class="controls">
                     <select id="cf-mode-select" onchange="handleModeChange()">
-                        <option value='{"mode":"smart"}'>🤖 智能调度 (Smart Placement)</option>
-                        <option value='{"mode":"off"}'>🌍 边缘节点 (Edge - 默认离访客近)</option>
-                        <optgroup label="📍 指定云厂商物理机房落地">
-                            <option value="aws">☁️ AWS (亚马逊云)</option>
-                            <option value="gcp">☁️ GCP (谷歌云)</option>
-                            <option value="azure">☁️ Azure (微软云)</option>
+                        <option value='{"mode":"smart"}'>\u{1F916} \u667A\u80FD\u8C03\u5EA6 (Smart Placement)</option>
+                        <option value='{"mode":"off"}'>\u{1F30D} \u8FB9\u7F18\u8282\u70B9 (Edge - \u9ED8\u8BA4\u79BB\u8BBF\u5BA2\u8FD1)</option>
+                        <optgroup label="\u{1F4CD} \u6307\u5B9A\u4E91\u5382\u5546\u7269\u7406\u673A\u623F\u843D\u5730">
+                            <option value="aws">\u2601\uFE0F AWS (\u4E9A\u9A6C\u900A\u4E91)</option>
+                            <option value="gcp">\u2601\uFE0F GCP (\u8C37\u6B4C\u4E91)</option>
+                            <option value="azure">\u2601\uFE0F Azure (\u5FAE\u8F6F\u4E91)</option>
                         </optgroup>
-                        <option value="custom">✏️ 手动输入区域代码...</option>
+                        <option value="custom">\u270F\uFE0F \u624B\u52A8\u8F93\u5165\u533A\u57DF\u4EE3\u7801...</option>
                     </select>
                     <select id="cf-region-select" style="display: none;"></select>
-                    <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
-                    <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
+                    <input type="text" id="cf-custom-input" placeholder="\u8F93\u5165\u4E91\u4EE3\u7801 (\u5982 gcp:us-west1)" style="display: none;">
+                    <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">\u63D0\u4EA4\u4FEE\u6539</button>
                 </div>
-                <div class="status"><span id="place-status">🔒 后台全自动安全调度，不暴露任何私钥</span></div>
+                <div class="status"><span id="place-status">\u{1F512} \u540E\u53F0\u5168\u81EA\u52A8\u5B89\u5168\u8C03\u5EA6\uFF0C\u4E0D\u66B4\u9732\u4EFB\u4F55\u79C1\u94A5</span></div>
             </div>
 
         <div class="content">
@@ -2933,25 +3164,25 @@ export const HTML_UI = `
             <!-- iOS-native sticky compact bar (visible after large title scrolls away) -->
             <div id="mobileTopbarCompact" aria-hidden="true"></div>
 
-            <!-- Mobile-only status pills (v5: 2×2 grid — RTT / 健康 / 模式 / 今日) -->
-            <div class="m-pills" id="mobilePills" aria-label="移动端状态">
-                <span class="m-pill"><span class="dot green" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
-                <span class="m-pill"><span class="dot green" id="m-pill-health-dot"></span><span class="lbl">健康</span><span class="val" id="m-pill-health">--</span></span>
-                <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
-                <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
+            <!-- Mobile-only status pills (v5: 2\xD72 grid \u2014 RTT / \u5065\u5EB7 / \u6A21\u5F0F / \u4ECA\u65E5) -->
+            <div class="m-pills" id="mobilePills" aria-label="\u79FB\u52A8\u7AEF\u72B6\u6001">
+                <span class="m-pill"><span class="dot green" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">\u6D4B\u7B97\u4E2D</span></span>
+                <span class="m-pill"><span class="dot green" id="m-pill-health-dot"></span><span class="lbl">\u5065\u5EB7</span><span class="val" id="m-pill-health">--</span></span>
+                <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">\u6A21\u5F0F</span><span class="val" id="m-pill-mode">\u667A\u80FD</span><span class="caret" aria-hidden="true">\u25BE</span></span>
+                <span class="m-pill strong"><span class="lbl">\u4ECA\u65E5</span><span class="val" id="m-pill-today">--</span></span>
             </div>
 
-            <!-- ===== 分区: 数据统计 ===== -->
+            <!-- ===== \u5206\u533A: \u6570\u636E\u7EDF\u8BA1 ===== -->
             <section id="sec-stats" class="app-section" data-section="stats" style="display:none;">
             <div class="card">
                 <h2 style="margin-top:0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                     <div class="flex-row-tight">
-                        📊 数据统计 <span style="font-size:var(--text-base); font-weight: normal; color: var(--text-sec);">精确访客画像分析</span>
+                        \u{1F4CA} \u6570\u636E\u7EDF\u8BA1 <span style="font-size:var(--text-base); font-weight: normal; color: var(--text-sec);">\u7CBE\u786E\u8BBF\u5BA2\u753B\u50CF\u5206\u6790</span>
                     </div>
                     <div style="font-size: var(--text-md); background: var(--primary-soft); color: var(--primary); padding: 6px 12px; border-radius: var(--radius-md); border: 1px solid var(--primary-ring); display: flex; gap: 15px; flex-wrap: wrap;">
-                        <span> 今天: <strong id="trafficToday">加载中...</strong></span>
-                        <span>1周内: <strong id="traffic7d">加载中...</strong></span>
-                        <span>1月内: <strong id="traffic30d">加载中...</strong></span>
+                        <span> \u4ECA\u5929: <strong id="trafficToday">\u52A0\u8F7D\u4E2D...</strong></span>
+                        <span>1\u5468\u5185: <strong id="traffic7d">\u52A0\u8F7D\u4E2D...</strong></span>
+                        <span>1\u6708\u5185: <strong id="traffic30d">\u52A0\u8F7D\u4E2D...</strong></span>
                     </div>
                 </h2>
 
@@ -2964,80 +3195,80 @@ export const HTML_UI = `
                     </div>
                 </div>
 
-                <h3 class="section-spacer-top">🕵️ 最新独立播放记录 <span style="font-size:var(--text-sm); color:var(--text-sec);">(仅拦截 PlaybackInfo 真实播放)</span></h3>
+                <h3 class="section-spacer-top">\u{1F575}\uFE0F \u6700\u65B0\u72EC\u7ACB\u64AD\u653E\u8BB0\u5F55 <span style="font-size:var(--text-sm); color:var(--text-sec);">(\u4EC5\u62E6\u622A PlaybackInfo \u771F\u5B9E\u64AD\u653E)</span></h3>
                 <div class="table-wrapper">
                     <table class="w-full">
-                        <thead><tr><th>访问时间</th><th>目标节点</th><th>真实 IP 地址</th><th>归属地</th><th>客户端/设备标识 (User-Agent)</th></tr></thead>
-                        <tbody id="logTableBody"><tr><td colspan="5" class="cell-loading">加载数据中...</td></tr></tbody>
+                        <thead><tr><th>\u8BBF\u95EE\u65F6\u95F4</th><th>\u76EE\u6807\u8282\u70B9</th><th>\u771F\u5B9E IP \u5730\u5740</th><th>\u5F52\u5C5E\u5730</th><th>\u5BA2\u6237\u7AEF/\u8BBE\u5907\u6807\u8BC6 (User-Agent)</th></tr></thead>
+                        <tbody id="logTableBody"><tr><td colspan="5" class="cell-loading">\u52A0\u8F7D\u6570\u636E\u4E2D...</td></tr></tbody>
                     </table>
                 </div>
             </div>
             </section><!-- /sec-stats -->
 
-            <!-- ===== 分区: 线路测速 ===== -->
+            <!-- ===== \u5206\u533A: \u7EBF\u8DEF\u6D4B\u901F ===== -->
             <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
 
             <!-- Mobile-only iOS large-title header (v2.6.0) -->
             <header class="ios-page-header sd-page-header" aria-hidden="false">
-                <h1 class="ios-large-title">测速 &amp; DNS</h1>
-                <p class="sd-page-sub">节点延迟与解析探测</p>
+                <h1 class="ios-large-title">\u6D4B\u901F &amp; DNS</h1>
+                <p class="sd-page-sub">\u8282\u70B9\u5EF6\u8FDF\u4E0E\u89E3\u6790\u63A2\u6D4B</p>
             </header>
 
             <div class="card" id="speed-anchor">
                 <div class="section-header-row">
-                    <h2 class="section-title">⚡ 专属线路测速与动态 DNS 解析</h2>
+                    <h2 class="section-title">\u26A1 \u4E13\u5C5E\u7EBF\u8DEF\u6D4B\u901F\u4E0E\u52A8\u6001 DNS \u89E3\u6790</h2>
                 </div>
                 
                 <div class="sd-dns-card" id="dnsStatusCard">
                     <div class="sd-dns-head">
-                        <span class="sd-eyebrow">📡 当前生效解析</span>
+                        <span class="sd-eyebrow">\u{1F4E1} \u5F53\u524D\u751F\u6548\u89E3\u6790</span>
                         <span class="sd-dns-tag" id="sd-dns-tag">DNS</span>
                     </div>
                     <div id="dnsStatus" class="flex-wrap-tight">
-                        <span class="text-muted">加载中...</span>
+                        <span class="text-muted">\u52A0\u8F7D\u4E2D...</span>
                     </div>
                 </div>
 
                 <!-- Mobile-only ISP segmented control (v2.6.0) -->
-                <nav class="sd-isp-seg" role="tablist" aria-label="ISP 筛选">
-                    <button type="button" role="tab" data-value="all" aria-selected="true">综合</button>
-                    <button type="button" role="tab" data-value="电信" aria-selected="false">电信</button>
-                    <button type="button" role="tab" data-value="联通" aria-selected="false">联通</button>
-                    <button type="button" role="tab" data-value="移动" aria-selected="false">移动</button>
-                    <button type="button" role="tab" data-value="多线" aria-selected="false">多线</button>
+                <nav class="sd-isp-seg" role="tablist" aria-label="ISP \u7B5B\u9009">
+                    <button type="button" role="tab" data-value="all" aria-selected="true">\u7EFC\u5408</button>
+                    <button type="button" role="tab" data-value="\u7535\u4FE1" aria-selected="false">\u7535\u4FE1</button>
+                    <button type="button" role="tab" data-value="\u8054\u901A" aria-selected="false">\u8054\u901A</button>
+                    <button type="button" role="tab" data-value="\u79FB\u52A8" aria-selected="false">\u79FB\u52A8</button>
+                    <button type="button" role="tab" data-value="\u591A\u7EBF" aria-selected="false">\u591A\u7EBF</button>
                     <button type="button" role="tab" data-value="ipv6" aria-selected="false">IPv6</button>
-                    <button type="button" role="tab" data-value="优选" aria-selected="false">优选</button>
+                    <button type="button" role="tab" data-value="\u4F18\u9009" aria-selected="false">\u4F18\u9009</button>
                 </nav>
 
                 <div class="toolbar">
                     <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
-                        <option value="all">综合混合源</option>
-                        <option value="电信">电信专属</option>
-                        <option value="联通">联通专属</option>
-                        <option value="移动">移动专属</option>
-                        <option value="多线">多线 BGP</option>
-                        <option value="ipv6">IPv6 节点</option>
-                        <option value="优选">顶尖优选库</option>
+                        <option value="all">\u7EFC\u5408\u6DF7\u5408\u6E90</option>
+                        <option value="\u7535\u4FE1">\u7535\u4FE1\u4E13\u5C5E</option>
+                        <option value="\u8054\u901A">\u8054\u901A\u4E13\u5C5E</option>
+                        <option value="\u79FB\u52A8">\u79FB\u52A8\u4E13\u5C5E</option>
+                        <option value="\u591A\u7EBF">\u591A\u7EBF BGP</option>
+                        <option value="ipv6">IPv6 \u8282\u70B9</option>
+                        <option value="\u4F18\u9009">\u9876\u5C16\u4F18\u9009\u5E93</option>
                     </select>
 
-                    <button type="button" class="btn-tier is-primary" id="btnFetchRemote" onclick="fetchRemoteAndTest()">提取预设源并测速</button>
-                    <button type="button" class="btn-tier" id="btnTestCustom" onclick="testCustomIPs()">测试粘贴节点</button>
-                    <button type="button" class="btn-tier" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()">拉取 API</button>
+                    <button type="button" class="btn-tier is-primary" id="btnFetchRemote" onclick="fetchRemoteAndTest()">\u63D0\u53D6\u9884\u8BBE\u6E90\u5E76\u6D4B\u901F</button>
+                    <button type="button" class="btn-tier" id="btnTestCustom" onclick="testCustomIPs()">\u6D4B\u8BD5\u7C98\u8D34\u8282\u70B9</button>
+                    <button type="button" class="btn-tier" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()">\u62C9\u53D6 API</button>
 
                     <span class="v-sep"></span>
 
-                    <button type="button" class="btn-tier is-success" id="btnSelectedDns" onclick="updateSelectedToDns()">提交选中至 DNS</button>
+                    <button type="button" class="btn-tier is-success" id="btnSelectedDns" onclick="updateSelectedToDns()">\u63D0\u4EA4\u9009\u4E2D\u81F3 DNS</button>
 
                     <span class="v-sep"></span>
 
                     <div class="menu-wrap">
-                        <button type="button" class="btn-tier" onclick="toggleMenu(this)">更多 <svg><use href="#i-chevron"/></svg></button>
+                        <button type="button" class="btn-tier" onclick="toggleMenu(this)">\u66F4\u591A <svg><use href="#i-chevron"/></svg></button>
                         <div class="menu">
-                            <button type="button" onclick="batchTcpPing(); closeAllMenus();">复制去 ITDog</button>
-                            <button type="button" id="btnDirectCname" onclick="directSubmitCname(); closeAllMenus();">直推 CNAME (免测速)</button>
-                            <button type="button" id="btnTop3Dns" onclick="updateTop3ToDns(); closeAllMenus();">更新 TOP3 至 DNS</button>
+                            <button type="button" onclick="batchTcpPing(); closeAllMenus();">\u590D\u5236\u53BB ITDog</button>
+                            <button type="button" id="btnDirectCname" onclick="directSubmitCname(); closeAllMenus();">\u76F4\u63A8 CNAME (\u514D\u6D4B\u901F)</button>
+                            <button type="button" id="btnTop3Dns" onclick="updateTop3ToDns(); closeAllMenus();">\u66F4\u65B0 TOP3 \u81F3 DNS</button>
                             <hr/>
-                            <button type="button" class="danger" onclick="clearTest(); closeAllMenus();">清空列表</button>
+                            <button type="button" class="danger" onclick="clearTest(); closeAllMenus();">\u6E05\u7A7A\u5217\u8868</button>
                         </div>
                     </div>
                 </div>
@@ -3046,12 +3277,12 @@ export const HTML_UI = `
                 <div class="sd-action-stack" aria-hidden="false">
                     <button type="button" class="sd-cta-primary" onclick="fetchRemoteAndTest()">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                        <span>提取预设源并测速</span>
+                        <span>\u63D0\u53D6\u9884\u8BBE\u6E90\u5E76\u6D4B\u901F</span>
                     </button>
                     <div class="sd-action-row">
-                        <button type="button" class="sd-cta-ghost" onclick="testCustomIPs()">测试粘贴</button>
-                        <button type="button" class="sd-cta-ghost" onclick="fetchCustomApiAndTest()">拉取 API</button>
-                        <button type="button" class="sd-cta-more" onclick="openSdMoreSheet()" aria-label="更多操作">
+                        <button type="button" class="sd-cta-ghost" onclick="testCustomIPs()">\u6D4B\u8BD5\u7C98\u8D34</button>
+                        <button type="button" class="sd-cta-ghost" onclick="fetchCustomApiAndTest()">\u62C9\u53D6 API</button>
+                        <button type="button" class="sd-cta-more" onclick="openSdMoreSheet()" aria-label="\u66F4\u591A\u64CD\u4F5C">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
                         </button>
                     </div>
@@ -3059,17 +3290,17 @@ export const HTML_UI = `
 
                 <details class="sd-custom-fold">
                     <summary class="sd-custom-summary">
-                        <span>自定义来源</span>
+                        <span>\u81EA\u5B9A\u4E49\u6765\u6E90</span>
                         <svg class="sd-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                     </summary>
                     <div class="sd-custom-body" style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
-                        <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="\u81EA\u5B9A\u4E49 JSON / \u6587\u672C API \u94FE\u63A5\uFF08\u4F9B\u300C\u62C9\u53D6 API\u300D\u4F7F\u7528\uFF09" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                        <textarea id="customIps" rows="2" placeholder="\u5728\u6B64\u7C98\u8D34\u81EA\u5B9A\u4E49 IPv4 / IPv6 / \u4F18\u9009\u57DF\u540D\uFF08\u4F9B\u300C\u6D4B\u8BD5\u7C98\u8D34\u8282\u70B9\u300D\u4F7F\u7528\uFF0C\u81EA\u52A8\u63D0\u53D6\uFF09" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
                     </div>
                 </details>
                 
                 <div id="statusText" style="line-height: 1.6; font-size: var(--text-base); color: var(--text-sec); margin-bottom: 16px; padding: 12px 16px; background: var(--ok-soft); border-radius: var(--radius-md); border-left: 4px solid var(--ok);">
-                    💡 测速完成后，可勾选复选框自由组合，点击【提交选中节点至 DNS】自动分发。
+                    \u{1F4A1} \u6D4B\u901F\u5B8C\u6210\u540E\uFF0C\u53EF\u52FE\u9009\u590D\u9009\u6846\u81EA\u7531\u7EC4\u5408\uFF0C\u70B9\u51FB\u3010\u63D0\u4EA4\u9009\u4E2D\u8282\u70B9\u81F3 DNS\u3011\u81EA\u52A8\u5206\u53D1\u3002
                 </div>
 
                 <div class="table-wrapper">
@@ -3077,37 +3308,37 @@ export const HTML_UI = `
                         <thead>
                             <tr>
                                 <th class="col-w40"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
-                                <th>专属节点 (点击复制)</th>
-                                <th>预估延迟</th>
-                                <th>连通状态</th>
-                                <th>记录类型/归属地</th>
-                                <th>单节点操作</th>
+                                <th>\u4E13\u5C5E\u8282\u70B9 (\u70B9\u51FB\u590D\u5236)</th>
+                                <th>\u9884\u4F30\u5EF6\u8FDF</th>
+                                <th>\u8FDE\u901A\u72B6\u6001</th>
+                                <th>\u8BB0\u5F55\u7C7B\u578B/\u5F52\u5C5E\u5730</th>
+                                <th>\u5355\u8282\u70B9\u64CD\u4F5C</th>
                             </tr>
                         </thead>
                         <tbody id="testTableBody">
-                            <tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
+                            <tr><td colspan="6" class="text-center-muted">\u6682\u65E0\u6570\u636E\uFF0C\u8BF7\u62C9\u53D6\u8282\u70B9\u6216\u8F93\u5165\u81EA\u5B9A\u4E49 IP/\u57DF\u540D \u6D4B\u8BD5</td></tr>
                         </tbody>
                     </table>
                 </div>
 
                 <!-- Mobile-only floating selection bar (v2.6.0) -->
                 <div class="sd-selection-bar" id="sdSelectionBar" hidden>
-                    <span class="sd-sel-label">已选 <strong id="sdSelCount">0</strong> 个</span>
-                    <button type="button" class="sd-sel-btn" onclick="updateSelectedToDns()">提交至 DNS
+                    <span class="sd-sel-label">\u5DF2\u9009 <strong id="sdSelCount">0</strong> \u4E2A</span>
+                    <button type="button" class="sd-sel-btn" onclick="updateSelectedToDns()">\u63D0\u4EA4\u81F3 DNS
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                 </div>
             </div>
 
-            <!-- ===== F4: 优选 CDN 域名 + 一键 DNS CNAME ===== -->
+            <!-- ===== F4: \u4F18\u9009 CDN \u57DF\u540D + \u4E00\u952E DNS CNAME ===== -->
             <div class="card mt-4" >
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-                    <h2 class="section-title">🌟 优选 CDN 域名 + 一键 DNS CNAME</h2>
+                    <h2 class="section-title">\u{1F31F} \u4F18\u9009 CDN \u57DF\u540D + \u4E00\u952E DNS CNAME</h2>
                     <div class="flex-wrap-tight">
-                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
-                        <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
-                        <button type="button" class="btn-tier is-success" onclick="runDownloadSpeedtest()" title="测当前 DNS 路径的实际下载带宽">⬇️ 当前路径带宽</button>
-                        <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ 添加自定义</button>
+                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">\u5168\u90E8\u6D4B\u901F (\u672C\u5730)</button>
+                        <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="\u4ECE Worker \u673A\u623F\u6D4B\uFF0C\u4EC5\u4F9B\u53C2\u8003">Edge \u6D4B\u901F</button>
+                        <button type="button" class="btn-tier is-success" onclick="runDownloadSpeedtest()" title="\u6D4B\u5F53\u524D DNS \u8DEF\u5F84\u7684\u5B9E\u9645\u4E0B\u8F7D\u5E26\u5BBD">\u2B07\uFE0F \u5F53\u524D\u8DEF\u5F84\u5E26\u5BBD</button>
+                        <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ \u6DFB\u52A0\u81EA\u5B9A\u4E49</button>
                     </div>
                     <div id="downloadSpeedResult" style="margin-top:10px; font-size:var(--text-md); color:var(--text-sec);"></div>
                 </div>
@@ -3115,34 +3346,34 @@ export const HTML_UI = `
                     <table class="w-full">
                         <thead>
                             <tr>
-                                <th>域名</th>
-                                <th>备注</th>
-                                <th class="col-w60">内置</th>
-                                <th class="col-w60">启用</th>
-                                <th class="col-w90">上次测速</th>
-                                <th style="width:180px;">操作</th>
+                                <th>\u57DF\u540D</th>
+                                <th>\u5907\u6CE8</th>
+                                <th class="col-w60">\u5185\u7F6E</th>
+                                <th class="col-w60">\u542F\u7528</th>
+                                <th class="col-w90">\u4E0A\u6B21\u6D4B\u901F</th>
+                                <th style="width:180px;">\u64CD\u4F5C</th>
                             </tr>
                         </thead>
                         <tbody id="optimizedDomainsBody">
-                            <tr><td colspan="6" class="text-center-muted">加载中...</td></tr>
+                            <tr><td colspan="6" class="text-center-muted">\u52A0\u8F7D\u4E2D...</td></tr>
                         </tbody>
                     </table>
                 </div>
                 <div id="dnsReadyHint" style="margin-top:14px; padding:10px 14px; border-radius:var(--radius-md); font-size:var(--text-md);"></div>
             </div>
 
-            <!-- ===== F3: 重定向白名单 ===== -->
+            <!-- ===== F3: \u91CD\u5B9A\u5411\u767D\u540D\u5355 ===== -->
             <div class="card mt-4" >
-                <h2 style="margin:0 0 10px 0; font-size:var(--text-2xl);">🔁 3xx 重定向直通白名单</h2>
-                <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
+                <h2 style="margin:0 0 10px 0; font-size:var(--text-2xl);">\u{1F501} 3xx \u91CD\u5B9A\u5411\u76F4\u901A\u767D\u540D\u5355</h2>
+                <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">\u547D\u4E2D\u4EE5\u4E0B\u57DF\u540D\uFF08\u6216\u5176\u5B50\u57DF\u540D\uFF09\u7684 302/301 Location \u5C06\u76F4\u63A5\u900F\u4F20\u7ED9\u5BA2\u6237\u7AEF\uFF0C\u8DF3\u8FC7\u4EE3\u7406\u91CD\u5199\u3002\u6BCF\u884C\u4E00\u4E2A host\u3002</div>
                 <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
                 <div style="margin-top:10px;">
-                    <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">保存白名单</button>
+                    <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">\u4FDD\u5B58\u767D\u540D\u5355</button>
                 </div>
             </div>
 
             <script>
-            // F3: 白名单
+            // F3: \u767D\u540D\u5355
             async function loadManualRedirectDomains() {
                 try {
                     const res = await fetch('/api/manual-redirect-domains');
@@ -3156,12 +3387,12 @@ export const HTML_UI = `
                     const domains = v.split('\\n').map(s => s.trim()).filter(Boolean);
                     const res = await fetch('/api/manual-redirect-domains', { method: 'POST', body: JSON.stringify({ domains }) });
                     const data = await res.json();
-                    if (data.success) { showToast('✅ 白名单已保存 (' + data.domains.length + ')'); loadManualRedirectDomains(); }
-                    else showToast('❌ 保存失败: ' + (data.error || '未知'));
-                } catch (e) { showToast('❌ ' + e.message); }
+                    if (data.success) { showToast('\u2705 \u767D\u540D\u5355\u5DF2\u4FDD\u5B58 (' + data.domains.length + ')'); loadManualRedirectDomains(); }
+                    else showToast('\u274C \u4FDD\u5B58\u5931\u8D25: ' + (data.error || '\u672A\u77E5'));
+                } catch (e) { showToast('\u274C ' + e.message); }
             }
 
-            // F4: 优选域名
+            // F4: \u4F18\u9009\u57DF\u540D
             let _lastSpeedtest = {}; // id -> {ms, ok}
             async function loadOptimizedDomains() {
                 try {
@@ -3170,26 +3401,26 @@ export const HTML_UI = `
                     console.log('[optimized-domains] response:', data);
                     if (!data.success) {
                         const body = document.getElementById('optimizedDomainsBody');
-                        if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">加载失败: ' + (data.error || '未知') + '</td></tr>';
+                        if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">\u52A0\u8F7D\u5931\u8D25: ' + (data.error || '\u672A\u77E5') + '</td></tr>';
                         return;
                     }
                     renderOptimizedDomains(data.items || []);
                 } catch (e) {
                     console.error('[optimized-domains] load error:', e);
                     const body = document.getElementById('optimizedDomainsBody');
-                    if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">JS 异常: ' + e.message + '</td></tr>';
+                    if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">JS \u5F02\u5E38: ' + e.message + '</td></tr>';
                 }
             }
             function renderOptimizedDomains(items) {
                 const body = document.getElementById('optimizedDomainsBody');
                 if (!body) { console.warn('[optimized-domains] body element not found'); return; }
-                if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="text-center-muted">暂无</td></tr>'; return; }
+                if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="text-center-muted">\u6682\u65E0</td></tr>'; return; }
                 const dnsReady = _dnsReady;
                 body.innerHTML = items.map(it => {
                     const live = _lastSpeedtest[it.id];
-                    const ms = live ? (live.ok ? live.ms + ' ms' : '失败') : (it.last_ms > 0 ? it.last_ms + ' ms' : (it.last_ms === -1 ? '-' : it.last_ms));
+                    const ms = live ? (live.ok ? live.ms + ' ms' : '\u5931\u8D25') : (it.last_ms > 0 ? it.last_ms + ' ms' : (it.last_ms === -1 ? '-' : it.last_ms));
                     const replaceBtnDisabled = !dnsReady;
-                    const replaceBtnTitle = dnsReady ? '将 DNS 记录的 CNAME 替换为此域名' : '请先在 Worker 环境变量中配置 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN';
+                    const replaceBtnTitle = dnsReady ? '\u5C06 DNS \u8BB0\u5F55\u7684 CNAME \u66FF\u6362\u4E3A\u6B64\u57DF\u540D' : '\u8BF7\u5148\u5728 Worker \u73AF\u5883\u53D8\u91CF\u4E2D\u914D\u7F6E CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN';
                     // ms-chip class drives mobile color-coded chip; falls back to plain text on desktop.
                     const liveMs = live ? (live.ok ? live.ms : 99999) : (typeof it.last_ms === 'number' ? it.last_ms : 99999);
                     let msCls = 'is-idle';
@@ -3199,14 +3430,14 @@ export const HTML_UI = `
                         else msCls = 'is-err';
                     }
                     return '<tr class="sd-od-row">'
-                        + '<td data-label="域名"><code>' + it.domain + '</code></td>'
-                        + '<td data-label="备注">' + (it.note || '') + '</td>'
-                        + '<td data-label="内置" class="text-center">' + (it.builtin ? '✓' : '') + '</td>'
-                        + '<td data-label="启用" class="text-center"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
-                        + '<td data-label="上次测速" class="text-center"><span class="sd-od-ms ' + msCls + '">' + ms + '</span></td>'
-                        + '<td data-label="操作">'
-                          + '<button type="button" class="btn-tier is-success is-disabled" ' + (replaceBtnDisabled ? 'disabled ' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">🔄 替换DNS</button> '
-                          + (!it.builtin ? '<button type="button" class="btn-tier danger" onclick="deleteOptimizedDomain(' + it.id + ')">删除</button>' : '')
+                        + '<td data-label="\u57DF\u540D"><code>' + it.domain + '</code></td>'
+                        + '<td data-label="\u5907\u6CE8">' + (it.note || '') + '</td>'
+                        + '<td data-label="\u5185\u7F6E" class="text-center">' + (it.builtin ? '\u2713' : '') + '</td>'
+                        + '<td data-label="\u542F\u7528" class="text-center"><input type="checkbox" ' + (it.enabled ? 'checked' : '') + ' onchange="toggleOptimizedDomain(' + it.id + ', this.checked)"></td>'
+                        + '<td data-label="\u4E0A\u6B21\u6D4B\u901F" class="text-center"><span class="sd-od-ms ' + msCls + '">' + ms + '</span></td>'
+                        + '<td data-label="\u64CD\u4F5C">'
+                          + '<button type="button" class="btn-tier is-success is-disabled" ' + (replaceBtnDisabled ? 'disabled ' : '') + ' title="' + replaceBtnTitle + '" onclick="replaceDns(&#39;' + it.domain + '&#39;)">\u{1F504} \u66FF\u6362DNS</button> '
+                          + (!it.builtin ? '<button type="button" class="btn-tier danger" onclick="deleteOptimizedDomain(' + it.id + ')">\u5220\u9664</button>' : '')
                         + '</td>'
                         + '</tr>';
                 }).join('');
@@ -3215,30 +3446,30 @@ export const HTML_UI = `
                 await fetch('/api/optimized-domains/' + id, { method: 'PATCH', body: JSON.stringify({ enabled }) });
             }
             async function deleteOptimizedDomain(id) {
-                if (!confirm('确定删除此自定义域名？')) return;
+                if (!confirm('\u786E\u5B9A\u5220\u9664\u6B64\u81EA\u5B9A\u4E49\u57DF\u540D\uFF1F')) return;
                 const res = await fetch('/api/optimized-domains/' + id, { method: 'DELETE' });
                 const data = await res.json();
-                if (data.success) { showToast('🗑️ 已删除'); loadOptimizedDomains(); }
-                else showToast('❌ ' + (data.error || '失败'));
+                if (data.success) { showToast('\u{1F5D1}\uFE0F \u5DF2\u5220\u9664'); loadOptimizedDomains(); }
+                else showToast('\u274C ' + (data.error || '\u5931\u8D25'));
             }
             async function addOptimizedDomain() {
-                const domain = prompt('输入自定义优选域名（如 example.com）：');
+                const domain = prompt('\u8F93\u5165\u81EA\u5B9A\u4E49\u4F18\u9009\u57DF\u540D\uFF08\u5982 example.com\uFF09\uFF1A');
                 if (!domain) return;
-                const note = prompt('备注（可空）：') || '';
+                const note = prompt('\u5907\u6CE8\uFF08\u53EF\u7A7A\uFF09\uFF1A') || '';
                 const res = await fetch('/api/optimized-domains', { method: 'POST', body: JSON.stringify({ domain, note }) });
                 const data = await res.json();
-                if (data.success) { showToast('✅ 已添加'); loadOptimizedDomains(); }
-                else showToast('❌ ' + (data.error || '失败'));
+                if (data.success) { showToast('\u2705 \u5DF2\u6DFB\u52A0'); loadOptimizedDomains(); }
+                else showToast('\u274C ' + (data.error || '\u5931\u8D25'));
             }
-            // 下载测速：拉自己 Worker 的 /api/speedtest-down，测客户端→当前 CF 入口→Worker 的有效带宽
+            // \u4E0B\u8F7D\u6D4B\u901F\uFF1A\u62C9\u81EA\u5DF1 Worker \u7684 /api/speedtest-down\uFF0C\u6D4B\u5BA2\u6237\u7AEF\u2192\u5F53\u524D CF \u5165\u53E3\u2192Worker \u7684\u6709\u6548\u5E26\u5BBD
             async function runDownloadSpeedtest() {
                 const resEl = document.getElementById('downloadSpeedResult');
-                resEl.innerHTML = '⏱ 测速中（下载 10MB）...';
+                resEl.innerHTML = '\u23F1 \u6D4B\u901F\u4E2D\uFF08\u4E0B\u8F7D 10MB\uFF09...';
                 try {
                     const bytes = 10 * 1024 * 1024;
                     const start = performance.now();
                     const res = await fetch('/api/speedtest-down?bytes=' + bytes + '&_=' + Date.now(), { cache: 'no-store' });
-                    if (!res.ok) { resEl.innerHTML = '❌ 端点返回 ' + res.status; return; }
+                    if (!res.ok) { resEl.innerHTML = '\u274C \u7AEF\u70B9\u8FD4\u56DE ' + res.status; return; }
                     const reader = res.body.getReader();
                     let received = 0;
                     while (true) {
@@ -3249,14 +3480,14 @@ export const HTML_UI = `
                     const elapsedMs = performance.now() - start;
                     const mbps = (received * 8 / 1e6) / (elapsedMs / 1000);
                     const mibps = (received / 1048576) / (elapsedMs / 1000);
-                    resEl.innerHTML = '✅ 下载 ' + (received / 1048576).toFixed(2) + ' MiB 用时 ' + (elapsedMs / 1000).toFixed(2) + ' 秒 → <b>' + mbps.toFixed(2) + ' Mbps</b> (' + mibps.toFixed(2) + ' MiB/s)';
-                    showToast('✅ 当前路径带宽: ' + mbps.toFixed(1) + ' Mbps');
+                    resEl.innerHTML = '\u2705 \u4E0B\u8F7D ' + (received / 1048576).toFixed(2) + ' MiB \u7528\u65F6 ' + (elapsedMs / 1000).toFixed(2) + ' \u79D2 \u2192 <b>' + mbps.toFixed(2) + ' Mbps</b> (' + mibps.toFixed(2) + ' MiB/s)';
+                    showToast('\u2705 \u5F53\u524D\u8DEF\u5F84\u5E26\u5BBD: ' + mbps.toFixed(1) + ' Mbps');
                 } catch (e) {
-                    resEl.innerHTML = '❌ 测速失败: ' + e.message;
+                    resEl.innerHTML = '\u274C \u6D4B\u901F\u5931\u8D25: ' + e.message;
                 }
             }
 
-            // 客户端侧测速：先 fetch no-cors，失败回退到 Image() 加载（兼容更多目标）
+            // \u5BA2\u6237\u7AEF\u4FA7\u6D4B\u901F\uFF1A\u5148 fetch no-cors\uFF0C\u5931\u8D25\u56DE\u9000\u5230 Image() \u52A0\u8F7D\uFF08\u517C\u5BB9\u66F4\u591A\u76EE\u6807\uFF09
             function clientProbeImage(domain, timeoutMs) {
                 return new Promise(resolve => {
                     const start = performance.now();
@@ -3269,7 +3500,7 @@ export const HTML_UI = `
                     };
                     const t = setTimeout(() => finish(false), timeoutMs);
                     img.onload = () => { clearTimeout(t); finish(true); };
-                    // onerror 也算"通了"：说明 TCP/TLS 已经握手成功，只是资源不是图片
+                    // onerror \u4E5F\u7B97"\u901A\u4E86"\uFF1A\u8BF4\u660E TCP/TLS \u5DF2\u7ECF\u63E1\u624B\u6210\u529F\uFF0C\u53EA\u662F\u8D44\u6E90\u4E0D\u662F\u56FE\u7247
                     img.onerror = () => { clearTimeout(t); finish(true); };
                     img.src = 'https://' + domain + '/favicon.ico?_=' + Date.now();
                 });
@@ -3287,24 +3518,24 @@ export const HTML_UI = `
                     return { ms: Math.round(performance.now() - start), ok: true };
                 } catch (e) {
                     clearTimeout(t);
-                    console.log('[probe] fetch failed for', domain, e.message, '— fallback to Image');
+                    console.log('[probe] fetch failed for', domain, e.message, '\u2014 fallback to Image');
                     return await clientProbeImage(domain, timeoutMs);
                 }
             }
             async function speedtestOptimizedDomains(mode) {
                 mode = mode || 'client';
-                showToast('⏱ ' + (mode === 'client' ? '本地' : 'Edge') + '测速中...');
+                showToast('\u23F1 ' + (mode === 'client' ? '\u672C\u5730' : 'Edge') + '\u6D4B\u901F\u4E2D...');
                 let measured = [];
                 if (mode === 'edge') {
                     const res = await fetch('/api/optimized-domains/speedtest', { method: 'POST', body: '{}' });
                     const data = await res.json();
-                    if (!data.success) { showToast('❌ ' + (data.error || '测速失败')); return; }
+                    if (!data.success) { showToast('\u274C ' + (data.error || '\u6D4B\u901F\u5931\u8D25')); return; }
                     measured = data.items || [];
                 } else {
-                    // 客户端：先取启用域名列表
+                    // \u5BA2\u6237\u7AEF\uFF1A\u5148\u53D6\u542F\u7528\u57DF\u540D\u5217\u8868
                     const listRes = await fetch('/api/optimized-domains');
                     const listData = await listRes.json();
-                    if (!listData.success) { showToast('❌ 拉取域名失败'); return; }
+                    if (!listData.success) { showToast('\u274C \u62C9\u53D6\u57DF\u540D\u5931\u8D25'); return; }
                     const enabled = (listData.items || []).filter(it => it.enabled);
                     measured = await Promise.all(enabled.map(async it => {
                         const p = await clientProbe(it.domain);
@@ -3317,7 +3548,7 @@ export const HTML_UI = `
                 }
                 _lastSpeedtest = {};
                 measured.forEach(it => { _lastSpeedtest[it.id] = { ms: it.ms, ok: it.ok }; });
-                showToast('✅ ' + (mode === 'client' ? '本地' : 'Edge') + '测速完成，已按延迟排序');
+                showToast('\u2705 ' + (mode === 'client' ? '\u672C\u5730' : 'Edge') + '\u6D4B\u901F\u5B8C\u6210\uFF0C\u5DF2\u6309\u5EF6\u8FDF\u6392\u5E8F');
                 const listRes = await fetch('/api/optimized-domains');
                 const listData = await listRes.json();
                 if (listData.success) {
@@ -3341,28 +3572,28 @@ export const HTML_UI = `
                         if (_dnsReady) {
                             hint.style.background = 'rgba(52,199,89,0.1)';
                             hint.style.border = '1px solid rgba(52,199,89,0.3)';
-                            hint.innerHTML = '✅ DNS 替换已就绪 (域名: <code>' + (data.domain || '?') + '</code>) — 点表格里的 "🔄 替换DNS" 即可应用';
+                            hint.innerHTML = '\u2705 DNS \u66FF\u6362\u5DF2\u5C31\u7EEA (\u57DF\u540D: <code>' + (data.domain || '?') + '</code>) \u2014 \u70B9\u8868\u683C\u91CC\u7684 "\u{1F504} \u66FF\u6362DNS" \u5373\u53EF\u5E94\u7528';
                         } else {
                             hint.style.background = 'rgba(255,149,0,0.1)';
                             hint.style.border = '1px solid rgba(255,149,0,0.3)';
-                            hint.innerHTML = '⚠️ 缺少环境变量 <code>CF_API_TOKEN</code> / <code>CF_ZONE_ID</code> / <code>CF_DOMAIN</code>，无法替换 DNS。请到 Cloudflare Worker 设置中补齐。';
+                            hint.innerHTML = '\u26A0\uFE0F \u7F3A\u5C11\u73AF\u5883\u53D8\u91CF <code>CF_API_TOKEN</code> / <code>CF_ZONE_ID</code> / <code>CF_DOMAIN</code>\uFF0C\u65E0\u6CD5\u66FF\u6362 DNS\u3002\u8BF7\u5230 Cloudflare Worker \u8BBE\u7F6E\u4E2D\u8865\u9F50\u3002';
                         }
                     }
                 } catch (e) { _dnsReady = false; }
             }
             async function replaceDns(domain) {
-                if (!confirm('确定将 DNS 记录的 CNAME 内容替换为 ' + domain + ' ?')) return;
+                if (!confirm('\u786E\u5B9A\u5C06 DNS \u8BB0\u5F55\u7684 CNAME \u5185\u5BB9\u66FF\u6362\u4E3A ' + domain + ' ?')) return;
                 const res = await fetch('/api/dns/replace', { method: 'POST', body: JSON.stringify({ domain }) });
                 const data = await res.json();
-                if (data.success) { showToast('✅ DNS 已替换为 ' + data.content); loadDnsConfig(); }
-                else showToast('❌ ' + (data.error || '替换失败'));
+                if (data.success) { showToast('\u2705 DNS \u5DF2\u66FF\u6362\u4E3A ' + data.content); loadDnsConfig(); }
+                else showToast('\u274C ' + (data.error || '\u66FF\u6362\u5931\u8D25'));
             }
 
-            // 页面加载后立即拉一次（不依赖分区可见性）
+            // \u9875\u9762\u52A0\u8F7D\u540E\u7ACB\u5373\u62C9\u4E00\u6B21\uFF08\u4E0D\u4F9D\u8D56\u5206\u533A\u53EF\u89C1\u6027\uFF09
             (function(){
                 function _embycfInit() {
                     loadOptimizedDomains();
-                    loadDnsConfig().then(() => loadOptimizedDomains()); // 配置加载完后重渲染以显示替换按钮
+                    loadDnsConfig().then(() => loadOptimizedDomains()); // \u914D\u7F6E\u52A0\u8F7D\u5B8C\u540E\u91CD\u6E32\u67D3\u4EE5\u663E\u793A\u66FF\u6362\u6309\u94AE
                     loadManualRedirectDomains();
                 }
                 if (document.readyState === 'loading') {
@@ -3373,7 +3604,7 @@ export const HTML_UI = `
             })();
 
             // ==========================================
-            // === Mobile v5 — 测速 & DNS specialist drivers (v2.6.0) ===
+            // === Mobile v5 \u2014 \u6D4B\u901F & DNS specialist drivers (v2.6.0) ===
             // View-layer shims. Source-of-truth elements (#ipType, .ip-checkbox,
             // .latency [data-ms]) are not duplicated; we observe / dispatch on them.
             // ==========================================
@@ -3398,7 +3629,7 @@ export const HTML_UI = `
                 }
 
                 // ---- Latency bar: 10-cell visual encoding next to the ms value ----
-                // Threshold: <150ms ok · <400ms warn · ≥400ms err · 9999 loading.
+                // Threshold: <150ms ok \xB7 <400ms warn \xB7 \u2265400ms err \xB7 9999 loading.
                 const LAT_OK = 150, LAT_WARN = 400;
                 function applyLatencyBar(td) {
                     if (!td || !td.classList || !td.classList.contains('latency')) return;
@@ -3421,10 +3652,10 @@ export const HTML_UI = `
                     for (let i = 0; i < 10; i++) {
                         cells += '<span class="sd-lat-cell' + (i < filled ? ' is-on' : '') + '"></span>';
                     }
-                    const valTxt = isLoading ? '测算中…' : (ms + ' ms');
+                    const valTxt = isLoading ? '\u6D4B\u7B97\u4E2D\u2026' : (ms + ' ms');
                     // Preserve original textual content for the desktop (which hides .sd-lat-wrap via CSS)
                     // by keeping a fallback .sd-lat-fallback span.
-                    td.innerHTML = '<span class="sd-lat-wrap is-' + level + '" role="img" aria-label="延迟 ' + valTxt + '">'
+                    td.innerHTML = '<span class="sd-lat-wrap is-' + level + '" role="img" aria-label="\u5EF6\u8FDF ' + valTxt + '">'
                                  +   '<span class="sd-lat-bar">' + cells + '</span>'
                                  +   '<span class="sd-lat-val">' + valTxt + '</span>'
                                  + '</span>'
@@ -3525,55 +3756,55 @@ export const HTML_UI = `
                     });
                 }
             })();
-            </script>
+            <\/script>
 
-            <!-- Mobile-only overflow action sheet for 测速 & DNS (v2.6.0) -->
+            <!-- Mobile-only overflow action sheet for \u6D4B\u901F & DNS (v2.6.0) -->
             <div id="sdMoreSheet" class="sd-more-sheet" aria-hidden="true">
-                <div class="more-sheet-card" role="dialog" aria-modal="true" aria-label="更多操作">
+                <div class="more-sheet-card" role="dialog" aria-modal="true" aria-label="\u66F4\u591A\u64CD\u4F5C">
                     <span class="more-sheet-grip" aria-hidden="true"></span>
-                    <p class="more-sheet-title">测速 &amp; DNS · 更多操作</p>
+                    <p class="more-sheet-title">\u6D4B\u901F &amp; DNS \xB7 \u66F4\u591A\u64CD\u4F5C</p>
                     <div class="more-sheet-list">
                         <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); batchTcpPing();">
                             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="9" height="9" rx="2"/><rect x="12" y="12" width="9" height="9" rx="2"/></svg>
-                            <span>复制去 ITDog</span>
+                            <span>\u590D\u5236\u53BB ITDog</span>
                             <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                         <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); directSubmitCname();">
                             <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><line x1="18" y1="12" x2="6" y2="12"/></svg>
-                            <span>直推 CNAME (免测速)</span>
+                            <span>\u76F4\u63A8 CNAME (\u514D\u6D4B\u901F)</span>
                             <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                         <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); updateTop3ToDns();">
                             <svg viewBox="0 0 24 24"><polyline points="12 19 12 5"/><polyline points="6 11 12 5 18 11"/></svg>
-                            <span>更新 TOP3 至 DNS</span>
+                            <span>\u66F4\u65B0 TOP3 \u81F3 DNS</span>
                             <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                         <button type="button" class="more-sheet-row is-danger" onclick="closeSdMoreSheet(); clearTest();">
                             <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-                            <span>清空列表</span>
+                            <span>\u6E05\u7A7A\u5217\u8868</span>
                             <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
                     </div>
-                    <button type="button" class="sd-sheet-cancel" onclick="closeSdMoreSheet()">取消</button>
+                    <button type="button" class="sd-sheet-cancel" onclick="closeSdMoreSheet()">\u53D6\u6D88</button>
                 </div>
             </div>
 
             </section><!-- /sec-speed -->
 
-            <!-- ===== 分区: 系统设置 ===== -->
+            <!-- ===== \u5206\u533A: \u7CFB\u7EDF\u8BBE\u7F6E ===== -->
             <section id="sec-settings" class="app-section" data-section="settings" style="display:none;">
 
             <div class="card" id="settings-anchor">
                 <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
                     <div>
-                        <h2 style="margin:0; font-size:var(--text-2xl); letter-spacing:-0.01em;">部署反代节点</h2>
-                        <div style="color:var(--text-sec); font-size:var(--text-md); margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
+                        <h2 style="margin:0; font-size:var(--text-2xl); letter-spacing:-0.01em;">\u90E8\u7F72\u53CD\u4EE3\u8282\u70B9</h2>
+                        <div style="color:var(--text-sec); font-size:var(--text-md); margin-top:4px;">\u586B\u5199\u4E0B\u65B9\u4FE1\u606F\u540E\u4FDD\u5B58\u3002\u6BCF\u4E2A\u8282\u70B9\u5360\u7528\u4E00\u4E2A URL \u524D\u7F00\u3002</div>
                     </div>
                     <div class="menu-wrap">
-                        <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>配置工具 <svg><use href="#i-chevron"/></svg></button>
+                        <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>\u914D\u7F6E\u5DE5\u5177 <svg><use href="#i-chevron"/></svg></button>
                         <div class="menu">
-                            <button type="button" onclick="exportConfig(); closeAllMenus();"><svg><use href="#i-download"/></svg>导出当前配置</button>
-                            <button type="button" onclick="importConfig(); closeAllMenus();"><svg><use href="#i-upload"/></svg>导入配置</button>
+                            <button type="button" onclick="exportConfig(); closeAllMenus();"><svg><use href="#i-download"/></svg>\u5BFC\u51FA\u5F53\u524D\u914D\u7F6E</button>
+                            <button type="button" onclick="importConfig(); closeAllMenus();"><svg><use href="#i-upload"/></svg>\u5BFC\u5165\u914D\u7F6E</button>
                         </div>
                     </div>
                 </div>
@@ -3581,102 +3812,102 @@ export const HTML_UI = `
                 <form id="addForm" class="a-form">
                     <input type="hidden" id="oldPrefix" value="">
 
-                    <!-- 1. 基础信息 -->
+                    <!-- 1. \u57FA\u7840\u4FE1\u606F -->
                     <div class="a-fieldset">
                         <div class="a-fieldset-head">
-                            <span class="a-field-label">基础信息</span>
-                            <span class="a-field-aux">备注用于显示，前缀决定访问路径</span>
+                            <span class="a-field-label">\u57FA\u7840\u4FE1\u606F</span>
+                            <span class="a-field-aux">\u5907\u6CE8\u7528\u4E8E\u663E\u793A\uFF0C\u524D\u7F00\u51B3\u5B9A\u8BBF\u95EE\u8DEF\u5F84</span>
                         </div>
                         <div class="a-row">
-                            <input class="a-input" type="text" id="remark" placeholder="节点备注 (如: Misaka服)" required>
-                            <input class="a-input" type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" required>
+                            <input class="a-input" type="text" id="remark" placeholder="\u8282\u70B9\u5907\u6CE8 (\u5982: Misaka\u670D)" required>
+                            <input class="a-input" type="text" id="prefix" placeholder="\u77ED\u8DEF\u5F84\u540E\u7F00 (\u5982: misaka)" required>
                             <select class="a-select" id="mode">
-                                <option value="off">保守 (抹除IP)</option>
-                                <option value="realip_only">严格 (透传IP)</option>
-                                <option value="dual">兼容 (双重透传)</option>
-                                <option value="strict">强力 (防403)</option>
+                                <option value="off">\u4FDD\u5B88 (\u62B9\u9664IP)</option>
+                                <option value="realip_only">\u4E25\u683C (\u900F\u4F20IP)</option>
+                                <option value="dual">\u517C\u5BB9 (\u53CC\u91CD\u900F\u4F20)</option>
+                                <option value="strict">\u5F3A\u529B (\u9632403)</option>
                             </select>
                         </div>
                     </div>
 
-                    <!-- 2. 上游线路 -->
+                    <!-- 2. \u4E0A\u6E38\u7EBF\u8DEF -->
                     <div class="a-fieldset">
                         <div class="a-fieldset-head">
-                            <span class="a-field-label">上游线路</span>
-                            <span class="a-field-aux">主源失败时按顺序回退到备用，支持魔改分离版推流</span>
+                            <span class="a-field-label">\u4E0A\u6E38\u7EBF\u8DEF</span>
+                            <span class="a-field-aux">\u4E3B\u6E90\u5931\u8D25\u65F6\u6309\u987A\u5E8F\u56DE\u9000\u5230\u5907\u7528\uFF0C\u652F\u6301\u9B54\u6539\u5206\u79BB\u7248\u63A8\u6D41</span>
                         </div>
                         <div id="targetInputs" style="display:flex; flex-direction:column; gap:8px;">
                             <div class="a-upstream-row">
-                                <span class="a-tag-pri">主源</span>
-                                <input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
+                                <span class="a-tag-pri">\u4E3B\u6E90</span>
+                                <input type="url" class="a-input target-input" placeholder="\u4E3B\u7EBF\u8DEF\u5730\u5740 (\u5982: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
                             </div>
                             <div class="a-upstream-row">
-                                <span class="a-tag-bk">备 1</span>
-                                <input type="url" class="a-input target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" oninput="handleTargetInputs()">
+                                <span class="a-tag-bk">\u5907 1</span>
+                                <input type="url" class="a-input target-input" placeholder="\u5907\u7528\u7EBF\u8DEF 1 (\u9009\u586B\uFF0C\u4E3B\u6E90\u6302\u6389\u65F6\u89E6\u53D1)" oninput="handleTargetInputs()">
                             </div>
                         </div>
-                        <button type="button" class="a-add-row" onclick="addBackupLine()"><svg><use href="#i-plus"/></svg>添加备用线路</button>
+                        <button type="button" class="a-add-row" onclick="addBackupLine()"><svg><use href="#i-plus"/></svg>\u6DFB\u52A0\u5907\u7528\u7EBF\u8DEF</button>
                     </div>
 
-                    <!-- 3. 自定义请求头 -->
+                    <!-- 3. \u81EA\u5B9A\u4E49\u8BF7\u6C42\u5934 -->
                     <div class="a-fieldset">
                         <div class="a-fieldset-head">
-                            <span class="a-field-label">自定义请求头</span>
-                            <span class="a-field-aux">转发到上游时附加，<span id="hed-count">0</span> 条已启用</span>
+                            <span class="a-field-label">\u81EA\u5B9A\u4E49\u8BF7\u6C42\u5934</span>
+                            <span class="a-field-aux">\u8F6C\u53D1\u5230\u4E0A\u6E38\u65F6\u9644\u52A0\uFF0C<span id="hed-count">0</span> \u6761\u5DF2\u542F\u7528</span>
                         </div>
                         <div class="hed" id="hed-editor">
                             <div class="hed-head">
                                 <span></span><span>Header</span><span>Value</span>
-                                <span style="text-align:center">启用</span><span></span>
+                                <span style="text-align:center">\u542F\u7528</span><span></span>
                             </div>
                             <div class="hed-list" id="hed-list"></div>
                             <div class="hed-footer">
-                                <button type="button" class="a-add-row" onclick="HeadersEditor.addRow()"><svg><use href="#i-plus"/></svg>添加请求头</button>
-                                <div class="hed-meta"><span class="dot"></span><span>自动忽略空行 / 注释 (#) / 重复键</span></div>
+                                <button type="button" class="a-add-row" onclick="HeadersEditor.addRow()"><svg><use href="#i-plus"/></svg>\u6DFB\u52A0\u8BF7\u6C42\u5934</button>
+                                <div class="hed-meta"><span class="dot"></span><span>\u81EA\u52A8\u5FFD\u7565\u7A7A\u884C / \u6CE8\u91CA (#) / \u91CD\u590D\u952E</span></div>
                             </div>
                             <div class="templates">
-                                <span class="templates-label">常用模板：</span>
+                                <span class="templates-label">\u5E38\u7528\u6A21\u677F\uFF1A</span>
                                 <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Authorization','Bearer ')">+ Authorization</button>
                                 <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Cookie','')">+ Cookie</button>
                                 <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Emby-Token','')">+ X-Emby-Token</button>
                                 <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Forwarded-For','')">+ X-Forwarded-For</button>
                                 <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('User-Agent','')">+ User-Agent</button>
-                                <button type="button" class="chip chip-curl" onclick="HeadersEditor.openCurlModal()">粘贴 cURL...</button>
+                                <button type="button" class="chip chip-curl" onclick="HeadersEditor.openCurlModal()">\u7C98\u8D34 cURL...</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 4. 显示 & 缓存 -->
+                    <!-- 4. \u663E\u793A & \u7F13\u5B58 -->
                     <div class="a-fieldset">
-                        <span class="a-field-label">显示 &amp; 缓存</span>
+                        <span class="a-field-label">\u663E\u793A &amp; \u7F13\u5B58</span>
                         <div class="a-row two">
                             <div class="pos-rel">
                                 <div class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn">
                                     <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
-                                    <span id="iconDefault" style="font-size:var(--text-3xl);line-height:1;">🎬</span>
+                                    <span id="iconDefault" style="font-size:var(--text-3xl);line-height:1;">\u{1F3AC}</span>
                                     <div class="flex-1-min0">
-                                        <div class="label-bold">节点图标</div>
-                                        <div id="iconSelectText" style="font-size:var(--text-xs); color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
+                                        <div class="label-bold">\u8282\u70B9\u56FE\u6807</div>
+                                        <div id="iconSelectText" style="font-size:var(--text-xs); color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\u70B9\u51FB\u9009\u62E9 \xB7 \u6216\u7C98\u8D34 URL</div>
                                     </div>
                                     <input type="hidden" id="iconUrl" value="">
                                 </div>
                                 <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
-                                        <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">加载</button>
-                                        <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">默认库</button>
+                                        <input type="text" id="customIconUrlInput" placeholder="\u8F93\u5165\u81EA\u5B9A\u4E49 JSON \u56FE\u6807\u5E93\u94FE\u63A5..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
+                                        <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">\u52A0\u8F7D</button>
+                                        <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">\u9ED8\u8BA4\u5E93</button>
                                     </div>
-                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); width: 100%; font-size: var(--text-base); color: var(--text);" onkeyup="filterIcons()">
+                                    <input type="text" id="iconSearch" placeholder="\u{1F50D} \u641C\u7D22\u56FE\u6807\u540D\u79F0..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); width: 100%; font-size: var(--text-base); color: var(--text);" onkeyup="filterIcons()">
                                     <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
-                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: var(--text-md);">加载图标库中...</div>
+                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: var(--text-md);">\u52A0\u8F7D\u56FE\u6807\u5E93\u4E2D...</div>
                                     </div>
                                 </div>
                             </div>
                             <div class="a-toggle-row" id="cacheToggleRow" onclick="toggleCacheSwitch(this)">
                                 <div class="ios-switch on"></div>
                                 <div class="flex-1">
-                                    <div class="label-bold">海报 &amp; 静态资源缓存</div>
-                                    <div style="font-size:var(--text-xs); color:var(--text-sec);">降低上游压力，建议开启</div>
+                                    <div class="label-bold">\u6D77\u62A5 &amp; \u9759\u6001\u8D44\u6E90\u7F13\u5B58</div>
+                                    <div style="font-size:var(--text-xs); color:var(--text-sec);">\u964D\u4F4E\u4E0A\u6E38\u538B\u529B\uFF0C\u5EFA\u8BAE\u5F00\u542F</div>
                                 </div>
                                 <input type="checkbox" id="nodeCache" class="ip-checkbox" checked style="display:none;">
                             </div>
@@ -3685,85 +3916,85 @@ export const HTML_UI = `
 
                     <!-- Footer -->
                     <div class="a-footer">
-                        <span class="a-footer-aux">所有更改实时保存到 Cloudflare D1</span>
+                        <span class="a-footer-aux">\u6240\u6709\u66F4\u6539\u5B9E\u65F6\u4FDD\u5B58\u5230 Cloudflare D1</span>
                         <div class="a-footer-actions">
-                            <button type="submit" id="submitBtn" class="btn-tier is-primary"><svg><use href="#i-save"/></svg>保存并部署</button>
+                            <button type="submit" id="submitBtn" class="btn-tier is-primary"><svg><use href="#i-save"/></svg>\u4FDD\u5B58\u5E76\u90E8\u7F72</button>
                         </div>
                     </div>
                 </form>
             </div>
             </section><!-- /sec-settings -->
 
-            <!-- ===== 分区: 工具箱 ===== -->
+            <!-- ===== \u5206\u533A: \u5DE5\u5177\u7BB1 ===== -->
             <section id="sec-tools" class="app-section" data-section="tools" style="display:none;">
             <div class="card">
-                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">工具箱</h2>
-                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">\u5DE5\u5177\u7BB1</h2>
+                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">\u914D\u7F6E\u5BFC\u5165\u5BFC\u51FA\u3001cURL \u8BF7\u6C42\u5934\u89E3\u6790\u7B49\u5B9E\u7528\u5DE5\u5177\u3002</div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
-                    <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
-                    <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL 请求头解析</button>
-                    <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>更新 Worker 核心代码</button>
+                    <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>\u5BFC\u51FA\u5F53\u524D\u914D\u7F6E</button>
+                    <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>\u5BFC\u5165\u914D\u7F6E</button>
+                    <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL \u8BF7\u6C42\u5934\u89E3\u6790</button>
+                    <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>\u66F4\u65B0 Worker \u6838\u5FC3\u4EE3\u7801</button>
                 </div>
                 <div style="margin-top:16px; font-size:var(--text-sm); color:var(--text-sec); line-height:1.6;">
-                    提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「系统设置」中准备好节点信息。
+                    \u63D0\u793A\uFF1AcURL \u89E3\u6790\u4F1A\u628A\u7C98\u8D34\u7684\u8BF7\u6C42\u5934\u586B\u5165\u5F53\u524D\u90E8\u7F72\u8868\u5355\u7684\u300C\u81EA\u5B9A\u4E49\u8BF7\u6C42\u5934\u300D\u7F16\u8F91\u5668\uFF0C\u8BF7\u5148\u5728\u300C\u7CFB\u7EDF\u8BBE\u7F6E\u300D\u4E2D\u51C6\u5907\u597D\u8282\u70B9\u4FE1\u606F\u3002
                 </div>
             </div>
             </section><!-- /sec-tools -->
 
-            <!-- ===== 分区: 节点状态（emby-js 监控移植） ===== -->
+            <!-- ===== \u5206\u533A: \u8282\u70B9\u72B6\u6001\uFF08emby-js \u76D1\u63A7\u79FB\u690D\uFF09 ===== -->
             <section id="sec-embyStatus" class="app-section" data-section="embyStatus" style="display:none;">
             <div class="card">
-                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">节点状态监控</h2>
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">\u8282\u70B9\u72B6\u6001\u76D1\u63A7</h2>
                 <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">
-                    每分钟自动探测启用了「在状态页展示」的节点，记录 24 小时与 7 天可用率；连续失败 5 分钟自动发送 Telegram 告警，恢复后再发一条恢复通知。
+                    \u6BCF\u5206\u949F\u81EA\u52A8\u63A2\u6D4B\u542F\u7528\u4E86\u300C\u5728\u72B6\u6001\u9875\u5C55\u793A\u300D\u7684\u8282\u70B9\uFF0C\u8BB0\u5F55 24 \u5C0F\u65F6\u4E0E 7 \u5929\u53EF\u7528\u7387\uFF1B\u8FDE\u7EED\u5931\u8D25 5 \u5206\u949F\u81EA\u52A8\u53D1\u9001 Telegram \u544A\u8B66\uFF0C\u6062\u590D\u540E\u518D\u53D1\u4E00\u6761\u6062\u590D\u901A\u77E5\u3002
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
-                    <a class="btn-tier" href="/status" target="_blank" rel="noopener">打开公开状态页</a>
-                    <button type="button" class="btn-tier" onclick="generateShareDashboardLink()">生成公开分享链接（1 小时）</button>
-                    <button type="button" class="btn-tier" onclick="loadEmbyStatusAdmin()">刷新</button>
+                    <a class="btn-tier" href="/status" target="_blank" rel="noopener">\u6253\u5F00\u516C\u5F00\u72B6\u6001\u9875</a>
+                    <button type="button" class="btn-tier" onclick="generateShareDashboardLink()">\u751F\u6210\u516C\u5F00\u5206\u4EAB\u94FE\u63A5\uFF081 \u5C0F\u65F6\uFF09</button>
+                    <button type="button" class="btn-tier" onclick="loadEmbyStatusAdmin()">\u5237\u65B0</button>
                 </div>
                 <div id="embyShareResult" style="display:none; padding:10px 14px; background:rgba(0,136,204,0.08); border-radius:10px; margin-bottom:14px; font-size:var(--text-sm); word-break:break-all;"></div>
                 <div class="card" style="padding:12px 14px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
                     <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:var(--text-sm);">
-                        <input type="checkbox" id="embyHideNamesToggle" onchange="updateEmbyGlobalFlag('hide_node_names', this.checked ? 1 : 0)"> 在公开状态页隐藏节点名称与图标（统一显示为「节点 1、节点 2…」）
+                        <input type="checkbox" id="embyHideNamesToggle" onchange="updateEmbyGlobalFlag('hide_node_names', this.checked ? 1 : 0)"> \u5728\u516C\u5F00\u72B6\u6001\u9875\u9690\u85CF\u8282\u70B9\u540D\u79F0\u4E0E\u56FE\u6807\uFF08\u7EDF\u4E00\u663E\u793A\u4E3A\u300C\u8282\u70B9 1\u3001\u8282\u70B9 2\u2026\u300D\uFF09
                     </label>
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="min-width:120px; font-size:var(--text-sm);">代理国家白名单</span>
-                        <input type="text" id="proxyCountryAllowlist" placeholder="例：CN,HK,TW（留空=关闭）" style="flex:1; min-width:200px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); color:inherit;">
-                        <button type="button" class="btn-tier" onclick="saveCountryAllowlist()">保存</button>
+                        <span style="min-width:120px; font-size:var(--text-sm);">\u4EE3\u7406\u56FD\u5BB6\u767D\u540D\u5355</span>
+                        <input type="text" id="proxyCountryAllowlist" placeholder="\u4F8B\uFF1ACN,HK,TW\uFF08\u7559\u7A7A=\u5173\u95ED\uFF09" style="flex:1; min-width:200px; padding:8px 12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); color:inherit;">
+                        <button type="button" class="btn-tier" onclick="saveCountryAllowlist()">\u4FDD\u5B58</button>
                     </div>
-                    <div style="font-size:var(--text-sm); color:var(--text-sec);">仅允许来自这些国家的客户端走反代；公开 /status 页与管理端点不受影响。留空即关闭。</div>
+                    <div style="font-size:var(--text-sm); color:var(--text-sec);">\u4EC5\u5141\u8BB8\u6765\u81EA\u8FD9\u4E9B\u56FD\u5BB6\u7684\u5BA2\u6237\u7AEF\u8D70\u53CD\u4EE3\uFF1B\u516C\u5F00 /status \u9875\u4E0E\u7BA1\u7406\u7AEF\u70B9\u4E0D\u53D7\u5F71\u54CD\u3002\u7559\u7A7A\u5373\u5173\u95ED\u3002</div>
                 </div>
                 <div id="embyStatusAdminList" style="display:flex; flex-direction:column; gap:10px;"></div>
-                <div id="embyStatusAdminEmpty" style="display:none; color:var(--text-sec); font-size:var(--text-sm); padding:20px 0;">尚未配置任何反代节点。请先在「概览」中添加节点。</div>
+                <div id="embyStatusAdminEmpty" style="display:none; color:var(--text-sec); font-size:var(--text-sm); padding:20px 0;">\u5C1A\u672A\u914D\u7F6E\u4EFB\u4F55\u53CD\u4EE3\u8282\u70B9\u3002\u8BF7\u5148\u5728\u300C\u6982\u89C8\u300D\u4E2D\u6DFB\u52A0\u8282\u70B9\u3002</div>
             </div>
             </section><!-- /sec-embyStatus -->
 
-            <!-- ===== 分区: 概览 (节点管理) ===== -->
+            <!-- ===== \u5206\u533A: \u6982\u89C8 (\u8282\u70B9\u7BA1\u7406) ===== -->
             <section id="sec-overview" class="app-section is-active" data-section="overview">
-            <div class="aurora-hero" aria-label="核心指标 概览">
+            <div class="aurora-hero" aria-label="\u6838\u5FC3\u6307\u6807 \u6982\u89C8">
                 <div class="kpi-tile is-primary">
-                    <div class="kpi-label">在线节点</div>
+                    <div class="kpi-label">\u5728\u7EBF\u8282\u70B9</div>
                     <div class="kpi-value-row">
                         <span class="kpi-value skeleton" id="kpi-online-nodes">--</span>
                         <span class="kpi-unit">/ <span id="kpi-total-nodes">--</span></span>
                     </div>
-                    <div class="kpi-sub" id="kpi-online-sub">实时反代节点活跃度</div>
+                    <div class="kpi-sub" id="kpi-online-sub">\u5B9E\u65F6\u53CD\u4EE3\u8282\u70B9\u6D3B\u8DC3\u5EA6</div>
                     <svg class="kpi-spark" viewBox="0 0 240 44" preserveAspectRatio="none" aria-hidden="true">
                         <path class="ks-area" id="kpi-spark-area" d="M0 36 L40 32 L80 24 L120 28 L160 18 L200 22 L240 12 L240 44 L0 44 Z"/>
                         <path class="ks-line" id="kpi-spark-line" d="M0 36 L40 32 L80 24 L120 28 L160 18 L200 22 L240 12"/>
                     </svg>
                 </div>
                 <div class="kpi-tile">
-                    <div class="kpi-label">今日流量</div>
+                    <div class="kpi-label">\u4ECA\u65E5\u6D41\u91CF</div>
                     <div class="kpi-value-row">
                         <span class="kpi-value skeleton" id="kpi-traffic">--</span>
                     </div>
-                    <div class="kpi-sub">出入站合计 · 自然日重置</div>
+                    <div class="kpi-sub">\u51FA\u5165\u7AD9\u5408\u8BA1 \xB7 \u81EA\u7136\u65E5\u91CD\u7F6E</div>
                 </div>
                 <div class="kpi-tile">
-                    <div class="kpi-label">系统健康度</div>
+                    <div class="kpi-label">\u7CFB\u7EDF\u5065\u5EB7\u5EA6</div>
                     <div class="kpi-value-row">
                         <span class="kpi-value skeleton" id="kpi-health">--</span>
                         <span class="kpi-unit">%</span>
@@ -3771,83 +4002,83 @@ export const HTML_UI = `
                     <div class="kpi-health-bar"><span id="kpi-health-bar-fill"></span></div>
                 </div>
                 <div class="kpi-tile">
-                    <div class="kpi-label">边缘 RTT</div>
+                    <div class="kpi-label">\u8FB9\u7F18 RTT</div>
                     <div class="kpi-value-row">
                         <span class="kpi-value skeleton" id="kpi-rtt">--</span>
                         <span class="kpi-unit">ms</span>
                     </div>
-                    <div class="kpi-sub">CF Worker → 你的设备</div>
+                    <div class="kpi-sub">CF Worker \u2192 \u4F60\u7684\u8BBE\u5907</div>
                 </div>
             </div>
             <div class="card">
                 <div class="section-header-row">
-                    <h2 class="section-title">已反代的媒体库</h2>
+                    <h2 class="section-title">\u5DF2\u53CD\u4EE3\u7684\u5A92\u4F53\u5E93</h2>
                     <div style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
-                        <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">全局测速</button>
-                        <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">刷新全站海报</button>
-                        <input type="text" id="searchNode" class="search-input" placeholder="🔍 搜索备注或后缀查找..." onkeyup="filterNodesList()">
+                        <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">\u5168\u5C40\u6D4B\u901F</button>
+                        <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">\u5237\u65B0\u5168\u7AD9\u6D77\u62A5</button>
+                        <input type="text" id="searchNode" class="search-input" placeholder="\u{1F50D} \u641C\u7D22\u5907\u6CE8\u6216\u540E\u7F00\u67E5\u627E..." onkeyup="filterNodesList()">
                     </div>
                 </div>
                 <div style="background: rgba(0, 122, 255, 0.05); padding: 12px 20px; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 20px; margin-top: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <label style="cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
                 <input type="checkbox" id="selectAllNodes" onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; accent-color: var(--primary);"> 
-                全选节点
+                \u5168\u9009\u8282\u70B9
             </label>
             
             <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
-                <option value="">🔄 读取模式中...</option>
+                <option value="">\u{1F504} \u8BFB\u53D6\u6A21\u5F0F\u4E2D...</option>
             </select>
 
             <button onclick="batchUpdateModes()" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px var(--primary-ring);">
-                🚀 批量应用模式
+                \u{1F680} \u6279\u91CF\u5E94\u7528\u6A21\u5F0F
             </button>
 
             <span id="batch-status" class="label-bold"></span>
         </div>
                 <div id="list-grid" class="node-grid">
-                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
+                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">\u8BFB\u53D6\u6570\u636E\u4E2D...</div>
                 </div>
             </div>
 
             <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
                 <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
-                    <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
+                    <strong>\u514D\u8D23\u58F0\u660E:</strong> \u672C\u9879\u76EE\u4EC5\u4F9B\u5B66\u4E60\u4E0E\u6280\u672F\u6D4B\u8BD5\u4F7F\u7528\uFF0C\u8BF7\u9075\u5B88\u5F53\u5730\u6CD5\u5F8B\u6CD5\u89C4\u3002\u4F7F\u7528\u8005\u5BF9\u914D\u7F6E\u3001\u8F6C\u53D1\u5185\u5BB9\u4E0E\u8BBF\u95EE\u884C\u4E3A\u627F\u62C5\u5168\u90E8\u8D23\u4EFB\uFF0C\u5F00\u53D1\u8005\u4E0D\u5BF9\u4EFB\u4F55\u76F4\u63A5\u6216\u95F4\u63A5\u635F\u5931\u8D1F\u8D23\u3002
                 </div>
             </div>
             </section><!-- /sec-overview -->
 
-            <!-- ===== 危险区 (独立分区, 替换原底部常驻条 v2.3.0) ===== -->
+            <!-- ===== \u5371\u9669\u533A (\u72EC\u7ACB\u5206\u533A, \u66FF\u6362\u539F\u5E95\u90E8\u5E38\u9A7B\u6761 v2.3.0) ===== -->
             <section id="sec-danger" class="app-section" data-section="danger" style="display:none;">
                 <div class="danger-hero">
                     <div class="dh-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     </div>
                     <div class="dh-text">
-                        <h2 class="dh-title">危险操作区</h2>
-                        <div class="dh-sub">以下操作不可逆，请确认理解每项影响后再执行。</div>
+                        <h2 class="dh-title">\u5371\u9669\u64CD\u4F5C\u533A</h2>
+                        <div class="dh-sub">\u4EE5\u4E0B\u64CD\u4F5C\u4E0D\u53EF\u9006\uFF0C\u8BF7\u786E\u8BA4\u7406\u89E3\u6BCF\u9879\u5F71\u54CD\u540E\u518D\u6267\u884C\u3002</div>
                     </div>
                 </div>
-                <div class="ios-form-group danger-group" role="group" aria-label="危险操作">
+                <div class="ios-form-group danger-group" role="group" aria-label="\u5371\u9669\u64CD\u4F5C">
                     <div class="ios-form-row">
                         <div class="flex-1-min0">
-                            <div class="ifr-label">刷新全站海报缓存</div>
-                            <div class="ifr-sub">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
+                            <div class="ifr-label">\u5237\u65B0\u5168\u7AD9\u6D77\u62A5\u7F13\u5B58</div>
+                            <div class="ifr-sub">\u5F3A\u5236\u6E05\u7A7A CDN \u6D77\u62A5\u7F13\u5B58\u3002\u5BA2\u6237\u7AEF\u9996\u6B21\u52A0\u8F7D\u5EF6\u8FDF\u4F1A\u4E0A\u5347 1\u20133 \u79D2\uFF0C\u76F4\u5230\u7F13\u5B58\u91CD\u5EFA\u3002\u65E0\u6CD5\u56DE\u6EDA\u3002</div>
                         </div>
-                        <button type="button" class="btn-tier is-danger" onclick="purgeCache()">执行刷新</button>
+                        <button type="button" class="btn-tier is-danger" onclick="purgeCache()">\u6267\u884C\u5237\u65B0</button>
                     </div>
                     <div class="ios-form-row">
                         <div class="flex-1-min0">
-                            <div class="ifr-label">覆盖部署 Worker</div>
-                            <div class="ifr-sub">用本地源码覆盖线上 Worker 并重启节点。期间所有反代请求会出现 5–15 秒的连接抖动。</div>
+                            <div class="ifr-label">\u8986\u76D6\u90E8\u7F72 Worker</div>
+                            <div class="ifr-sub">\u7528\u672C\u5730\u6E90\u7801\u8986\u76D6\u7EBF\u4E0A Worker \u5E76\u91CD\u542F\u8282\u70B9\u3002\u671F\u95F4\u6240\u6709\u53CD\u4EE3\u8BF7\u6C42\u4F1A\u51FA\u73B0 5\u201315 \u79D2\u7684\u8FDE\u63A5\u6296\u52A8\u3002</div>
                         </div>
-                        <button type="button" class="btn-tier is-danger" onclick="openWorkerUpdate()">打开部署面板</button>
+                        <button type="button" class="btn-tier is-danger" onclick="openWorkerUpdate()">\u6253\u5F00\u90E8\u7F72\u9762\u677F</button>
                     </div>
                     <div class="ios-form-row">
                         <div class="flex-1-min0">
-                            <div class="ifr-label">退出登录</div>
-                            <div class="ifr-sub">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
+                            <div class="ifr-label">\u9000\u51FA\u767B\u5F55</div>
+                            <div class="ifr-sub">\u6E05\u9664\u5F53\u524D\u4F1A\u8BDD\uFF0C\u65AD\u5F00\u7BA1\u7406\u9762\u677F\u8BBF\u95EE\u3002\u5176\u4ED6\u5BA2\u6237\u7AEF\u4E0D\u53D7\u5F71\u54CD\u3002\u53EF\u968F\u65F6\u901A\u8FC7\u767B\u5F55\u9875\u91CD\u65B0\u8FDB\u5165\u3002</div>
                         </div>
-                        <button type="button" class="btn-tier is-danger" onclick="logout()">立即退出</button>
+                        <button type="button" class="btn-tier is-danger" onclick="logout()">\u7ACB\u5373\u9000\u51FA</button>
                     </div>
                 </div>
             </section><!-- /sec-danger -->
@@ -3858,7 +4089,7 @@ export const HTML_UI = `
     </div><!-- /.app-shell -->
 
     <script>
-        const modeNames = { 'off': '保守', 'realip_only': '严格', 'dual': '兼容', 'strict': '强力' };
+        const modeNames = { 'off': '\u4FDD\u5B88', 'realip_only': '\u4E25\u683C', 'dual': '\u517C\u5BB9', 'strict': '\u5F3A\u529B' };
         
         const DEFAULT_ICON_URL = 'https://emby-icon.vercel.app/TFEL-Emby.json';
         let globalIcons = [];
@@ -3867,7 +4098,7 @@ export const HTML_UI = `
         let trendChartInstance = null;
         let locationChartInstance = null;
 
-        // 设置 Chart.js 响应暗色模式
+        // \u8BBE\u7F6E Chart.js \u54CD\u5E94\u6697\u8272\u6A21\u5F0F
         function updateChartColors() {
             Chart.defaults.color = document.body.classList.contains('dark') ? '#98989d' : '#86868b';
             Chart.defaults.borderColor = document.body.classList.contains('dark') ? '#38383a' : '#d2d2d7';
@@ -3880,19 +4111,19 @@ export const HTML_UI = `
             }
         }
 
-        // 节点状态徽章: 依据延迟/活跃度映射 在线/延迟/离线
+        // \u8282\u70B9\u72B6\u6001\u5FBD\u7AE0: \u4F9D\u636E\u5EF6\u8FDF/\u6D3B\u8DC3\u5EA6\u6620\u5C04 \u5728\u7EBF/\u5EF6\u8FDF/\u79BB\u7EBF
         function nodeBadgeHtml(statusClass) {
-            if (statusClass === 'live') return '<span class="node-badge is-online"><span class="bdot"></span>在线</span>';
-            if (statusClass === 'warn') return '<span class="node-badge is-slow"><span class="bdot"></span>延迟</span>';
-            if (statusClass === 'offline') return '<span class="node-badge is-offline"><span class="bdot"></span>离线</span>';
-            return '<span class="node-badge is-idle"><span class="bdot"></span>空闲</span>';
+            if (statusClass === 'live') return '<span class="node-badge is-online"><span class="bdot"></span>\u5728\u7EBF</span>';
+            if (statusClass === 'warn') return '<span class="node-badge is-slow"><span class="bdot"></span>\u5EF6\u8FDF</span>';
+            if (statusClass === 'offline') return '<span class="node-badge is-offline"><span class="bdot"></span>\u79BB\u7EBF</span>';
+            return '<span class="node-badge is-idle"><span class="bdot"></span>\u7A7A\u95F2</span>';
         }
 
-        // 迷你 SVG 折线图: 数据缺失时占位
+        // \u8FF7\u4F60 SVG \u6298\u7EBF\u56FE: \u6570\u636E\u7F3A\u5931\u65F6\u5360\u4F4D
         function nodeSparklineHtml(points) {
             var data = (points || []).filter(function (n) { return typeof n === 'number' && isFinite(n); });
             if (data.length < 2) {
-                return '<div class="node-spark-empty">暂无趋势数据</div>';
+                return '<div class="node-spark-empty">\u6682\u65E0\u8D8B\u52BF\u6570\u636E</div>';
             }
             var W = 100, H = 38, pad = 3;
             var max = Math.max.apply(null, data), min = Math.min.apply(null, data);
@@ -3910,7 +4141,7 @@ export const HTML_UI = `
                    '<polyline class="sk-line" points="' + line + '"/></svg>';
         }
 
-        // 拉取近 7 天每日流量并回填到每张节点卡的 sparkline 容器
+        // \u62C9\u53D6\u8FD1 7 \u5929\u6BCF\u65E5\u6D41\u91CF\u5E76\u56DE\u586B\u5230\u6BCF\u5F20\u8282\u70B9\u5361\u7684 sparkline \u5BB9\u5668
         async function loadRouteTrends() {
             try {
                 const res = await fetch('/api/route-trends?days=7');
@@ -3923,19 +4154,19 @@ export const HTML_UI = `
                     if (!slot) continue;
                     slot.innerHTML = nodeSparklineHtml(it.bytes);
                 }
-            } catch (e) { /* 静默降级：保留占位 */ }
+            } catch (e) { /* \u9759\u9ED8\u964D\u7EA7\uFF1A\u4FDD\u7559\u5360\u4F4D */ }
         }
 
         // =====================================
-        // 数据大屏与统计逻辑 (适配手机端表格排版)
+        // \u6570\u636E\u5927\u5C4F\u4E0E\u7EDF\u8BA1\u903B\u8F91 (\u9002\u914D\u624B\u673A\u7AEF\u8868\u683C\u6392\u7248)
         // =====================================
-        // 兼容旧入口: 切到数据统计分区
+        // \u517C\u5BB9\u65E7\u5165\u53E3: \u5207\u5230\u6570\u636E\u7EDF\u8BA1\u5206\u533A
         function openDashboard() { showSection('stats'); }
 
         async function loadDashboardData() {
 
             function parseTrafficToBytes(str) {
-                if (!str || str === '0 B' || str.includes('异常') || str.includes('获取')) return 0;
+                if (!str || str === '0 B' || str.includes('\u5F02\u5E38') || str.includes('\u83B7\u53D6')) return 0;
                 let val = parseFloat(str);
                 if (str.includes('TB')) return val * 1099511627776;
                 if (str.includes('GB')) return val * 1073741824;
@@ -3955,16 +4186,16 @@ export const HTML_UI = `
                 }
             }
             
-            let top5Html = '<h3 class="section-spacer-top">🏆 今日节点流量消耗 TOP 5</h3><div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
+            let top5Html = '<h3 class="section-spacer-top">\u{1F3C6} \u4ECA\u65E5\u8282\u70B9\u6D41\u91CF\u6D88\u8017 TOP 5</h3><div style="background: rgba(120,120,120,0.05); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">';
             
             // ==========================================
-            // 🚀 核心优化：听你的天才思路！直接去网页现有的卡片里“抓取”数据，绝不等待变量！
+            // \u{1F680} \u6838\u5FC3\u4F18\u5316\uFF1A\u542C\u4F60\u7684\u5929\u624D\u601D\u8DEF\uFF01\u76F4\u63A5\u53BB\u7F51\u9875\u73B0\u6709\u7684\u5361\u7247\u91CC\u201C\u6293\u53D6\u201D\u6570\u636E\uFF0C\u7EDD\u4E0D\u7B49\u5F85\u53D8\u91CF\uFF01
             // ==========================================
             const domCards = document.querySelectorAll('.route-item');
             let scrapedNodes = [];
             
             domCards.forEach(card => {
-                const prefix = card.getAttribute('data-prefix') || '未知';
+                const prefix = card.getAttribute('data-prefix') || '\u672A\u77E5';
                 let remark = prefix;
                 const searchAttr = card.getAttribute('data-search');
                 if (searchAttr) {
@@ -3972,11 +4203,11 @@ export const HTML_UI = `
                 }
 
                 let bandwidth = '0 B';
-                // 遍历卡片里所有的文本，找出带有流量单位的那个文本
+                // \u904D\u5386\u5361\u7247\u91CC\u6240\u6709\u7684\u6587\u672C\uFF0C\u627E\u51FA\u5E26\u6709\u6D41\u91CF\u5355\u4F4D\u7684\u90A3\u4E2A\u6587\u672C
                 const spans = card.querySelectorAll('span');
                 spans.forEach(span => {
                     const txt = span.innerText || '';
-                    // 匹配例如: 1.5 GB, 500 MB, 0 B (双斜杠防转义丢失)
+                    // \u5339\u914D\u4F8B\u5982: 1.5 GB, 500 MB, 0 B (\u53CC\u659C\u6760\u9632\u8F6C\u4E49\u4E22\u5931)
                     if (/^[\\d\\.]+\\s*(TB|GB|MB|KB|B)$/i.test(txt.trim())) {
                         bandwidth = txt.trim();
                     }
@@ -3985,7 +4216,7 @@ export const HTML_UI = `
                 scrapedNodes.push({ prefix: prefix, remark: remark, todayBandwidth: bandwidth });
             });
 
-            // 用抓取下来的真实数据直接计算 TOP 5
+            // \u7528\u6293\u53D6\u4E0B\u6765\u7684\u771F\u5B9E\u6570\u636E\u76F4\u63A5\u8BA1\u7B97 TOP 5
             if (scrapedNodes.length > 0) {
                 const validNodes = scrapedNodes.filter(r => parseTrafficToBytes(r.todayBandwidth) > 0);
                 const top5 = validNodes.sort((a, b) => parseTrafficToBytes(b.todayBandwidth) - parseTrafficToBytes(a.todayBandwidth)).slice(0, 5);
@@ -3994,28 +4225,28 @@ export const HTML_UI = `
                     top5Html += '<ul style="margin:0; padding-left: 20px; line-height: 2; font-size: var(--text-base); color: var(--text);">';
                     top5.forEach((r, idx) => {
                         const rankColor = idx === 0 ? 'var(--err)' : (idx === 1 ? 'var(--warn)' : (idx === 2 ? '#ffcc00' : 'var(--text-sec)'));
-                        top5Html += \`<li><strong style="color:\${rankColor}; font-size: var(--text-lg);">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) —— 消耗: <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
+                        top5Html += \`<li><strong style="color:\${rankColor}; font-size: var(--text-lg);">#\${idx+1}</strong> \${r.remark} (/\${r.prefix}) \u2014\u2014 \u6D88\u8017: <strong style="color:var(--primary); font-family: monospace;">\${r.todayBandwidth}</strong></li>\`;
                     });
                     top5Html += '</ul>';
                 } else {
-                    top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">今日暂无节点产生流量</div>';
+                    top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">\u4ECA\u65E5\u6682\u65E0\u8282\u70B9\u4EA7\u751F\u6D41\u91CF</div>';
                 }
             } else {
-                top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">主页暂无节点卡片</div>';
+                top5Html += '<div style="color:var(--text-sec); font-size:var(--text-md); text-align:center;">\u4E3B\u9875\u6682\u65E0\u8282\u70B9\u5361\u7247</div>';
             }
             top5Html += '</div>';
             
-            // 瞬间把 TOP 5 写入网页！
+            // \u77AC\u95F4\u628A TOP 5 \u5199\u5165\u7F51\u9875\uFF01
             top5Container.innerHTML = top5Html;
 
 
             // ==========================================
-            // 🌟 正常加载下面的图表数据 (带有10秒防卡死超时保护)
+            // \u{1F31F} \u6B63\u5E38\u52A0\u8F7D\u4E0B\u9762\u7684\u56FE\u8868\u6570\u636E (\u5E26\u670910\u79D2\u9632\u5361\u6B7B\u8D85\u65F6\u4FDD\u62A4)
             // ==========================================
-            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" class="cell-loading">数据分析引擎计算中...</td></tr>';
-            document.getElementById('trafficToday').innerText = '拉取中...';
-            document.getElementById('traffic7d').innerText = '拉取中...';
-            document.getElementById('traffic30d').innerText = '拉取中...';
+            document.getElementById('logTableBody').innerHTML = '<tr><td colspan="5" class="cell-loading">\u6570\u636E\u5206\u6790\u5F15\u64CE\u8BA1\u7B97\u4E2D...</td></tr>';
+            document.getElementById('trafficToday').innerText = '\u62C9\u53D6\u4E2D...';
+            document.getElementById('traffic7d').innerText = '\u62C9\u53D6\u4E2D...';
+            document.getElementById('traffic30d').innerText = '\u62C9\u53D6\u4E2D...';
 
             try {
                 const controller = new AbortController();
@@ -4029,9 +4260,9 @@ export const HTML_UI = `
 
                 updateChartColors();
 
-                document.getElementById('trafficToday').innerText = data.trafficToday || '未知';
-                document.getElementById('traffic7d').innerText = data.traffic7d || '未知';
-                document.getElementById('traffic30d').innerText = data.traffic30d || '未知';
+                document.getElementById('trafficToday').innerText = data.trafficToday || '\u672A\u77E5';
+                document.getElementById('traffic7d').innerText = data.traffic7d || '\u672A\u77E5';
+                document.getElementById('traffic30d').innerText = data.traffic30d || '\u672A\u77E5';
 
                 const labels = data.trend.map(i => i.date.substring(5)); 
                 const counts = data.trend.map(i => i.count);
@@ -4041,12 +4272,12 @@ export const HTML_UI = `
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [{ label: '有效播放 (次)', data: counts, borderColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary') || '#0071e3').trim(), backgroundColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary-soft') || 'rgba(0,113,227,0.1)').trim(), fill: true, tension: 0.3 }]
+                        datasets: [{ label: '\u6709\u6548\u64AD\u653E (\u6B21)', data: counts, borderColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary') || '#0071e3').trim(), backgroundColor: (getComputedStyle(document.documentElement).getPropertyValue('--primary-soft') || 'rgba(0,113,227,0.1)').trim(), fill: true, tension: 0.3 }]
                     },
-                    options: { responsive: true, plugins: { title: { display: true, text: '过去 7 天全站播放并发趋势', font: {size: 16} } } }
+                    options: { responsive: true, plugins: { title: { display: true, text: '\u8FC7\u53BB 7 \u5929\u5168\u7AD9\u64AD\u653E\u5E76\u53D1\u8D8B\u52BF', font: {size: 16} } } }
                 });
 
-                const locLabels = data.locations.map(i => i.country === 'CN' ? '中国大陆' : (i.country || '未知'));
+                const locLabels = data.locations.map(i => i.country === 'CN' ? '\u4E2D\u56FD\u5927\u9646' : (i.country || '\u672A\u77E5'));
                 const locCounts = data.locations.map(i => i.count);
                 const locCtx = document.getElementById('locationChart').getContext('2d');
                 if(locationChartInstance) locationChartInstance.destroy();
@@ -4056,31 +4287,31 @@ export const HTML_UI = `
                         labels: locLabels,
                         datasets: [{ data: locCounts, backgroundColor: ['#34c759', '#0071e3', '#ff9500', '#af52de', '#ff2d55', '#8e8e93'], borderWidth: 0 }]
                     },
-                    options: { responsive: true, plugins: { title: { display: true, text: '独立访客来源地占比', font: {size: 16} } } }
+                    options: { responsive: true, plugins: { title: { display: true, text: '\u72EC\u7ACB\u8BBF\u5BA2\u6765\u6E90\u5730\u5360\u6BD4', font: {size: 16} } } }
                 });
 
                 const tbody = document.getElementById('logTableBody');
                 tbody.innerHTML = '';
                 if(data.recents.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="cell-loading">暂无日志记录</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="cell-loading">\u6682\u65E0\u65E5\u5FD7\u8BB0\u5F55</td></tr>';
                 } else {
                     data.recents.forEach(log => {
                         const tr = document.createElement('tr');
                         const isChina = log.country === 'CN';
                         tr.innerHTML = \`
-                            <td data-label="访问时间" style="font-size:var(--text-sm); white-space:nowrap;">\${log.timestamp}</td>
-                            <td data-label="目标节点"><span class="badge" style="background:var(--primary-soft);color:var(--primary);">\${log.prefix}</span></td>
-                            <td data-label="真实 IP" style="font-family:monospace; font-size:var(--text-md); color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
-                            <td data-label="归属地"><span class="badge" style="background:\${isChina ? 'var(--ok-soft)' : 'var(--warn-soft)'}; color:\${isChina ? 'var(--ok)' : 'var(--warn)'};">\${isChina ? '中国大陆' : (log.country || 'Unknown')}</span></td>
-                            <td data-label="设备标识 (UA)" style="font-size:var(--text-sm); color:var(--text-sec); word-break: break-all; white-space: normal; text-align: right; line-height: 1.4;" title="\${log.ua}">\${log.ua}</td>
+                            <td data-label="\u8BBF\u95EE\u65F6\u95F4" style="font-size:var(--text-sm); white-space:nowrap;">\${log.timestamp}</td>
+                            <td data-label="\u76EE\u6807\u8282\u70B9"><span class="badge" style="background:var(--primary-soft);color:var(--primary);">\${log.prefix}</span></td>
+                            <td data-label="\u771F\u5B9E IP" style="font-family:monospace; font-size:var(--text-md); color:var(--text-sec); word-break:break-all;">\${log.ip}</td>
+                            <td data-label="\u5F52\u5C5E\u5730"><span class="badge" style="background:\${isChina ? 'var(--ok-soft)' : 'var(--warn-soft)'}; color:\${isChina ? 'var(--ok)' : 'var(--warn)'};">\${isChina ? '\u4E2D\u56FD\u5927\u9646' : (log.country || 'Unknown')}</span></td>
+                            <td data-label="\u8BBE\u5907\u6807\u8BC6 (UA)" style="font-size:var(--text-sm); color:var(--text-sec); word-break: break-all; white-space: normal; text-align: right; line-height: 1.4;" title="\${log.ua}">\${log.ua}</td>
                         \`;
                         tbody.appendChild(tr);
                     });
                 }
 
             } catch (e) {
-                const errMsg = e.name === 'AbortError' ? '网络超时，CF 接口拥堵，请稍后重试' : e.message;
-                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:var(--err); padding: 30px;">独立图表数据拉取失败: \${errMsg}</td></tr>\`;
+                const errMsg = e.name === 'AbortError' ? '\u7F51\u7EDC\u8D85\u65F6\uFF0CCF \u63A5\u53E3\u62E5\u5835\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5' : e.message;
+                document.getElementById('logTableBody').innerHTML = \`<tr><td colspan="5" style="text-align:center;color:var(--err); padding: 30px;">\u72EC\u7ACB\u56FE\u8868\u6570\u636E\u62C9\u53D6\u5931\u8D25: \${errMsg}</td></tr>\`;
             }
         }
 
@@ -4097,7 +4328,7 @@ export const HTML_UI = `
 
         async function loadIcons(forceUrl = null) {
             const grid = document.getElementById('iconGrid');
-            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: var(--text-md); text-align: center;">加载图标库中...</div>';
+            grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--text-sec); font-size: var(--text-md); text-align: center;">\u52A0\u8F7D\u56FE\u6807\u5E93\u4E2D...</div>';
             const targetUrl = forceUrl || localStorage.getItem('custom_icon_url') || DEFAULT_ICON_URL;
             const urlInput = document.getElementById('customIconUrlInput');
             if (urlInput) urlInput.value = targetUrl === DEFAULT_ICON_URL ? '' : targetUrl;
@@ -4114,23 +4345,23 @@ export const HTML_UI = `
                 }
                 renderIconGrid('');
             } catch(e) { 
-                grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--err); font-size: var(--text-md); text-align: center;">获取图标库失败，请检查链接或网络状态</div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--err); font-size: var(--text-md); text-align: center;">\u83B7\u53D6\u56FE\u6807\u5E93\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u94FE\u63A5\u6216\u7F51\u7EDC\u72B6\u6001</div>';
             }
         }
 
         function setCustomIconLibrary() {
             const url = document.getElementById('customIconUrlInput').value.trim();
-            if (!url) return showToast('⚠️ 请输入图标库 JSON 链接');
-            if (!url.startsWith('http')) return showToast('⚠️ 请输入合法的 URL');
+            if (!url) return showToast('\u26A0\uFE0F \u8BF7\u8F93\u5165\u56FE\u6807\u5E93 JSON \u94FE\u63A5');
+            if (!url.startsWith('http')) return showToast('\u26A0\uFE0F \u8BF7\u8F93\u5165\u5408\u6CD5\u7684 URL');
             localStorage.setItem('custom_icon_url', url);
-            showToast('⏳ 正在加载自定义图标库...');
+            showToast('\u23F3 \u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u56FE\u6807\u5E93...');
             loadIcons(url);
         }
 
         function resetIconLibrary() {
             localStorage.removeItem('custom_icon_url');
             document.getElementById('customIconUrlInput').value = '';
-            showToast('🔄 已恢复默认图标库');
+            showToast('\u{1F504} \u5DF2\u6062\u590D\u9ED8\u8BA4\u56FE\u6807\u5E93');
             loadIcons(DEFAULT_ICON_URL);
         }
 
@@ -4138,7 +4369,7 @@ export const HTML_UI = `
             const grid = document.getElementById('iconGrid');
             const lowerFilter = filterText.toLowerCase();
             const filtered = globalIcons.filter(item => (item.name || '').toLowerCase().includes(lowerFilter));
-            let html = \`<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="使用默认图标"><span style="font-size:var(--text-2xl);">🎬</span></div>\`;
+            let html = \`<div class="icon-item" onclick="selectIcon('', '\u9ED8\u8BA4 \u{1F3AC}')" title="\u4F7F\u7528\u9ED8\u8BA4\u56FE\u6807"><span style="font-size:var(--text-2xl);">\u{1F3AC}</span></div>\`;
             filtered.forEach(item => {
                 html += \`<div class="icon-item" onclick="selectIcon('\${item.url}', '\${item.name}')" title="\${item.name}">
                             <img src="\${item.url}" loading="lazy" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
@@ -4165,7 +4396,7 @@ export const HTML_UI = `
                 text.textContent = name; text.style.color = 'var(--text)';
             } else {
                 preview.src = ''; preview.style.display = 'none'; def.style.display = 'block';
-                text.textContent = '点击选择图标 (默认 🎬)'; text.style.color = 'var(--text-sec)';
+                text.textContent = '\u70B9\u51FB\u9009\u62E9\u56FE\u6807 (\u9ED8\u8BA4 \u{1F3AC})'; text.style.color = 'var(--text-sec)';
             }
             document.getElementById('iconPickerPanel').style.display = 'none';
         }
@@ -4178,11 +4409,11 @@ export const HTML_UI = `
             }
         });
 
-        // ===== 三态主题系统: auto / light / dark =====
+        // ===== \u4E09\u6001\u4E3B\u9898\u7CFB\u7EDF: auto / light / dark =====
         var __themeMql = window.matchMedia('(prefers-color-scheme: dark)');
 
         function getThemePref() {
-            // 旧键一次性迁移
+            // \u65E7\u952E\u4E00\u6B21\u6027\u8FC1\u79FB
             var legacy = localStorage.getItem('emby_proxy_dark');
             if (legacy !== null && !localStorage.getItem('emby_theme')) {
                 localStorage.setItem('emby_theme', legacy === '1' ? 'dark' : 'light');
@@ -4202,10 +4433,10 @@ export const HTML_UI = `
             document.body.classList.toggle('dark', dark);
             var btn = document.getElementById('themeToggle');
             if (btn) {
-                var titleMap = { auto: '主题: 跟随系统', light: '主题: 浅色', dark: '主题: 深色' };
+                var titleMap = { auto: '\u4E3B\u9898: \u8DDF\u968F\u7CFB\u7EDF', light: '\u4E3B\u9898: \u6D45\u8272', dark: '\u4E3B\u9898: \u6DF1\u8272' };
                 btn.dataset.theme = pref;
-                btn.title = titleMap[pref] || '切换主题';
-                btn.setAttribute('aria-label', titleMap[pref] || '切换主题');
+                btn.title = titleMap[pref] || '\u5207\u6362\u4E3B\u9898';
+                btn.setAttribute('aria-label', titleMap[pref] || '\u5207\u6362\u4E3B\u9898');
             }
             if (typeof trendChartInstance !== 'undefined' && trendChartInstance) {
                 updateChartColors(); trendChartInstance.update();
@@ -4214,7 +4445,7 @@ export const HTML_UI = `
         }
 
         function toggleDarkMode() {
-            // 循环 auto → light → dark → auto
+            // \u5FAA\u73AF auto \u2192 light \u2192 dark \u2192 auto
             var order = ['auto', 'light', 'dark'];
             var cur = getThemePref();
             var next = order[(order.indexOf(cur) + 1) % order.length];
@@ -4228,7 +4459,7 @@ export const HTML_UI = `
 
         applyTheme(getThemePref());
 
-        // ===== 导航分区切换 =====
+        // ===== \u5BFC\u822A\u5206\u533A\u5207\u6362 =====
         var __statsInited = false;
         function showSection(key) {
             var sections = document.querySelectorAll('.app-section');
@@ -4242,7 +4473,7 @@ export const HTML_UI = `
             for (var j = 0; j < navs.length; j++) {
                 navs[j].classList.toggle('is-active', navs[j].getAttribute('data-section') === key);
             }
-            // 同步移动端底部 tab (v5: tools+danger → "更多" 槽)
+            // \u540C\u6B65\u79FB\u52A8\u7AEF\u5E95\u90E8 tab (v5: tools+danger \u2192 "\u66F4\u591A" \u69FD)
             var tabBar = document.getElementById('mobileTabBar');
             if (tabBar) {
                 var tabMap = { overview: 'home', speed: 'speed', stats: 'stats', settings: 'settings', tools: 'more', danger: 'more' };
@@ -4252,8 +4483,8 @@ export const HTML_UI = `
                     btns[k].classList.toggle('active', btns[k].dataset.tab === tabKey);
                 }
             }
-            // 同步顶部紧凑栏标题 (大标题滚走后才可见)
-            // v2.5.0: 同步桌面 glass topbar 中的 .tb-section-title
+            // \u540C\u6B65\u9876\u90E8\u7D27\u51D1\u680F\u6807\u9898 (\u5927\u6807\u9898\u6EDA\u8D70\u540E\u624D\u53EF\u89C1)
+            // v2.5.0: \u540C\u6B65\u684C\u9762 glass topbar \u4E2D\u7684 .tb-section-title
             try {
                 var title = window.__iosSectionTitles ? (window.__iosSectionTitles[key] || '') : '';
                 var compact = document.getElementById('mobileTopbarCompact');
@@ -4263,7 +4494,7 @@ export const HTML_UI = `
                 if (document.body) document.body.classList.remove('is-scrolled');
             } catch (e) {}
             try { localStorage.setItem('emby_active_section', key); } catch (e) {}
-            // 数据统计分区: 首次进入 lazy init 图表
+            // \u6570\u636E\u7EDF\u8BA1\u5206\u533A: \u9996\u6B21\u8FDB\u5165 lazy init \u56FE\u8868
             if (key === 'stats') {
                 if (!__statsInited) { __statsInited = true; loadDashboardData(); }
                 else { setTimeout(function () {
@@ -4271,7 +4502,7 @@ export const HTML_UI = `
                     if (locationChartInstance) locationChartInstance.resize();
                 }, 60); }
             }
-            // 节点状态分区: 进入即加载（避免必须手动点"刷新"）
+            // \u8282\u70B9\u72B6\u6001\u5206\u533A: \u8FDB\u5165\u5373\u52A0\u8F7D\uFF08\u907F\u514D\u5FC5\u987B\u624B\u52A8\u70B9"\u5237\u65B0"\uFF09
             if (key === 'embyStatus' && typeof loadEmbyStatusAdmin === 'function') {
                 loadEmbyStatusAdmin();
             }
@@ -4294,7 +4525,7 @@ export const HTML_UI = `
             } catch (e) {}
             var saved = 'overview';
             try { saved = localStorage.getItem('emby_active_section') || 'overview'; } catch (e) {}
-            // 延迟到 DOM 就绪后再切换
+            // \u5EF6\u8FDF\u5230 DOM \u5C31\u7EEA\u540E\u518D\u5207\u6362
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', function () { showSection(saved); });
             } else { showSection(saved); }
@@ -4307,16 +4538,16 @@ export const HTML_UI = `
         }
 
         async function purgeCache() {
-            if(!confirm('确定要清理 Cloudflare 节点的全站海报和静态缓存吗？\\n\\n清理后可能导致短时间的加载缓慢。')) return;
+            if(!confirm('\u786E\u5B9A\u8981\u6E05\u7406 Cloudflare \u8282\u70B9\u7684\u5168\u7AD9\u6D77\u62A5\u548C\u9759\u6001\u7F13\u5B58\u5417\uFF1F\\n\\n\u6E05\u7406\u540E\u53EF\u80FD\u5BFC\u81F4\u77ED\u65F6\u95F4\u7684\u52A0\u8F7D\u7F13\u6162\u3002')) return;
             const btn = document.getElementById('btnPurge');
             const originalText = btn.textContent;
-            btn.textContent = '⏳ 正在清理...'; btn.disabled = true;
+            btn.textContent = '\u23F3 \u6B63\u5728\u6E05\u7406...'; btn.disabled = true;
             try {
                 const res = await fetch('/api/purge-cache', { method: 'POST' });
                 const data = await res.json();
-                if(data.success) showToast('✅ 缓存清理成功，新海报已生效！');
-                else showToast('❌ 清理失败: ' + data.error);
-            } catch(e) { showToast('❌ 网络请求错误'); } finally { btn.textContent = originalText; btn.disabled = false; }
+                if(data.success) showToast('\u2705 \u7F13\u5B58\u6E05\u7406\u6210\u529F\uFF0C\u65B0\u6D77\u62A5\u5DF2\u751F\u6548\uFF01');
+                else showToast('\u274C \u6E05\u7406\u5931\u8D25: ' + data.error);
+            } catch(e) { showToast('\u274C \u7F51\u7EDC\u8BF7\u6C42\u9519\u8BEF'); } finally { btn.textContent = originalText; btn.disabled = false; }
         }
 
         function filterNodesList() {
@@ -4333,8 +4564,8 @@ export const HTML_UI = `
             const row = document.createElement('div');
             row.className = 'a-upstream-row';
             row.innerHTML = isMain
-                ? '<span class="a-tag-pri">主源</span><input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">'
-                : '<span class="a-tag-bk">备 ' + idx + '</span><input type="url" class="a-input target-input" placeholder="备用线路 ' + idx + ' (选填，主源挂掉时触发)" oninput="handleTargetInputs()">';
+                ? '<span class="a-tag-pri">\u4E3B\u6E90</span><input type="url" class="a-input target-input" placeholder="\u4E3B\u7EBF\u8DEF\u5730\u5740 (\u5982: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">'
+                : '<span class="a-tag-bk">\u5907 ' + idx + '</span><input type="url" class="a-input target-input" placeholder="\u5907\u7528\u7EBF\u8DEF ' + idx + ' (\u9009\u586B\uFF0C\u4E3B\u6E90\u6302\u6389\u65F6\u89E6\u53D1)" oninput="handleTargetInputs()">';
             const inp = row.querySelector('input');
             inp.value = value;
             return row;
@@ -4362,11 +4593,11 @@ export const HTML_UI = `
                 const tag = row.querySelector('.a-tag-pri, .a-tag-bk');
                 const inp = row.querySelector('.target-input');
                 if (idx === 0) {
-                    if (tag) { tag.className = 'a-tag-pri'; tag.textContent = '主源'; }
-                    if (inp) inp.placeholder = '主线路地址 (如: http://1.1.1.1:8096)';
+                    if (tag) { tag.className = 'a-tag-pri'; tag.textContent = '\u4E3B\u6E90'; }
+                    if (inp) inp.placeholder = '\u4E3B\u7EBF\u8DEF\u5730\u5740 (\u5982: http://1.1.1.1:8096)';
                 } else {
-                    if (tag) { tag.className = 'a-tag-bk'; tag.textContent = '备 ' + idx; }
-                    if (inp) inp.placeholder = '备用线路 ' + idx + ' (选填，主源挂掉时触发)';
+                    if (tag) { tag.className = 'a-tag-bk'; tag.textContent = '\u5907 ' + idx; }
+                    if (inp) inp.placeholder = '\u5907\u7528\u7EBF\u8DEF ' + idx + ' (\u9009\u586B\uFF0C\u4E3B\u6E90\u6302\u6389\u65F6\u89E6\u53D1)';
                 }
             });
         }
@@ -4386,23 +4617,23 @@ export const HTML_UI = `
                     const arr = JSON.parse(decodeURIComponent(el.getAttribute('data-val')));
                     let html = '';
                     arr.forEach((t, i) => {
-                        const tag = i === 0 ? '<span style="color:var(--ok);font-weight:bold;">[主]</span>' : '<span style="color:var(--warn);font-weight:bold;">[备]</span>';
+                        const tag = i === 0 ? '<span style="color:var(--ok);font-weight:bold;">[\u4E3B]</span>' : '<span style="color:var(--warn);font-weight:bold;">[\u5907]</span>';
                         html += \`<div class="url-list-item">\${tag} \${t}</div>\`;
                     });
                     el.innerHTML = html;
                 } else { el.textContent = el.getAttribute('data-val'); }
             } else {
-                el.classList.add('secret-text'); el.classList.remove('actual-text'); el.textContent = '••••••••';
+                el.classList.add('secret-text'); el.classList.remove('actual-text'); el.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
             }
         }
 
-        function copyTxt(txt) { navigator.clipboard.writeText(txt).then(() => showToast('🚀 复制成功！')); }
+        function copyTxt(txt) { navigator.clipboard.writeText(txt).then(() => showToast('\u{1F680} \u590D\u5236\u6210\u529F\uFF01')); }
 
         async function pingTarget(idx, targetUrl) {
             const pingEl = document.getElementById('ping-' + idx);
             if (!pingEl) return;
-            pingEl.textContent = '测速中'; pingEl.style.color = '';
-            // 找到延迟所在 stat 的副标题（若存在）以同步状态文案与色彩
+            pingEl.textContent = '\u6D4B\u901F\u4E2D'; pingEl.style.color = '';
+            // \u627E\u5230\u5EF6\u8FDF\u6240\u5728 stat \u7684\u526F\u6807\u9898\uFF08\u82E5\u5B58\u5728\uFF09\u4EE5\u540C\u6B65\u72B6\u6001\u6587\u6848\u4E0E\u8272\u5F69
             const stat = pingEl.closest('.a-stat');
             const sub = stat ? stat.querySelector('.a-stat-sub') : null;
             const setSub = (text, cls) => {
@@ -4411,25 +4642,25 @@ export const HTML_UI = `
                 sub.classList.remove('up', 'down');
                 if (cls) sub.classList.add(cls);
             };
-            // 依据测速结果刷新节点状态徽章 (在线/延迟/离线)
+            // \u4F9D\u636E\u6D4B\u901F\u7ED3\u679C\u5237\u65B0\u8282\u70B9\u72B6\u6001\u5FBD\u7AE0 (\u5728\u7EBF/\u5EF6\u8FDF/\u79BB\u7EBF)
             const card = pingEl.closest('.emby-card');
             const setBadge = (state) => {
                 if (!card) return;
                 const badge = card.querySelector('.node-badge');
                 if (!badge) return;
                 badge.className = 'node-badge ' + (state === 'online' ? 'is-online' : state === 'slow' ? 'is-slow' : 'is-offline');
-                badge.innerHTML = '<span class="bdot"></span>' + (state === 'online' ? '在线' : state === 'slow' ? '延迟' : '离线');
+                badge.innerHTML = '<span class="bdot"></span>' + (state === 'online' ? '\u5728\u7EBF' : state === 'slow' ? '\u5EF6\u8FDF' : '\u79BB\u7EBF');
             };
             try {
                 const res = await fetch('/api/ping-node?url=' + encodeURIComponent(targetUrl));
                 const data = await res.json();
                 if(data.ms >= 0) {
                     pingEl.innerHTML = data.ms + '<span class="unit">ms</span>';
-                    if (data.ms < 200) { pingEl.style.color = 'var(--ok)'; setSub('良好', 'up'); setBadge('online'); }
-                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); setBadge('online'); }
-                    else { pingEl.style.color = 'var(--warn)'; setSub('偏高', 'down'); setBadge('slow'); }
-                } else { pingEl.textContent = '断连'; pingEl.style.color = 'var(--err)'; setSub('超时', 'down'); setBadge('offline'); }
-            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = 'var(--err)'; setSub('错误', 'down'); setBadge('offline'); }
+                    if (data.ms < 200) { pingEl.style.color = 'var(--ok)'; setSub('\u826F\u597D', 'up'); setBadge('online'); }
+                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('\u4E00\u822C', null); setBadge('online'); }
+                    else { pingEl.style.color = 'var(--warn)'; setSub('\u504F\u9AD8', 'down'); setBadge('slow'); }
+                } else { pingEl.textContent = '\u65AD\u8FDE'; pingEl.style.color = 'var(--err)'; setSub('\u8D85\u65F6', 'down'); setBadge('offline'); }
+            } catch(e) { pingEl.textContent = '\u5F02\u5E38'; pingEl.style.color = 'var(--err)'; setSub('\u9519\u8BEF', 'down'); setBadge('offline'); }
             if (typeof updateTopbarHealth === 'function') updateTopbarHealth();
         }
 
@@ -4441,13 +4672,13 @@ export const HTML_UI = `
         }
 
         function pingAllNodes() {
-            if (proxyNodesForPing.length === 0) return showToast('⚠️ 没有可供测速的反代节点');
-            showToast('⚡ 正在对所有节点发起测速...');
+            if (proxyNodesForPing.length === 0) return showToast('\u26A0\uFE0F \u6CA1\u6709\u53EF\u4F9B\u6D4B\u901F\u7684\u53CD\u4EE3\u8282\u70B9');
+            showToast('\u26A1 \u6B63\u5728\u5BF9\u6240\u6709\u8282\u70B9\u53D1\u8D77\u6D4B\u901F...');
             proxyNodesForPing.forEach((node, offset) => { setTimeout(() => pingTarget(node.idx, node.url), offset * 200); });
         }
 
         // ==========================================
-        // emby-js 监控移植：节点状态管理面板（admin）
+        // emby-js \u76D1\u63A7\u79FB\u690D\uFF1A\u8282\u70B9\u72B6\u6001\u7BA1\u7406\u9762\u677F\uFF08admin\uFF09
         // ==========================================
         function _embyEscape(s) {
             return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -4456,7 +4687,7 @@ export const HTML_UI = `
             const listEl = document.getElementById('embyStatusAdminList');
             const emptyEl = document.getElementById('embyStatusAdminEmpty');
             if (!listEl || !emptyEl) return;
-            listEl.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm);">加载中...</div>';
+            listEl.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm);">\u52A0\u8F7D\u4E2D...</div>';
             emptyEl.style.display = 'none';
             try {
                 const [routesRes, stateRes, globalRes] = await Promise.all([
@@ -4484,8 +4715,8 @@ export const HTML_UI = `
                     const autoAuth = !!(st.media_counts_auto_auth || r.media_counts_auto_auth);
                     const alias = st.public_alias != null ? st.public_alias : (r.public_alias || '');
                     const hasToken = !!st.has_token;
-                    const seenAt = st.emby_auth_seen_at ? new Date(st.emby_auth_seen_at * 1000).toLocaleString() : '—';
-                    const usedAt = st.emby_auth_used_at ? new Date(st.emby_auth_used_at * 1000).toLocaleString() : '—';
+                    const seenAt = st.emby_auth_seen_at ? new Date(st.emby_auth_seen_at * 1000).toLocaleString() : '\u2014';
+                    const usedAt = st.emby_auth_used_at ? new Date(st.emby_auth_used_at * 1000).toLocaleString() : '\u2014';
                     return '' +
                         '<div class="card" style="padding:14px; gap:10px; display:flex; flex-direction:column;">' +
                             '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
@@ -4494,32 +4725,32 @@ export const HTML_UI = `
                             '</div>' +
                             '<div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:var(--text-sm);">' +
                                 '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;">' +
-                                    '<input type="checkbox" ' + (showOn ? 'checked' : '') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'show_on_status\\', this.checked ? 1 : 0)"> 在状态页展示' +
+                                    '<input type="checkbox" ' + (showOn ? 'checked' : '') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'show_on_status\\', this.checked ? 1 : 0)"> \u5728\u72B6\u6001\u9875\u5C55\u793A' +
                                 '</label>' +
                                 '<label style="display:flex; gap:6px; align-items:center; cursor:pointer;" ' + (showOn ? '' : 'data-disabled="1" style="opacity:.5; pointer-events:none;"') + '>' +
-                                    '<input type="checkbox" ' + (autoAuth ? 'checked' : '') + ' ' + (showOn ? '' : 'disabled') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'media_counts_auto_auth\\', this.checked ? 1 : 0)"> 自动获取媒体计数' +
+                                    '<input type="checkbox" ' + (autoAuth ? 'checked' : '') + ' ' + (showOn ? '' : 'disabled') + ' onchange="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'media_counts_auto_auth\\', this.checked ? 1 : 0)"> \u81EA\u52A8\u83B7\u53D6\u5A92\u4F53\u8BA1\u6570' +
                                 '</label>' +
                             '</div>' +
                             (showOn ? (
                                 '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
-                                    '<label style="font-size:var(--text-sm); color:var(--text-sec); flex:0 0 auto;">公开名称</label>' +
-                                    '<input type="text" value="' + _embyEscape(alias) + '" placeholder="留空则用备注" style="flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:inherit;" onblur="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'public_alias\\', this.value)">' +
-                                    '<button type="button" class="btn-tier" onclick="generateShareCardLink(\\'' + _embyEscape(r.prefix) + '\\')">生成 SVG 卡片</button>' +
+                                    '<label style="font-size:var(--text-sm); color:var(--text-sec); flex:0 0 auto;">\u516C\u5F00\u540D\u79F0</label>' +
+                                    '<input type="text" value="' + _embyEscape(alias) + '" placeholder="\u7559\u7A7A\u5219\u7528\u5907\u6CE8" style="flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:inherit;" onblur="updateEmbyRouteFlag(\\'' + _embyEscape(r.prefix) + '\\',\\'public_alias\\', this.value)">' +
+                                    '<button type="button" class="btn-tier" onclick="generateShareCardLink(\\'' + _embyEscape(r.prefix) + '\\')">\u751F\u6210 SVG \u5361\u7247</button>' +
                                 '</div>'
                             ) : '') +
                             (autoAuth ? (
                                 '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--text-sec);">' +
-                                    '<span>令牌：' + (hasToken ? '已收割' : '尚未收割') + '</span>' +
-                                    '<span>首次：' + _embyEscape(seenAt) + '</span>' +
-                                    '<span>最近探测使用：' + _embyEscape(usedAt) + '</span>' +
-                                    (hasToken ? '<button type="button" class="btn-tier" style="padding:4px 10px; font-size:11px;" onclick="revokeEmbyAuth(\\'' + _embyEscape(r.prefix) + '\\')">撤销并重新收割</button>' : '') +
+                                    '<span>\u4EE4\u724C\uFF1A' + (hasToken ? '\u5DF2\u6536\u5272' : '\u5C1A\u672A\u6536\u5272') + '</span>' +
+                                    '<span>\u9996\u6B21\uFF1A' + _embyEscape(seenAt) + '</span>' +
+                                    '<span>\u6700\u8FD1\u63A2\u6D4B\u4F7F\u7528\uFF1A' + _embyEscape(usedAt) + '</span>' +
+                                    (hasToken ? '<button type="button" class="btn-tier" style="padding:4px 10px; font-size:11px;" onclick="revokeEmbyAuth(\\'' + _embyEscape(r.prefix) + '\\')">\u64A4\u9500\u5E76\u91CD\u65B0\u6536\u5272</button>' : '') +
                                 '</div>'
                             ) : '') +
                         '</div>';
                 });
                 listEl.innerHTML = rows.join('');
             } catch (e) {
-                listEl.innerHTML = '<div style="color:var(--bad); font-size:var(--text-sm);">加载失败：' + _embyEscape(e.message) + '</div>';
+                listEl.innerHTML = '<div style="color:var(--bad); font-size:var(--text-sm);">\u52A0\u8F7D\u5931\u8D25\uFF1A' + _embyEscape(e.message) + '</div>';
             }
         }
         async function saveCountryAllowlist() {
@@ -4532,13 +4763,13 @@ export const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                    if (typeof showToast === 'function') showToast('\u2705 \u5DF2\u4FDD\u5B58');
                     loadEmbyStatusAdmin();
                 } else {
-                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                    if (typeof showToast === 'function') showToast('\u274C ' + (data.error || '\u4FDD\u5B58\u5931\u8D25'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
         async function updateEmbyGlobalFlag(field, value) {
@@ -4550,12 +4781,12 @@ export const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                    if (typeof showToast === 'function') showToast('\u2705 \u5DF2\u4FDD\u5B58');
                 } else {
-                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                    if (typeof showToast === 'function') showToast('\u274C ' + (data.error || '\u4FDD\u5B58\u5931\u8D25'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
         async function updateEmbyRouteFlag(prefix, field, value) {
@@ -4567,30 +4798,30 @@ export const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (typeof showToast === 'function') showToast('✅ 已保存');
+                    if (typeof showToast === 'function') showToast('\u2705 \u5DF2\u4FDD\u5B58');
                     loadEmbyStatusAdmin();
                 } else {
-                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '保存失败'));
+                    if (typeof showToast === 'function') showToast('\u274C ' + (data.error || '\u4FDD\u5B58\u5931\u8D25'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
         async function revokeEmbyAuth(prefix) {
-            if (!confirm('确认清除该节点的已收割令牌？下次代理请求会自动重新收割。')) return;
+            if (!confirm('\u786E\u8BA4\u6E05\u9664\u8BE5\u8282\u70B9\u7684\u5DF2\u6536\u5272\u4EE4\u724C\uFF1F\u4E0B\u6B21\u4EE3\u7406\u8BF7\u6C42\u4F1A\u81EA\u52A8\u91CD\u65B0\u6536\u5272\u3002')) return;
             try {
                 const res = await fetch('/api/status/revoke-auth', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (typeof showToast === 'function') showToast('✅ 已清除');
+                    if (typeof showToast === 'function') showToast('\u2705 \u5DF2\u6E05\u9664');
                     loadEmbyStatusAdmin();
                 } else {
-                    if (typeof showToast === 'function') showToast('❌ ' + (data.error || '失败'));
+                    if (typeof showToast === 'function') showToast('\u274C ' + (data.error || '\u5931\u8D25'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
         async function generateShareDashboardLink() {
@@ -4600,14 +4831,14 @@ export const HTML_UI = `
                 const box = document.getElementById('embyShareResult');
                 if (data.success) {
                     box.style.display = 'block';
-                    box.innerHTML = '✅ 公开分享链接（1 小时有效）：<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
-                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('✅ 链接已复制'); } catch (e) {}
+                    box.innerHTML = '\u2705 \u516C\u5F00\u5206\u4EAB\u94FE\u63A5\uFF081 \u5C0F\u65F6\u6709\u6548\uFF09\uFF1A<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
+                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('\u2705 \u94FE\u63A5\u5DF2\u590D\u5236'); } catch (e) {}
                 } else {
                     box.style.display = 'block';
-                    box.innerHTML = '❌ ' + _embyEscape(data.error || '生成失败');
+                    box.innerHTML = '\u274C ' + _embyEscape(data.error || '\u751F\u6210\u5931\u8D25');
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
         async function generateShareCardLink(prefix) {
@@ -4619,14 +4850,14 @@ export const HTML_UI = `
                 const box = document.getElementById('embyShareResult');
                 if (data.success) {
                     box.style.display = 'block';
-                    box.innerHTML = '✅ 节点 <code>/' + _embyEscape(prefix) + '</code> 的 SVG 卡片（1 小时有效）：<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
-                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('✅ 链接已复制'); } catch (e) {}
+                    box.innerHTML = '\u2705 \u8282\u70B9 <code>/' + _embyEscape(prefix) + '</code> \u7684 SVG \u5361\u7247\uFF081 \u5C0F\u65F6\u6709\u6548\uFF09\uFF1A<a href="' + _embyEscape(data.url) + '" target="_blank" rel="noopener">' + _embyEscape(data.url) + '</a>';
+                    try { await navigator.clipboard.writeText(data.url); if (typeof showToast === 'function') showToast('\u2705 \u94FE\u63A5\u5DF2\u590D\u5236'); } catch (e) {}
                 } else {
                     box.style.display = 'block';
-                    box.innerHTML = '❌ ' + _embyEscape(data.error || '生成失败');
+                    box.innerHTML = '\u274C ' + _embyEscape(data.error || '\u751F\u6210\u5931\u8D25');
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast('❌ ' + e.message);
+                if (typeof showToast === 'function') showToast('\u274C ' + e.message);
             }
         }
 
@@ -4636,8 +4867,8 @@ export const HTML_UI = `
                 const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = 'emby_proxy_backup.json'; a.click();
-                URL.revokeObjectURL(url); showToast('✅ 配置已导出');
-            } catch (e) { showToast('❌ 导出失败'); }
+                URL.revokeObjectURL(url); showToast('\u2705 \u914D\u7F6E\u5DF2\u5BFC\u51FA');
+            } catch (e) { showToast('\u274C \u5BFC\u51FA\u5931\u8D25'); }
         }
 
         function importConfig() {
@@ -4649,8 +4880,8 @@ export const HTML_UI = `
                         const routes = JSON.parse(event.target.result);
                         const res = await fetch('/api/routes/import', { method: 'POST', body: JSON.stringify(routes) });
                         const result = await res.json();
-                        if (result.success) { showToast('✅ 配置导入成功'); load(); } else throw new Error(result.error);
-                    } catch (err) { showToast('❌ 导入失败: ' + err.message); }
+                        if (result.success) { showToast('\u2705 \u914D\u7F6E\u5BFC\u5165\u6210\u529F'); load(); } else throw new Error(result.error);
+                    } catch (err) { showToast('\u274C \u5BFC\u5165\u5931\u8D25: ' + err.message); }
                 };
                 reader.readAsText(file);
             };
@@ -4660,16 +4891,16 @@ export const HTML_UI = `
         async function load() {
             try {
                 const res = await fetch('/api/routes');
-                if (!res.ok) throw new Error('请求失败，请检查环境配置');
+                if (!res.ok) throw new Error('\u8BF7\u6C42\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u73AF\u5883\u914D\u7F6E');
                 const data = await res.json();
                 if (data.error) throw new Error(data.error);
 
-                // 🌟 新增：把节点流量数据存进全局内存，供大屏瞬间读取！
+                // \u{1F31F} \u65B0\u589E\uFF1A\u628A\u8282\u70B9\u6D41\u91CF\u6570\u636E\u5B58\u8FDB\u5168\u5C40\u5185\u5B58\uFF0C\u4F9B\u5927\u5C4F\u77AC\u95F4\u8BFB\u53D6\uFF01
                 window.globalRoutesData = data;
 
                 const container = document.getElementById('list-grid');
                 if(data.length === 0) {
-                    container.innerHTML = '<div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">暂无配置任何反代节点，请先部署一个。</div>';
+                    container.innerHTML = '<div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">\u6682\u65E0\u914D\u7F6E\u4EFB\u4F55\u53CD\u4EE3\u8282\u70B9\uFF0C\u8BF7\u5148\u90E8\u7F72\u4E00\u4E2A\u3002</div>';
                     return;
                 }
                 
@@ -4682,38 +4913,38 @@ export const HTML_UI = `
                     const targets = r.target.split(',').map(s => s.trim()).filter(Boolean);
                     const mainTarget = targets[0]; 
                     
-                    const remarkName = r.remark || '未命名媒体库';
-                    const lastPlay = r.last_play ? r.last_play : '暂无播放记录';
+                    const remarkName = r.remark || '\u672A\u547D\u540D\u5A92\u4F53\u5E93';
+                    const lastPlay = r.last_play ? r.last_play : '\u6682\u65E0\u64AD\u653E\u8BB0\u5F55';
                     
                     const encodedTargets = encodeURIComponent(JSON.stringify(targets));
 
-                    // 🌟 接收后端传来的：单节点独立宽带与请求统计数据
+                    // \u{1F31F} \u63A5\u6536\u540E\u7AEF\u4F20\u6765\u7684\uFF1A\u5355\u8282\u70B9\u72EC\u7ACB\u5BBD\u5E26\u4E0E\u8BF7\u6C42\u7EDF\u8BA1\u6570\u636E
                     const todayBw = r.todayBandwidth || '0 B';
                     const totalReqs = r.totalReqs || r.todayReqs || 0;
                     const todayReqs = r.todayReqs || 0;
 
-                    // 状态点：依据最后活跃文本判定（刚刚/秒/分钟/小时 → live；天/暂无 → idle）
+                    // \u72B6\u6001\u70B9\uFF1A\u4F9D\u636E\u6700\u540E\u6D3B\u8DC3\u6587\u672C\u5224\u5B9A\uFF08\u521A\u521A/\u79D2/\u5206\u949F/\u5C0F\u65F6 \u2192 live\uFF1B\u5929/\u6682\u65E0 \u2192 idle\uFF09
                     let statusClass = 'idle';
-                    if (/刚刚|秒|分钟|小时/.test(lastPlay)) statusClass = 'live';
+                    if (/\u521A\u521A|\u79D2|\u5206\u949F|\u5C0F\u65F6/.test(lastPlay)) statusClass = 'live';
 
                     const isIdle = (todayReqs === 0) && statusClass === 'idle';
                     const cardIdleCls = isIdle ? ' idle' : '';
                     const thumbIdleCls = isIdle ? ' idle' : '';
 
-                    // 缩略图：有 icon URL 用图片，否则取备注首字
+                    // \u7F29\u7565\u56FE\uFF1A\u6709 icon URL \u7528\u56FE\u7247\uFF0C\u5426\u5219\u53D6\u5907\u6CE8\u9996\u5B57
                     const thumbLetter = (remarkName.replace(/\\s+/g, '').charAt(0) || '?').toUpperCase();
                     const thumbInner = r.icon
                         ? \`<img src="\${r.icon}" alt="">\`
                         : thumbLetter;
 
-                    // 自定义头标签：统计条数
+                    // \u81EA\u5B9A\u4E49\u5934\u6807\u7B7E\uFF1A\u7EDF\u8BA1\u6761\u6570
                     const headerLines = (r.custom_headers || '').split('\\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
                     const headerKeys = headerLines.map(l => l.split(':')[0].trim()).filter(Boolean);
 
                     const cacheOn = r.cache_img !== 'off';
                     const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
-                    // 状态徽章 + 迷你折线图 (趋势数据缺失则占位)
+                    // \u72B6\u6001\u5FBD\u7AE0 + \u8FF7\u4F60\u6298\u7EBF\u56FE (\u8D8B\u52BF\u6570\u636E\u7F3A\u5931\u5219\u5360\u4F4D)
                     const badgeHtml = nodeBadgeHtml(statusClass);
                     let trendData = r.trend || r.trafficHistory || r.history || null;
                     if (!Array.isArray(trendData)) trendData = null;
@@ -4724,7 +4955,7 @@ export const HTML_UI = `
                     container.innerHTML += \`
                     <div class="emby-card route-item\${cardIdleCls}" data-prefix="\${r.prefix}" data-search="\${remarkName} \${r.prefix}" data-custom-headers="\${(r.custom_headers || '').replace(/"/g, '&quot;')}">
                         <div class="a-head">
-                            <div class="drag-handle a-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>
+                            <div class="drag-handle a-handle" title="\u62D6\u62FD\u6392\u5E8F"><svg><use href="#i-grip"/></svg></div>
                             <input type="checkbox" class="node-cb a-cb" value="\${r.prefix}">
                             <div class="a-thumb\${thumbIdleCls}">\${thumbInner}</div>
                             <div class="a-title-block">
@@ -4732,8 +4963,8 @@ export const HTML_UI = `
                                 <div class="a-meta">
                                     <span class="a-status-dot \${statusClass}" title="\${lastPlay}"></span>
                                     <span>/\${r.prefix}</span>
-                                    <span class="dot-sep">·</span>
-                                    <span class="a-mode">\${modeNames[r.mode] || '未知'}</span>
+                                    <span class="dot-sep">\xB7</span>
+                                    <span class="a-mode">\${modeNames[r.mode] || '\u672A\u77E5'}</span>
                                 </div>
                             </div>
                             \${badgeHtml}
@@ -4743,62 +4974,62 @@ export const HTML_UI = `
 
                         <div class="a-stats">
                             <div class="a-stat">
-                                <div class="a-stat-label">今日流量</div>
+                                <div class="a-stat-label">\u4ECA\u65E5\u6D41\u91CF</div>
                                 <span class="a-stat-val\${isIdle ? ' muted' : ''}">\${todayBw}</span>
-                                <div class="a-stat-sub">\${isIdle ? '闲置' : '今日累积'}</div>
+                                <div class="a-stat-sub">\${isIdle ? '\u95F2\u7F6E' : '\u4ECA\u65E5\u7D2F\u79EF'}</div>
                             </div>
                             <div class="a-stat">
-                                <div class="a-stat-label">今日播放</div>
+                                <div class="a-stat-label">\u4ECA\u65E5\u64AD\u653E</div>
                                 <span class="a-stat-val\${isIdle ? ' muted' : ''}">\${todayReqs}</span>
-                                <div class="a-stat-sub">累计 \${totalReqs}</div>
+                                <div class="a-stat-sub">\u7D2F\u8BA1 \${totalReqs}</div>
                             </div>
                             <div class="a-stat">
-                                <div class="a-stat-label">延迟</div>
-                                <span id="ping-\${idx}" class="a-stat-val cursor-pointer"  onclick="pingTarget(\${idx}, '\${mainTarget}')" title="点击重新测速">测速中</span>
-                                <div class="a-stat-sub">点击重测</div>
+                                <div class="a-stat-label">\u5EF6\u8FDF</div>
+                                <span id="ping-\${idx}" class="a-stat-val cursor-pointer"  onclick="pingTarget(\${idx}, '\${mainTarget}')" title="\u70B9\u51FB\u91CD\u65B0\u6D4B\u901F">\u6D4B\u901F\u4E2D</span>
+                                <div class="a-stat-sub">\u70B9\u51FB\u91CD\u6D4B</div>
                             </div>
                         </div>
 
                         <div class="a-tags">
                             \${cacheOn
-                                ? '<span class="a-tag good"><svg><use href="#i-image"/></svg>海报缓存</span>'
-                                : '<span class="a-tag warn"><svg><use href="#i-image"/></svg>缓存已关闭</span>'}
+                                ? '<span class="a-tag good"><svg><use href="#i-image"/></svg>\u6D77\u62A5\u7F13\u5B58</span>'
+                                : '<span class="a-tag warn"><svg><use href="#i-image"/></svg>\u7F13\u5B58\u5DF2\u5173\u95ED</span>'}
                             \${headerKeys.length
-                                ? \`<span class="a-tag primary" onclick="toggleDetails(this)" title="点击查看自定义请求头"><svg><use href="#i-key"/></svg>\${headerKeys.length} 个自定义头</span>\`
+                                ? \`<span class="a-tag primary" onclick="toggleDetails(this)" title="\u70B9\u51FB\u67E5\u770B\u81EA\u5B9A\u4E49\u8BF7\u6C42\u5934"><svg><use href="#i-key"/></svg>\${headerKeys.length} \u4E2A\u81EA\u5B9A\u4E49\u5934</span>\`
                                 : ''}
-                            <span class="a-tag">最后活跃 \${lastPlay}</span>
+                            <span class="a-tag">\u6700\u540E\u6D3B\u8DC3 \${lastPlay}</span>
                         </div>
 
                         <div class="a-details">
                             <div class="a-detail-row">
-                                <span class="a-detail-label">直达链接</span>
-                                <span id="p-\${idx}" data-val="\${proxyUrl}" class="a-detail-val secret-text">••••••••</span>
+                                <span class="a-detail-label">\u76F4\u8FBE\u94FE\u63A5</span>
+                                <span id="p-\${idx}" data-val="\${proxyUrl}" class="a-detail-val secret-text">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</span>
                                 <span class="a-detail-actions">
-                                    <button class="a-icon-btn" onclick="toggleVis('p-\${idx}')" title="查看明文"><svg><use href="#i-eye"/></svg></button>
-                                    <button class="a-icon-btn" onclick="copyTxt('\${proxyUrl}')" title="复制链接"><svg><use href="#i-copy"/></svg></button>
+                                    <button class="a-icon-btn" onclick="toggleVis('p-\${idx}')" title="\u67E5\u770B\u660E\u6587"><svg><use href="#i-eye"/></svg></button>
+                                    <button class="a-icon-btn" onclick="copyTxt('\${proxyUrl}')" title="\u590D\u5236\u94FE\u63A5"><svg><use href="#i-copy"/></svg></button>
                                 </span>
                             </div>
                             <div class="a-detail-row">
-                                <span class="a-detail-label">源站</span>
-                                <span id="t-\${idx}" data-val="\${encodedTargets}" class="a-detail-val secret-text">••••••••</span>
+                                <span class="a-detail-label">\u6E90\u7AD9</span>
+                                <span id="t-\${idx}" data-val="\${encodedTargets}" class="a-detail-val secret-text">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</span>
                                 <span class="a-detail-actions">
-                                    <button class="a-icon-btn" onclick="toggleVis('t-\${idx}', true)" title="查看明文"><svg><use href="#i-eye"/></svg></button>
+                                    <button class="a-icon-btn" onclick="toggleVis('t-\${idx}', true)" title="\u67E5\u770B\u660E\u6587"><svg><use href="#i-eye"/></svg></button>
                                 </span>
                             </div>
                             \${headerKeys.length ? \`<div class="a-detail-row">
-                                <span class="a-detail-label">自定义头</span>
+                                <span class="a-detail-label">\u81EA\u5B9A\u4E49\u5934</span>
                                 <span class="a-detail-val" title="\${escAttr(headerKeys.join(', '))}">\${headerKeys.join(', ')}</span>
                                 <span></span>
                             </div>\` : ''}
                         </div>
 
                         <div class="a-foot">
-                            <button class="a-icon-btn" title="测速" onclick="pingTarget(\${idx}, '\${mainTarget}')"><svg><use href="#i-zap"/></svg></button>
-                            <button class="a-icon-btn" title="复制直达链接" onclick="copyTxt('\${proxyUrl}')"><svg><use href="#i-copy"/></svg></button>
-                            <button class="a-icon-btn" title="更多详情" onclick="toggleDetails(this)"><svg><use href="#i-more"/></svg></button>
+                            <button class="a-icon-btn" title="\u6D4B\u901F" onclick="pingTarget(\${idx}, '\${mainTarget}')"><svg><use href="#i-zap"/></svg></button>
+                            <button class="a-icon-btn" title="\u590D\u5236\u76F4\u8FBE\u94FE\u63A5" onclick="copyTxt('\${proxyUrl}')"><svg><use href="#i-copy"/></svg></button>
+                            <button class="a-icon-btn" title="\u66F4\u591A\u8BE6\u60C5" onclick="toggleDetails(this)"><svg><use href="#i-more"/></svg></button>
                             <span class="a-foot-spacer"></span>
-                            <button class="a-btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}')"><svg><use href="#i-edit"/></svg>编辑</button>
-                            <button class="a-icon-btn danger-hover" title="删除" onclick="del('\${r.prefix}')"><svg><use href="#i-trash"/></svg></button>
+                            <button class="a-btn-edit" onclick="editNode('\${r.prefix}', '\${r.target}', '\${r.mode}', '\${r.remark || ''}', '\${r.icon || ''}', '\${r.cache_img}')"><svg><use href="#i-edit"/></svg>\u7F16\u8F91</button>
+                            <button class="a-icon-btn danger-hover" title="\u5220\u9664" onclick="del('\${r.prefix}')"><svg><use href="#i-trash"/></svg></button>
                         </div>
                     </div>\`;
 
@@ -4821,35 +5052,35 @@ export const HTML_UI = `
                         });
                         try {
                             await fetch('/api/routes/reorder', { method: 'POST', body: JSON.stringify(items) });
-                            showToast('✅ 排序已保存');
-                        } catch(e) { showToast('❌ 排序保存失败'); }
+                            showToast('\u2705 \u6392\u5E8F\u5DF2\u4FDD\u5B58');
+                        } catch(e) { showToast('\u274C \u6392\u5E8F\u4FDD\u5B58\u5931\u8D25'); }
                     }
                 });
 
-                // 刷新顶部状态栏: 节点总数
+                // \u5237\u65B0\u9876\u90E8\u72B6\u6001\u680F: \u8282\u70B9\u603B\u6570
                 const tbCount = document.getElementById('tb-node-count');
                 if (tbCount) tbCount.textContent = String(data.length);
                 updateTopbarHealth();
 
-                // ECG 心电图 + 24h/7d 可用率（仅对开启了 show_on_status 的节点显示）
+                // ECG \u5FC3\u7535\u56FE + 24h/7d \u53EF\u7528\u7387\uFF08\u4EC5\u5BF9\u5F00\u542F\u4E86 show_on_status \u7684\u8282\u70B9\u663E\u793A\uFF09
                 injectEcgStrips();
 
-                // 异步拉取节点近 7 天每日流量并回填 sparkline
+                // \u5F02\u6B65\u62C9\u53D6\u8282\u70B9\u8FD1 7 \u5929\u6BCF\u65E5\u6D41\u91CF\u5E76\u56DE\u586B sparkline
                 loadRouteTrends();
 
             } catch (err) {
-                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">⚠️ 读取失败: \${err.message}</div>\`;
+                document.getElementById('list-grid').innerHTML = \`<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">\u26A0\uFE0F \u8BFB\u53D6\u5931\u8D25: \${err.message}</div>\`;
             }
         }
 
-        // 客户端 ECG/心电图 生成器（与服务端 ecgStripSvg 算法一致）
+        // \u5BA2\u6237\u7AEF ECG/\u5FC3\u7535\u56FE \u751F\u6210\u5668\uFF08\u4E0E\u670D\u52A1\u7AEF ecgStripSvg \u7B97\u6CD5\u4E00\u81F4\uFF09
         function buildEcgSvg(history) {
             const W = 240, H = 36, padX = 2, padY = 4;
             const innerW = W - padX * 2, innerH = H - padY * 2;
             const baseY = padY + innerH - 2;
             const samples = Array.isArray(history) ? history.slice(-60) : [];
             if (!samples.length) {
-                return \`<svg class="ecg-svg" viewBox="0 0 \${W} \${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="\${padX}" y1="\${baseY}" x2="\${W-padX}" y2="\${baseY}" class="ecg-base"/><text x="\${W/2}" y="\${H/2+3}" class="ecg-empty" text-anchor="middle">暂无探测</text></svg>\`;
+                return \`<svg class="ecg-svg" viewBox="0 0 \${W} \${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="\${padX}" y1="\${baseY}" x2="\${W-padX}" y2="\${baseY}" class="ecg-base"/><text x="\${W/2}" y="\${H/2+3}" class="ecg-empty" text-anchor="middle">\u6682\u65E0\u63A2\u6D4B</text></svg>\`;
             }
             const n = samples.length;
             const stepX = n > 1 ? innerW / (n - 1) : innerW;
@@ -4894,21 +5125,21 @@ export const HTML_UI = `
                     const prefix = card.getAttribute('data-prefix');
                     if (!prefix) return;
                     const c = byPrefix[prefix];
-                    if (!c) return; // 该节点未开启状态探测
-                    if (card.querySelector('.ecg-mount')) return; // 已注入，跳过
-                    const pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
+                    if (!c) return; // \u8BE5\u8282\u70B9\u672A\u5F00\u542F\u72B6\u6001\u63A2\u6D4B
+                    if (card.querySelector('.ecg-mount')) return; // \u5DF2\u6CE8\u5165\uFF0C\u8DF3\u8FC7
+                    const pct = v => v == null ? '\u2014' : (v * 100).toFixed(1) + '%';
                     const block = document.createElement('div');
                     block.className = 'ecg-mount';
                     block.innerHTML =
-                        '<div class="ecg-strip" aria-label="近 60 次探测心电图">' + buildEcgSvg(c.history) + '</div>' +
+                        '<div class="ecg-strip" aria-label="\u8FD1 60 \u6B21\u63A2\u6D4B\u5FC3\u7535\u56FE">' + buildEcgSvg(c.history) + '</div>' +
                         '<div class="ecg-meta">' +
                             '<span class="ecg-pill ' + (c.ok ? 'ok' : 'bad') + '">' +
-                                '<span class="dot"></span>' + (c.ok ? '在线 ' + (c.latest_ms | 0) + 'ms' : '离线') +
+                                '<span class="dot"></span>' + (c.ok ? '\u5728\u7EBF ' + (c.latest_ms | 0) + 'ms' : '\u79BB\u7EBF') +
                             '</span>' +
                             '<span class="ecg-stat"><b>24h</b> ' + pct(c.avail_24h) + '</span>' +
                             '<span class="ecg-stat"><b>7d</b> ' + pct(c.avail_7d) + '</span>' +
                         '</div>';
-                    // 插入到 sparkHtml 之后、a-stats 之前。寻找 .a-stats 节点。
+                    // \u63D2\u5165\u5230 sparkHtml \u4E4B\u540E\u3001a-stats \u4E4B\u524D\u3002\u5BFB\u627E .a-stats \u8282\u70B9\u3002
                     const stats = card.querySelector('.a-stats');
                     if (stats) card.insertBefore(block, stats);
                     else card.appendChild(block);
@@ -4916,7 +5147,7 @@ export const HTML_UI = `
             } catch (e) { /* silent */ }
         }
 
-        // 依据节点徽章统计健康度并刷新顶栏
+        // \u4F9D\u636E\u8282\u70B9\u5FBD\u7AE0\u7EDF\u8BA1\u5065\u5EB7\u5EA6\u5E76\u5237\u65B0\u9876\u680F
         function updateTopbarHealth() {
             const cards = document.querySelectorAll('#list-grid .emby-card');
             const total = cards.length;
@@ -4940,7 +5171,7 @@ export const HTML_UI = `
             updateAuroraKpis();
         }
 
-        // Aurora KPI hero — mirror topbar live data into the hero band.
+        // Aurora KPI hero \u2014 mirror topbar live data into the hero band.
         // Cheap & defensive: no state of its own; reads from existing DOM.
         function updateAuroraKpis() {
             const $ = function(id) { return document.getElementById(id); };
@@ -4983,12 +5214,12 @@ export const HTML_UI = `
 
             if (icon) {
                 const foundItem = globalIcons.find(i => i.url === icon);
-                selectIcon(icon, foundItem ? foundItem.name : '已选择图标');
+                selectIcon(icon, foundItem ? foundItem.name : '\u5DF2\u9009\u62E9\u56FE\u6807');
             } else {
-                selectIcon('', '默认 🎬');
+                selectIcon('', '\u9ED8\u8BA4 \u{1F3AC}');
             }
 
-            document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存修改';
+            document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>\u4FDD\u5B58\u4FEE\u6539';
 
             const container = document.getElementById('targetInputs');
             container.innerHTML = '';
@@ -4996,7 +5227,7 @@ export const HTML_UI = `
             targets.forEach((url, idx) => container.appendChild(makeUpstreamRow(idx, url)));
             container.appendChild(makeUpstreamRow(targets.length));
             handleTargetInputs();
-            // 编辑节点时切到「系统设置」分区, 让部署表单可见
+            // \u7F16\u8F91\u8282\u70B9\u65F6\u5207\u5230\u300C\u7CFB\u7EDF\u8BBE\u7F6E\u300D\u5206\u533A, \u8BA9\u90E8\u7F72\u8868\u5355\u53EF\u89C1
             if (typeof showSection === 'function') showSection('settings');
             setTimeout(function () {
                 const f = document.getElementById('addForm');
@@ -5022,7 +5253,7 @@ export const HTML_UI = `
             });
             const target = targetsArray.join(',');
             
-            if (!target) return showToast('❌ 请至少填写一个主线路地址');
+            if (!target) return showToast('\u274C \u8BF7\u81F3\u5C11\u586B\u5199\u4E00\u4E2A\u4E3B\u7EBF\u8DEF\u5730\u5740');
 
             try {
                 const res = await fetch('/api/routes', { 
@@ -5030,28 +5261,28 @@ export const HTML_UI = `
                     body: JSON.stringify({oldPrefix, prefix, target, mode, remark, icon, cache_img, custom_headers})
                 });
                 const data = await res.json();
-                if(!data.success) throw new Error(data.error || '部署失败');
+                if(!data.success) throw new Error(data.error || '\u90E8\u7F72\u5931\u8D25');
                 
                 document.getElementById('addForm').reset();
                 document.getElementById('oldPrefix').value = '';
-                selectIcon('', '默认 🎬');
+                selectIcon('', '\u9ED8\u8BA4 \u{1F3AC}');
                 document.getElementById('nodeCache').checked = true;
                 syncCacheSwitch();
                 HeadersEditor.set('');
-                document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存并部署';
+                document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>\u4FDD\u5B58\u5E76\u90E8\u7F72';
                 resetTargetInputs();
                 
-                showToast('✅ 节点部署成功');
+                showToast('\u2705 \u8282\u70B9\u90E8\u7F72\u6210\u529F');
                 load();
             } catch(err) {
-                showToast('❌ 保存失败: ' + err.message);
+                showToast('\u274C \u4FDD\u5B58\u5931\u8D25: ' + err.message);
             }
         };
 
         async function del(prefix) {
-            if(confirm('确定删除节点 /' + prefix + ' ?')) {
+            if(confirm('\u786E\u5B9A\u5220\u9664\u8282\u70B9 /' + prefix + ' ?')) {
                 await fetch('/api/routes?prefix=' + prefix, { method: 'DELETE' });
-                showToast('🗑️ 节点已移除');
+                showToast('\u{1F5D1}\uFE0F \u8282\u70B9\u5DF2\u79FB\u9664');
                 load();
             }
         }
@@ -5077,26 +5308,26 @@ export const HTML_UI = `
                     ips.push(ip);
                 }
             });
-            if (ips.length === 0) return showToast('⚠️ 请先提取节点！');
+            if (ips.length === 0) return showToast('\u26A0\uFE0F \u8BF7\u5148\u63D0\u53D6\u8282\u70B9\uFF01');
             navigator.clipboard.writeText(ips.join('\\n')).then(() => {
-                showToast('✅ 节点已复制，即将跳转 ITDog...');
+                showToast('\u2705 \u8282\u70B9\u5DF2\u590D\u5236\uFF0C\u5373\u5C06\u8DF3\u8F6C ITDog...');
                 setTimeout(() => { window.open('https://www.itdog.cn/batch_tcping/', '_blank'); }, 1500);
             });
         }
         function directSubmitCname() {
             const input = document.getElementById('customIps').value.trim();
-            if (!input) return showToast('⚠️ 请先在文本框内粘贴您的优选域名');
+            if (!input) return showToast('\u26A0\uFE0F \u8BF7\u5148\u5728\u6587\u672C\u6846\u5185\u7C98\u8D34\u60A8\u7684\u4F18\u9009\u57DF\u540D');
             const domainRegex = /\\b([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}\\b/g;
             const matchedDomains = input.match(domainRegex) || [];
             const realDomains = matchedDomains.filter(d => !/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(d));
-            if (realDomains.length === 0) return showToast('⚠️ 没有提取到合法的域名格式，请检查输入！');
-            if(!confirm(\`✨ 提取到以下域名：\\n\${realDomains.join('\\n')}\\n\\n确定要直接将其设为 CNAME 记录吗？\\n(注意：这会清空你配置的域名下现有的记录)\`)) return;
+            if (realDomains.length === 0) return showToast('\u26A0\uFE0F \u6CA1\u6709\u63D0\u53D6\u5230\u5408\u6CD5\u7684\u57DF\u540D\u683C\u5F0F\uFF0C\u8BF7\u68C0\u67E5\u8F93\u5165\uFF01');
+            if(!confirm(\`\u2728 \u63D0\u53D6\u5230\u4EE5\u4E0B\u57DF\u540D\uFF1A\\n\${realDomains.join('\\n')}\\n\\n\u786E\u5B9A\u8981\u76F4\u63A5\u5C06\u5176\u8BBE\u4E3A CNAME \u8BB0\u5F55\u5417\uFF1F\\n(\u6CE8\u610F\uFF1A\u8FD9\u4F1A\u6E05\u7A7A\u4F60\u914D\u7F6E\u7684\u57DF\u540D\u4E0B\u73B0\u6709\u7684\u8BB0\u5F55)\`)) return;
             const btn = document.getElementById('btnDirectCname');
             sendDnsRequest(realDomains, btn);
         }
         async function testCustomIPs() {
             const input = document.getElementById('customIps').value;
-            if (!input.trim()) return showToast('⚠️ 请先在输入框粘贴 IP 或优选域名');
+            if (!input.trim()) return showToast('\u26A0\uFE0F \u8BF7\u5148\u5728\u8F93\u5165\u6846\u7C98\u8D34 IP \u6216\u4F18\u9009\u57DF\u540D');
             const ipv4Regex = /\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b/g;
             const ipv6Regex = /(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}|(?:[A-F0-9]{1,4}:)*:[A-F0-9]{1,4}(?::[A-F0-9]{1,4})*/gi;
             const domainRegex = /\\b([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}\\b/g;
@@ -5109,69 +5340,69 @@ export const HTML_UI = `
                 if (ip.length > 7 && ip.includes(':') && !ip.startsWith('::1')) { extractedIps.push(ip.startsWith('[') ? ip : \`[\${ip}]\`); }
             });
             extractedIps = [...new Set(extractedIps)];
-            if (extractedIps.length === 0) return showToast('⚠️ 未识别到合法的 IP 或 域名格式');
+            if (extractedIps.length === 0) return showToast('\u26A0\uFE0F \u672A\u8BC6\u522B\u5230\u5408\u6CD5\u7684 IP \u6216 \u57DF\u540D\u683C\u5F0F');
             const btn = document.getElementById('btnTestCustom');
             const tbody = document.getElementById('testTableBody');
-            btn.disabled = true; btn.textContent = '⏳ 测试中...';
-            if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = '';
-            showToast(\`✅ 提取到 \${extractedIps.length} 个节点，开始测速校验\`);
+            btn.disabled = true; btn.textContent = '\u23F3 \u6D4B\u8BD5\u4E2D...';
+            if(tbody.innerHTML.includes('\u6682\u65E0\u6570\u636E')) tbody.innerHTML = '';
+            showToast(\`\u2705 \u63D0\u53D6\u5230 \${extractedIps.length} \u4E2A\u8282\u70B9\uFF0C\u5F00\u59CB\u6D4B\u901F\u6821\u9A8C\`);
             const promises = [];
             extractedIps.forEach(ip => {
                 const tr = document.createElement('tr');
                 tr.className = 'test-row';
                 tr.innerHTML = \`
-                    <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                    <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                    <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
-                    <td data-label="连通状态" class="speed text-muted" >-</td>
-                    <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
-                    <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                    <td data-label="\u52FE\u9009\u8282\u70B9" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                    <td data-label="\u4E13\u5C5E\u8282\u70B9"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="\u70B9\u51FB\u590D\u5236">\${ip}</strong></td>
+                    <td data-label="\u9884\u4F30\u5EF6\u8FDF" class="latency cell-loading-bold" data-ms="9999" >\u6D4B\u7B97\u4E2D...</td>
+                    <td data-label="\u8FDE\u901A\u72B6\u6001" class="speed text-muted" >-</td>
+                    <td data-label="\u8BB0\u5F55/\u5F52\u5C5E\u5730" class="loc text-muted" >\u7B49\u5F85\u89E3\u6790</td>
+                    <td data-label="\u5FEB\u6377\u64CD\u4F5C"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">\u552F\u4E00\u89E3\u6790</button></td>\`;
                 tbody.insertBefore(tr, tbody.firstChild);
-                promises.push(doLocalPing(ip, tr, '自定义节点'));
+                promises.push(doLocalPing(ip, tr, '\u81EA\u5B9A\u4E49\u8282\u70B9'));
             });
             await Promise.all(promises);
             sortTableByLatency(tbody);
             document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
-            btn.disabled = false; btn.textContent = '🧪 测试粘贴的节点';
-            showToast('🎉 自定义节点测速完成！');
+            btn.disabled = false; btn.textContent = '\u{1F9EA} \u6D4B\u8BD5\u7C98\u8D34\u7684\u8282\u70B9';
+            showToast('\u{1F389} \u81EA\u5B9A\u4E49\u8282\u70B9\u6D4B\u901F\u5B8C\u6210\uFF01');
         }
         async function fetchCustomApiAndTest() {
             const apiUrl = document.getElementById('customApiUrl').value.trim();
-            if (!apiUrl) return showToast('⚠️ 请先填入自定义 API 链接');
+            if (!apiUrl) return showToast('\u26A0\uFE0F \u8BF7\u5148\u586B\u5165\u81EA\u5B9A\u4E49 API \u94FE\u63A5');
             const btn = document.getElementById('btnFetchCustomApi');
             const tbody = document.getElementById('testTableBody');
             const statusTxt = document.getElementById('statusText');
-            btn.disabled = true; btn.textContent = '⏳ 拉取中...';
-            statusTxt.innerHTML = \`正在从自定义 API 抓取数据...\`;
-            if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = ''; 
+            btn.disabled = true; btn.textContent = '\u23F3 \u62C9\u53D6\u4E2D...';
+            statusTxt.innerHTML = \`\u6B63\u5728\u4ECE\u81EA\u5B9A\u4E49 API \u6293\u53D6\u6570\u636E...\`;
+            if(tbody.innerHTML.includes('\u6682\u65E0\u6570\u636E')) tbody.innerHTML = ''; 
             try {
                 const res = await fetch(\`/api/get-custom-api-ips?url=\${encodeURIComponent(apiUrl)}\`);
                 const data = await res.json();
-                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 自定义 API 返回为空'); return; }
-                showToast(\`✅ 提取 \${data.totalCount} 个节点，抽取 \${data.ips.length} 个测速\`);
-                btn.textContent = '⚡ 测速中...';
+                if (!data.ips || data.ips.length === 0) { showToast('\u26A0\uFE0F \u81EA\u5B9A\u4E49 API \u8FD4\u56DE\u4E3A\u7A7A'); return; }
+                showToast(\`\u2705 \u63D0\u53D6 \${data.totalCount} \u4E2A\u8282\u70B9\uFF0C\u62BD\u53D6 \${data.ips.length} \u4E2A\u6D4B\u901F\`);
+                btn.textContent = '\u26A1 \u6D4B\u901F\u4E2D...';
                 const promises = [];
                 data.ips.forEach(ip => {
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                        <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
-                        <td data-label="连通状态" class="speed text-muted" >-</td>
-                        <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
-                        <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                        <td data-label="\u52FE\u9009\u8282\u70B9" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="\u4E13\u5C5E\u8282\u70B9"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="\u70B9\u51FB\u590D\u5236">\${ip}</strong></td>
+                        <td data-label="\u9884\u4F30\u5EF6\u8FDF" class="latency cell-loading-bold" data-ms="9999" >\u6D4B\u7B97\u4E2D...</td>
+                        <td data-label="\u8FDE\u901A\u72B6\u6001" class="speed text-muted" >-</td>
+                        <td data-label="\u8BB0\u5F55/\u5F52\u5C5E\u5730" class="loc text-muted" >\u7B49\u5F85\u89E3\u6790</td>
+                        <td data-label="\u5FEB\u6377\u64CD\u4F5C"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">\u552F\u4E00\u89E3\u6790</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
-                    promises.push(doLocalPing(ip, tr, '自定义 API'));
+                    promises.push(doLocalPing(ip, tr, '\u81EA\u5B9A\u4E49 API'));
                 });
                 await Promise.all(promises);
                 sortTableByLatency(tbody);
                 document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
                 document.getElementById('selectAll').checked = false;
-                showToast('🎉 自定义 API 测速完成！');
-                statusTxt.innerHTML = \`✅ 测速完毕！您可以自由组合更新 DNS。\`;
-            } catch (err) { showToast('❌ 拉取失败'); } 
-            finally { btn.disabled = false; btn.textContent = '🌐 拉取 API 并测速'; }
+                showToast('\u{1F389} \u81EA\u5B9A\u4E49 API \u6D4B\u901F\u5B8C\u6210\uFF01');
+                statusTxt.innerHTML = \`\u2705 \u6D4B\u901F\u5B8C\u6BD5\uFF01\u60A8\u53EF\u4EE5\u81EA\u7531\u7EC4\u5408\u66F4\u65B0 DNS\u3002\`;
+            } catch (err) { showToast('\u274C \u62C9\u53D6\u5931\u8D25'); } 
+            finally { btn.disabled = false; btn.textContent = '\u{1F310} \u62C9\u53D6 API \u5E76\u6D4B\u901F'; }
         }
         async function fetchRemoteAndTest() {
             const btn = document.getElementById('btnFetchRemote');
@@ -5179,48 +5410,48 @@ export const HTML_UI = `
             const statusTxt = document.getElementById('statusText');
             const type = document.getElementById('ipType').value;
             const typeText = document.getElementById('ipType').options[document.getElementById('ipType').selectedIndex].text;
-            btn.disabled = true; btn.textContent = '⏳ 正在提取节点...';
-            statusTxt.innerHTML = \`正在拉取 <strong>\${typeText}</strong> 数据...\`;
-            if(tbody.innerHTML.includes('暂无数据')) tbody.innerHTML = ''; 
+            btn.disabled = true; btn.textContent = '\u23F3 \u6B63\u5728\u63D0\u53D6\u8282\u70B9...';
+            statusTxt.innerHTML = \`\u6B63\u5728\u62C9\u53D6 <strong>\${typeText}</strong> \u6570\u636E...\`;
+            if(tbody.innerHTML.includes('\u6682\u65E0\u6570\u636E')) tbody.innerHTML = ''; 
             try {
                 const res = await fetch(\`/api/get-remote-ips?type=\${encodeURIComponent(type)}\`);
                 const data = await res.json();
-                if (!data.ips || data.ips.length === 0) { showToast('⚠️ 未获取到该类型 IP'); return; }
-                showToast(\`✅ 成功提取 \${data.totalCount} 个可用 IP，抽取 \${data.ips.length} 个测速\`);
-                btn.textContent = '⚡ 本地测速中...';
+                if (!data.ips || data.ips.length === 0) { showToast('\u26A0\uFE0F \u672A\u83B7\u53D6\u5230\u8BE5\u7C7B\u578B IP'); return; }
+                showToast(\`\u2705 \u6210\u529F\u63D0\u53D6 \${data.totalCount} \u4E2A\u53EF\u7528 IP\uFF0C\u62BD\u53D6 \${data.ips.length} \u4E2A\u6D4B\u901F\`);
+                btn.textContent = '\u26A1 \u672C\u5730\u6D4B\u901F\u4E2D...';
                 const promises = [];
                 data.ips.forEach(ip => {
                     const tr = document.createElement('tr');
                     tr.className = 'test-row';
                     tr.innerHTML = \`
-                        <td data-label="勾选节点" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
-                        <td data-label="专属节点"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="点击复制">\${ip}</strong></td>
-                        <td data-label="预估延迟" class="latency cell-loading-bold" data-ms="9999" >测算中...</td>
-                        <td data-label="连通状态" class="speed text-muted" >-</td>
-                        <td data-label="记录/归属地" class="loc text-muted" >等待解析</td>
-                        <td data-label="快捷操作"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">唯一解析</button></td>\`;
+                        <td data-label="\u52FE\u9009\u8282\u70B9" class="text-center"><input type="checkbox" class="ip-checkbox row-checkbox" value="\${ip}"></td>
+                        <td data-label="\u4E13\u5C5E\u8282\u70B9"><strong class="ip-text copyable"  onclick="copyTxt('\${ip}')" title="\u70B9\u51FB\u590D\u5236">\${ip}</strong></td>
+                        <td data-label="\u9884\u4F30\u5EF6\u8FDF" class="latency cell-loading-bold" data-ms="9999" >\u6D4B\u7B97\u4E2D...</td>
+                        <td data-label="\u8FDE\u901A\u72B6\u6001" class="speed text-muted" >-</td>
+                        <td data-label="\u8BB0\u5F55/\u5F52\u5C5E\u5730" class="loc text-muted" >\u7B49\u5F85\u89E3\u6790</td>
+                        <td data-label="\u5FEB\u6377\u64CD\u4F5C"><button class="btn-dns" disabled onclick="updateSingleDns('\${ip}', this)">\u552F\u4E00\u89E3\u6790</button></td>\`;
                     tbody.insertBefore(tr, tbody.firstChild);
-                    promises.push(doLocalPing(ip, tr, typeText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '')));
+                    promises.push(doLocalPing(ip, tr, typeText.replace(/[^\u4E00-\u9FA5a-zA-Z0-9]/g, '')));
                 });
                 await Promise.all(promises);
                 sortTableByLatency(tbody);
                 document.querySelectorAll('.btn-dns').forEach(b => b.disabled = false);
                 document.getElementById('selectAll').checked = false;
-                showToast('🎉 测速完成！');
-                statusTxt.innerHTML = \`✅ 测速完毕！\`;
-            } catch (err) { showToast('❌ 拉取或测速失败'); } 
-            finally { btn.disabled = false; btn.textContent = '🌍 提取预设源并测速'; }
+                showToast('\u{1F389} \u6D4B\u901F\u5B8C\u6210\uFF01');
+                statusTxt.innerHTML = \`\u2705 \u6D4B\u901F\u5B8C\u6BD5\uFF01\`;
+            } catch (err) { showToast('\u274C \u62C9\u53D6\u6216\u6D4B\u901F\u5931\u8D25'); } 
+            finally { btn.disabled = false; btn.textContent = '\u{1F30D} \u63D0\u53D6\u9884\u8BBE\u6E90\u5E76\u6D4B\u901F'; }
         }
         function clearTest() {
-            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>';
-            document.getElementById('statusText').textContent = '列表已清空。';
+            document.getElementById('testTableBody').innerHTML = '<tr><td colspan="6" class="text-center-muted">\u6682\u65E0\u6570\u636E\uFF0C\u8BF7\u62C9\u53D6\u8282\u70B9\u6216\u8F93\u5165\u81EA\u5B9A\u4E49 IP/\u57DF\u540D \u6D4B\u8BD5</td></tr>';
+            document.getElementById('statusText').textContent = '\u5217\u8868\u5DF2\u6E05\u7A7A\u3002';
             document.getElementById('selectAll').checked = false;
         }
         function markTimeout(latTd, spdTd, tr) {
-            latTd.textContent = '超时抛弃'; latTd.setAttribute('data-ms', 9999); latTd.style.color = 'var(--err)';
-            spdTd.textContent = '❌ 超时 (>2000ms)'; spdTd.style.color = 'var(--err)';
+            latTd.textContent = '\u8D85\u65F6\u629B\u5F03'; latTd.setAttribute('data-ms', 9999); latTd.style.color = 'var(--err)';
+            spdTd.textContent = '\u274C \u8D85\u65F6 (>2000ms)'; spdTd.style.color = 'var(--err)';
             const cb = tr.querySelector('.row-checkbox');
-            if(cb) { cb.disabled = true; cb.title = '不可用的节点无法被勾选'; }
+            if(cb) { cb.disabled = true; cb.title = '\u4E0D\u53EF\u7528\u7684\u8282\u70B9\u65E0\u6CD5\u88AB\u52FE\u9009'; }
         }
         async function doLocalPing(ip, tr, sourceLabel) {
             const latTd = tr.querySelector('.latency');
@@ -5229,10 +5460,10 @@ export const HTML_UI = `
             const queryIp = ip.replace(/[\\[\\]]/g, '');
             const isIPv6 = ip.includes(':'); 
             const isDomain = /[a-zA-Z]/.test(queryIp) && !isIPv6;
-            if (isDomain) { locTd.innerHTML = \`<span class="badge is-accent">CNAME</span> \${sourceLabel} | 优选域名\`;
+            if (isDomain) { locTd.innerHTML = \`<span class="badge is-accent">CNAME</span> \${sourceLabel} | \u4F18\u9009\u57DF\u540D\`;
             } else {
-                const recordLabel = isIPv6 ? '<span class="badge is-info">AAAA</span>' : '<span class="badge" style="background:var(--primary-soft);color:var(--primary);margin-right:var(--space-1);">A记录</span>';
-                fetch(\`https://api.ip.sb/geoip/\${queryIp}\`).then(res => res.json()).then(data => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | \${data.country || '未知'}\`).catch(() => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | 解析失败\`);
+                const recordLabel = isIPv6 ? '<span class="badge is-info">AAAA</span>' : '<span class="badge" style="background:var(--primary-soft);color:var(--primary);margin-right:var(--space-1);">A\u8BB0\u5F55</span>';
+                fetch(\`https://api.ip.sb/geoip/\${queryIp}\`).then(res => res.json()).then(data => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | \${data.country || '\u672A\u77E5'}\`).catch(() => locTd.innerHTML = \`\${recordLabel} \${sourceLabel} | \u89E3\u6790\u5931\u8D25\`);
             }
             const start = performance.now();
             const controller = new AbortController();
@@ -5252,9 +5483,9 @@ export const HTML_UI = `
         }
         function updateRowState(latTd, spdTd, latency) {
             latTd.textContent = latency + ' ms'; latTd.setAttribute('data-ms', latency);
-            if (latency < 300) { latTd.style.color = 'var(--ok)'; spdTd.textContent = '🚀 极佳'; spdTd.style.color = 'var(--ok)'; } 
-            else if (latency <= 500) { latTd.style.color = 'var(--primary)'; spdTd.textContent = '✅ 正常'; spdTd.style.color = 'var(--primary)'; } 
-            else { latTd.style.color = 'var(--warn)'; spdTd.textContent = '⚠️ 较高'; spdTd.style.color = 'var(--warn)'; }
+            if (latency < 300) { latTd.style.color = 'var(--ok)'; spdTd.textContent = '\u{1F680} \u6781\u4F73'; spdTd.style.color = 'var(--ok)'; } 
+            else if (latency <= 500) { latTd.style.color = 'var(--primary)'; spdTd.textContent = '\u2705 \u6B63\u5E38'; spdTd.style.color = 'var(--primary)'; } 
+            else { latTd.style.color = 'var(--warn)'; spdTd.textContent = '\u26A0\uFE0F \u8F83\u9AD8'; spdTd.style.color = 'var(--warn)'; }
         }
         function sortTableByLatency(tbody) {
             const rows = Array.from(tbody.querySelectorAll('.test-row'));
@@ -5267,24 +5498,24 @@ export const HTML_UI = `
         }
         async function sendDnsRequest(ips, btnElement) {
             const originalText = btnElement.textContent;
-            btnElement.textContent = '🔄 更新 DNS 中...'; btnElement.disabled = true;
+            btnElement.textContent = '\u{1F504} \u66F4\u65B0 DNS \u4E2D...'; btnElement.disabled = true;
             try {
                 const res = await fetch('/api/update-dns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ips }) });
                 const data = await res.json();
-                if(data.success) { showToast(data.message); btnElement.textContent = '✅ 更新成功'; loadDNS(); } 
-                else { showToast('❌ 错误: ' + (data.error || '')); btnElement.textContent = originalText; }
-            } catch(e) { showToast('❌ 网络异常，请重试'); btnElement.textContent = originalText; } 
-            finally { setTimeout(() => { if(btnElement.textContent === '✅ 更新成功') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
+                if(data.success) { showToast(data.message); btnElement.textContent = '\u2705 \u66F4\u65B0\u6210\u529F'; loadDNS(); } 
+                else { showToast('\u274C \u9519\u8BEF: ' + (data.error || '')); btnElement.textContent = originalText; }
+            } catch(e) { showToast('\u274C \u7F51\u7EDC\u5F02\u5E38\uFF0C\u8BF7\u91CD\u8BD5'); btnElement.textContent = originalText; } 
+            finally { setTimeout(() => { if(btnElement.textContent === '\u2705 \u66F4\u65B0\u6210\u529F') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
         }
         function updateSingleDns(ip, btnElement) {
-            if(!confirm(\`确定要将域名解析到：\\n\${ip} \\n警告：这会覆盖域名下的所有解析记录！\`)) return;
+            if(!confirm(\`\u786E\u5B9A\u8981\u5C06\u57DF\u540D\u89E3\u6790\u5230\uFF1A\\n\${ip} \\n\u8B66\u544A\uFF1A\u8FD9\u4F1A\u8986\u76D6\u57DF\u540D\u4E0B\u7684\u6240\u6709\u89E3\u6790\u8BB0\u5F55\uFF01\`)) return;
             sendDnsRequest([ip], btnElement);
         }
         function updateSelectedToDns() {
             const btn = document.getElementById('btnSelectedDns');
             const ips = getSelectedIps();
-            if (ips.length === 0) return showToast('⚠️ 请先勾选您想使用的节点');
-            if(!confirm(\`将应用勾选的 \${ips.length} 个节点：\\n\${ips.join('\\n')}\\n确定更新 DNS 记录吗？\`)) return;
+            if (ips.length === 0) return showToast('\u26A0\uFE0F \u8BF7\u5148\u52FE\u9009\u60A8\u60F3\u4F7F\u7528\u7684\u8282\u70B9');
+            if(!confirm(\`\u5C06\u5E94\u7528\u52FE\u9009\u7684 \${ips.length} \u4E2A\u8282\u70B9\uFF1A\\n\${ips.join('\\n')}\\n\u786E\u5B9A\u66F4\u65B0 DNS \u8BB0\u5F55\u5417\uFF1F\`)) return;
             sendDnsRequest(ips, btn);
         }
         function updateTop3ToDns() {
@@ -5296,8 +5527,8 @@ export const HTML_UI = `
                 if(ms < 2000) topIps.push(rows[i].querySelector('.ip-text').textContent);
                 if(topIps.length === 3) break;
             }
-            if(topIps.length === 0) return showToast('⚠️ 没找到可用节点，请先测速');
-            if(!confirm(\`将为您分发当前最快的 \${topIps.length} 个节点：\\n\${topIps.join('\\n')}\\n确定更新 DNS 记录吗？\`)) return;
+            if(topIps.length === 0) return showToast('\u26A0\uFE0F \u6CA1\u627E\u5230\u53EF\u7528\u8282\u70B9\uFF0C\u8BF7\u5148\u6D4B\u901F');
+            if(!confirm(\`\u5C06\u4E3A\u60A8\u5206\u53D1\u5F53\u524D\u6700\u5FEB\u7684 \${topIps.length} \u4E2A\u8282\u70B9\uFF1A\\n\${topIps.join('\\n')}\\n\u786E\u5B9A\u66F4\u65B0 DNS \u8BB0\u5F55\u5417\uFF1F\`)) return;
             sendDnsRequest(topIps, btn);
         }
         async function loadDNS() {
@@ -5307,7 +5538,7 @@ export const HTML_UI = `
                 if (data.success && data.result) {
                     const records = data.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
                     if (records.length === 0) {
-                        container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">暂无解析记录</span>';
+                        container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">\u6682\u65E0\u89E3\u6790\u8BB0\u5F55</span>';
                     } else {
                         // Dual-mode markup: desktop reads .sd-dns-badge (rendered inline like the original badges);
                         // mobile CSS upgrades the .sd-dns-list ul into iOS rows with rec-pill / ip / geo split.
@@ -5323,8 +5554,8 @@ export const HTML_UI = `
                             }).join('')
                             + '</ul>';
                     }
-                } else container.innerHTML = \`<span class="badge" style="background:var(--err-soft);color:var(--err);">\${data.error || '获取失败'}</span>\`;
-            } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
+                } else container.innerHTML = \`<span class="badge" style="background:var(--err-soft);color:var(--err);">\${data.error || '\u83B7\u53D6\u5931\u8D25'}</span>\`;
+            } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">\u7F51\u7EDC\u5F02\u5E38</span>'; }
         }
         
         function logout() {
@@ -5332,19 +5563,19 @@ export const HTML_UI = `
             window.location.reload();
         }
 
-        // 初始化加载
+        // \u521D\u59CB\u5316\u52A0\u8F7D
         loadIcons().then(() => {
             load();
             loadDNS();
         });
 
         // ==========================================
-        // 🌟 新增：RTT 实时监测引擎 (每隔 3 秒探测一次)
+        // \u{1F31F} \u65B0\u589E\uFF1ARTT \u5B9E\u65F6\u76D1\u6D4B\u5F15\u64CE (\u6BCF\u9694 3 \u79D2\u63A2\u6D4B\u4E00\u6B21)
         // ==========================================
         async function measureRTT() {
             const start = performance.now();
             try {
-                // 加上时间戳强制绕过浏览器本地缓存
+                // \u52A0\u4E0A\u65F6\u95F4\u6233\u5F3A\u5236\u7ED5\u8FC7\u6D4F\u89C8\u5668\u672C\u5730\u7F13\u5B58
                 await fetch('/__client_rtt__?t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
                 const rtt = Math.round(performance.now() - start);
                 const rttEl = document.getElementById('rttValue');
@@ -5352,7 +5583,7 @@ export const HTML_UI = `
                 
                 rttEl.textContent = rtt + ' ms';
                 
-                // 根据延迟改变呼吸灯颜色
+                // \u6839\u636E\u5EF6\u8FDF\u6539\u53D8\u547C\u5438\u706F\u989C\u8272
                 if (rtt < 80) {
                     dotEl.style.background = 'var(--ok)'; dotEl.style.boxShadow = '0 0 8px var(--ok)';
                     rttEl.style.color = 'var(--ok)';
@@ -5364,16 +5595,16 @@ export const HTML_UI = `
                     rttEl.style.color = 'var(--err)';
                 }
             } catch (e) {
-                document.getElementById('rttValue').textContent = '断连';
+                document.getElementById('rttValue').textContent = '\u65AD\u8FDE';
                 document.getElementById('rttDot').style.background = 'var(--err)';
             }
         }
         
-        // 先立即执行一次，然后每 3 秒循环探测
+        // \u5148\u7ACB\u5373\u6267\u884C\u4E00\u6B21\uFF0C\u7136\u540E\u6BCF 3 \u79D2\u5FAA\u73AF\u63A2\u6D4B
         measureRTT();
         setInterval(measureRTT, 3000);
 
-    // 🚀 新增：前端探针自动检测脚本
+    // \u{1F680} \u65B0\u589E\uFF1A\u524D\u7AEF\u63A2\u9488\u81EA\u52A8\u68C0\u6D4B\u811A\u672C
         async function fetchCfTrace() {
             try {
                 const res = await fetch('/api/edge-info');
@@ -5383,75 +5614,75 @@ export const HTML_UI = `
                     const entryEl = document.getElementById('trace-entry');
                     entryEl.innerText = data.entryColo || '--';
                     let fullEntry = data.entryCountry || '';
-                    if (data.entryCity && data.entryCity !== '未知') fullEntry += ' ' + data.entryCity;
+                    if (data.entryCity && data.entryCity !== '\u672A\u77E5') fullEntry += ' ' + data.entryCity;
                     fullEntry += ' (' + (data.entryColo || '?') + ')';
-                    if (data.cacheKey) fullEntry += ' · key=' + data.cacheKey;
-                    entryEl.title = '访客入口: ' + fullEntry;
+                    if (data.cacheKey) fullEntry += ' \xB7 key=' + data.cacheKey;
+                    entryEl.title = '\u8BBF\u5BA2\u5165\u53E3: ' + fullEntry;
 
                     const egressText = data.egressColo;
                     const egressElem = document.getElementById('trace-egress');
                     egressElem.innerText = egressText;
-                    egressElem.title = 'Worker 落地: ' + egressText + (data.cacheKey ? ' · key=' + data.cacheKey : '');
+                    egressElem.title = 'Worker \u843D\u5730: ' + egressText + (data.cacheKey ? ' \xB7 key=' + data.cacheKey : '');
 
-                    if (data.entryColo !== egressText && egressText !== '探测中...' && egressText !== '获取失败') {
+                    if (data.entryColo !== egressText && egressText !== '\u63A2\u6D4B\u4E2D...' && egressText !== '\u83B7\u53D6\u5931\u8D25') {
                         egressElem.style.color = 'var(--warn)';
-                        egressElem.title += ' (智能放置/回源)';
+                        egressElem.title += ' (\u667A\u80FD\u653E\u7F6E/\u56DE\u6E90)';
                     }
                 }
             } catch(e) {
-                document.getElementById('trace-entry').innerText = '获取超时';
-                document.getElementById('trace-egress').innerText = '获取超时';
+                document.getElementById('trace-entry').innerText = '\u83B7\u53D6\u8D85\u65F6';
+                document.getElementById('trace-egress').innerText = '\u83B7\u53D6\u8D85\u65F6';
             }
         }
         
-        // 当网页加载完成时，延迟0.5秒执行探针扫描（避免卡顿主页渲染）
+        // \u5F53\u7F51\u9875\u52A0\u8F7D\u5B8C\u6210\u65F6\uFF0C\u5EF6\u8FDF0.5\u79D2\u6267\u884C\u63A2\u9488\u626B\u63CF\uFF08\u907F\u514D\u5361\u987F\u4E3B\u9875\u6E32\u67D3\uFF09
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(fetchCfTrace, 500);
         });
-    // 🚀 新增：全云厂商节点数据库 (包含 Cloudflare 支持的所有主要区域)
+    // \u{1F680} \u65B0\u589E\uFF1A\u5168\u4E91\u5382\u5546\u8282\u70B9\u6570\u636E\u5E93 (\u5305\u542B Cloudflare \u652F\u6301\u7684\u6240\u6709\u4E3B\u8981\u533A\u57DF)
         var cfRegions = {
             aws: [
-                { label: "🇭🇰 中国香港", value: "aws:ap-east-1" },
-                { label: "🇯🇵 日本 (东京)", value: "aws:ap-northeast-1" },
-                { label: "🇯🇵 日本 (大阪)", value: "aws:ap-northeast-3" },
-                { label: "🇸🇬 新加坡", value: "aws:ap-southeast-1" },
-                { label: "🇰🇷 韩国 (首尔)", value: "aws:ap-northeast-2" },
-                { label: "🇺🇸 美国西部 (加州)", value: "aws:us-west-1" },
-                { label: "🇺🇸 美国西部 (俄勒冈)", value: "aws:us-west-2" },
-                { label: "🇺🇸 美国东部 (弗吉尼亚)", value: "aws:us-east-1" },
-                { label: "🇦🇺 澳大利亚 (悉尼)", value: "aws:ap-southeast-2" },
-                { label: "🇮🇳 印度 (孟买)", value: "aws:ap-south-1" },
-                { label: "🇬🇧 英国 (伦敦)", value: "aws:eu-west-2" },
-                { label: "🇩🇪 德国 (法兰克福)", value: "aws:eu-central-1" }
+                { label: "\u{1F1ED}\u{1F1F0} \u4E2D\u56FD\u9999\u6E2F", value: "aws:ap-east-1" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C (\u4E1C\u4EAC)", value: "aws:ap-northeast-1" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C (\u5927\u962A)", value: "aws:ap-northeast-3" },
+                { label: "\u{1F1F8}\u{1F1EC} \u65B0\u52A0\u5761", value: "aws:ap-southeast-1" },
+                { label: "\u{1F1F0}\u{1F1F7} \u97E9\u56FD (\u9996\u5C14)", value: "aws:ap-northeast-2" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u897F\u90E8 (\u52A0\u5DDE)", value: "aws:us-west-1" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u897F\u90E8 (\u4FC4\u52D2\u5188)", value: "aws:us-west-2" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u4E1C\u90E8 (\u5F17\u5409\u5C3C\u4E9A)", value: "aws:us-east-1" },
+                { label: "\u{1F1E6}\u{1F1FA} \u6FB3\u5927\u5229\u4E9A (\u6089\u5C3C)", value: "aws:ap-southeast-2" },
+                { label: "\u{1F1EE}\u{1F1F3} \u5370\u5EA6 (\u5B5F\u4E70)", value: "aws:ap-south-1" },
+                { label: "\u{1F1EC}\u{1F1E7} \u82F1\u56FD (\u4F26\u6566)", value: "aws:eu-west-2" },
+                { label: "\u{1F1E9}\u{1F1EA} \u5FB7\u56FD (\u6CD5\u5170\u514B\u798F)", value: "aws:eu-central-1" }
             ],
             gcp: [
-                { label: "🇹🇼 中国台湾 (彰化)", value: "gcp:asia-east1" },
-                { label: "🇭🇰 中国香港", value: "gcp:asia-east2" },
-                { label: "🇯🇵 日本 (东京)", value: "gcp:asia-northeast1" },
-                { label: "🇯🇵 日本 (大阪)", value: "gcp:asia-northeast2" },
-                { label: "🇰🇷 韩国 (首尔)", value: "gcp:asia-northeast3" },
-                { label: "🇸🇬 新加坡", value: "gcp:asia-southeast1" },
-                { label: "🇺🇸 美国西部 (洛杉矶)", value: "gcp:us-west2" },
-                { label: "🇺🇸 美国西部 (俄勒冈)", value: "gcp:us-west1" },
-                { label: "🇺🇸 美国东部 (弗吉尼亚)", value: "gcp:us-east4" },
-                { label: "🇦🇺 澳大利亚 (悉尼)", value: "gcp:australia-southeast1" },
-                { label: "🇬🇧 英国 (伦敦)", value: "gcp:europe-west2" },
-                { label: "🇩🇪 德国 (法兰克福)", value: "gcp:europe-west3" }
+                { label: "\u{1F1F9}\u{1F1FC} \u4E2D\u56FD\u53F0\u6E7E (\u5F70\u5316)", value: "gcp:asia-east1" },
+                { label: "\u{1F1ED}\u{1F1F0} \u4E2D\u56FD\u9999\u6E2F", value: "gcp:asia-east2" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C (\u4E1C\u4EAC)", value: "gcp:asia-northeast1" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C (\u5927\u962A)", value: "gcp:asia-northeast2" },
+                { label: "\u{1F1F0}\u{1F1F7} \u97E9\u56FD (\u9996\u5C14)", value: "gcp:asia-northeast3" },
+                { label: "\u{1F1F8}\u{1F1EC} \u65B0\u52A0\u5761", value: "gcp:asia-southeast1" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u897F\u90E8 (\u6D1B\u6749\u77F6)", value: "gcp:us-west2" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u897F\u90E8 (\u4FC4\u52D2\u5188)", value: "gcp:us-west1" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u4E1C\u90E8 (\u5F17\u5409\u5C3C\u4E9A)", value: "gcp:us-east4" },
+                { label: "\u{1F1E6}\u{1F1FA} \u6FB3\u5927\u5229\u4E9A (\u6089\u5C3C)", value: "gcp:australia-southeast1" },
+                { label: "\u{1F1EC}\u{1F1E7} \u82F1\u56FD (\u4F26\u6566)", value: "gcp:europe-west2" },
+                { label: "\u{1F1E9}\u{1F1EA} \u5FB7\u56FD (\u6CD5\u5170\u514B\u798F)", value: "gcp:europe-west3" }
             ],
             azure: [
-                { label: "🇭🇰 中国香港 (East Asia)", value: "azure:eastasia" },
-                { label: "🇸🇬 新加坡 (Southeast Asia)", value: "azure:southeastasia" },
-                { label: "🇯🇵 日本东部 (东京)", value: "azure:japaneast" },
-                { label: "🇯🇵 日本西部 (大阪)", value: "azure:japanwest" },
-                { label: "🇰🇷 韩国中部 (首尔)", value: "azure:koreacentral" },
-                { label: "🇺🇸 美国西部 (West US)", value: "azure:westus" },
-                { label: "🇺🇸 美国东部 (East US)", value: "azure:eastus" },
-                { label: "🇬🇧 英国南部 (伦敦)", value: "azure:uksouth" },
-                { label: "🇳🇱 西欧 (荷兰)", value: "azure:westeurope" }
+                { label: "\u{1F1ED}\u{1F1F0} \u4E2D\u56FD\u9999\u6E2F (East Asia)", value: "azure:eastasia" },
+                { label: "\u{1F1F8}\u{1F1EC} \u65B0\u52A0\u5761 (Southeast Asia)", value: "azure:southeastasia" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u4E1C\u90E8 (\u4E1C\u4EAC)", value: "azure:japaneast" },
+                { label: "\u{1F1EF}\u{1F1F5} \u65E5\u672C\u897F\u90E8 (\u5927\u962A)", value: "azure:japanwest" },
+                { label: "\u{1F1F0}\u{1F1F7} \u97E9\u56FD\u4E2D\u90E8 (\u9996\u5C14)", value: "azure:koreacentral" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u897F\u90E8 (West US)", value: "azure:westus" },
+                { label: "\u{1F1FA}\u{1F1F8} \u7F8E\u56FD\u4E1C\u90E8 (East US)", value: "azure:eastus" },
+                { label: "\u{1F1EC}\u{1F1E7} \u82F1\u56FD\u5357\u90E8 (\u4F26\u6566)", value: "azure:uksouth" },
+                { label: "\u{1F1F3}\u{1F1F1} \u897F\u6B27 (\u8377\u5170)", value: "azure:westeurope" }
             ]
         };
 
-        // 🚀 联动菜单处理逻辑 + 同步顶部 pill 标签
+        // \u{1F680} \u8054\u52A8\u83DC\u5355\u5904\u7406\u903B\u8F91 + \u540C\u6B65\u9876\u90E8 pill \u6807\u7B7E
         function handleModeChange() {
             var mode = document.getElementById('cf-mode-select').value;
             var regionSelect = document.getElementById('cf-region-select');
@@ -5477,14 +5708,14 @@ export const HTML_UI = `
             // Update placement pill label
             var pillLabel = document.getElementById('placeModeLabel');
             if (pillLabel) {
-                var labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', custom: '自定义' };
+                var labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', custom: '\u81EA\u5B9A\u4E49' };
                 if (labels[mode]) {
                     pillLabel.textContent = labels[mode];
                 } else {
                     try {
                         var parsed = JSON.parse(mode);
-                        pillLabel.textContent = parsed.mode === 'smart' ? '智能' : '边缘';
-                    } catch (_) { pillLabel.textContent = '智能'; }
+                        pillLabel.textContent = parsed.mode === 'smart' ? '\u667A\u80FD' : '\u8FB9\u7F18';
+                    } catch (_) { pillLabel.textContent = '\u667A\u80FD'; }
                 }
             }
         }
@@ -5506,7 +5737,7 @@ export const HTML_UI = `
             try { drawer.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { drawer.scrollIntoView(); }
         }
 
-        // 🚀 新增：调用部署修改接口
+        // \u{1F680} \u65B0\u589E\uFF1A\u8C03\u7528\u90E8\u7F72\u4FEE\u6539\u63A5\u53E3
         async function updatePlacement() {
             var statusElem = document.getElementById('place-status');
             var modeVal = document.getElementById('cf-mode-select').value;
@@ -5518,7 +5749,7 @@ export const HTML_UI = `
             } else if (modeVal === 'custom') {
                 var customVal = document.getElementById('cf-custom-input').value;
                 if (!customVal || customVal.trim() === '') {
-                    statusElem.innerText = "❌ 请填写自定义区域代码（如 gcp:asia-east2）";
+                    statusElem.innerText = "\u274C \u8BF7\u586B\u5199\u81EA\u5B9A\u4E49\u533A\u57DF\u4EE3\u7801\uFF08\u5982 gcp:asia-east2\uFF09";
                     statusElem.style.color = "var(--err)";
                     return;
                 }
@@ -5527,7 +5758,7 @@ export const HTML_UI = `
                 placementPayload = JSON.parse(modeVal);
             }
 
-            statusElem.innerText = "⏳ 正在提交请求，请稍候...";
+            statusElem.innerText = "\u23F3 \u6B63\u5728\u63D0\u4EA4\u8BF7\u6C42\uFF0C\u8BF7\u7A0D\u5019...";
             statusElem.style.color = "var(--warn)";
             
             try {
@@ -5538,18 +5769,18 @@ export const HTML_UI = `
                 });
                 var data = await res.json();
                 if (data.success) {
-                    statusElem.innerText = "✅ " + data.msg;
+                    statusElem.innerText = "\u2705 " + data.msg;
                     statusElem.style.color = "var(--ok)";
                 } else {
-                    statusElem.innerText = "❌ " + data.msg;
+                    statusElem.innerText = "\u274C " + data.msg;
                     statusElem.style.color = "var(--err)";
                 }
             } catch(e) {
-                statusElem.innerText = "❌ 网络错误: " + e.message;
+                statusElem.innerText = "\u274C \u7F51\u7EDC\u9519\u8BEF: " + e.message;
                 statusElem.style.color = "var(--err)";
             }
         }
-    // 🚀 魔法功能：自动继承现有的模式选项 (增强稳定版)
+    // \u{1F680} \u9B54\u6CD5\u529F\u80FD\uFF1A\u81EA\u52A8\u7EE7\u627F\u73B0\u6709\u7684\u6A21\u5F0F\u9009\u9879 (\u589E\u5F3A\u7A33\u5B9A\u7248)
         setTimeout(() => {
             const sourceSelect = document.getElementById('mode');
             const batchSelect = document.getElementById('batch-mode-select');
@@ -5558,13 +5789,13 @@ export const HTML_UI = `
             }
         }, 100); 
 
-        // 🚀 全选 / 取消全选逻辑
+        // \u{1F680} \u5168\u9009 / \u53D6\u6D88\u5168\u9009\u903B\u8F91
         function toggleSelectAll(checkbox) {
             const checkboxes = document.querySelectorAll('.node-cb');
             checkboxes.forEach(cb => cb.checked = checkbox.checked);
         }
 
-        // 🚀 并发批量修改模式逻辑 (终极多线程逐个击破版)
+        // \u{1F680} \u5E76\u53D1\u6279\u91CF\u4FEE\u6539\u6A21\u5F0F\u903B\u8F91 (\u7EC8\u6781\u591A\u7EBF\u7A0B\u9010\u4E2A\u51FB\u7834\u7248)
         async function batchUpdateModes() {
             const statusElem = document.getElementById('batch-status');
             const newMode = document.getElementById('batch-mode-select').value;
@@ -5572,25 +5803,25 @@ export const HTML_UI = `
             const selectedPrefixes = Array.from(document.querySelectorAll('.node-cb:checked')).map(cb => cb.value);
 
             if (selectedPrefixes.length === 0) {
-                statusElem.innerText = "⚠️ 请先打勾需要修改的节点！";
+                statusElem.innerText = "\u26A0\uFE0F \u8BF7\u5148\u6253\u52FE\u9700\u8981\u4FEE\u6539\u7684\u8282\u70B9\uFF01";
                 statusElem.style.color = "var(--warn)";
                 return;
             }
 
-            if (!confirm("确定要将勾选的 " + selectedPrefixes.length + " 个节点切换为该模式吗？")) return;
+            if (!confirm("\u786E\u5B9A\u8981\u5C06\u52FE\u9009\u7684 " + selectedPrefixes.length + " \u4E2A\u8282\u70B9\u5207\u6362\u4E3A\u8BE5\u6A21\u5F0F\u5417\uFF1F")) return;
 
-            statusElem.innerText = "⏳ 正在多线程并发修改节点...";
+            statusElem.innerText = "\u23F3 \u6B63\u5728\u591A\u7EBF\u7A0B\u5E76\u53D1\u4FEE\u6539\u8282\u70B9...";
             statusElem.style.color = "var(--primary)";
 
             try {
-                // 1. 先获取当前所有的节点详细数据
+                // 1. \u5148\u83B7\u53D6\u5F53\u524D\u6240\u6709\u7684\u8282\u70B9\u8BE6\u7EC6\u6570\u636E
                 const getRes = await fetch('/api/routes');
                 const allRoutes = await getRes.json();
                 
-                // 2. 筛选出你要修改的那些节点
+                // 2. \u7B5B\u9009\u51FA\u4F60\u8981\u4FEE\u6539\u7684\u90A3\u4E9B\u8282\u70B9
                 const nodesToUpdate = allRoutes.filter(r => selectedPrefixes.includes(r.prefix));
 
-                // 3. 核心魔法：Promise.all 并发！瞬间发出多个独立的保存请求
+                // 3. \u6838\u5FC3\u9B54\u6CD5\uFF1APromise.all \u5E76\u53D1\uFF01\u77AC\u95F4\u53D1\u51FA\u591A\u4E2A\u72EC\u7ACB\u7684\u4FDD\u5B58\u8BF7\u6C42
                 await Promise.all(nodesToUpdate.map(async (r) => {
                     const payload = Object.assign({}, r);
                     payload.oldPrefix = r.prefix; 
@@ -5603,16 +5834,16 @@ export const HTML_UI = `
                     });
                     
                     if (!postRes.ok) {
-                        throw new Error("节点 " + r.prefix + " 保存失败");
+                        throw new Error("\u8282\u70B9 " + r.prefix + " \u4FDD\u5B58\u5931\u8D25");
                     }
                 }));
                 
-                statusElem.innerText = "✅ 批量修改成功！";
+                statusElem.innerText = "\u2705 \u6279\u91CF\u4FEE\u6539\u6210\u529F\uFF01";
                 statusElem.style.color = "var(--ok)";
                 setTimeout(() => location.reload(), 1000); 
 
             } catch (e) {
-                statusElem.innerText = "❌ 失败: " + e.message;
+                statusElem.innerText = "\u274C \u5931\u8D25: " + e.message;
                 statusElem.style.color = "var(--err)";
             }
         }
@@ -5625,13 +5856,13 @@ export const HTML_UI = `
                 codeContent = await file.text();
             }
             if (!codeContent.trim()) {
-                alert('⚠️ 失败：请先粘贴代码，或者选择一个 .js 文件！');
+                alert('\u26A0\uFE0F \u5931\u8D25\uFF1A\u8BF7\u5148\u7C98\u8D34\u4EE3\u7801\uFF0C\u6216\u8005\u9009\u62E9\u4E00\u4E2A .js \u6587\u4EF6\uFF01');
                 return;
             }
-            if (!confirm('🚨 危险操作确认 🚨\\n\\n你即将强行覆盖当前 Worker 的代码。\\n如果新代码有错误，此面板将会瘫痪，只能去网页后台抢修！\\n\\n确定代码 100% 正确并覆盖吗？')) return;
+            if (!confirm('\u{1F6A8} \u5371\u9669\u64CD\u4F5C\u786E\u8BA4 \u{1F6A8}\\n\\n\u4F60\u5373\u5C06\u5F3A\u884C\u8986\u76D6\u5F53\u524D Worker \u7684\u4EE3\u7801\u3002\\n\u5982\u679C\u65B0\u4EE3\u7801\u6709\u9519\u8BEF\uFF0C\u6B64\u9762\u677F\u5C06\u4F1A\u762B\u75EA\uFF0C\u53EA\u80FD\u53BB\u7F51\u9875\u540E\u53F0\u62A2\u4FEE\uFF01\\n\\n\u786E\u5B9A\u4EE3\u7801 100% \u6B63\u786E\u5E76\u8986\u76D6\u5417\uFF1F')) return;
             const btn = document.getElementById('deployBtn');
             const originalText = btn.innerText;
-            btn.innerText = '⏳ 正在与 Cloudflare 通信并部署...';
+            btn.innerText = '\u23F3 \u6B63\u5728\u4E0E Cloudflare \u901A\u4FE1\u5E76\u90E8\u7F72...';
             btn.disabled = true;
             btn.style.opacity = '0.7';
             try {
@@ -5642,13 +5873,13 @@ export const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('🎉 成功！' + data.msg + '\\n\\n点击确定后页面将自动刷新。');
+                    alert('\u{1F389} \u6210\u529F\uFF01' + data.msg + '\\n\\n\u70B9\u51FB\u786E\u5B9A\u540E\u9875\u9762\u5C06\u81EA\u52A8\u5237\u65B0\u3002');
                     window.location.reload(); 
                 } else {
-                    alert('❌ 部署失败：\\n' + JSON.stringify(data.error));
+                    alert('\u274C \u90E8\u7F72\u5931\u8D25\uFF1A\\n' + JSON.stringify(data.error));
                 }
             } catch (e) {
-                alert('🚨 异常：\\n' + e.message);
+                alert('\u{1F6A8} \u5F02\u5E38\uFF1A\\n' + e.message);
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
@@ -5656,9 +5887,9 @@ export const HTML_UI = `
             }
         }
         // ==========================================
-        // 🟢 在线更新模块
+        // \u{1F7E2} \u5728\u7EBF\u66F4\u65B0\u6A21\u5757
         // ==========================================
-        // 这里的变量会自动从代码最顶端的配置区读取注入
+        // \u8FD9\u91CC\u7684\u53D8\u91CF\u4F1A\u81EA\u52A8\u4ECE\u4EE3\u7801\u6700\u9876\u7AEF\u7684\u914D\u7F6E\u533A\u8BFB\u53D6\u6CE8\u5165
         const CURRENT_VERSION = "${CURRENT_VERSION}"; 
         const GITHUB_RAW_URL = "${GITHUB_RAW_URL}"; 
         
@@ -5670,30 +5901,30 @@ export const HTML_UI = `
                 if (!res.ok) return;
                 latestCode = await res.text();
                 
-                // 🚀 核心修复：加入双重反斜杠，防止正则在 Worker 中变成注释 (//) 导致崩溃
+                // \u{1F680} \u6838\u5FC3\u4FEE\u590D\uFF1A\u52A0\u5165\u53CC\u91CD\u53CD\u659C\u6760\uFF0C\u9632\u6B62\u6B63\u5219\u5728 Worker \u4E2D\u53D8\u6210\u6CE8\u91CA (//) \u5BFC\u81F4\u5D29\u6E83
                 const versionMatch = latestCode.match(/\\/\\/\\s*VERSION:\\s*v?([\\d\\.]+)/i);
                 if (versionMatch && versionMatch[1]) {
                     const latestVersion = versionMatch[1];
                     if (latestVersion !== CURRENT_VERSION) {
                         document.getElementById('updateAlert').style.display = 'block';
-                        document.getElementById('updateMsg').innerText = '当前版本: v' + CURRENT_VERSION + ' | 发现最新版本: v' + latestVersion + ' (Github)';
+                        document.getElementById('updateMsg').innerText = '\u5F53\u524D\u7248\u672C: v' + CURRENT_VERSION + ' | \u53D1\u73B0\u6700\u65B0\u7248\u672C: v' + latestVersion + ' (Github)';
                     }
                 }
             } catch (e) {
-                console.log("检测更新失败:", e);
+                console.log("\u68C0\u6D4B\u66F4\u65B0\u5931\u8D25:", e);
             }
         }
 
         async function doOnlineUpdate() {
-            if (!confirm('🚀 确定要从 GitHub 拉取最新版本并覆盖当前节点吗？\\n\\n（这将会保留你的所有环境变量和数据库绑定）')) return;
+            if (!confirm('\u{1F680} \u786E\u5B9A\u8981\u4ECE GitHub \u62C9\u53D6\u6700\u65B0\u7248\u672C\u5E76\u8986\u76D6\u5F53\u524D\u8282\u70B9\u5417\uFF1F\\n\\n\uFF08\u8FD9\u5C06\u4F1A\u4FDD\u7559\u4F60\u7684\u6240\u6709\u73AF\u5883\u53D8\u91CF\u548C\u6570\u636E\u5E93\u7ED1\u5B9A\uFF09')) return;
             
             const btn = document.getElementById('onlineUpdateBtn');
-            btn.innerText = '⏳ 正在拉取并部署...';
+            btn.innerText = '\u23F3 \u6B63\u5728\u62C9\u53D6\u5E76\u90E8\u7F72...';
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
             try {
-                // 直接复用我们之前写好的防丢数据库高级 API
+                // \u76F4\u63A5\u590D\u7528\u6211\u4EEC\u4E4B\u524D\u5199\u597D\u7684\u9632\u4E22\u6570\u636E\u5E93\u9AD8\u7EA7 API
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -5701,28 +5932,28 @@ export const HTML_UI = `
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('🎉 在线更新成功！\\n\\n点击确定后页面将自动刷新，畅享新版本！');
+                    alert('\u{1F389} \u5728\u7EBF\u66F4\u65B0\u6210\u529F\uFF01\\n\\n\u70B9\u51FB\u786E\u5B9A\u540E\u9875\u9762\u5C06\u81EA\u52A8\u5237\u65B0\uFF0C\u7545\u4EAB\u65B0\u7248\u672C\uFF01');
                     window.location.reload(); 
                 } else {
-                    alert('❌ 更新失败：\\n' + JSON.stringify(data.error));
+                    alert('\u274C \u66F4\u65B0\u5931\u8D25\uFF1A\\n' + JSON.stringify(data.error));
                 }
             } catch (e) {
-                alert('🚨 异常：\\n' + e.message);
+                alert('\u{1F6A8} \u5F02\u5E38\uFF1A\\n' + e.message);
             } finally {
-                btn.innerText = '🚀 一键拉取并升级';
+                btn.innerText = '\u{1F680} \u4E00\u952E\u62C9\u53D6\u5E76\u5347\u7EA7';
                 btn.disabled = false;
                 btn.style.opacity = '1';
             }
         }
 
-        // 页面加载完成后自动在后台静默检测更新
+        // \u9875\u9762\u52A0\u8F7D\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u540E\u53F0\u9759\u9ED8\u68C0\u6D4B\u66F4\u65B0
         document.addEventListener('DOMContentLoaded', checkForUpdates);
 
         // ============================================================
-        // UI Suggestions v2.0.7 — Headers Editor + menu helpers
+        // UI Suggestions v2.0.7 \u2014 Headers Editor + menu helpers
         // ============================================================
 
-        // Generic dropdown menu (used by "更多 ▾" and "配置工具")
+        // Generic dropdown menu (used by "\u66F4\u591A \u25BE" and "\u914D\u7F6E\u5DE5\u5177")
         function toggleMenu(btn) {
             const wrap = btn.closest('.menu-wrap');
             const menu = wrap && wrap.querySelector('.menu');
@@ -5738,15 +5969,15 @@ export const HTML_UI = `
             if (!e.target.closest('.menu-wrap')) closeAllMenus();
         });
 
-        // Append a backup line input (called by the dashed "+ 添加备用线路" button)
+        // Append a backup line input (called by the dashed "+ \u6DFB\u52A0\u5907\u7528\u7EBF\u8DEF" button)
         function addBackupLine() {
             const wrap = document.getElementById('targetInputs');
             if (!wrap) return;
             const existing = wrap.querySelectorAll('.target-input').length;
             const row = document.createElement('div');
             row.className = 'a-upstream-row';
-            row.innerHTML = '<span class="a-tag-bk">备 ' + existing + '</span>' +
-                '<input type="url" class="a-input target-input" placeholder="备用线路 ' + existing + ' (选填，主源挂掉时触发)" oninput="handleTargetInputs()">';
+            row.innerHTML = '<span class="a-tag-bk">\u5907 ' + existing + '</span>' +
+                '<input type="url" class="a-input target-input" placeholder="\u5907\u7528\u7EBF\u8DEF ' + existing + ' (\u9009\u586B\uFF0C\u4E3B\u6E90\u6302\u6389\u65F6\u89E6\u53D1)" oninput="handleTargetInputs()">';
             wrap.appendChild(row);
             if (typeof handleTargetInputs === 'function') handleTargetInputs();
         }
@@ -5764,7 +5995,7 @@ export const HTML_UI = `
             if (cb && sw) sw.classList.toggle('on', cb.checked);
         }
 
-        // Headers Editor — KV editor that serializes to the legacy "Key: Value\\n..." format
+        // Headers Editor \u2014 KV editor that serializes to the legacy "Key: Value\\n..." format
         const HeadersEditor = (() => {
             const SENSITIVE_KEYS = ['authorization','cookie','x-api-key','x-auth-token','x-emby-token','token'];
             let rows = [];
@@ -5790,19 +6021,19 @@ export const HTML_UI = `
                 if (!list) return;
 
                 if (rows.length === 0) {
-                    list.innerHTML = '<div class="hed-empty">尚未添加任何请求头 · 点「+ 添加请求头」或从下方模板插入</div>';
+                    list.innerHTML = '<div class="hed-empty">\u5C1A\u672A\u6DFB\u52A0\u4EFB\u4F55\u8BF7\u6C42\u5934 \xB7 \u70B9\u300C+ \u6DFB\u52A0\u8BF7\u6C42\u5934\u300D\u6216\u4ECE\u4E0B\u65B9\u6A21\u677F\u63D2\u5165</div>';
                 } else {
                     list.innerHTML = rows.map(r => {
                         const sensitive = r.masked || isSensitiveKey(r.key);
                         return '<div class="hed-row ' + (r.on ? '' : 'disabled') + '" draggable="true" data-id="' + r.id + '">' +
-                            '<span class="hed-handle" title="拖拽排序">⋮⋮</span>' +
+                            '<span class="hed-handle" title="\u62D6\u62FD\u6392\u5E8F">\u22EE\u22EE</span>' +
                             '<input type="text" class="hed-k" value="' + escapeHtml(r.key) + '" placeholder="Header-Name" data-id="' + r.id + '" data-field="key">' +
                             '<div class="hed-v-wrap">' +
                                 '<input type="' + (r.masked ? 'password' : 'text') + '" class="hed-v" value="' + escapeHtml(r.value) + '" placeholder="value" data-id="' + r.id + '" data-field="value">' +
-                                (sensitive ? '<button type="button" class="mask-btn" data-id="' + r.id + '" title="' + (r.masked ? '显示' : '隐藏') + '"><svg><use href="#' + (r.masked ? 'i-eye' : 'i-eye-off') + '"/></svg></button>' : '') +
+                                (sensitive ? '<button type="button" class="mask-btn" data-id="' + r.id + '" title="' + (r.masked ? '\u663E\u793A' : '\u9690\u85CF') + '"><svg><use href="#' + (r.masked ? 'i-eye' : 'i-eye-off') + '"/></svg></button>' : '') +
                             '</div>' +
-                            '<div class="ios-switch ' + (r.on ? 'on' : '') + '" data-id="' + r.id + '" title="' + (r.on ? '已启用' : '已停用') + '"></div>' +
-                            '<button type="button" class="hed-del" data-id="' + r.id + '" title="删除"><svg><use href="#i-x"/></svg></button>' +
+                            '<div class="ios-switch ' + (r.on ? 'on' : '') + '" data-id="' + r.id + '" title="' + (r.on ? '\u5DF2\u542F\u7528' : '\u5DF2\u505C\u7528') + '"></div>' +
+                            '<button type="button" class="hed-del" data-id="' + r.id + '" title="\u5220\u9664"><svg><use href="#i-x"/></svg></button>' +
                         '</div>';
                     }).join('');
                 }
@@ -5922,7 +6153,7 @@ export const HTML_UI = `
                 insertTemplate(k, v) {
                     const existing = rows.find(r => r.key.toLowerCase() === k.toLowerCase());
                     if (existing) {
-                        showToast('「' + k + '」已存在');
+                        showToast('\u300C' + k + '\u300D\u5DF2\u5B58\u5728');
                         existing.on = true;
                         render();
                         return;
@@ -5957,12 +6188,12 @@ export const HTML_UI = `
                         added++;
                     }
                     if (added === 0) {
-                        showToast('❌ 未在 cURL 中找到 -H 标头');
+                        showToast('\u274C \u672A\u5728 cURL \u4E2D\u627E\u5230 -H \u6807\u5934');
                         return;
                     }
                     this.closeCurlModal();
                     render();
-                    showToast('✅ 导入 ' + added + ' 条请求头');
+                    showToast('\u2705 \u5BFC\u5165 ' + added + ' \u6761\u8BF7\u6C42\u5934');
                 }
             };
         })();
@@ -5973,69 +6204,69 @@ export const HTML_UI = `
             HeadersEditor.init('');
             syncCacheSwitch();
         });
-    </script>
+    <\/script>
 
     <!-- cURL paste modal (UI Suggestions v2.0.7) -->
     <div class="curl-modal-bg" id="curlModal" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
         <div class="curl-modal">
-            <h3>从 cURL 命令导入</h3>
-            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:var(--text-xs);">-H</code> 标头：</p>
+            <h3>\u4ECE cURL \u547D\u4EE4\u5BFC\u5165</h3>
+            <p>\u7C98\u8D34\u6D4F\u89C8\u5668 DevTools \u300CCopy as cURL\u300D \u51FA\u6765\u7684\u5185\u5BB9\uFF0C\u81EA\u52A8\u63D0\u53D6\u6240\u6709 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:var(--text-xs);">-H</code> \u6807\u5934\uFF1A</p>
             <textarea id="curlInput" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \\&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \\&#10;  -H 'x-emby-token: abc123' \\&#10;  --compressed"></textarea>
             <div class="curl-modal-actions">
-                <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">取消</button>
-                <button class="btn-tier is-primary" onclick="HeadersEditor.parseCurl()">解析并导入</button>
+                <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">\u53D6\u6D88</button>
+                <button class="btn-tier is-primary" onclick="HeadersEditor.parseCurl()">\u89E3\u6790\u5E76\u5BFC\u5165</button>
             </div>
         </div>
     </div>
 
-    <!-- 移动端底部导航 Tab Bar v5 (桌面端 CSS 隐藏) — 5 主项 + 更多 sheet -->
-    <nav id="mobileTabBar" aria-label="底部导航">
-        <button type="button" data-tab="home" class="active" aria-label="概览">
+    <!-- \u79FB\u52A8\u7AEF\u5E95\u90E8\u5BFC\u822A Tab Bar v5 (\u684C\u9762\u7AEF CSS \u9690\u85CF) \u2014 5 \u4E3B\u9879 + \u66F4\u591A sheet -->
+    <nav id="mobileTabBar" aria-label="\u5E95\u90E8\u5BFC\u822A">
+        <button type="button" data-tab="home" class="active" aria-label="\u6982\u89C8">
             <svg class="ico-outline" viewBox="0 0 24 24"><path d="M3 12 12 4l9 8"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
             <svg class="ico-filled" viewBox="0 0 24 24"><path d="M11.3 3.5a1 1 0 0 1 1.4 0l8.6 7.6a1 1 0 0 1-.7 1.74H19V20a1 1 0 0 1-1 1h-3v-6h-4v6H8a1 1 0 0 1-1-1v-7.16H5.4a1 1 0 0 1-.7-1.74z"/></svg>
-            <span>概览</span>
+            <span>\u6982\u89C8</span>
         </button>
-        <button type="button" data-tab="speed" aria-label="测速">
+        <button type="button" data-tab="speed" aria-label="\u6D4B\u901F">
             <svg class="ico-outline" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             <svg class="ico-filled" viewBox="0 0 24 24"><path d="M13.4 2.13a.8.8 0 0 1 1.32.79L13.5 10h7.05a.8.8 0 0 1 .62 1.31l-10 12a.8.8 0 0 1-1.42-.61L10.95 14H3.9a.8.8 0 0 1-.62-1.31z"/></svg>
-            <span>测速</span>
+            <span>\u6D4B\u901F</span>
         </button>
-        <button type="button" data-tab="stats" aria-label="数据">
+        <button type="button" data-tab="stats" aria-label="\u6570\u636E">
             <svg class="ico-outline" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/></svg>
             <svg class="ico-filled" viewBox="0 0 24 24"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg>
-            <span>数据</span>
+            <span>\u6570\u636E</span>
         </button>
-        <button type="button" data-tab="settings" aria-label="设置">
+        <button type="button" data-tab="settings" aria-label="\u8BBE\u7F6E">
             <svg class="ico-outline" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <svg class="ico-filled" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.34 7.34 0 0 0-1.7-.98l-.38-2.65a.5.5 0 0 0-.5-.42h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.61.24-1.18.57-1.7.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .61.22l2.49-1c.52.41 1.09.74 1.7.98l.38 2.65a.5.5 0 0 0 .5.42h4a.5.5 0 0 0 .5-.42l.38-2.65c.61-.24 1.18-.57 1.7-.98l2.49 1a.5.5 0 0 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64zM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5z"/></svg>
-            <span>设置</span>
+            <span>\u8BBE\u7F6E</span>
         </button>
-        <button type="button" data-tab="more" aria-label="更多" aria-haspopup="true">
+        <button type="button" data-tab="more" aria-label="\u66F4\u591A" aria-haspopup="true">
             <svg class="ico-outline" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>
             <svg class="ico-filled" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-            <span>更多</span>
+            <span>\u66F4\u591A</span>
         </button>
     </nav>
 
-    <!-- 更多 sheet (mobile-only iOS action sheet for overflow sections) -->
+    <!-- \u66F4\u591A sheet (mobile-only iOS action sheet for overflow sections) -->
     <div id="moreSheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="moreSheetTitle" onclick="if(event.target===this) closeMoreSheet()">
         <div class="more-sheet-card" role="document">
             <span class="more-sheet-grip" aria-hidden="true"></span>
-            <h3 class="more-sheet-title" id="moreSheetTitle">更多入口</h3>
+            <h3 class="more-sheet-title" id="moreSheetTitle">\u66F4\u591A\u5165\u53E3</h3>
             <div class="more-sheet-list">
                 <button type="button" class="more-sheet-row" data-section="embyStatus">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
-                    <span>节点状态</span>
+                    <span>\u8282\u70B9\u72B6\u6001</span>
                     <svg class="ms-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 <button type="button" class="more-sheet-row" data-section="tools">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                    <span>工具箱</span>
+                    <span>\u5DE5\u5177\u7BB1</span>
                     <svg class="ms-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 <button type="button" class="more-sheet-row is-danger" data-section="danger">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span>危险区</span>
+                    <span>\u5371\u9669\u533A</span>
                     <svg class="ms-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
             </div>
@@ -6043,12 +6274,12 @@ export const HTML_UI = `
     </div>
 
     <script>
-        // 📱 Mobile bottom Tab Bar + status pills (mobile only; desktop CSS hides them)
+        // \u{1F4F1} Mobile bottom Tab Bar + status pills (mobile only; desktop CSS hides them)
         (function () {
             function initMobileTabBar() {
                 const bar = document.getElementById('mobileTabBar');
                 if (!bar) return;
-                // tab → section 映射 (v5: more = 更多 sheet, 不直接跳分区)
+                // tab \u2192 section \u6620\u5C04 (v5: more = \u66F4\u591A sheet, \u4E0D\u76F4\u63A5\u8DF3\u5206\u533A)
                 const tabToSection = { home: 'overview', speed: 'speed', stats: 'stats', settings: 'settings' };
                 bar.querySelectorAll('button[data-tab]').forEach(btn => {
                     btn.addEventListener('click', () => {
@@ -6072,12 +6303,12 @@ export const HTML_UI = `
                         const section = row.dataset.section;
                         closeMoreSheet();
                         if (section && typeof showSection === 'function') {
-                            // 等 sheet 收回再切，避免动画卡顿
+                            // \u7B49 sheet \u6536\u56DE\u518D\u5207\uFF0C\u907F\u514D\u52A8\u753B\u5361\u987F
                             setTimeout(() => showSection(section), 200);
                         }
                     });
                 });
-                // ESC / 背景点击关闭已由 onclick + keydown 处理
+                // ESC / \u80CC\u666F\u70B9\u51FB\u5173\u95ED\u5DF2\u7531 onclick + keydown \u5904\u7406
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape' && sheet.classList.contains('is-open')) closeMoreSheet();
                 });
@@ -6108,7 +6339,7 @@ export const HTML_UI = `
                         const d = document.getElementById(dst);
                         if (s && d) {
                             const txt = (s.textContent || '').trim();
-                            if (txt && txt !== '加载中...') d.textContent = txt;
+                            if (txt && txt !== '\u52A0\u8F7D\u4E2D...') d.textContent = txt;
                         }
                     });
                     if (typeof updateAuroraKpis === 'function') updateAuroraKpis();
@@ -6120,7 +6351,7 @@ export const HTML_UI = `
                     new MutationObserver(sync).observe(node, { childList: true, characterData: true, subtree: true });
                 });
             }
-            // 📱 Drag-to-dismiss for the bottom-sheet dashboard modal (mobile only)
+            // \u{1F4F1} Drag-to-dismiss for the bottom-sheet dashboard modal (mobile only)
             function initSheetGesture() {
                 const modal = document.getElementById('dashboardModal');
                 if (!modal) return;
@@ -6131,7 +6362,7 @@ export const HTML_UI = `
 
                 card.addEventListener('touchstart', (e) => {
                     if (!isMobile()) return;
-                    // Allow drag from grip area (top 44px) regardless of scrollTop — supports both directions
+                    // Allow drag from grip area (top 44px) regardless of scrollTop \u2014 supports both directions
                     const t = e.touches[0];
                     const rect = card.getBoundingClientRect();
                     if (t.clientY - rect.top > 44) return;
@@ -6186,15 +6417,15 @@ export const HTML_UI = `
 
             // === iOS-native chrome v5: brand, large-title, scroll observer, logout row ===
             const IOS_SECTION_TITLES = {
-                overview:    { title: '概览',        sub: '实时状态与核心指标' },
-                speed:       { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
-                stats:       { title: '数据统计',     sub: '流量、并发与历史趋势' },
-                embyStatus:  { title: '节点状态',     sub: '探测、告警与公开分享' },
-                settings:    { title: '系统设置',     sub: '应用、通知与账户' },
-                tools:       { title: '工具箱',       sub: '实用工具集合' },
-                danger:      { title: '危险区',       sub: '不可逆操作，请谨慎' },
+                overview:    { title: '\u6982\u89C8',        sub: '\u5B9E\u65F6\u72B6\u6001\u4E0E\u6838\u5FC3\u6307\u6807' },
+                speed:       { title: '\u6D4B\u901F & DNS',  sub: '\u8282\u70B9\u5EF6\u8FDF\u4E0E\u89E3\u6790\u63A2\u6D4B' },
+                stats:       { title: '\u6570\u636E\u7EDF\u8BA1',     sub: '\u6D41\u91CF\u3001\u5E76\u53D1\u4E0E\u5386\u53F2\u8D8B\u52BF' },
+                embyStatus:  { title: '\u8282\u70B9\u72B6\u6001',     sub: '\u63A2\u6D4B\u3001\u544A\u8B66\u4E0E\u516C\u5F00\u5206\u4EAB' },
+                settings:    { title: '\u7CFB\u7EDF\u8BBE\u7F6E',     sub: '\u5E94\u7528\u3001\u901A\u77E5\u4E0E\u8D26\u6237' },
+                tools:       { title: '\u5DE5\u5177\u7BB1',       sub: '\u5B9E\u7528\u5DE5\u5177\u96C6\u5408' },
+                danger:      { title: '\u5371\u9669\u533A',       sub: '\u4E0D\u53EF\u9006\u64CD\u4F5C\uFF0C\u8BF7\u8C28\u614E' },
             };
-            // 暴露给 showSection() 用来同步紧凑栏标题
+            // \u66B4\u9732\u7ED9 showSection() \u7528\u6765\u540C\u6B65\u7D27\u51D1\u680F\u6807\u9898
             window.__iosSectionTitles = Object.fromEntries(
                 Object.entries(IOS_SECTION_TITLES).map(([k, v]) => [k, v.title])
             );
@@ -6204,7 +6435,7 @@ export const HTML_UI = `
                 if (!topbar || topbar.querySelector('.mob-brand')) return;
                 const brand = document.createElement('div');
                 brand.className = 'mob-brand';
-                brand.innerHTML = '<span class="mb-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>反代核心</span>';
+                brand.innerHTML = '<span class="mb-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>\u53CD\u4EE3\u6838\u5FC3</span>';
                 topbar.insertBefore(brand, topbar.firstChild);
             }
 
@@ -6267,10 +6498,10 @@ export const HTML_UI = `
                 group.className = 'ios-form-group';
                 group.style.marginTop = '24px';
                 group.innerHTML =
-                    '<button type="button" class="ios-form-row is-tap is-danger" id="iosLogoutBtn" style="width:100%;border:none;background:transparent;font:inherit;cursor:pointer;justify-content:center;font-weight:600;">退出登录</button>';
+                    '<button type="button" class="ios-form-row is-tap is-danger" id="iosLogoutBtn" style="width:100%;border:none;background:transparent;font:inherit;cursor:pointer;justify-content:center;font-weight:600;">\u9000\u51FA\u767B\u5F55</button>';
                 settings.appendChild(group);
                 group.querySelector('#iosLogoutBtn').addEventListener('click', () => {
-                    if (confirm('确认退出登录？')) {
+                    if (confirm('\u786E\u8BA4\u9000\u51FA\u767B\u5F55\uFF1F')) {
                         if (typeof logout === 'function') logout();
                     }
                 });
@@ -6300,32 +6531,524 @@ export const HTML_UI = `
                 bootAll();
             }
         })();
-    </script>
+    <\/script>
 </body>
 </html>
 `;
 
-// ==========================================
-// 2. 后端 Worker 主逻辑处理区 (核心故障转移 + TG Bot播报 + 智能流量拉取)
-// ==========================================
+// src/ui/svg.js
+function ecgStripSvg(history, opts) {
+  opts = opts || {};
+  const W = 240, H = 36;
+  const padX = 2, padY = 4;
+  const innerW = W - padX * 2;
+  const innerH = H - padY * 2;
+  const baseY = padY + innerH - 2;
+  const samples = Array.isArray(history) ? history.slice(-60) : [];
+  if (!samples.length) {
+    return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
+            <text x="${W / 2}" y="${H / 2 + 3}" class="ecg-empty" text-anchor="middle">\u6682\u65E0\u63A2\u6D4B</text>
+        </svg>`;
+  }
+  const n = samples.length;
+  const stepX = n > 1 ? innerW / (n - 1) : innerW;
+  const msToY = (ms) => {
+    const capped = Math.max(0, Math.min(400, ms || 0));
+    return baseY - capped / 400 * (innerH * 0.85);
+  };
+  let okPath = "";
+  let failMarks = "";
+  let lastX = padX;
+  let cursor = padX;
+  let inOkRun = false;
+  for (let i = 0; i < n; i++) {
+    const s = samples[i];
+    const x = padX + stepX * i;
+    if (s.ok) {
+      const peakY = msToY(s.ms);
+      const preX = Math.max(lastX, x - stepX * 0.45);
+      const upX = x - stepX * 0.18;
+      const dnX = x + stepX * 0.1;
+      const tailX = x + stepX * 0.25;
+      if (!inOkRun) {
+        okPath += `M${preX.toFixed(2)} ${baseY}`;
+        inOkRun = true;
+      } else {
+        okPath += `L${preX.toFixed(2)} ${baseY}`;
+      }
+      okPath += ` L${upX.toFixed(2)} ${baseY} L${x.toFixed(2)} ${peakY.toFixed(2)} L${dnX.toFixed(2)} ${baseY} L${tailX.toFixed(2)} ${baseY}`;
+      lastX = tailX;
+    } else {
+      if (inOkRun) {
+        okPath += ` L${(x - stepX * 0.3).toFixed(2)} ${baseY}`;
+        inOkRun = false;
+      }
+      failMarks += `<line x1="${x.toFixed(2)}" y1="${(padY + 1).toFixed(2)}" x2="${x.toFixed(2)}" y2="${baseY.toFixed(2)}" class="ecg-fail"/>`;
+      lastX = x;
+    }
+  }
+  if (inOkRun) {
+    okPath += ` L${(padX + innerW).toFixed(2)} ${baseY}`;
+  }
+  const lastSample = samples[n - 1];
+  const lastX2 = padX + innerW;
+  const lastY = lastSample.ok ? msToY(lastSample.ms) : baseY;
+  const lastClass = lastSample.ok ? "ecg-dot ok" : "ecg-dot bad";
+  return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
+        <line x1="${padX}" y1="${(padY + innerH * 0.5).toFixed(2)}" x2="${W - padX}" y2="${(padY + innerH * 0.5).toFixed(2)}" class="ecg-mid"/>
+        ${okPath ? `<path d="${okPath}" class="ecg-line" fill="none"/>` : ""}
+        ${failMarks}
+        <circle cx="${lastX2.toFixed(2)}" cy="${lastY.toFixed(2)}" r="2.4" class="${lastClass}"/>
+    </svg>`;
+}
+function renderCardSvg(card) {
+  const w = 360, h = 120;
+  const ok = card.ok;
+  const dotColor = ok ? "#30d158" : "#ff3b30";
+  const statusText = ok ? "\u5728\u7EBF" : "\u79BB\u7EBF";
+  const pct = (v) => v == null ? "\u2014" : (v * 100).toFixed(1) + "%";
+  const name = String(card.name || "").slice(0, 40);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <style>
+      .bg { fill:#1c1c1e; }
+      .text { fill:#f5f5f7; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
+      .name { font-size:16px; font-weight:600; }
+      .label { font-size:11px; fill:#98989d; }
+      .value { font-size:14px; font-weight:600; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="${w}" height="${h}" rx="14"/>
+  <circle cx="22" cy="24" r="6" fill="${dotColor}"/>
+  <text class="text name" x="38" y="29">${htmlEscape(name)}</text>
+  <text class="text label" x="20" y="60">\u72B6\u6001</text>
+  <text class="text value" x="20" y="78" fill="${dotColor}">${statusText}</text>
+  <text class="text label" x="130" y="60">7\u5929\u53EF\u7528</text>
+  <text class="text value" x="130" y="78">${pct(card.avail_7d)}</text>
+  <text class="text label" x="240" y="60">\u5EF6\u8FDF</text>
+  <text class="text value" x="240" y="78">${ok ? card.latest_ms + " ms" : "\u2014"}</text>
+  <text class="text label" x="20" y="104">\u7531 emby-proxy \u76D1\u63A7</text>
+</svg>`;
+}
 
-// 用于向 Cloudflare 获取对应时间段的总流量 (支持北京时间今日、近7天、近30天)
+// src/emby/tokens.js
+var HARVEST_MEM = /* @__PURE__ */ new Map();
+async function tokenKey(env, prefix) {
+  const ikm = new TextEncoder().encode(String(env.ADMIN_TOKEN || ""));
+  const baseKey = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveKey"]);
+  return await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new TextEncoder().encode(String(prefix || "")),
+      info: new TextEncoder().encode("emby-proxy:harvested-token")
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+function b64encode(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function b64decode(str) {
+  const bin = atob(str);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function encryptToken(env, prefix, token) {
+  const key = await tokenKey(env, prefix);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(token));
+  return b64encode(iv) + "." + b64encode(new Uint8Array(ct));
+}
+async function decryptToken(env, prefix, blob) {
+  if (!blob || typeof blob !== "string" || blob.indexOf(".") < 0) return null;
+  const parts = blob.split(".");
+  if (parts.length !== 2) return null;
+  try {
+    const iv = b64decode(parts[0]);
+    const ct = b64decode(parts[1]);
+    if (iv.length !== 12) return null;
+    const key = await tokenKey(env, prefix);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+    return new TextDecoder().decode(pt);
+  } catch (e) {
+    return null;
+  }
+}
+function extractEmbyToken(request) {
+  const h = request.headers;
+  let t = h.get("X-Emby-Token") || h.get("X-MediaBrowser-Token");
+  if (t) return t.trim();
+  const ea = h.get("X-Emby-Authorization");
+  if (ea) {
+    const m = /Token="?([^",\s]+)"?/i.exec(ea);
+    if (m) return m[1].trim();
+  }
+  const auth = h.get("Authorization");
+  if (auth) {
+    const m = /MediaBrowser[^,]*Token="?([^",\s]+)"?/i.exec(auth);
+    if (m) return m[1].trim();
+  }
+  try {
+    const u = new URL(request.url);
+    const q = u.searchParams.get("api_key");
+    if (q) return q.trim();
+  } catch (e) {
+  }
+  return null;
+}
+async function persistHarvestedToken(env, prefix, token, now) {
+  try {
+    const blob = await encryptToken(env, prefix, token);
+    await dbRun(env, `UPDATE routes SET emby_auth_cache = ?, emby_auth_seen_at = ? WHERE prefix = ?`, blob, now, prefix);
+  } catch (e) {
+    console.log("persistHarvestedToken error:", e.message);
+  }
+}
+
+// src/emby/headers.js
+function parseCustomHeadersForProbe(raw) {
+  if (!raw) return {};
+  const out = {};
+  const s = String(raw);
+  try {
+    const parsed = JSON.parse(s);
+    if (parsed && typeof parsed === "object") {
+      for (const k of Object.keys(parsed)) {
+        if (/^[A-Za-z0-9_\-]+$/.test(k)) out[k] = String(parsed[k]);
+      }
+      return out;
+    }
+  } catch (_) {
+  }
+  for (const ln of s.split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z0-9_\-]+)\s*:\s*(\S.*?)\s*$/.exec(ln);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
+}
+function parseCustomHeaderEmbyToken(customHeadersRaw) {
+  if (!customHeadersRaw) return null;
+  const raw = String(customHeadersRaw);
+  let lines = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      for (const k of Object.keys(parsed)) lines.push(`${k}: ${parsed[k]}`);
+    }
+  } catch (_) {
+    lines = raw.split(/\r?\n/);
+  }
+  for (const ln of lines) {
+    const m = /^\s*(X-Emby-Token|X-MediaBrowser-Token)\s*:\s*(\S.*)$/i.exec(ln);
+    if (m) return m[2].trim();
+  }
+  return null;
+}
+function buildEmbyClientHeaders(token, prefix) {
+  const deviceId = String(prefix || "forward");
+  const authHeader = [
+    'MediaBrowser Client="Forward"',
+    'Device="Forward"',
+    'DeviceId="' + deviceId.replace(/"/g, "") + '"',
+    'Version="1.0.0"',
+    'Token="' + String(token || "").replace(/"/g, "") + '"'
+  ].join(", ");
+  return {
+    "Accept": "application/json",
+    "Authorization": authHeader,
+    "X-Emby-Authorization": authHeader,
+    "X-Emby-Client": "Forward",
+    "X-Emby-Device-Name": "Forward",
+    "X-Emby-Device-Id": deviceId,
+    "X-Emby-Client-Version": "1.0.0",
+    "X-Emby-Token": token,
+    "User-Agent": "Forward/1.0.0"
+  };
+}
+function buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw) {
+  const h = new Headers(request.headers);
+  h.set("Host", targetUrl.host);
+  h.delete("Accept-Encoding");
+  const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  h.delete("cf-connecting-ip");
+  h.delete("cf-ipcountry");
+  h.delete("cf-ray");
+  h.delete("cf-visitor");
+  h.delete("x-forwarded-for");
+  h.delete("x-real-ip");
+  if (currentMode === "realip_only" && realIp) {
+    h.set("X-Real-IP", realIp);
+  } else if (currentMode === "dual" && realIp) {
+    h.set("X-Real-IP", realIp);
+    h.set("X-Forwarded-For", realIp);
+  } else if (currentMode === "strict") {
+    h.delete("X-Forwarded-Proto");
+    h.delete("X-Forwarded-Host");
+    h.set("Origin", targetUrl.origin);
+    h.set("Referer", targetUrl.origin + "/");
+    if (realIp) {
+      h.set("X-Real-IP", realIp);
+      h.set("X-Forwarded-For", realIp);
+    }
+  }
+  if (customHeadersRaw) {
+    customHeadersRaw.split("\n").forEach((line) => {
+      const idx = line.indexOf(":");
+      if (idx > 0) {
+        const key = line.slice(0, idx).trim();
+        const val = line.slice(idx + 1).trim();
+        if (key) h.set(key, val);
+      }
+    });
+  }
+  return h;
+}
+
+// src/probes/alerts.js
+var EMBY_RAW_RETENTION_S = 24 * 3600;
+var EMBY_HOURLY_RETENTION_S = 7 * 86400;
+var EMBY_OUTAGE_THRESHOLD_S = 300;
+var EMBY_HARVEST_IDLE_DROP_S = 7 * 86400;
+async function maybeRollupHourly(env, now) {
+  try {
+    const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`);
+    const last = row ? parseInt(row.v, 10) || 0 : 0;
+    if (Math.floor(now / 3600) <= Math.floor(last / 3600)) return;
+    const hourTs = Math.floor(now / 3600) * 3600 - 3600;
+    const hourEnd = hourTs + 3600;
+    const { results } = await dbAll(env, `
+            SELECT prefix,
+                   SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count,
+                   SUM(CASE WHEN ok=0 THEN 1 ELSE 0 END) AS fail_count,
+                   AVG(ms) AS avg_ms,
+                   MAX(ms) AS max_ms
+              FROM emby_probes
+             WHERE ts >= ? AND ts < ?
+          GROUP BY prefix
+        `, hourTs, hourEnd);
+    const stmts = (results || []).map(
+      (r) => env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_hourly(prefix, hour_ts, ok_count, fail_count, avg_ms, p95_ms) VALUES(?,?,?,?,?,?)`).bind(r.prefix, hourTs, r.ok_count | 0, r.fail_count | 0, Math.round(r.avg_ms || 0), Math.round(r.max_ms || 0))
+    );
+    stmts.push(env.DB.prepare(`DELETE FROM emby_probes WHERE ts < ?`).bind(now - EMBY_RAW_RETENTION_S));
+    stmts.push(env.DB.prepare(`DELETE FROM emby_probe_hourly WHERE hour_ts < ?`).bind(now - EMBY_HOURLY_RETENTION_S));
+    stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_rollup_ts', ?, CURRENT_TIMESTAMP)`).bind(String(now)));
+    stmts.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0, emby_auth_used_at=0
+                                    WHERE emby_auth_cache != ''
+                                      AND emby_auth_seen_at > 0 AND (? - emby_auth_seen_at) > ?
+                                      AND (emby_auth_used_at = 0 OR (? - emby_auth_used_at) > ?)`).bind(now, EMBY_HARVEST_IDLE_DROP_S, now, EMBY_HARVEST_IDLE_DROP_S));
+    if (stmts.length) await env.DB.batch(stmts);
+  } catch (e) {
+    console.log("maybeRollupHourly error:", e.message);
+  }
+}
+async function runAlertFSM(env, routes, probes, now) {
+  try {
+    const stateRows = await dbAll(env, `SELECT prefix, first_fail_at, last_alert_at, alert_kind FROM emby_probe_state`);
+    const stateMap = /* @__PURE__ */ new Map();
+    for (const r of stateRows.results || []) stateMap.set(r.prefix, r);
+    const routeMap = new Map(routes.map((r) => [r.prefix, r]));
+    const upsertAlert = (prefix, firstFail, lastAlert, kind) => env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`).bind(prefix, firstFail, lastAlert, kind);
+    const stmts = [];
+    const sends = [];
+    for (const p of probes) {
+      const st = stateMap.get(p.prefix) || { first_fail_at: 0, last_alert_at: 0, alert_kind: "none" };
+      const route = routeMap.get(p.prefix);
+      const name = route && (route.public_alias || route.remark) || p.prefix;
+      if (p.ok) {
+        if (st.alert_kind === "offline") {
+          const duration = st.first_fail_at > 0 ? now - st.first_fail_at : 0;
+          sends.push({ kind: "recovered", name, duration });
+          stmts.push(upsertAlert(p.prefix, 0, now, "recovered"));
+        } else if (st.first_fail_at !== 0 || st.alert_kind !== "none") {
+          stmts.push(upsertAlert(p.prefix, 0, st.last_alert_at | 0, "none"));
+        }
+      } else {
+        const firstFail = st.first_fail_at > 0 ? st.first_fail_at : now;
+        if (st.alert_kind !== "offline" && now - firstFail >= EMBY_OUTAGE_THRESHOLD_S) {
+          sends.push({ kind: "offline", name, duration: now - firstFail });
+          stmts.push(upsertAlert(p.prefix, firstFail, now, "offline"));
+        } else if (st.first_fail_at === 0) {
+          stmts.push(upsertAlert(p.prefix, firstFail, st.last_alert_at | 0, st.alert_kind || "none"));
+        }
+      }
+    }
+    if (stmts.length) await env.DB.batch(stmts);
+    if (sends.length && env.TG_BOT_TOKEN && env.TG_CHAT_ID) {
+      const fmtDur = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h${Math.floor(s % 3600 / 60)}m` : `${Math.floor(s / 60)}m${s % 60}s`;
+      for (const s of sends) {
+        const msg = s.kind === "offline" ? `\u{1F534} *\u8282\u70B9\u79BB\u7EBF\u544A\u8B66*
+
+\u{1F4CD} ${s.name}
+\u23F1\uFE0F \u6301\u7EED ${fmtDur(s.duration)}` : `\u{1F7E2} *\u8282\u70B9\u5DF2\u6062\u590D*
+
+\u{1F4CD} ${s.name}
+\u23F1\uFE0F \u672C\u6B21\u79BB\u7EBF ${fmtDur(s.duration)}`;
+        try {
+          await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: env.TG_CHAT_ID, text: msg, parse_mode: "Markdown" })
+          });
+        } catch (e) {
+        }
+      }
+    }
+  } catch (e) {
+    console.log("runAlertFSM error:", e.message);
+  }
+}
+
+// src/probes/probe.js
+var EMBY_PROBE_TIMEOUT_MS = 6e3;
+var EMBY_PROBE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+function probeTargetFor(routeTarget) {
+  const first = String(routeTarget || "").split(",").map((s) => s.trim()).filter(Boolean)[0];
+  if (!first) return null;
+  return first.replace(/\/+$/, "");
+}
+async function probeOne(route) {
+  const base = probeTargetFor(route.target);
+  if (!base) return { prefix: route.prefix, ok: false, ms: 0, status: 0 };
+  const ctrl = new AbortController();
+  const tmr = setTimeout(() => ctrl.abort(), EMBY_PROBE_TIMEOUT_MS);
+  const start = Date.now();
+  const customHeaders = parseCustomHeadersForProbe(route.custom_headers);
+  const tryUrl = async (u) => fetch(u, {
+    method: "GET",
+    redirect: "manual",
+    signal: ctrl.signal,
+    headers: { "User-Agent": EMBY_PROBE_UA, "Accept": "application/json,text/plain,*/*", "X-Forward-Probe": "1", ...customHeaders },
+    cf: { cacheTtl: 0 }
+  });
+  try {
+    let res = await tryUrl(base + "/emby/System/Info/Public");
+    if (res.status === 404) res = await tryUrl(base + "/System/Info/Public");
+    if (res.status === 404) res = await tryUrl(base + "/emby/Users/Public");
+    clearTimeout(tmr);
+    const ms = Date.now() - start;
+    const ok = res.status >= 200 && res.status < 400 || res.status === 401 || res.status === 403;
+    return { prefix: route.prefix, ok, ms, status: res.status };
+  } catch (e) {
+    clearTimeout(tmr);
+    return { prefix: route.prefix, ok: false, ms: Date.now() - start, status: 0 };
+  }
+}
+async function probeAll(env) {
+  try {
+    await ensureSchema(env);
+    if (!env.DB) return;
+    const now = Math.floor(Date.now() / 1e3);
+    const { results: routes } = await dbAll(env, `
+            SELECT prefix, target, remark, public_alias, custom_headers,
+                   show_on_status, media_counts_auto_auth, emby_auth_cache
+              FROM routes WHERE show_on_status = 1
+        `);
+    if (!routes || !routes.length) return;
+    const probes = await Promise.all(routes.map((r) => probeOne(r)));
+    const insertStmts = probes.map((p) => env.DB.prepare(`INSERT OR REPLACE INTO emby_probes(prefix, ts, ok, ms, status) VALUES(?,?,?,?,?)`).bind(p.prefix, now, p.ok ? 1 : 0, p.ms | 0, p.status | 0));
+    if (insertStmts.length) await env.DB.batch(insertStmts);
+    await runAlertFSM(env, routes, probes, now);
+    await maybeRollupHourly(env, now);
+  } catch (e) {
+    console.log("probeAll error:", e.message);
+  }
+}
+
+// src/emby/counts.js
+async function fetchItemCounts(targetBase, token, customHeadersRaw, prefix) {
+  if (!targetBase || !token) return null;
+  const ctrl = new AbortController();
+  const tmr = setTimeout(() => ctrl.abort(), 15e3);
+  try {
+    const base = targetBase.replace(/\/+$/, "");
+    const qs = "Recursive=true&IncludeItemTypes=Movie,Series,Episode&api_key=" + encodeURIComponent(token);
+    const url = base + "/emby/Items/Counts?" + qs;
+    const headers = buildEmbyClientHeaders(token, prefix);
+    const extra = parseCustomHeadersForProbe(customHeadersRaw);
+    for (const k of Object.keys(extra)) headers[k] = extra[k];
+    let res = await fetch(url, { method: "GET", redirect: "manual", signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
+    if (res.status === 404) {
+      const url2 = base + "/Items/Counts?" + qs;
+      res = await fetch(url2, { method: "GET", redirect: "manual", signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
+    }
+    clearTimeout(tmr);
+    if (res.status === 401 || res.status === 403) return { unauthorized: true };
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data) return null;
+    return {
+      movies: Number(data.MovieCount || 0) | 0,
+      series: Number(data.SeriesCount || 0) | 0,
+      episodes: Number(data.EpisodeCount || 0) | 0
+    };
+  } catch (e) {
+    clearTimeout(tmr);
+    return null;
+  }
+}
+async function maybeFetchMediaCounts(env, routes, now) {
+  try {
+    const today = nowLocalDayStr();
+    const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_media_day'`);
+    const lastDay = row ? String(row.v || "") : "";
+    if (lastDay === today) return;
+    const writes = [];
+    let wroteCounts = false;
+    for (const r of routes) {
+      if (!r.media_counts_auto_auth) continue;
+      const base = probeTargetFor(r.target);
+      if (!base) continue;
+      let token = parseCustomHeaderEmbyToken(r.custom_headers);
+      let source = "manual";
+      if (!token && r.emby_auth_cache) {
+        token = await decryptToken(env, r.prefix, r.emby_auth_cache);
+        source = "harvested";
+      }
+      if (!token) continue;
+      const counts = await fetchItemCounts(base, token, r.custom_headers, r.prefix);
+      if (!counts) continue;
+      if (counts.unauthorized) {
+        if (source === "harvested") {
+          writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0 WHERE prefix=?`).bind(r.prefix));
+          HARVEST_MEM.delete(r.prefix);
+        }
+        continue;
+      }
+      writes.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_media_counts(prefix, day, movies, series, episodes) VALUES(?,?,?,?,?)`).bind(r.prefix, today, counts.movies, counts.series, counts.episodes));
+      wroteCounts = true;
+      writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_used_at = ? WHERE prefix = ?`).bind(now, r.prefix));
+    }
+    if (wroteCounts) {
+      writes.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_media_day', ?, CURRENT_TIMESTAMP)`).bind(today));
+    }
+    if (writes.length) await env.DB.batch(writes);
+  } catch (e) {
+    console.log("maybeFetchMediaCounts error:", e.message);
+  }
+}
+
+// src/stats/cf.js
 async function getCFTraffic(env, type) {
-    if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) return "缺少变量";
-    try {
-        const end = new Date();
-        let graphqlQuery = {};
-
-        if (type === 'today') {
-            // 【今日流量】查询：从北京时间今日 00:00 算起，使用 AdaptiveGroups
-            // 1. 获取北京时间并清零时分秒
-            const beijingTime = new Date(end.getTime() + 8 * 3600000);
-            beijingTime.setUTCHours(0, 0, 0, 0);
-            // 2. 转回 UTC 供 API 查询
-            const start = new Date(beijingTime.getTime() - 8 * 3600000);
-
-            graphqlQuery = {
-                query: `
+  if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) return "\u7F3A\u5C11\u53D8\u91CF";
+  try {
+    const end = /* @__PURE__ */ new Date();
+    let graphqlQuery = {};
+    if (type === "today") {
+      const beijingTime = new Date(end.getTime() + 8 * 36e5);
+      beijingTime.setUTCHours(0, 0, 0, 0);
+      const start = new Date(beijingTime.getTime() - 8 * 36e5);
+      graphqlQuery = {
+        query: `
                 query {
                   viewer {
                     zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
@@ -6343,14 +7066,13 @@ async function getCFTraffic(env, type) {
                     }
                   }
                 }`
-            };
-        } else {
-            // 【7天、30天】查询：传入数字代表天数，使用 1dGroups
-            const start = new Date(end.getTime() - type * 24 * 3600000);
-            const dateGeq = start.toISOString().split('T')[0];
-            const dateLeq = end.toISOString().split('T')[0];
-            graphqlQuery = {
-                query: `
+      };
+    } else {
+      const start = new Date(end.getTime() - type * 24 * 36e5);
+      const dateGeq = start.toISOString().split("T")[0];
+      const dateLeq = end.toISOString().split("T")[0];
+      graphqlQuery = {
+        query: `
                 query {
                   viewer {
                     zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
@@ -6368,54 +7090,48 @@ async function getCFTraffic(env, type) {
                     }
                   }
                 }`
-            };
-        }
-
-        const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${env.CF_API_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(graphqlQuery)
-        });
-
-        const cfData = await cfRes.json();
-
-        if (cfData.errors && cfData.errors.length > 0) {
-            return `API报错: ${cfData.errors[0].message}`;
-        }
-
-        const zones = cfData?.data?.viewer?.zones;
-        let totalBytes = 0;
-
-        if (zones && zones.length > 0) {
-            if (type === 'today' && zones[0].httpRequestsAdaptiveGroups) {
-                totalBytes = zones[0].httpRequestsAdaptiveGroups[0]?.sum?.edgeResponseBytes || 0;
-            } else if (type !== 'today' && zones[0].httpRequests1dGroups) {
-                // 将多天的 bytes 聚合累加
-                zones[0].httpRequests1dGroups.forEach(g => { totalBytes += (g.sum.bytes || 0); });
-            }
-        }
-
-        if (totalBytes === 0) return "0 B";
-        if (totalBytes >= 1099511627776) return (totalBytes / 1099511627776).toFixed(2) + " TB";
-        if (totalBytes >= 1073741824) return (totalBytes / 1073741824).toFixed(2) + " GB";
-        if (totalBytes >= 1048576) return (totalBytes / 1048576).toFixed(2) + " MB";
-        if (totalBytes >= 1024) return (totalBytes / 1024).toFixed(2) + " KB";
-        return totalBytes + " B";
-
-    } catch (e) {
-        return "请求异常";
+      };
     }
+    const cfRes = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.CF_API_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(graphqlQuery)
+    });
+    const cfData = await cfRes.json();
+    if (cfData.errors && cfData.errors.length > 0) {
+      return `API\u62A5\u9519: ${cfData.errors[0].message}`;
+    }
+    const zones = cfData?.data?.viewer?.zones;
+    let totalBytes = 0;
+    if (zones && zones.length > 0) {
+      if (type === "today" && zones[0].httpRequestsAdaptiveGroups) {
+        totalBytes = zones[0].httpRequestsAdaptiveGroups[0]?.sum?.edgeResponseBytes || 0;
+      } else if (type !== "today" && zones[0].httpRequests1dGroups) {
+        zones[0].httpRequests1dGroups.forEach((g) => {
+          totalBytes += g.sum.bytes || 0;
+        });
+      }
+    }
+    if (totalBytes === 0) return "0 B";
+    if (totalBytes >= 1099511627776) return (totalBytes / 1099511627776).toFixed(2) + " TB";
+    if (totalBytes >= 1073741824) return (totalBytes / 1073741824).toFixed(2) + " GB";
+    if (totalBytes >= 1048576) return (totalBytes / 1048576).toFixed(2) + " MB";
+    if (totalBytes >= 1024) return (totalBytes / 1024).toFixed(2) + " KB";
+    return totalBytes + " B";
+  } catch (e) {
+    return "\u8BF7\u6C42\u5F02\u5E38";
+  }
 }
 
-// 用于生成 TG 播报消息的核心工具函数 (单面板 + 流量之王统计版)
+// src/stats/telegram.js
 async function sendTgStats(env, chatId) {
-    try {
-        const totalQuery = await dbFirst(env, `SELECT COUNT(*) as count FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours')`);
-        const topRegionQuery = await dbFirst(env, `SELECT country, COUNT(*) as c FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours') GROUP BY country ORDER BY c DESC LIMIT 1`);
-        const topNodeQuery = await dbFirst(env, `
+  try {
+    const totalQuery = await dbFirst(env, `SELECT COUNT(*) as count FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours')`);
+    const topRegionQuery = await dbFirst(env, `SELECT country, COUNT(*) as c FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours') GROUP BY country ORDER BY c DESC LIMIT 1`);
+    const topNodeQuery = await dbFirst(env, `
             SELECT r.remark, COUNT(v.id) as c
             FROM visitor_logs v
             LEFT JOIN routes r ON v.prefix = r.prefix
@@ -6423,34 +7139,26 @@ async function sendTgStats(env, chatId) {
             GROUP BY v.prefix
             ORDER BY c DESC LIMIT 1
         `);
-
-        // 获取多时间维度流量
-        const [trafficToday, traffic7d, traffic30d] = await Promise.all([
-            getCFTraffic(env, 'today'),
-            getCFTraffic(env, 7),
-            getCFTraffic(env, 30)
-        ]);
-
-        // ================= 新增：获取今日流量消耗 TOP 1 节点 =================
-        let topNodeMsg = "暂无数据";
-        if (env.CF_API_TOKEN && env.CF_ZONE_ID && env.DB) {
+    const [trafficToday, traffic7d, traffic30d] = await Promise.all([
+      getCFTraffic(env, "today"),
+      getCFTraffic(env, 7),
+      getCFTraffic(env, 30)
+    ]);
+    let topNodeMsg = "\u6682\u65E0\u6570\u636E";
+    if (env.CF_API_TOKEN && env.CF_ZONE_ID && env.DB) {
+      try {
+        const { results: routes } = await dbAll(env, `SELECT prefix, remark FROM routes`);
+        if (routes && routes.length > 0) {
+          const end = /* @__PURE__ */ new Date();
+          const beijingTime = new Date(end.getTime() + 8 * 36e5);
+          beijingTime.setUTCHours(0, 0, 0, 0);
+          const start = new Date(beijingTime.getTime() - 8 * 36e5);
+          let maxBytes = 0;
+          let topNodeName = "\u65E0";
+          await Promise.all(routes.map(async (r) => {
             try {
-                // 1. 获取所有节点
-                const { results: routes } = await dbAll(env, `SELECT prefix, remark FROM routes`);
-                if (routes && routes.length > 0) {
-                    const end = new Date();
-                    const beijingTime = new Date(end.getTime() + 8 * 3600000);
-                    beijingTime.setUTCHours(0, 0, 0, 0);
-                    const start = new Date(beijingTime.getTime() - 8 * 3600000);
-
-                    let maxBytes = 0;
-                    let topNodeName = "无";
-
-                    // 2. 并发向 CF 查询每个节点今天的精准流量
-                    await Promise.all(routes.map(async (r) => {
-                        try {
-                            const graphqlQuery = {
-                                query: `query {
+              const graphqlQuery = {
+                query: `query {
                                   viewer {
                                     zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
                                       httpRequestsAdaptiveGroups(
@@ -6466,741 +7174,164 @@ async function sendTgStats(env, chatId) {
                                     }
                                   }
                                 }`
-                            };
-
-                            const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify(graphqlQuery)
-                            });
-
-                            const cfData = await cfRes.json();
-                            const bytes = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups?.[0]?.sum?.edgeResponseBytes || 0;
-
-                            // 3. 找出最大值
-                            if (bytes > maxBytes) {
-                                maxBytes = bytes;
-                                topNodeName = r.remark || r.prefix;
-                            }
-                        } catch (e) { }
-                    }));
-
-                    // 4. 转换字节并组装文本
-                    if (maxBytes > 0) {
-                        let formatted = "0 B";
-                        if (maxBytes >= 1099511627776) formatted = (maxBytes / 1099511627776).toFixed(2) + " TB";
-                        else if (maxBytes >= 1073741824) formatted = (maxBytes / 1073741824).toFixed(2) + " GB";
-                        else if (maxBytes >= 1048576) formatted = (maxBytes / 1048576).toFixed(2) + " MB";
-                        else if (maxBytes >= 1024) formatted = (maxBytes / 1024).toFixed(2) + " KB";
-                        else formatted = maxBytes + " B";
-
-                        topNodeMsg = `${topNodeName} 跑了 ${formatted}`;
-                    } else {
-                        topNodeMsg = "今日全站零消耗";
-                    }
-                }
+              };
+              const cfRes = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify(graphqlQuery)
+              });
+              const cfData = await cfRes.json();
+              const bytes = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups?.[0]?.sum?.edgeResponseBytes || 0;
+              if (bytes > maxBytes) {
+                maxBytes = bytes;
+                topNodeName = r.remark || r.prefix;
+              }
             } catch (e) {
-                topNodeMsg = "获取失败";
             }
+          }));
+          if (maxBytes > 0) {
+            let formatted = "0 B";
+            if (maxBytes >= 1099511627776) formatted = (maxBytes / 1099511627776).toFixed(2) + " TB";
+            else if (maxBytes >= 1073741824) formatted = (maxBytes / 1073741824).toFixed(2) + " GB";
+            else if (maxBytes >= 1048576) formatted = (maxBytes / 1048576).toFixed(2) + " MB";
+            else if (maxBytes >= 1024) formatted = (maxBytes / 1024).toFixed(2) + " KB";
+            else formatted = maxBytes + " B";
+            topNodeMsg = `${topNodeName} \u8DD1\u4E86 ${formatted}`;
+          } else {
+            topNodeMsg = "\u4ECA\u65E5\u5168\u7AD9\u96F6\u6D88\u8017";
+          }
         }
-        // ====================================================================
-
-        const totalStr = totalQuery ? totalQuery.count : 0;
-        const regionStr = topRegionQuery ? `${topRegionQuery.country === 'CN' ? '🇨🇳 中国大陆' : topRegionQuery.country} (${topRegionQuery.c} 次)` : '暂无记录';
-        const nodeStr = topNodeQuery ? `${topNodeQuery.remark || '未命名节点'} (${topNodeQuery.c} 次)` : '暂无记录';
-
-        const msg =
-            `📊 *今日反代播放数据*\n\n` +
-            `▶️ *今日总播放次数:* ${totalStr} 次\n` +
-            `🌍 *最多访问地区:* ${regionStr}\n` +
-            `🚀 *最喜欢的EMBY:* ${nodeStr}\n\n` +
-            `🌐 *实际流量消耗:*\n` +
-            `当天内: ${trafficToday}\n` +
-            `七天内: ${traffic7d}\n` +
-            `30天内: ${traffic30d}\n\n` +
-            `🏆 *今日流量之王:*\n` +
-            `👑 ${topNodeMsg}`;
-
-        await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: 'Markdown' })
-        });
-    } catch (e) {
-        console.error("TG Send Error:", e);
+      } catch (e) {
+        topNodeMsg = "\u83B7\u53D6\u5931\u8D25";
+      }
     }
-}
+    const totalStr = totalQuery ? totalQuery.count : 0;
+    const regionStr = topRegionQuery ? `${topRegionQuery.country === "CN" ? "\u{1F1E8}\u{1F1F3} \u4E2D\u56FD\u5927\u9646" : topRegionQuery.country} (${topRegionQuery.c} \u6B21)` : "\u6682\u65E0\u8BB0\u5F55";
+    const nodeStr = topNodeQuery ? `${topNodeQuery.remark || "\u672A\u547D\u540D\u8282\u70B9"} (${topNodeQuery.c} \u6B21)` : "\u6682\u65E0\u8BB0\u5F55";
+    const msg = `\u{1F4CA} *\u4ECA\u65E5\u53CD\u4EE3\u64AD\u653E\u6570\u636E*
 
-// ==========================================
-// 反代核心健壮性辅助函数 (proxy-core robustness helpers)
-// ==========================================
-const MAX_RETRY_BODY_BYTES = 8 * 1024 * 1024; // 8MB：超过此值的请求体不缓冲、不重试
-const MAX_UPSTREAM_TIMEOUT_MS = 15000; // F2: 每个上游单次超时
+\u25B6\uFE0F *\u4ECA\u65E5\u603B\u64AD\u653E\u6B21\u6570:* ${totalStr} \u6B21
+\u{1F30D} *\u6700\u591A\u8BBF\u95EE\u5730\u533A:* ${regionStr}
+\u{1F680} *\u6700\u559C\u6B22\u7684EMBY:* ${nodeStr}
 
-// F1: 路由别名保留前缀（与系统/CF 路径冲突的不允许注册为代理别名）
-const RESERVED_ALIASES = new Set([
-    'api', 'admin', '__client_rtt__',
-    'login', 'logout',
-    'assets', 'static', 'public',
-    'health', 'healthz', 'ping', 'status',
-    'emby', 'web', 'stats',
-    'favicon.ico', 'robots.txt',
-    'apple-touch-icon', 'sw.js', 'manifest.json', 'cdn-cgi'
-]);
-const PREFIX_REGEX = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
-function validateRoutePrefix(raw) {
-    const prefix = String(raw || '').trim();
-    if (!prefix) return '别名为空';
-    if (!PREFIX_REGEX.test(prefix)) return '别名格式非法（仅允许字母/数字/_/-，且不超过 64 位，不能以特殊字符开头）';
-    if (RESERVED_ALIASES.has(prefix.toLowerCase())) return `别名 "${prefix}" 为系统保留前缀`;
-    return null;
-}
+\u{1F310} *\u5B9E\u9645\u6D41\u91CF\u6D88\u8017:*
+\u5F53\u5929\u5185: ${trafficToday}
+\u4E03\u5929\u5185: ${traffic7d}
+30\u5929\u5185: ${traffic30d}
 
-// F3: 直接透传 3xx Location 的上游域名白名单（云盘签名直链等）
-const DEFAULT_MANUAL_REDIRECT_DOMAINS = [
-    'cn-beijing-data.aliyundrive.net',
-    'cn-shenzhen-data.aliyundrive.net',
-    'alicdn-adrive-cn-data-yk.alicdn.com',
-    '115.com', '115cdn.com', 'anxia.com',
-    'pcs.drive.quark.cn', 'video-pcs.drive.quark.cn',
-    'mypikpak.com', 'mypikpak.net',
-    'aliyuncs.com', 'myqcloud.com', 'myhuaweicloud.com',
-    'cos.ap-shanghai.myqcloud.com'
-];
-let _manualRedirectHosts = null; // Set<string>，由 ensureSchema/POST 端点初始化
-function hostMatchesAllowlist(host, set) {
-    if (!host || !set || set.size === 0) return false;
-    const h = host.toLowerCase();
-    if (set.has(h)) return true;
-    for (const d of set) {
-        if (h.endsWith('.' + d)) return true;
-    }
-    return false;
-}
-
-// F4: 内置 12 个 CF 友好优选域名（首次部署自动 seed）
-const DEFAULT_OPTIMIZED_DOMAINS = [
-    { domain: 'cf.090227.xyz',         note: 'ZhiXuanWang 优选合集' },
-    { domain: 'cf.zhetengsha.eu.org',  note: '社区维护' },
-    { domain: 'cdn.2020111.xyz',       note: '2020111 推送' },
-    { domain: 'xn--b6gac.eu.org',      note: 'IPv6 友好' },
-    { domain: 'cloudflare.182682.xyz', note: '182682 推送' },
-    { domain: 'cf.877771.xyz',         note: '877771 推送' },
-    { domain: 'cf.0sm.com',            note: '0sm 推送' },
-    { domain: 'visa.com.sg',           note: '亚太低延迟' },
-    { domain: 'visa.com.hk',           note: '香港' },
-    { domain: 'time.is',               note: '欧洲低延迟' },
-    { domain: 'cf-ns.com',             note: '通用' },
-    { domain: 'icook.tw',              note: '台湾' }
-];
-
-// F4: HEAD 测速辅助
-async function probeDomain(domain) {
-    const start = Date.now();
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 4000);
-    try {
-        const res = await fetch(`https://${domain}/cdn-cgi/trace`, {
-            method: 'HEAD', redirect: 'manual', signal: controller.signal,
-            cf: { cacheTtl: 0 }
-        });
-        clearTimeout(t);
-        if (res.status >= 500) return { ms: -1, ok: false };
-        return { ms: Date.now() - start, ok: true };
-    } catch (e) { clearTimeout(t); return { ms: -1, ok: false }; }
-}
-
-// ==========================================
-// emby-js 监控移植：节点探测 / 告警 FSM / 媒体计数 / 令牌收割
-// ==========================================
-const EMBY_PROBE_TIMEOUT_MS = 6000;
-const EMBY_RAW_RETENTION_S = 24 * 3600;
-const EMBY_HOURLY_RETENTION_S = 7 * 86400;
-const EMBY_OUTAGE_THRESHOLD_S = 300;       // 5 min 持续失败才告警
-const EMBY_HARVEST_DEBOUNCE_S = 600;       // 同令牌 10 min 内不重复写 D1
-const EMBY_HARVEST_IDLE_DROP_S = 7 * 86400;
-
-// 进程内令牌写入去抖（prefix -> { token, writtenAt })
-const HARVEST_MEM = new Map();
-
-function nowLocalDayStr() {
-    return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-}
-
-function probeTargetFor(routeTarget) {
-    const first = String(routeTarget || '').split(',').map(s => s.trim()).filter(Boolean)[0];
-    if (!first) return null;
-    return first.replace(/\/+$/, '');
-}
-
-function parseCustomHeadersForProbe(raw) {
-    if (!raw) return {};
-    const out = {};
-    const s = String(raw);
-    try {
-        const parsed = JSON.parse(s);
-        if (parsed && typeof parsed === 'object') {
-            for (const k of Object.keys(parsed)) {
-                if (/^[A-Za-z0-9_\-]+$/.test(k)) out[k] = String(parsed[k]);
-            }
-            return out;
-        }
-    } catch (_) { /* fall through */ }
-    for (const ln of s.split(/\r?\n/)) {
-        const m = /^\s*([A-Za-z0-9_\-]+)\s*:\s*(\S.*?)\s*$/.exec(ln);
-        if (m) out[m[1]] = m[2];
-    }
-    return out;
-}
-
-// 与 emby-js (pototazhang/emby-js) 上游一致：使用真实浏览器 UA，避免被 WAF/CF 拦截。
-const EMBY_PROBE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-async function probeOne(route) {
-    const base = probeTargetFor(route.target);
-    if (!base) return { prefix: route.prefix, ok: false, ms: 0, status: 0 };
-    const ctrl = new AbortController();
-    const tmr = setTimeout(() => ctrl.abort(), EMBY_PROBE_TIMEOUT_MS);
-    const start = Date.now();
-    const customHeaders = parseCustomHeadersForProbe(route.custom_headers);
-    const tryUrl = async (u) => fetch(u, {
-        method: 'GET', redirect: 'manual', signal: ctrl.signal,
-        headers: { 'User-Agent': EMBY_PROBE_UA, 'Accept': 'application/json,text/plain,*/*', 'X-Forward-Probe': '1', ...customHeaders },
-        cf: { cacheTtl: 0 }
+\u{1F3C6} *\u4ECA\u65E5\u6D41\u91CF\u4E4B\u738B:*
+\u{1F451} ${topNodeMsg}`;
+    await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: msg, parse_mode: "Markdown" })
     });
-    try {
-        // 与上游一致的回退顺序：/emby/System/Info/Public → /System/Info/Public → /emby/Users/Public
-        let res = await tryUrl(base + '/emby/System/Info/Public');
-        if (res.status === 404) res = await tryUrl(base + '/System/Info/Public');
-        if (res.status === 404) res = await tryUrl(base + '/emby/Users/Public');
-        clearTimeout(tmr);
-        const ms = Date.now() - start;
-        // 与上游一致：401/403 视为 "服务器在线但需要鉴权"，仍记 ok。
-        const ok = (res.status >= 200 && res.status < 400) || res.status === 401 || res.status === 403;
-        return { prefix: route.prefix, ok, ms, status: res.status };
-    } catch (e) {
-        clearTimeout(tmr);
-        return { prefix: route.prefix, ok: false, ms: Date.now() - start, status: 0 };
-    }
+  } catch (e) {
+    console.error("TG Send Error:", e);
+  }
 }
 
-async function maybeRollupHourly(env, now) {
-    try {
-        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_rollup_ts'`);
-        const last = row ? parseInt(row.v, 10) || 0 : 0;
-        if (Math.floor(now / 3600) <= Math.floor(last / 3600)) return;
-        const hourTs = Math.floor(now / 3600) * 3600 - 3600;
-        const hourEnd = hourTs + 3600;
-        const { results } = await dbAll(env, `
-            SELECT prefix,
-                   SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count,
-                   SUM(CASE WHEN ok=0 THEN 1 ELSE 0 END) AS fail_count,
-                   AVG(ms) AS avg_ms,
-                   MAX(ms) AS max_ms
-              FROM emby_probes
-             WHERE ts >= ? AND ts < ?
-          GROUP BY prefix
-        `, hourTs, hourEnd);
-        const stmts = (results || []).map(r =>
-            env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_hourly(prefix, hour_ts, ok_count, fail_count, avg_ms, p95_ms) VALUES(?,?,?,?,?,?)`)
-                .bind(r.prefix, hourTs, r.ok_count | 0, r.fail_count | 0, Math.round(r.avg_ms || 0), Math.round(r.max_ms || 0))
-        );
-        stmts.push(env.DB.prepare(`DELETE FROM emby_probes WHERE ts < ?`).bind(now - EMBY_RAW_RETENTION_S));
-        stmts.push(env.DB.prepare(`DELETE FROM emby_probe_hourly WHERE hour_ts < ?`).bind(now - EMBY_HOURLY_RETENTION_S));
-        stmts.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_rollup_ts', ?, CURRENT_TIMESTAMP)`).bind(String(now)));
-        // 闲置令牌回收
-        stmts.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0, emby_auth_used_at=0
-                                    WHERE emby_auth_cache != ''
-                                      AND emby_auth_seen_at > 0 AND (? - emby_auth_seen_at) > ?
-                                      AND (emby_auth_used_at = 0 OR (? - emby_auth_used_at) > ?)`)
-            .bind(now, EMBY_HARVEST_IDLE_DROP_S, now, EMBY_HARVEST_IDLE_DROP_S));
-        if (stmts.length) await env.DB.batch(stmts);
-    } catch (e) {
-        console.log('maybeRollupHourly error:', e.message);
-    }
-}
-
-async function runAlertFSM(env, routes, probes, now) {
-    try {
-        const stateRows = await dbAll(env, `SELECT prefix, first_fail_at, last_alert_at, alert_kind FROM emby_probe_state`);
-        const stateMap = new Map();
-        for (const r of (stateRows.results || [])) stateMap.set(r.prefix, r);
-        const routeMap = new Map(routes.map(r => [r.prefix, r]));
-
-        const upsertAlert = (prefix, firstFail, lastAlert, kind) =>
-            env.DB.prepare(`INSERT OR REPLACE INTO emby_probe_state(prefix, first_fail_at, last_alert_at, alert_kind) VALUES(?,?,?,?)`)
-                .bind(prefix, firstFail, lastAlert, kind);
-        const stmts = [];
-        const sends = [];
-        for (const p of probes) {
-            const st = stateMap.get(p.prefix) || { first_fail_at: 0, last_alert_at: 0, alert_kind: 'none' };
-            const route = routeMap.get(p.prefix);
-            const name = (route && (route.public_alias || route.remark)) || p.prefix;
-            if (p.ok) {
-                if (st.alert_kind === 'offline') {
-                    const duration = st.first_fail_at > 0 ? (now - st.first_fail_at) : 0;
-                    sends.push({ kind: 'recovered', name, duration });
-                    stmts.push(upsertAlert(p.prefix, 0, now, 'recovered'));
-                } else if (st.first_fail_at !== 0 || st.alert_kind !== 'none') {
-                    stmts.push(upsertAlert(p.prefix, 0, st.last_alert_at | 0, 'none'));
-                }
-            } else {
-                const firstFail = st.first_fail_at > 0 ? st.first_fail_at : now;
-                if (st.alert_kind !== 'offline' && (now - firstFail) >= EMBY_OUTAGE_THRESHOLD_S) {
-                    sends.push({ kind: 'offline', name, duration: now - firstFail });
-                    stmts.push(upsertAlert(p.prefix, firstFail, now, 'offline'));
-                } else if (st.first_fail_at === 0) {
-                    stmts.push(upsertAlert(p.prefix, firstFail, st.last_alert_at | 0, st.alert_kind || 'none'));
-                }
-            }
-        }
-        if (stmts.length) await env.DB.batch(stmts);
-        if (sends.length && env.TG_BOT_TOKEN && env.TG_CHAT_ID) {
-            const fmtDur = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m` : `${Math.floor(s / 60)}m${s % 60}s`;
-            for (const s of sends) {
-                const msg = s.kind === 'offline'
-                    ? `🔴 *节点离线告警*\n\n📍 ${s.name}\n⏱️ 持续 ${fmtDur(s.duration)}`
-                    : `🟢 *节点已恢复*\n\n📍 ${s.name}\n⏱️ 本次离线 ${fmtDur(s.duration)}`;
-                try {
-                    await fetch(`https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: env.TG_CHAT_ID, text: msg, parse_mode: 'Markdown' })
-                    });
-                } catch (e) { /* swallow */ }
-            }
-        }
-    } catch (e) {
-        console.log('runAlertFSM error:', e.message);
-    }
-}
-
-function parseCustomHeaderEmbyToken(customHeadersRaw) {
-    if (!customHeadersRaw) return null;
-    const raw = String(customHeadersRaw);
-    let lines = [];
-    try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-            for (const k of Object.keys(parsed)) lines.push(`${k}: ${parsed[k]}`);
-        }
-    } catch (_) {
-        lines = raw.split(/\r?\n/);
-    }
-    for (const ln of lines) {
-        const m = /^\s*(X-Emby-Token|X-MediaBrowser-Token)\s*:\s*(\S.*)$/i.exec(ln);
-        if (m) return m[2].trim();
-    }
-    return null;
-}
-
-// 与上游 emby-js buildEmbyClientHeaders 对齐：完整的 Emby 客户端身份头 + 真实 UA。
-// 同时把 token 写进 ?api_key= 查询串（上游 fetchEmbyMediaCounts 的做法），
-// 兼容部分仅认 query token 或仅认 X-Emby-Token 的 Emby 反代/WAF。
-function buildEmbyClientHeaders(token, prefix) {
-    const deviceId = String(prefix || 'forward');
-    const authHeader = [
-        'MediaBrowser Client="Forward"',
-        'Device="Forward"',
-        'DeviceId="' + deviceId.replace(/"/g, '') + '"',
-        'Version="1.0.0"',
-        'Token="' + String(token || '').replace(/"/g, '') + '"'
-    ].join(', ');
-    return {
-        'Accept': 'application/json',
-        'Authorization': authHeader,
-        'X-Emby-Authorization': authHeader,
-        'X-Emby-Client': 'Forward',
-        'X-Emby-Device-Name': 'Forward',
-        'X-Emby-Device-Id': deviceId,
-        'X-Emby-Client-Version': '1.0.0',
-        'X-Emby-Token': token,
-        'User-Agent': 'Forward/1.0.0'
-    };
-}
-
-async function fetchItemCounts(targetBase, token, customHeadersRaw, prefix) {
-    if (!targetBase || !token) return null;
-    const ctrl = new AbortController();
-    // 与上游一致：媒体计数允许 15s（大型库 /Items/Counts 可能慢）。
-    const tmr = setTimeout(() => ctrl.abort(), 15000);
-    try {
-        const base = targetBase.replace(/\/+$/, '');
-        const qs = 'Recursive=true&IncludeItemTypes=Movie,Series,Episode&api_key=' + encodeURIComponent(token);
-        const url = base + '/emby/Items/Counts?' + qs;
-        const headers = buildEmbyClientHeaders(token, prefix);
-        // 手动覆盖头（如 route.custom_headers 里指定的 X-Emby-Token）优先生效。
-        const extra = parseCustomHeadersForProbe(customHeadersRaw);
-        for (const k of Object.keys(extra)) headers[k] = extra[k];
-        let res = await fetch(url, { method: 'GET', redirect: 'manual', signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
-        // 兼容裸 Emby（无 /emby 前缀）部署
-        if (res.status === 404) {
-            const url2 = base + '/Items/Counts?' + qs;
-            res = await fetch(url2, { method: 'GET', redirect: 'manual', signal: ctrl.signal, headers, cf: { cacheTtl: 0 } });
-        }
-        clearTimeout(tmr);
-        if (res.status === 401 || res.status === 403) return { unauthorized: true };
-        if (!res.ok) return null;
-        const data = await res.json().catch(() => null);
-        if (!data) return null;
-        return {
-            movies: Number(data.MovieCount || 0) | 0,
-            series: Number(data.SeriesCount || 0) | 0,
-            episodes: Number(data.EpisodeCount || 0) | 0
-        };
-    } catch (e) {
-        clearTimeout(tmr);
-        return null;
-    }
-}
-
-async function tokenKey(env, prefix) {
-    const ikm = new TextEncoder().encode(String(env.ADMIN_TOKEN || ''));
-    const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
-    return await crypto.subtle.deriveKey(
-        { name: 'HKDF', hash: 'SHA-256',
-          salt: new TextEncoder().encode(String(prefix || '')),
-          info: new TextEncoder().encode('emby-proxy:harvested-token') },
-        baseKey,
-        { name: 'AES-GCM', length: 256 },
-        false, ['encrypt', 'decrypt']
-    );
-}
-
-function b64encode(bytes) {
-    let s = '';
-    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
-}
-function b64decode(str) {
-    const bin = atob(str);
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-}
-
-async function encryptToken(env, prefix, token) {
-    const key = await tokenKey(env, prefix);
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(token));
-    return b64encode(iv) + '.' + b64encode(new Uint8Array(ct));
-}
-
-async function decryptToken(env, prefix, blob) {
-    if (!blob || typeof blob !== 'string' || blob.indexOf('.') < 0) return null;
-    const parts = blob.split('.');
-    if (parts.length !== 2) return null;
-    try {
-        const iv = b64decode(parts[0]);
-        const ct = b64decode(parts[1]);
-        if (iv.length !== 12) return null;
-        const key = await tokenKey(env, prefix);
-        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-        return new TextDecoder().decode(pt);
-    } catch (e) {
-        return null;
-    }
-}
-
-function extractEmbyToken(request) {
-    const h = request.headers;
-    let t = h.get('X-Emby-Token') || h.get('X-MediaBrowser-Token');
-    if (t) return t.trim();
-    const ea = h.get('X-Emby-Authorization');
-    if (ea) {
-        const m = /Token="?([^",\s]+)"?/i.exec(ea);
-        if (m) return m[1].trim();
-    }
-    const auth = h.get('Authorization');
-    if (auth) {
-        const m = /MediaBrowser[^,]*Token="?([^",\s]+)"?/i.exec(auth);
-        if (m) return m[1].trim();
-    }
-    try {
-        const u = new URL(request.url);
-        const q = u.searchParams.get('api_key');
-        if (q) return q.trim();
-    } catch (e) { /* ignore */ }
-    return null;
-}
-
-async function persistHarvestedToken(env, prefix, token, now) {
-    try {
-        const blob = await encryptToken(env, prefix, token);
-        await dbRun(env, `UPDATE routes SET emby_auth_cache = ?, emby_auth_seen_at = ? WHERE prefix = ?`, blob, now, prefix);
-    } catch (e) {
-        console.log('persistHarvestedToken error:', e.message);
-    }
-}
-
-async function maybeFetchMediaCounts(env, routes, now) {
-    try {
-        const today = nowLocalDayStr();
-        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'emby_last_media_day'`);
-        const lastDay = row ? String(row.v || '') : '';
-        if (lastDay === today) return;
-        const writes = [];
-        let wroteCounts = false;
-        for (const r of routes) {
-            if (!r.media_counts_auto_auth) continue;
-            const base = probeTargetFor(r.target);
-            if (!base) continue;
-            let token = parseCustomHeaderEmbyToken(r.custom_headers);
-            let source = 'manual';
-            if (!token && r.emby_auth_cache) {
-                token = await decryptToken(env, r.prefix, r.emby_auth_cache);
-                source = 'harvested';
-            }
-            if (!token) continue;
-            const counts = await fetchItemCounts(base, token, r.custom_headers, r.prefix);
-            if (!counts) continue;
-            if (counts.unauthorized) {
-                if (source === 'harvested') {
-                    writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_cache='', emby_auth_seen_at=0 WHERE prefix=?`).bind(r.prefix));
-                    HARVEST_MEM.delete(r.prefix);
-                }
-                continue;
-            }
-            writes.push(env.DB.prepare(`INSERT OR REPLACE INTO emby_media_counts(prefix, day, movies, series, episodes) VALUES(?,?,?,?,?)`)
-                .bind(r.prefix, today, counts.movies, counts.series, counts.episodes));
-            wroteCounts = true;
-            writes.push(env.DB.prepare(`UPDATE routes SET emby_auth_used_at = ? WHERE prefix = ?`).bind(now, r.prefix));
-        }
-        if (wroteCounts) {
-            writes.push(env.DB.prepare(`INSERT OR REPLACE INTO kv_config(k, v, updated_at) VALUES('emby_last_media_day', ?, CURRENT_TIMESTAMP)`).bind(today));
-        }
-        if (writes.length) await env.DB.batch(writes);
-    } catch (e) {
-        console.log('maybeFetchMediaCounts error:', e.message);
-    }
-}
-
-function jsonResponse(body, status = 200, extraHeaders = {}) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            ...extraHeaders,
-        },
-    });
-}
-
-function htmlEscape(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-// ECG/心电图-style history strip. Takes [{ok, ms}, …] (oldest→newest, up to ~60 samples).
-// Returns inline SVG string. Static — no animation, baseline + QRS-like spikes.
-// Width 240, height 36, ok line uses currentColor or var(--primary), fail spikes use var(--err).
-function ecgStripSvg(history, opts) {
-    opts = opts || {};
-    const W = 240, H = 36;
-    const padX = 2, padY = 4;
-    const innerW = W - padX * 2;
-    const innerH = H - padY * 2;
-    const baseY = padY + innerH - 2; // isoelectric baseline near bottom
-    const samples = Array.isArray(history) ? history.slice(-60) : [];
-    if (!samples.length) {
-        return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-            <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
-            <text x="${W / 2}" y="${H / 2 + 3}" class="ecg-empty" text-anchor="middle">暂无探测</text>
-        </svg>`;
-    }
-    const n = samples.length;
-    const stepX = n > 1 ? innerW / (n - 1) : innerW;
-    // map ms to y (lower y = higher spike). Cap at 400ms for visual range.
-    const msToY = (ms) => {
-        const capped = Math.max(0, Math.min(400, ms || 0));
-        // base = baseY; peak height = up to innerH * 0.85
-        return baseY - (capped / 400) * (innerH * 0.85);
-    };
-    // Build path: small baseline jitter + QRS-like spike per sample
-    // Each sample is rendered as: baseline → tiny pre-tick → spike up to y → drop back to baseline → next
-    let okPath = '';
-    let failMarks = '';
-    let lastX = padX;
-    let cursor = padX;
-    let inOkRun = false;
-    for (let i = 0; i < n; i++) {
-        const s = samples[i];
-        const x = padX + stepX * i;
-        if (s.ok) {
-            const peakY = msToY(s.ms);
-            // Lead-in flat segment, then a QRS spike (up-tick, peak, down-tick), then return to baseline.
-            const preX = Math.max(lastX, x - stepX * 0.45);
-            const upX  = x - stepX * 0.18;
-            const dnX  = x + stepX * 0.10;
-            const tailX = x + stepX * 0.25;
-            if (!inOkRun) {
-                okPath += `M${preX.toFixed(2)} ${baseY}`;
-                inOkRun = true;
-            } else {
-                okPath += `L${preX.toFixed(2)} ${baseY}`;
-            }
-            okPath += ` L${upX.toFixed(2)} ${baseY} L${x.toFixed(2)} ${peakY.toFixed(2)} L${dnX.toFixed(2)} ${baseY} L${tailX.toFixed(2)} ${baseY}`;
-            lastX = tailX;
-        } else {
-            // Render failure as a tall red spike + close prior ok run.
-            if (inOkRun) {
-                okPath += ` L${(x - stepX * 0.3).toFixed(2)} ${baseY}`;
-                inOkRun = false;
-            }
-            failMarks += `<line x1="${x.toFixed(2)}" y1="${(padY + 1).toFixed(2)}" x2="${x.toFixed(2)}" y2="${baseY.toFixed(2)}" class="ecg-fail"/>`;
-            lastX = x;
-        }
-    }
-    if (inOkRun) {
-        okPath += ` L${(padX + innerW).toFixed(2)} ${baseY}`;
-    }
-    // Current-sample marker
-    const lastSample = samples[n - 1];
-    const lastX2 = padX + innerW;
-    const lastY = lastSample.ok ? msToY(lastSample.ms) : baseY;
-    const lastClass = lastSample.ok ? 'ecg-dot ok' : 'ecg-dot bad';
-    return `<svg class="ecg-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-        <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" class="ecg-base"/>
-        <line x1="${padX}" y1="${(padY + innerH * 0.5).toFixed(2)}" x2="${W - padX}" y2="${(padY + innerH * 0.5).toFixed(2)}" class="ecg-mid"/>
-        ${okPath ? `<path d="${okPath}" class="ecg-line" fill="none"/>` : ''}
-        ${failMarks}
-        <circle cx="${lastX2.toFixed(2)}" cy="${lastY.toFixed(2)}" r="2.4" class="${lastClass}"/>
-    </svg>`;
-}
-
-function newShareToken() {
-    const b = new Uint8Array(24);
-    crypto.getRandomValues(b);
-    let s = '';
-    for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, '0');
-    return s;
-}
-
-// 安全只读：仅取公开渲染允许的字段。严禁触达 target / custom_headers / emby_auth_cache。
-export async function loadStatusData(env, opts) {
-    opts = opts || {};
-    const limitPrefix = opts.prefix || null;
-    const where = limitPrefix
-        ? `WHERE show_on_status = 1 AND prefix = ?`
-        : `WHERE show_on_status = 1`;
-    const stmt = env.DB.prepare(`SELECT prefix, public_alias, remark, icon, sort_order, media_counts_auto_auth
+// src/status/page.js
+async function loadStatusData(env, opts) {
+  opts = opts || {};
+  const limitPrefix = opts.prefix || null;
+  const where = limitPrefix ? `WHERE show_on_status = 1 AND prefix = ?` : `WHERE show_on_status = 1`;
+  const stmt = env.DB.prepare(`SELECT prefix, public_alias, remark, icon, sort_order, media_counts_auto_auth
                                   FROM routes ${where} ORDER BY sort_order ASC, prefix ASC`);
-    const { results: routes } = limitPrefix ? await stmt.bind(limitPrefix).all() : await stmt.all();
-    if (!routes || !routes.length) return { routes: [], cards: [] };
-
-    const now = Math.floor(Date.now() / 1000);
-    const since24 = now - 24 * 3600;
-    const since7d = now - 7 * 86400;
-    const today = nowLocalDayStr();
-
-    const cards = [];
-    for (const r of routes) {
-        const lastProbe = await dbFirst(env, `SELECT ok, ms, status, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 1`, r.prefix);
-        const last60 = await dbAll(env, `SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`, r.prefix);
-        const raw24 = await dbFirst(env, `SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`, r.prefix, since24);
-        const hourly7 = await dbFirst(env, `SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`, r.prefix, since7d);
-        // Fallback: 今日还没抓到(跨日窗口 / 外部 cron 未跑 / token 临时挂)时,回退到最近一天已有的计数,
-        // 保持 /status 永远不空白; delta 以"最近一天"对比"再前一天"。
-        const latestCounts = await dbFirst(env, `SELECT day, movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day <= ? ORDER BY day DESC LIMIT 1`, r.prefix, today);
-        const prevCounts = latestCounts
-            ? await dbFirst(env, `SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day < ? ORDER BY day DESC LIMIT 1`, r.prefix, latestCounts.day)
-            : null;
-        const todayCounts = latestCounts;
-        const yesterdayCounts = prevCounts;
-        const total24 = (raw24 && raw24.total) | 0;
-        const ok24 = (raw24 && raw24.ok_count) | 0;
-        const total7d = (hourly7 && hourly7.total) | 0;
-        const ok7d = (hourly7 && hourly7.ok_count) | 0;
-        cards.push({
-            prefix: r.prefix,
-            name: r.public_alias || r.remark || r.prefix,
-            icon: r.icon || '',
-            ok: !!(lastProbe && lastProbe.ok),
-            latest_ms: lastProbe ? (lastProbe.ms | 0) : 0,
-            latest_ts: lastProbe ? (lastProbe.ts | 0) : 0,
-            avail_24h: total24 > 0 ? (ok24 / total24) : null,
-            avail_7d: total7d > 0 ? (ok7d / total7d) : null,
-            history: (last60.results || []).map(p => ({ ok: p.ok, ms: p.ms | 0 })).reverse(),
-            counts: todayCounts ? { movies: todayCounts.movies | 0, series: todayCounts.series | 0, episodes: todayCounts.episodes | 0 } : null,
-            counts_delta: (todayCounts && yesterdayCounts) ? {
-                movies: (todayCounts.movies | 0) - (yesterdayCounts.movies | 0),
-                series: (todayCounts.series | 0) - (yesterdayCounts.series | 0),
-                episodes: (todayCounts.episodes | 0) - (yesterdayCounts.episodes | 0)
-            } : null,
-            show_counts: !!r.media_counts_auto_auth
-        });
-    }
-    return { routes, cards };
+  const { results: routes } = limitPrefix ? await stmt.bind(limitPrefix).all() : await stmt.all();
+  if (!routes || !routes.length) return { routes: [], cards: [] };
+  const now = Math.floor(Date.now() / 1e3);
+  const since24 = now - 24 * 3600;
+  const since7d = now - 7 * 86400;
+  const today = nowLocalDayStr();
+  const cards = [];
+  for (const r of routes) {
+    const lastProbe = await dbFirst(env, `SELECT ok, ms, status, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 1`, r.prefix);
+    const last60 = await dbAll(env, `SELECT ok, ms, ts FROM emby_probes WHERE prefix = ? ORDER BY ts DESC LIMIT 60`, r.prefix);
+    const raw24 = await dbFirst(env, `SELECT SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END) AS ok_count, COUNT(*) AS total FROM emby_probes WHERE prefix = ? AND ts >= ?`, r.prefix, since24);
+    const hourly7 = await dbFirst(env, `SELECT SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total FROM emby_probe_hourly WHERE prefix = ? AND hour_ts >= ?`, r.prefix, since7d);
+    const latestCounts = await dbFirst(env, `SELECT day, movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day <= ? ORDER BY day DESC LIMIT 1`, r.prefix, today);
+    const prevCounts = latestCounts ? await dbFirst(env, `SELECT movies, series, episodes FROM emby_media_counts WHERE prefix = ? AND day < ? ORDER BY day DESC LIMIT 1`, r.prefix, latestCounts.day) : null;
+    const todayCounts = latestCounts;
+    const yesterdayCounts = prevCounts;
+    const total24 = (raw24 && raw24.total) | 0;
+    const ok24 = (raw24 && raw24.ok_count) | 0;
+    const total7d = (hourly7 && hourly7.total) | 0;
+    const ok7d = (hourly7 && hourly7.ok_count) | 0;
+    cards.push({
+      prefix: r.prefix,
+      name: r.public_alias || r.remark || r.prefix,
+      icon: r.icon || "",
+      ok: !!(lastProbe && lastProbe.ok),
+      latest_ms: lastProbe ? lastProbe.ms | 0 : 0,
+      latest_ts: lastProbe ? lastProbe.ts | 0 : 0,
+      avail_24h: total24 > 0 ? ok24 / total24 : null,
+      avail_7d: total7d > 0 ? ok7d / total7d : null,
+      history: (last60.results || []).map((p) => ({ ok: p.ok, ms: p.ms | 0 })).reverse(),
+      counts: todayCounts ? { movies: todayCounts.movies | 0, series: todayCounts.series | 0, episodes: todayCounts.episodes | 0 } : null,
+      counts_delta: todayCounts && yesterdayCounts ? {
+        movies: (todayCounts.movies | 0) - (yesterdayCounts.movies | 0),
+        series: (todayCounts.series | 0) - (yesterdayCounts.series | 0),
+        episodes: (todayCounts.episodes | 0) - (yesterdayCounts.episodes | 0)
+      } : null,
+      show_counts: !!r.media_counts_auto_auth
+    });
+  }
+  return { routes, cards };
 }
-
-export function renderStatusHtml(data, opts) {
-    opts = opts || {};
-    const title = htmlEscape(opts.title || '节点状态');
-    const cards = data.cards;
-    const total = cards.length;
-    const online = cards.filter(c => c.ok).length;
-    const offline = total - online;
-    const pct = (v) => v == null ? '—' : (v * 100).toFixed(1) + '%';
-    const fmtDelta = (n) => n === 0 ? '' : (n > 0 ? `+${n}` : String(n));
-    const fmtTs = (ts) => {
-        if (!ts) return '—';
-        const d = new Date((ts + 8 * 3600) * 1000);
-        return d.toISOString().slice(5, 16).replace('T', ' ');
-    };
-    const overallPct = total === 0 ? null : (online / total);
-    const overallPctText = overallPct == null ? '—' : (overallPct * 100).toFixed(1);
-    const overallTier = overallPct == null ? 'idle'
-        : overallPct >= 0.99 ? 'ok'
-        : overallPct >= 0.95 ? 'warn'
-        : 'bad';
-    const liveOnes = cards.filter(c => c.ok);
-    const avgMs = liveOnes.length ? Math.round(liveOnes.reduce((s, c) => s + (c.latest_ms | 0), 0) / liveOnes.length) : null;
-
-    const hideNames = !!opts.hideNames;
-    const cardsHtml = cards.map((c, i) => {
-        const ecgHtml = ecgStripSvg(c.history);
-        const countsRow = (c.show_counts && c.counts) ? `
+function renderStatusHtml(data, opts) {
+  opts = opts || {};
+  const title = htmlEscape(opts.title || "\u8282\u70B9\u72B6\u6001");
+  const cards = data.cards;
+  const total = cards.length;
+  const online = cards.filter((c) => c.ok).length;
+  const offline = total - online;
+  const pct = (v) => v == null ? "\u2014" : (v * 100).toFixed(1) + "%";
+  const fmtDelta = (n) => n === 0 ? "" : n > 0 ? `+${n}` : String(n);
+  const fmtTs = (ts) => {
+    if (!ts) return "\u2014";
+    const d = new Date((ts + 8 * 3600) * 1e3);
+    return d.toISOString().slice(5, 16).replace("T", " ");
+  };
+  const overallPct = total === 0 ? null : online / total;
+  const overallPctText = overallPct == null ? "\u2014" : (overallPct * 100).toFixed(1);
+  const overallTier = overallPct == null ? "idle" : overallPct >= 0.99 ? "ok" : overallPct >= 0.95 ? "warn" : "bad";
+  const liveOnes = cards.filter((c) => c.ok);
+  const avgMs = liveOnes.length ? Math.round(liveOnes.reduce((s, c) => s + (c.latest_ms | 0), 0) / liveOnes.length) : null;
+  const hideNames = !!opts.hideNames;
+  const cardsHtml = cards.map((c, i) => {
+    const ecgHtml = ecgStripSvg(c.history);
+    const countsRow = c.show_counts && c.counts ? `
             <div class="s-counts">
-                <span>电影 <b>${c.counts.movies}</b>${c.counts_delta && c.counts_delta.movies ? `<i class="s-delta ${c.counts_delta.movies > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.movies)}</i>` : ''}</span>
-                <span>剧集 <b>${c.counts.series}</b>${c.counts_delta && c.counts_delta.series ? `<i class="s-delta ${c.counts_delta.series > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.series)}</i>` : ''}</span>
-                <span>集数 <b>${c.counts.episodes}</b>${c.counts_delta && c.counts_delta.episodes ? `<i class="s-delta ${c.counts_delta.episodes > 0 ? 'up' : 'down'}">${fmtDelta(c.counts_delta.episodes)}</i>` : ''}</span>
-            </div>` : '';
-        const displayName = hideNames ? `节点 ${i + 1}` : c.name;
-        const iconHtml = hideNames
-            ? '<span class="s-icon-fallback" aria-hidden="true"></span>'
-            : (c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback" aria-hidden="true"></span>');
-        const isSlow = c.ok && (c.latest_ms | 0) >= 200;
-        const pillCls = !c.ok ? 'bad' : (isSlow ? 'warn' : 'ok');
-        const pillLabel = !c.ok ? '离线' : (isSlow ? '延迟' : '在线');
-        const latencyHtml = c.ok
-            ? `${c.latest_ms}<span class="s-u">ms</span>`
-            : `<span class="is-bad">离线</span>`;
-        return `<article class="node-row">
+                <span>\u7535\u5F71 <b>${c.counts.movies}</b>${c.counts_delta && c.counts_delta.movies ? `<i class="s-delta ${c.counts_delta.movies > 0 ? "up" : "down"}">${fmtDelta(c.counts_delta.movies)}</i>` : ""}</span>
+                <span>\u5267\u96C6 <b>${c.counts.series}</b>${c.counts_delta && c.counts_delta.series ? `<i class="s-delta ${c.counts_delta.series > 0 ? "up" : "down"}">${fmtDelta(c.counts_delta.series)}</i>` : ""}</span>
+                <span>\u96C6\u6570 <b>${c.counts.episodes}</b>${c.counts_delta && c.counts_delta.episodes ? `<i class="s-delta ${c.counts_delta.episodes > 0 ? "up" : "down"}">${fmtDelta(c.counts_delta.episodes)}</i>` : ""}</span>
+            </div>` : "";
+    const displayName = hideNames ? `\u8282\u70B9 ${i + 1}` : c.name;
+    const iconHtml = hideNames ? '<span class="s-icon-fallback" aria-hidden="true"></span>' : c.icon ? `<img class="s-icon" src="${htmlEscape(c.icon)}" alt="" onerror="this.style.display='none'">` : '<span class="s-icon-fallback" aria-hidden="true"></span>';
+    const isSlow = c.ok && (c.latest_ms | 0) >= 200;
+    const pillCls = !c.ok ? "bad" : isSlow ? "warn" : "ok";
+    const pillLabel = !c.ok ? "\u79BB\u7EBF" : isSlow ? "\u5EF6\u8FDF" : "\u5728\u7EBF";
+    const latencyHtml = c.ok ? `${c.latest_ms}<span class="s-u">ms</span>` : `<span class="is-bad">\u79BB\u7EBF</span>`;
+    return `<article class="node-row">
             <div class="node-head">
                 ${iconHtml}
                 <div class="node-name" title="${htmlEscape(displayName)}">${htmlEscape(displayName)}</div>
                 <span class="status-pill ${pillCls}"><span class="dot"></span>${pillLabel}</span>
             </div>
             <div class="node-metrics">
-                <div class="metric"><div class="metric-k">当前延迟</div><div class="metric-v">${latencyHtml}</div></div>
-                <div class="metric"><div class="metric-k">24 小时</div><div class="metric-v">${pct(c.avail_24h)}</div></div>
-                <div class="metric"><div class="metric-k">7 天</div><div class="metric-v">${pct(c.avail_7d)}</div></div>
+                <div class="metric"><div class="metric-k">\u5F53\u524D\u5EF6\u8FDF</div><div class="metric-v">${latencyHtml}</div></div>
+                <div class="metric"><div class="metric-k">24 \u5C0F\u65F6</div><div class="metric-v">${pct(c.avail_24h)}</div></div>
+                <div class="metric"><div class="metric-k">7 \u5929</div><div class="metric-v">${pct(c.avail_7d)}</div></div>
             </div>
-            <div class="ecg-strip" aria-label="近 60 次探测心电图">${ecgHtml}</div>
+            <div class="ecg-strip" aria-label="\u8FD1 60 \u6B21\u63A2\u6D4B\u5FC3\u7535\u56FE">${ecgHtml}</div>
             ${countsRow}
-            <div class="node-foot">最近探测 · ${fmtTs(c.latest_ts)}</div>
+            <div class="node-foot">\u6700\u8FD1\u63A2\u6D4B \xB7 ${fmtTs(c.latest_ts)}</div>
         </article>`;
-    }).join('');
-
-    const emptyHtml = total === 0
-        ? `<div class="card empty-card">尚未启用任何节点状态展示</div>`
-        : '';
-
-    // Theme boot: set documentElement.dataset.theme before paint, then add body.dark inline-as-soon-as-body-parses.
-    const themeBoot = `(function(){try{var legacy=localStorage.getItem('emby_proxy_dark');if(legacy!==null&&!localStorage.getItem('emby_theme')){localStorage.setItem('emby_theme',legacy==='1'?'dark':'light');localStorage.removeItem('emby_proxy_dark');}var p=localStorage.getItem('emby_theme')||'auto';var d=p==='dark'||(p==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.themePref=p;}catch(e){}})();`;
-
-    const inlineScript = `(function(){
+  }).join("");
+  const emptyHtml = total === 0 ? `<div class="card empty-card">\u5C1A\u672A\u542F\u7528\u4EFB\u4F55\u8282\u70B9\u72B6\u6001\u5C55\u793A</div>` : "";
+  const themeBoot = `(function(){try{var legacy=localStorage.getItem('emby_proxy_dark');if(legacy!==null&&!localStorage.getItem('emby_theme')){localStorage.setItem('emby_theme',legacy==='1'?'dark':'light');localStorage.removeItem('emby_proxy_dark');}var p=localStorage.getItem('emby_theme')||'auto';var d=p==='dark'||(p==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.themePref=p;}catch(e){}})();`;
+  const inlineScript = `(function(){
   var mql=window.matchMedia('(prefers-color-scheme: dark)');
   function pref(){return localStorage.getItem('emby_theme')||'auto';}
   function resolveDark(p){return p==='dark'||(p==='auto'&&mql.matches);}
@@ -7210,7 +7341,7 @@ export function renderStatusHtml(data, opts) {
     document.body.classList.toggle('dark',d);
     document.documentElement.dataset.themePref=p;
     var b=document.getElementById('themeToggle');
-    if(b){var titles={auto:'主题: 跟随系统',light:'主题: 浅色',dark:'主题: 深色'};b.dataset.theme=p;b.title=titles[p]||'';b.setAttribute('aria-label',titles[p]||'');}
+    if(b){var titles={auto:'\u4E3B\u9898: \u8DDF\u968F\u7CFB\u7EDF',light:'\u4E3B\u9898: \u6D45\u8272',dark:'\u4E3B\u9898: \u6DF1\u8272'};b.dataset.theme=p;b.title=titles[p]||'';b.setAttribute('aria-label',titles[p]||'');}
   }
   apply(pref());
   var b=document.getElementById('themeToggle');
@@ -7227,14 +7358,13 @@ export function renderStatusHtml(data, opts) {
   // Auto refresh page every 60s to pull fresh probe data
   setTimeout(function(){try{location.reload();}catch(e){}}, 60000);
 })();`;
-
-    return `<!doctype html><html lang="zh-CN"><head>
+  return `<!doctype html><html lang="zh-CN"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${title}</title>
 <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#07090f" media="(prefers-color-scheme: dark)">
-<script>${themeBoot}</script>
+<script>${themeBoot}<\/script>
 <style>
 :root{
   --primary:#0071e3; --primary-hover:#005cbf;
@@ -7277,7 +7407,7 @@ body{
 }
 .wrap{max-width:1200px; margin:0 auto;}
 
-/* —— page header (matches admin .ios-page-header vibe) —— */
+/* \u2014\u2014 page header (matches admin .ios-page-header vibe) \u2014\u2014 */
 .page-head{
   display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-5);
 }
@@ -7301,7 +7431,7 @@ body{
 .tb-icon-btn[data-theme="light"] .ico-light,
 .tb-icon-btn[data-theme="dark"] .ico-dark{ display:inline-flex; }
 
-/* —— aurora KPI hero (matches admin overview KPI grid) —— */
+/* \u2014\u2014 aurora KPI hero (matches admin overview KPI grid) \u2014\u2014 */
 .aurora-hero{
   display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr;
   gap:var(--space-4); margin-bottom:var(--space-6);
@@ -7357,7 +7487,7 @@ body{
 .kpi-tile .ks-dot.warn{ background:var(--warn); box-shadow:0 0 6px var(--warn); }
 .kpi-tile .ks-dot.bad{ background:var(--err); box-shadow:0 0 6px var(--err); }
 
-/* —— main listing card (admin .card) —— */
+/* \u2014\u2014 main listing card (admin .card) \u2014\u2014 */
 .card{
   background:var(--card); border:1px solid var(--border); border-radius:var(--radius-ios);
   box-shadow:var(--card-shadow-lift); padding:var(--space-6);
@@ -7427,7 +7557,7 @@ body{
 .metric-v .s-u{ font-size:var(--text-sm); font-weight:600; color:var(--text-sec); margin-left:2px; }
 .metric-v .is-bad{ color:var(--err); font-size:var(--text-xl); }
 
-/* —— ECG history strip —— */
+/* \u2014\u2014 ECG history strip \u2014\u2014 */
 .ecg-strip{
   background:linear-gradient(180deg, var(--surface-2) 0%, var(--card) 100%);
   border:1px solid var(--border);
@@ -7481,7 +7611,7 @@ body{
   margin-top:var(--space-5);
 }
 
-/* —— responsive —— */
+/* \u2014\u2014 responsive \u2014\u2014 */
 @media (max-width: 980px) {
   .aurora-hero{ grid-template-columns:1fr 1fr; }
   .aurora-hero .kpi-tile.is-primary{ grid-column:1 / -1; }
@@ -7513,653 +7643,420 @@ body{
   <header class="page-head">
     <div class="title-block">
       <h1 class="page-title">${title}</h1>
-      <div class="page-sub">实时探测 · 每分钟刷新</div>
+      <div class="page-sub">\u5B9E\u65F6\u63A2\u6D4B \xB7 \u6BCF\u5206\u949F\u5237\u65B0</div>
     </div>
-    <button class="tb-icon-btn" id="themeToggle" type="button" data-theme="auto" title="切换主题" aria-label="切换主题">
+    <button class="tb-icon-btn" id="themeToggle" type="button" data-theme="auto" title="\u5207\u6362\u4E3B\u9898" aria-label="\u5207\u6362\u4E3B\u9898">
       <span class="ico ico-auto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg></span>
       <span class="ico ico-light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
       <span class="ico ico-dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
     </button>
   </header>
 
-  <section class="aurora-hero" aria-label="整体状态">
+  <section class="aurora-hero" aria-label="\u6574\u4F53\u72B6\u6001">
     <div class="kpi-tile is-primary">
-      <div class="kpi-label">整体可用率</div>
+      <div class="kpi-label">\u6574\u4F53\u53EF\u7528\u7387</div>
       <div class="kpi-row">
         <span class="kpi-value">${overallPctText}</span>
-        <span class="kpi-unit">${overallPct == null ? '' : '%'}</span>
+        <span class="kpi-unit">${overallPct == null ? "" : "%"}</span>
       </div>
-      <div class="kpi-sub">${online} / ${total} 节点在线 · 自动每分钟探测</div>
-      ${overallPct == null ? '' : `<div class="kpi-health-bar"><span style="width:${(overallPct * 100).toFixed(1)}%"></span></div>`}
+      <div class="kpi-sub">${online} / ${total} \u8282\u70B9\u5728\u7EBF \xB7 \u81EA\u52A8\u6BCF\u5206\u949F\u63A2\u6D4B</div>
+      ${overallPct == null ? "" : `<div class="kpi-health-bar"><span style="width:${(overallPct * 100).toFixed(1)}%"></span></div>`}
     </div>
     <div class="kpi-tile">
-      <div class="kpi-label">在线节点</div>
+      <div class="kpi-label">\u5728\u7EBF\u8282\u70B9</div>
       <div class="kpi-row">
         <span class="kpi-value"><span class="ks-dot ok"></span>${online}</span>
         <span class="kpi-unit">/ ${total}</span>
       </div>
-      <div class="kpi-sub">实时反代节点活跃度</div>
+      <div class="kpi-sub">\u5B9E\u65F6\u53CD\u4EE3\u8282\u70B9\u6D3B\u8DC3\u5EA6</div>
     </div>
     <div class="kpi-tile">
-      <div class="kpi-label">离线节点</div>
+      <div class="kpi-label">\u79BB\u7EBF\u8282\u70B9</div>
       <div class="kpi-row">
-        <span class="kpi-value">${offline > 0 ? `<span class="ks-dot bad"></span>` : ''}${offline}</span>
+        <span class="kpi-value">${offline > 0 ? `<span class="ks-dot bad"></span>` : ""}${offline}</span>
       </div>
-      <div class="kpi-sub">${offline > 0 ? '需关注 · 已触发监控' : '一切正常'}</div>
+      <div class="kpi-sub">${offline > 0 ? "\u9700\u5173\u6CE8 \xB7 \u5DF2\u89E6\u53D1\u76D1\u63A7" : "\u4E00\u5207\u6B63\u5E38"}</div>
     </div>
     <div class="kpi-tile">
-      <div class="kpi-label">平均延迟</div>
+      <div class="kpi-label">\u5E73\u5747\u5EF6\u8FDF</div>
       <div class="kpi-row">
-        <span class="kpi-value">${avgMs == null ? '—' : avgMs}</span>
-        <span class="kpi-unit">${avgMs == null ? '' : 'ms'}</span>
+        <span class="kpi-value">${avgMs == null ? "\u2014" : avgMs}</span>
+        <span class="kpi-unit">${avgMs == null ? "" : "ms"}</span>
       </div>
-      <div class="kpi-sub">仅统计在线节点</div>
+      <div class="kpi-sub">\u4EC5\u7EDF\u8BA1\u5728\u7EBF\u8282\u70B9</div>
     </div>
   </section>
 
-  <section class="card" aria-label="节点列表">
+  <section class="card" aria-label="\u8282\u70B9\u5217\u8868">
     <div class="section-header-row">
-      <h2 class="section-title">节点列表</h2>
-      <div class="section-sub">${total} 个节点</div>
+      <h2 class="section-title">\u8282\u70B9\u5217\u8868</h2>
+      <div class="section-sub">${total} \u4E2A\u8282\u70B9</div>
     </div>
     <div class="node-list">${cardsHtml}</div>
     ${emptyHtml}
   </section>
 
-  <div class="foot-note">由 Emby Proxy 监控 · ${overallTier === 'idle' ? '尚未启用任何节点' : '页面 60 秒后自动刷新'}</div>
+  <div class="foot-note">\u7531 Emby Proxy \u76D1\u63A7 \xB7 ${overallTier === "idle" ? "\u5C1A\u672A\u542F\u7528\u4EFB\u4F55\u8282\u70B9" : "\u9875\u9762 60 \u79D2\u540E\u81EA\u52A8\u5237\u65B0"}</div>
 </div>
-<script>${inlineScript}</script>
+<script>${inlineScript}<\/script>
 </body></html>`;
 }
 
-export function renderCardSvg(card) {
-    const w = 360, h = 120;
-    const ok = card.ok;
-    const dotColor = ok ? '#30d158' : '#ff3b30';
-    const statusText = ok ? '在线' : '离线';
-    const pct = (v) => v == null ? '—' : (v * 100).toFixed(1) + '%';
-    const name = String(card.name || '').slice(0, 40);
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-  <defs>
-    <style>
-      .bg { fill:#1c1c1e; }
-      .text { fill:#f5f5f7; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
-      .name { font-size:16px; font-weight:600; }
-      .label { font-size:11px; fill:#98989d; }
-      .value { font-size:14px; font-weight:600; }
-    </style>
-  </defs>
-  <rect class="bg" x="0" y="0" width="${w}" height="${h}" rx="14"/>
-  <circle cx="22" cy="24" r="6" fill="${dotColor}"/>
-  <text class="text name" x="38" y="29">${htmlEscape(name)}</text>
-  <text class="text label" x="20" y="60">状态</text>
-  <text class="text value" x="20" y="78" fill="${dotColor}">${statusText}</text>
-  <text class="text label" x="130" y="60">7天可用</text>
-  <text class="text value" x="130" y="78">${pct(card.avail_7d)}</text>
-  <text class="text label" x="240" y="60">延迟</text>
-  <text class="text value" x="240" y="78">${ok ? card.latest_ms + ' ms' : '—'}</text>
-  <text class="text label" x="20" y="104">由 emby-proxy 监控</text>
-</svg>`;
-}
-
-async function probeAll(env) {
-    try {
-        await ensureSchema(env);
-        if (!env.DB) return;
-        const now = Math.floor(Date.now() / 1000);
-        const { results: routes } = await dbAll(env, `
-            SELECT prefix, target, remark, public_alias, custom_headers,
-                   show_on_status, media_counts_auto_auth, emby_auth_cache
-              FROM routes WHERE show_on_status = 1
-        `);
-        if (!routes || !routes.length) return;
-        const probes = await Promise.all(routes.map(r => probeOne(r)));
-        const insertStmts = probes.map(p =>
-            env.DB.prepare(`INSERT OR REPLACE INTO emby_probes(prefix, ts, ok, ms, status) VALUES(?,?,?,?,?)`)
-                .bind(p.prefix, now, p.ok ? 1 : 0, p.ms | 0, p.status | 0));
-        if (insertStmts.length) await env.DB.batch(insertStmts);
-        await runAlertFSM(env, routes, probes, now);
-        await maybeRollupHourly(env, now);
-    } catch (e) {
-        console.log('probeAll error:', e.message);
-    }
-}
-
-async function loadCountryAllowlist(env) {
-    if (!env.DB) return null;
-    try {
-        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
-        if (!row || !row.v) return null;
-        const set = new Set(String(row.v).split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
-        return set.size ? set : null;
-    } catch (e) {
-        return null;
-    }
-}
-
-function dbRun(env, sql, ...binds) {
-    return env.DB.prepare(sql).bind(...binds).run();
-}
-function dbAll(env, sql, ...binds) {
-    return env.DB.prepare(sql).bind(...binds).all();
-}
-function dbFirst(env, sql, ...binds) {
-    return env.DB.prepare(sql).bind(...binds).first();
-}
-
-// 共享 schema 初始化（幂等）
-let _schemaReady = false;
-async function ensureSchema(env) {
-    if (_schemaReady || !env.DB) return;
-    try {
-        // 既有表（避免冷启时尚未触达 /api/routes 路径）
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
-        // 新增表
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS kv_config (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS optimized_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE, note TEXT DEFAULT '', builtin INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, last_ms INTEGER DEFAULT -1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS dns_config (id INTEGER PRIMARY KEY CHECK (id = 1), cf_api_token TEXT DEFAULT '', cf_zone_id TEXT DEFAULT '', cf_record_id TEXT DEFAULT '', target_alias TEXT DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-
-        // emby-js 监控移植：节点状态、探测历史、媒体计数、公开分享
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN show_on_status INTEGER DEFAULT 0`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN public_alias TEXT DEFAULT ''`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN media_counts_auto_auth INTEGER DEFAULT 0`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_cache TEXT DEFAULT ''`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_seen_at INTEGER DEFAULT 0`); } catch (e) { }
-        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN emby_auth_used_at INTEGER DEFAULT 0`); } catch (e) { }
-        // 旧 /status 移植尝试可能在 D1 留下同名表但 schema 不同。自愈：探测目标列；缺失则 DROP + 重建。
-        // 这两张表只放遥测数据，无用户配置，重建无副作用。
-        const probeRecreate = async (table, createSql, indexSql, probeCol) => {
-            try {
-                await env.DB.prepare(`SELECT ${probeCol} FROM ${table} LIMIT 0`).all();
-            } catch (e) {
-                if (/no such column|no such table/i.test(e.message || '')) {
-                    try { await env.DB.exec(`DROP TABLE IF EXISTS ${table}`); } catch (_) {}
-                }
-            }
-            await env.DB.exec(createSql);
-            if (indexSql) await env.DB.exec(indexSql);
-        };
-        await probeRecreate(
-            'emby_probes',
-            `CREATE TABLE IF NOT EXISTS emby_probes (prefix TEXT NOT NULL, ts INTEGER NOT NULL, ok INTEGER NOT NULL, ms INTEGER NOT NULL, status INTEGER DEFAULT 0, PRIMARY KEY(prefix, ts))`,
-            `CREATE INDEX IF NOT EXISTS idx_emby_probes_prefix_ts ON emby_probes(prefix, ts)`,
-            'ms'
-        );
-        await probeRecreate(
-            'emby_probe_hourly',
-            `CREATE TABLE IF NOT EXISTS emby_probe_hourly (prefix TEXT NOT NULL, hour_ts INTEGER NOT NULL, ok_count INTEGER NOT NULL, fail_count INTEGER NOT NULL, avg_ms INTEGER NOT NULL, p95_ms INTEGER NOT NULL, PRIMARY KEY(prefix, hour_ts))`,
-            null,
-            'hour_ts'
-        );
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_probe_state (prefix TEXT PRIMARY KEY, first_fail_at INTEGER DEFAULT 0, last_alert_at INTEGER DEFAULT 0, alert_kind TEXT DEFAULT 'none')`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_media_counts (prefix TEXT NOT NULL, day TEXT NOT NULL, movies INTEGER DEFAULT 0, series INTEGER DEFAULT 0, episodes INTEGER DEFAULT 0, PRIMARY KEY(prefix, day))`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS emby_public_share (token TEXT PRIMARY KEY, scope TEXT NOT NULL, prefix TEXT DEFAULT '', expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL)`);
-        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_emby_public_share_scope_prefix ON emby_public_share(scope, prefix)`);
-
-        // Seed 内置优选域名（依赖 UNIQUE(domain) 去重，幂等）
-        const seedStmts = DEFAULT_OPTIMIZED_DOMAINS.map(d =>
-            env.DB.prepare(`INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 1, 1)`).bind(d.domain, d.note)
-        );
-        if (seedStmts.length) await env.DB.batch(seedStmts);
-
-        // Seed manual redirect domains 默认值
-        const existing = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
-        if (!existing) {
-            await dbRun(env, `INSERT INTO kv_config (k, v) VALUES ('manual_redirect_domains', ?)`, DEFAULT_MANUAL_REDIRECT_DOMAINS.join('\n'));
-            _manualRedirectHosts = new Set(DEFAULT_MANUAL_REDIRECT_DOMAINS.map(s => s.toLowerCase()));
-        } else {
-            _manualRedirectHosts = new Set(String(existing.v || '').split('\n').map(s => s.trim().toLowerCase()).filter(Boolean));
-        }
-        _schemaReady = true;
-    } catch (e) {
-        // 不抛错：DB 失败不能阻塞 Worker
-        console.log('ensureSchema error:', e.message);
-    }
-}
-async function getManualRedirectHosts(env) {
-    if (_manualRedirectHosts) return _manualRedirectHosts;
-    await ensureSchema(env);
-    return _manualRedirectHosts || new Set();
-}
-
-// 构造发往源站的请求头：剥离 cf-* 元数据、套用伪装模式、注入节点自定义头
-function buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw) {
-    const h = new Headers(request.headers);
-    h.set("Host", targetUrl.host);
-    // 去掉 Accept-Encoding，让源站返回未压缩内容以便正确重写响应体
-    h.delete("Accept-Encoding");
-
-    const realIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(',')[0].trim();
-    h.delete("cf-connecting-ip"); h.delete("cf-ipcountry"); h.delete("cf-ray");
-    h.delete("cf-visitor"); h.delete("x-forwarded-for"); h.delete("x-real-ip");
-
-    if (currentMode === 'realip_only' && realIp) {
-        h.set("X-Real-IP", realIp);
-    } else if (currentMode === 'dual' && realIp) {
-        h.set("X-Real-IP", realIp); h.set("X-Forwarded-For", realIp);
-    } else if (currentMode === 'strict') {
-        // 强力防 403 模式：强制清空原始端代理参数，对齐 Origin
-        h.delete("X-Forwarded-Proto"); h.delete("X-Forwarded-Host");
-        h.set("Origin", targetUrl.origin); h.set("Referer", targetUrl.origin + "/");
-        if (realIp) { h.set("X-Real-IP", realIp); h.set("X-Forwarded-For", realIp); }
-    }
-
-    // 🌟 应用节点自定义请求头 (格式: Key: Value，每行一条)
-    if (customHeadersRaw) {
-        customHeadersRaw.split('\n').forEach(line => {
-            const idx = line.indexOf(':');
-            if (idx > 0) {
-                const key = line.slice(0, idx).trim();
-                const val = line.slice(idx + 1).trim();
-                if (key) h.set(key, val);
-            }
-        });
-    }
-    return h;
-}
-
-// http <-> https 协议互换，返回新的 URL 对象；非 http(s) 返回 null
+// src/net/fallback.js
 function flipScheme(targetUrl) {
-    const u = new URL(targetUrl);
-    if (u.protocol === 'https:') u.protocol = 'http:';
-    else if (u.protocol === 'http:') u.protocol = 'https:';
-    else return null;
-    return u;
+  const u = new URL(targetUrl);
+  if (u.protocol === "https:") u.protocol = "http:";
+  else if (u.protocol === "http:") u.protocol = "https:";
+  else return null;
+  return u;
 }
-
-// fetch 包装：源站 SSL 类错误 (525/526/530) 或抛异常时，自动切换 http/https 协议重试一次
 async function fetchWithSchemeFallback(targetUrl, fetchInit, canRetry) {
-    const SSL_ERR = [525, 526, 530];
-    if (!canRetry) {
-        // 请求体不可重放（流式 / 超限），单次发送，异常向上抛出走多节点故障转移
-        return await fetch(new Request(targetUrl, fetchInit));
-    }
+  const SSL_ERR = [525, 526, 530];
+  if (!canRetry) {
+    return await fetch(new Request(targetUrl, fetchInit));
+  }
+  try {
+    const resp = await fetch(new Request(targetUrl, fetchInit));
+    if (!SSL_ERR.includes(resp.status)) return resp;
+    const flipped = flipScheme(targetUrl);
+    if (!flipped) return resp;
     try {
-        const resp = await fetch(new Request(targetUrl, fetchInit));
-        if (!SSL_ERR.includes(resp.status)) return resp;
-        const flipped = flipScheme(targetUrl);
-        if (!flipped) return resp;
-        try { return await fetch(new Request(flipped, fetchInit)); }
-        catch (e) { return resp; }
-    } catch (err) {
-        const flipped = flipScheme(targetUrl);
-        if (!flipped) throw err;
-        return await fetch(new Request(flipped, fetchInit));
+      return await fetch(new Request(flipped, fetchInit));
+    } catch (e) {
+      return resp;
     }
+  } catch (err) {
+    const flipped = flipScheme(targetUrl);
+    if (!flipped) throw err;
+    return await fetch(new Request(flipped, fetchInit));
+  }
 }
-
-// 源站返回 403 时，逐级调整请求头重试 (最多 3 次额外尝试)
-// 返回首个非 403 响应；全部失败返回最后一次 403；无尝试返回 null
 async function attempt403Cascade(targetUrl, baseHeaders, fetchInit, currentMode) {
-    const strategies = [];
-    // 策略 2：对齐源站 Origin/Referer (strict 模式下已是基线，跳过避免重复)
-    if (currentMode !== 'strict') {
-        strategies.push((h) => {
-            h.set("Origin", targetUrl.origin);
-            h.set("Referer", targetUrl.origin + "/");
-        });
-    }
-    // 策略 3：删除 Origin/Referer/Sec-Fetch-*
+  const strategies = [];
+  if (currentMode !== "strict") {
     strategies.push((h) => {
-        h.delete("Origin"); h.delete("Referer");
-        for (const k of [...h.keys()]) { if (k.toLowerCase().startsWith('sec-fetch-')) h.delete(k); }
+      h.set("Origin", targetUrl.origin);
+      h.set("Referer", targetUrl.origin + "/");
     });
-    // 策略 4：最小化请求头，仅保留 UA / Accept / 鉴权 / 内容头
-    strategies.push((h) => {
-        const keep = ['user-agent', 'accept', 'host', 'x-emby-token', 'x-mediabrowser-token', 'x-emby-authorization', 'authorization', 'content-type', 'content-length'];
-        for (const k of [...h.keys()]) { if (!keep.includes(k.toLowerCase())) h.delete(k); }
-    });
-
-    let lastResp = null;
-    for (const apply of strategies) {
-        const h = new Headers(baseHeaders);
-        apply(h);
-        try {
-            const resp = await fetch(new Request(targetUrl, { ...fetchInit, headers: h }));
-            if (resp.status !== 403) return resp;
-            lastResp = resp;
-        } catch (e) { /* 忽略，尝试下一策略 */ }
+  }
+  strategies.push((h) => {
+    h.delete("Origin");
+    h.delete("Referer");
+    for (const k of [...h.keys()]) {
+      if (k.toLowerCase().startsWith("sec-fetch-")) h.delete(k);
     }
-    return lastResp;
+  });
+  strategies.push((h) => {
+    const keep = ["user-agent", "accept", "host", "x-emby-token", "x-mediabrowser-token", "x-emby-authorization", "authorization", "content-type", "content-length"];
+    for (const k of [...h.keys()]) {
+      if (!keep.includes(k.toLowerCase())) h.delete(k);
+    }
+  });
+  let lastResp = null;
+  for (const apply of strategies) {
+    const h = new Headers(baseHeaders);
+    apply(h);
+    try {
+      const resp = await fetch(new Request(targetUrl, { ...fetchInit, headers: h }));
+      if (resp.status !== 403) return resp;
+      lastResp = resp;
+    } catch (e) {
+    }
+  }
+  return lastResp;
 }
 
-export default {
-    // 定时触发器：1 分钟 cron 跑节点探测；每日 0 点 cron 推送 TG 统计
-    async scheduled(event, env, ctx) {
-        const cron = event && event.cron || '';
-        if (cron === '0 0 * * *') {
-            if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
-                ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
-            }
-            if (env.DB) {
-                ctx.waitUntil((async () => {
-                    try {
-                        await ensureSchema(env);
-                        const { results: routes } = await dbAll(env, `
+// src/index.js
+var MAX_RETRY_BODY_BYTES = 8 * 1024 * 1024;
+var MAX_UPSTREAM_TIMEOUT_MS = 15e3;
+var EMBY_HARVEST_DEBOUNCE_S = 600;
+var index_default = {
+  // 定时触发器：1 分钟 cron 跑节点探测；每日 0 点 cron 推送 TG 统计
+  async scheduled(event, env, ctx) {
+    const cron = event && event.cron || "";
+    if (cron === "0 0 * * *") {
+      if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
+        ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
+      }
+      if (env.DB) {
+        ctx.waitUntil((async () => {
+          try {
+            await ensureSchema(env);
+            const { results: routes } = await dbAll(env, `
                             SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
                               FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
                         `);
-                        await maybeFetchMediaCounts(env, routes || [], Math.floor(Date.now() / 1000));
-                    } catch (e) {
-                        console.log('scheduled maybeFetchMediaCounts error:', e && e.message || e);
-                    }
-                })());
-            }
-            return;
+            await maybeFetchMediaCounts(env, routes || [], Math.floor(Date.now() / 1e3));
+          } catch (e) {
+            console.log("scheduled maybeFetchMediaCounts error:", e && e.message || e);
+          }
+        })());
+      }
+      return;
+    }
+    if (cron === "* * * * *") {
+      if (env.DB) ctx.waitUntil(probeAll(env));
+      return;
+    }
+    if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
+      ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
+    }
+  },
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (env.DB) {
+      await ensureSchema(env);
+    }
+    if (url.pathname === "/api/placement" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const placementData = body.placement;
+        if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID || !env.CF_WORKER_NAME) {
+          return jsonResponse({ success: false, msg: "\u540E\u53F0\u53D8\u91CF\u672A\u914D\u7F6E\u5168\uFF01\u8BF7\u68C0\u67E5 CF_API_TOKEN, CF_ACCOUNT_ID, CF_WORKER_NAME" });
         }
-        if (cron === '* * * * *') {
-            if (env.DB) ctx.waitUntil(probeAll(env));
-            return;
+        const formData = new FormData();
+        formData.append("settings", new Blob([JSON.stringify({ placement: placementData })], { type: "application/json" }));
+        const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/scripts/${env.CF_WORKER_NAME}/settings`;
+        const cfRes = await fetch(cfUrl, {
+          method: "PATCH",
+          headers: { "Authorization": `Bearer ${env.CF_API_TOKEN}` },
+          body: formData
+        });
+        const cfData = await cfRes.json();
+        if (cfData.success) {
+          return jsonResponse({ success: true, msg: "\u90E8\u7F72\u533A\u57DF\u4FEE\u6539\u6210\u529F\uFF01" });
+        } else {
+          return jsonResponse({ success: false, msg: "CF\u62A5\u9519: " + (cfData.errors[0]?.message || "\u672A\u77E5\u9519\u8BEF") });
         }
-        // 未配置 / 未知 cron：兼容旧部署，仅触发 TG 日报
-        if (env.TG_BOT_TOKEN && env.TG_CHAT_ID && env.DB) {
-            ctx.waitUntil(sendTgStats(env, env.TG_CHAT_ID));
+      } catch (e) {
+        return jsonResponse({ success: false, msg: e.message });
+      }
+    }
+    if (url.pathname === "/api/trace") {
+      const cf = request.cf || {};
+      let egressColo = "\u63A2\u6D4B\u4E2D...";
+      try {
+        const traceRes = await fetch("https://1.1.1.1/cdn-cgi/trace", {
+          headers: { "User-Agent": "Mozilla/5.0 (CF-Worker-Trace)" }
+        });
+        const traceText = await traceRes.text();
+        const match = traceText.match(/colo=([A-Z]+)/);
+        if (match) egressColo = match[1];
+      } catch (e) {
+        egressColo = "\u83B7\u53D6\u5931\u8D25";
+      }
+      return jsonResponse({
+        success: true,
+        entryCountry: cf.country || "\u672A\u77E5",
+        entryCity: cf.city || "",
+        entryColo: cf.colo || "\u672A\u77E5",
+        egressColo
+      });
+    }
+    if (url.pathname === "/api/edge-info") {
+      const cf = request.cf || {};
+      let egressColo = "\u63A2\u6D4B\u4E2D...";
+      try {
+        const traceRes = await fetch("https://1.1.1.1/cdn-cgi/trace", {
+          headers: { "User-Agent": "Mozilla/5.0 (CF-Worker-Trace)" }
+        });
+        const traceText = await traceRes.text();
+        const match = traceText.match(/colo=([A-Z]+)/);
+        if (match) egressColo = match[1];
+      } catch (e) {
+        egressColo = "\u83B7\u53D6\u5931\u8D25";
+      }
+      const entryColo = cf.colo || "\u672A\u77E5";
+      const bucket = Math.floor(Date.now() / 3e5);
+      let cacheKey = "";
+      try {
+        const buf = new TextEncoder().encode(`${entryColo}:${egressColo}:${bucket}`);
+        const digest = await crypto.subtle.digest("SHA-1", buf);
+        cacheKey = Array.from(new Uint8Array(digest)).slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+      } catch (e) {
+        cacheKey = "";
+      }
+      return jsonResponse({
+        success: true,
+        entryCountry: cf.country || "\u672A\u77E5",
+        entryCity: cf.city || "",
+        entryColo,
+        egressColo,
+        cacheKey
+      });
+    }
+    if (url.pathname === "/__client_rtt__") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          "Pragma": "no-cache",
+          "Expires": "0",
+          "Access-Control-Allow-Origin": "*"
         }
-    },
-
-    async fetch(request, env, ctx) {
-        const url = new URL(request.url);
-
-        // 共享 schema 初始化（幂等；首次请求后为内存 no-op）
-        if (env.DB) { await ensureSchema(env); }
-
-        // ==========================================
-        // 🚀 新增：全云厂商 Worker 放置区域接口
-        // ==========================================
-        if (url.pathname === '/api/placement' && request.method === 'POST') {
-            try {
-                const body = await request.json();
-                const placementData = body.placement;
-
-                if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID || !env.CF_WORKER_NAME) {
-                    return jsonResponse({ success: false, msg: '后台变量未配置全！请检查 CF_API_TOKEN, CF_ACCOUNT_ID, CF_WORKER_NAME' });
-                }
-
-                const formData = new FormData();
-                formData.append('settings', new Blob([JSON.stringify({ placement: placementData })], { type: 'application/json' }));
-
-                const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/scripts/${env.CF_WORKER_NAME}/settings`;
-                const cfRes = await fetch(cfUrl, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}` },
-                    body: formData
-                });
-
-                const cfData = await cfRes.json();
-                if (cfData.success) {
-                    return jsonResponse({ success: true, msg: '部署区域修改成功！' });
-                } else {
-                    return jsonResponse({ success: false, msg: 'CF报错: ' + (cfData.errors[0]?.message || '未知错误') });
-                }
-            } catch (e) {
-                return jsonResponse({ success: false, msg: e.message });
-            }
+      });
+    }
+    if (url.pathname === "/api/tg-webhook" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        if (body.message && body.message.text === "/stats") {
+          if (env.DB && env.TG_BOT_TOKEN) {
+            ctx.waitUntil(sendTgStats(env, body.message.chat.id));
+          }
         }
-
-        // ==========================================
-        // 🚀 新增：CF 节点与落地机房探针接口
-        // ==========================================
-        if (url.pathname === '/api/trace') {
-            const cf = request.cf || {};
-            let egressColo = '探测中...';
-            try {
-                // 请求 CF 官方 trace 接口获取落地机房
-                const traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace', {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (CF-Worker-Trace)' }
-                });
-                const traceText = await traceRes.text();
-                const match = traceText.match(/colo=([A-Z]+)/);
-                if (match) egressColo = match[1];
-            } catch (e) {
-                egressColo = '获取失败';
-            }
-
-            return jsonResponse({
-                success: true,
-                entryCountry: cf.country || '未知',
-                entryCity: cf.city || '',
-                entryColo: cf.colo || '未知',
-                egressColo: egressColo
-            });
+        return new Response("OK");
+      } catch (e) {
+        return new Response("OK");
+      }
+    }
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "*", "Access-Control-Max-Age": "86400" } });
+    }
+    if (url.pathname === "/status" && request.method === "GET") {
+      if (!env.DB) return new Response("DB not bound", { status: 500 });
+      try {
+        const data = await loadStatusData(env, {});
+        const hideRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
+        const hideNames = !!(hideRow && hideRow.v === "1");
+        return new Response(renderStatusHtml(data, { title: "\u8282\u70B9\u72B6\u6001", hideNames }), {
+          headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "public, max-age=10" }
+        });
+      } catch (e) {
+        return new Response("Status error: " + e.message, { status: 500 });
+      }
+    }
+    if (url.pathname.startsWith("/public/") && request.method === "GET") {
+      if (!env.DB) return new Response("DB not bound", { status: 500 });
+      const token = url.pathname.slice("/public/".length);
+      if (!/^[a-f0-9]{32,80}$/.test(token)) {
+        return new Response("Invalid token", { status: 410, headers: { "Content-Type": "text/plain;charset=UTF-8" } });
+      }
+      try {
+        const row = await dbFirst(env, `SELECT scope, expires_at FROM emby_public_share WHERE token = ? AND scope = 'dashboard'`, token);
+        if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1e3)) {
+          return new Response("\u94FE\u63A5\u5DF2\u8FC7\u671F\u6216\u5931\u6548", { status: 410, headers: { "Content-Type": "text/plain;charset=UTF-8" } });
         }
-
-        // ==========================================
-        // 🚀 F5: /api/edge-info — /api/trace 的别名，附带 cacheKey（5 分钟桶 SHA-1）
-        // ==========================================
-        if (url.pathname === '/api/edge-info') {
-            const cf = request.cf || {};
-            let egressColo = '探测中...';
-            try {
-                const traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace', {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (CF-Worker-Trace)' }
-                });
-                const traceText = await traceRes.text();
-                const match = traceText.match(/colo=([A-Z]+)/);
-                if (match) egressColo = match[1];
-            } catch (e) {
-                egressColo = '获取失败';
-            }
-
-            const entryColo = cf.colo || '未知';
-            const bucket = Math.floor(Date.now() / 300000);
-            let cacheKey = '';
-            try {
-                const buf = new TextEncoder().encode(`${entryColo}:${egressColo}:${bucket}`);
-                const digest = await crypto.subtle.digest('SHA-1', buf);
-                cacheKey = Array.from(new Uint8Array(digest)).slice(0, 8)
-                    .map(b => b.toString(16).padStart(2, '0')).join('');
-            } catch (e) { cacheKey = ''; }
-
-            return jsonResponse({
-                success: true,
-                entryCountry: cf.country || '未知',
-                entryCity: cf.city || '',
-                entryColo,
-                egressColo,
-                cacheKey
-            });
+        const data = await loadStatusData(env, {});
+        return new Response(renderStatusHtml(data, { title: "\u8282\u70B9\u72B6\u6001\uFF08\u516C\u5F00\uFF09" }), {
+          headers: { "Content-Type": "text/html;charset=UTF-8", "Cache-Control": "public, max-age=10" }
+        });
+      } catch (e) {
+        return new Response("Public status error: " + e.message, { status: 500 });
+      }
+    }
+    if (url.pathname.startsWith("/card/") && url.pathname.endsWith(".svg") && request.method === "GET") {
+      if (!env.DB) return new Response("DB not bound", { status: 500 });
+      const token = url.pathname.slice("/card/".length, -".svg".length);
+      if (!/^[a-f0-9]{32,80}$/.test(token)) {
+        return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">\u94FE\u63A5\u65E0\u6548</text></svg>', {
+          status: 410,
+          headers: { "Content-Type": "image/svg+xml;charset=UTF-8" }
+        });
+      }
+      try {
+        const row = await dbFirst(env, `SELECT scope, prefix, expires_at FROM emby_public_share WHERE token = ? AND scope = 'card'`, token);
+        if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1e3)) {
+          return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">\u94FE\u63A5\u5DF2\u8FC7\u671F</text></svg>', {
+            status: 410,
+            headers: { "Content-Type": "image/svg+xml;charset=UTF-8" }
+          });
         }
-
-        // ==========================================
-        // 🌟 新增：客户端 RTT 实时极速探针接口
-        // 直接返回 204 无内容，且强制不缓存，确保每次都是真实的物理延迟
-        // ==========================================
-        if (url.pathname === '/__client_rtt__') {
-            return new Response(null, {
-                status: 204,
-                headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
-                    "Access-Control-Allow-Origin": "*"
-                }
-            });
+        const data = await loadStatusData(env, { prefix: row.prefix });
+        if (!data.cards.length) {
+          return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">\u8282\u70B9\u5DF2\u4E0B\u7EBF\u6216\u672A\u5F00\u542F\u72B6\u6001</text></svg>', {
+            status: 410,
+            headers: { "Content-Type": "image/svg+xml;charset=UTF-8" }
+          });
         }
-
-        // Telegram Webhook 拦截
-        if (url.pathname === '/api/tg-webhook' && request.method === 'POST') {
-            try {
-                const body = await request.json();
-                if (body.message && body.message.text === '/stats') {
-                    if (env.DB && env.TG_BOT_TOKEN) {
-                        ctx.waitUntil(sendTgStats(env, body.message.chat.id));
-                    }
-                }
-                return new Response("OK");
-            } catch (e) { return new Response("OK"); }
+        return new Response(renderCardSvg(data.cards[0]), {
+          headers: { "Content-Type": "image/svg+xml;charset=UTF-8", "Cache-Control": "public, max-age=60" }
+        });
+      } catch (e) {
+        return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">\u6E32\u67D3\u5931\u8D25</text></svg>', {
+          status: 500,
+          headers: { "Content-Type": "image/svg+xml;charset=UTF-8" }
+        });
+      }
+    }
+    const EXPECTED_TOKEN = env.ADMIN_TOKEN;
+    if (!EXPECTED_TOKEN) return new Response("\u8BF7\u5728 Worker \u53D8\u91CF\u4E2D\u914D\u7F6E ADMIN_TOKEN", { status: 500 });
+    function getCookie(req, name) {
+      const cookieString = req.headers.get("Cookie");
+      if (!cookieString) return null;
+      const match = cookieString.match(new RegExp("(^| )" + name + "=([^;]+)"));
+      if (match) return decodeURIComponent(match[2]);
+      return null;
+    }
+    const isPanelOrApi = url.pathname === "/" || url.pathname.startsWith("/api/");
+    if (isPanelOrApi && url.pathname !== "/api/tg-webhook") {
+      const providedToken = getCookie(request, "admin_token");
+      if (providedToken !== EXPECTED_TOKEN) {
+        if (url.pathname === "/") return new Response(LOGIN_UI, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+        else return new Response("Unauthorized", { status: 401 });
+      }
+    }
+    if (url.pathname === "/") {
+      return new Response(HTML_UI, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
+    }
+    if (url.pathname === "/api/analytics" && request.method === "GET") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      try {
+        const [trafficToday, traffic7d, traffic30d] = await Promise.all([
+          getCFTraffic(env, "today"),
+          getCFTraffic(env, 7),
+          getCFTraffic(env, 30)
+        ]);
+        const trend = await dbAll(env, `SELECT date(timestamp, '+8 hours') as date, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY date(timestamp, '+8 hours') ORDER BY date ASC`);
+        const locations = await dbAll(env, `SELECT country, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY country ORDER BY count DESC`);
+        const recents = await dbAll(env, `SELECT prefix, datetime(timestamp, '+8 hours') as timestamp, ip, country, ua FROM visitor_logs ORDER BY timestamp DESC LIMIT 20`);
+        return Response.json({
+          success: true,
+          trend: trend.results,
+          locations: locations.results,
+          recents: recents.results,
+          trafficToday,
+          traffic7d,
+          traffic30d
+        });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+    if (url.pathname === "/api/route-trends" && request.method === "GET") {
+      const days = Math.max(1, Math.min(7, parseInt(url.searchParams.get("days") || "7", 10) || 7));
+      if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
+        return Response.json({ ok: false, reason: "no-cf-token", days, items: [] });
+      }
+      if (!env.DB) {
+        return Response.json({ ok: false, reason: "no-db", days, items: [] });
+      }
+      try {
+        const utcHour = Math.floor(Date.now() / 36e5);
+        const cacheKey = `${env.CF_ZONE_ID}|${days}|${utcHour}`;
+        globalThis.__routeTrendCache = globalThis.__routeTrendCache || /* @__PURE__ */ new Map();
+        const cached = globalThis.__routeTrendCache.get(cacheKey);
+        const now = Date.now();
+        if (cached && cached.expireAt > now) {
+          return Response.json(cached.payload);
         }
-
-        if (request.method === "OPTIONS") {
-            return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "*", "Access-Control-Max-Age": "86400" } });
+        const { results: routes } = await dbAll(env, `SELECT prefix FROM routes`);
+        if (!routes || routes.length === 0) {
+          return Response.json({ ok: false, reason: "no-routes", days, items: [] });
         }
-
-        // ==========================================
-        // emby-js 监控移植：公开页面（无需 admin 鉴权）
-        // ==========================================
-        if (url.pathname === '/status' && request.method === 'GET') {
-            if (!env.DB) return new Response('DB not bound', { status: 500 });
-            try {
-                const data = await loadStatusData(env, {});
-                const hideRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
-                const hideNames = !!(hideRow && hideRow.v === '1');
-                return new Response(renderStatusHtml(data, { title: '节点状态', hideNames }), {
-                    headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
-                });
-            } catch (e) {
-                return new Response('Status error: ' + e.message, { status: 500 });
-            }
+        const todayUtc = /* @__PURE__ */ new Date();
+        todayUtc.setUTCHours(0, 0, 0, 0);
+        const dayKeys = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(todayUtc.getTime() - i * 864e5);
+          dayKeys.push(d.toISOString().split("T")[0]);
         }
-        if (url.pathname.startsWith('/public/') && request.method === 'GET') {
-            if (!env.DB) return new Response('DB not bound', { status: 500 });
-            const token = url.pathname.slice('/public/'.length);
-            if (!/^[a-f0-9]{32,80}$/.test(token)) {
-                return new Response('Invalid token', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
-            }
-            try {
-                const row = await dbFirst(env, `SELECT scope, expires_at FROM emby_public_share WHERE token = ? AND scope = 'dashboard'`, token);
-                if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
-                    return new Response('链接已过期或失效', { status: 410, headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
-                }
-                const data = await loadStatusData(env, {});
-                return new Response(renderStatusHtml(data, { title: '节点状态（公开）' }), {
-                    headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Cache-Control': 'public, max-age=10' }
-                });
-            } catch (e) {
-                return new Response('Public status error: ' + e.message, { status: 500 });
-            }
-        }
-        if (url.pathname.startsWith('/card/') && url.pathname.endsWith('.svg') && request.method === 'GET') {
-            if (!env.DB) return new Response('DB not bound', { status: 500 });
-            const token = url.pathname.slice('/card/'.length, -'.svg'.length);
-            if (!/^[a-f0-9]{32,80}$/.test(token)) {
-                return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">链接无效</text></svg>', {
-                    status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
-                });
-            }
-            try {
-                const row = await dbFirst(env, `SELECT scope, prefix, expires_at FROM emby_public_share WHERE token = ? AND scope = 'card'`, token);
-                if (!row || (row.expires_at | 0) <= Math.floor(Date.now() / 1000)) {
-                    return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">链接已过期</text></svg>', {
-                        status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
-                    });
-                }
-                const data = await loadStatusData(env, { prefix: row.prefix });
-                if (!data.cards.length) {
-                    return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">节点已下线或未开启状态</text></svg>', {
-                        status: 410, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
-                    });
-                }
-                return new Response(renderCardSvg(data.cards[0]), {
-                    headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8', 'Cache-Control': 'public, max-age=60' }
-                });
-            } catch (e) {
-                return new Response('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="40"><text x="10" y="25" fill="#888">渲染失败</text></svg>', {
-                    status: 500, headers: { 'Content-Type': 'image/svg+xml;charset=UTF-8' }
-                });
-            }
-        }
-
-        const EXPECTED_TOKEN = env.ADMIN_TOKEN;
-        if (!EXPECTED_TOKEN) return new Response("请在 Worker 变量中配置 ADMIN_TOKEN", { status: 500 });
-
-        function getCookie(req, name) {
-            const cookieString = req.headers.get("Cookie");
-            if (!cookieString) return null;
-            const match = cookieString.match(new RegExp('(^| )' + name + '=([^;]+)'));
-            if (match) return decodeURIComponent(match[2]);
-            return null;
-        }
-
-        const isPanelOrApi = url.pathname === '/' || url.pathname.startsWith('/api/');
-        if (isPanelOrApi && url.pathname !== '/api/tg-webhook') {
-            const providedToken = getCookie(request, 'admin_token');
-            if (providedToken !== EXPECTED_TOKEN) {
-                if (url.pathname === '/') return new Response(LOGIN_UI, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
-                else return new Response('Unauthorized', { status: 401 });
-            }
-        }
-
-        if (url.pathname === '/') {
-            return new Response(HTML_UI, { headers: { "Content-Type": "text/html;charset=UTF-8" } });
-        }
-
-        // ==========================================
-        // 2.3 数据大屏统计接口 (Analytics)
-        // ==========================================
-        if (url.pathname === '/api/analytics' && request.method === 'GET') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            try {
-                // 并发获取 24小时、7天、30天流量 (通过全新 GraphQL API 规避限制)
-                const [trafficToday, traffic7d, traffic30d] = await Promise.all([
-                    getCFTraffic(env, 'today'),
-                    getCFTraffic(env, 7),
-                    getCFTraffic(env, 30)
-                ]);
-
-                const trend = await dbAll(env, `SELECT date(timestamp, '+8 hours') as date, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY date(timestamp, '+8 hours') ORDER BY date ASC`);
-                const locations = await dbAll(env, `SELECT country, COUNT(*) as count FROM visitor_logs WHERE timestamp >= datetime('now', '-7 days') GROUP BY country ORDER BY count DESC`);
-                const recents = await dbAll(env, `SELECT prefix, datetime(timestamp, '+8 hours') as timestamp, ip, country, ua FROM visitor_logs ORDER BY timestamp DESC LIMIT 20`);
-
-                return Response.json({
-                    success: true,
-                    trend: trend.results,
-                    locations: locations.results,
-                    recents: recents.results,
-                    trafficToday, traffic7d, traffic30d
-                });
-            } catch (e) {
-                return Response.json({ success: false, error: e.message });
-            }
-        }
-
-        // ==========================================
-        // 节点近 N 天每日流量趋势 (sparkline 数据源)
-        // 口径：CF GraphQL httpRequestsAdaptiveGroups, 按 clientRequestPath_like "/<prefix>%" 过滤,
-        //       date 维度分组, 缺失日补 0, 顺序最早 → 今日 (UTC)。
-        // ==========================================
-        if (url.pathname === '/api/route-trends' && request.method === 'GET') {
-            const days = Math.max(1, Math.min(7, parseInt(url.searchParams.get('days') || '7', 10) || 7));
-
-            if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
-                return Response.json({ ok: false, reason: 'no-cf-token', days, items: [] });
-            }
-            if (!env.DB) {
-                return Response.json({ ok: false, reason: 'no-db', days, items: [] });
-            }
-
-            try {
-                const utcHour = Math.floor(Date.now() / 3600000);
-                const cacheKey = `${env.CF_ZONE_ID}|${days}|${utcHour}`;
-                globalThis.__routeTrendCache = globalThis.__routeTrendCache || new Map();
-                const cached = globalThis.__routeTrendCache.get(cacheKey);
-                const now = Date.now();
-                if (cached && cached.expireAt > now) {
-                    return Response.json(cached.payload);
-                }
-
-                const { results: routes } = await dbAll(env, `SELECT prefix FROM routes`);
-                if (!routes || routes.length === 0) {
-                    return Response.json({ ok: false, reason: 'no-routes', days, items: [] });
-                }
-
-                const todayUtc = new Date();
-                todayUtc.setUTCHours(0, 0, 0, 0);
-                const dayKeys = [];
-                for (let i = days - 1; i >= 0; i--) {
-                    const d = new Date(todayUtc.getTime() - i * 86400000);
-                    dayKeys.push(d.toISOString().split('T')[0]);
-                }
-                const startIso = new Date(todayUtc.getTime() - (days - 1) * 86400000).toISOString();
-                const endIso = new Date(todayUtc.getTime() + 86400000 - 1).toISOString();
-
-                const items = await Promise.all(routes.map(async (r) => {
-                    const empty = dayKeys.map(() => 0);
-                    try {
-                        const q = {
-                            query: `query {
+        const startIso = new Date(todayUtc.getTime() - (days - 1) * 864e5).toISOString();
+        const endIso = new Date(todayUtc.getTime() + 864e5 - 1).toISOString();
+        const items = await Promise.all(routes.map(async (r) => {
+          const empty = dayKeys.map(() => 0);
+          try {
+            const q = {
+              query: `query {
                               viewer {
                                 zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
                                   httpRequestsAdaptiveGroups(
@@ -8177,631 +8074,690 @@ export default {
                                 }
                               }
                             }`
-                        };
-                        const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify(q)
-                        });
-                        const cfData = await cfRes.json();
-                        const groups = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups || [];
-                        const byDate = new Map();
-                        for (const g of groups) {
-                            byDate.set(g.dimensions?.date, g.sum?.edgeResponseBytes || 0);
-                        }
-                        const bytes = dayKeys.map(d => byDate.get(d) || 0);
-                        return { prefix: r.prefix, bytes };
-                    } catch (e) {
-                        return { prefix: r.prefix, bytes: empty };
-                    }
-                }));
-
-                const payload = {
-                    ok: true,
-                    days,
-                    generated_at: Math.floor(now / 1000),
-                    source: 'cf-graphql',
-                    items
-                };
-                globalThis.__routeTrendCache.set(cacheKey, { expireAt: now + 30 * 60 * 1000, payload });
-                return Response.json(payload);
-            } catch (e) {
-                return Response.json({ ok: false, reason: 'graphql-failed', error: e.message, days, items: [] });
+            };
+            const cfRes = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+              body: JSON.stringify(q)
+            });
+            const cfData = await cfRes.json();
+            const groups = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups || [];
+            const byDate = /* @__PURE__ */ new Map();
+            for (const g of groups) {
+              byDate.set(g.dimensions?.date, g.sum?.edgeResponseBytes || 0);
             }
+            const bytes = dayKeys.map((d) => byDate.get(d) || 0);
+            return { prefix: r.prefix, bytes };
+          } catch (e) {
+            return { prefix: r.prefix, bytes: empty };
+          }
+        }));
+        const payload = {
+          ok: true,
+          days,
+          generated_at: Math.floor(now / 1e3),
+          source: "cf-graphql",
+          items
+        };
+        globalThis.__routeTrendCache.set(cacheKey, { expireAt: now + 30 * 60 * 1e3, payload });
+        return Response.json(payload);
+      } catch (e) {
+        return Response.json({ ok: false, reason: "graphql-failed", error: e.message, days, items: [] });
+      }
+    }
+    if (url.pathname === "/api/deploy" && request.method === "POST") {
+      const cfToken = env.CF_API_TOKEN;
+      const accountId = env.CF_ACCOUNT_ID;
+      const workerName = env.CF_WORKER_NAME;
+      if (!cfToken || !accountId || !workerName) {
+        return Response.json({ success: false, error: "\u7F3A\u5C11 CF_API_TOKEN, CF_ACCOUNT_ID \u6216 CF_WORKER_NAME \u73AF\u5883\u53D8\u91CF" });
+      }
+      try {
+        const body = await request.json();
+        if (!body.newCode) return Response.json({ success: false, error: "\u4EE3\u7801\u5185\u5BB9\u4E3A\u7A7A\u3002" });
+        const serviceRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/services/${workerName}`, {
+          headers: { "Authorization": `Bearer ${cfToken}` }
+        });
+        const serviceData = await serviceRes.json();
+        let compDate = "2024-01-01";
+        let compFlags = void 0;
+        let placement = void 0;
+        if (serviceData.success && serviceData.result) {
+          let scriptInfo = null;
+          if (serviceData.result.default_environment && serviceData.result.default_environment.script) {
+            scriptInfo = serviceData.result.default_environment.script;
+          } else if (serviceData.result.script) {
+            scriptInfo = serviceData.result.script;
+          }
+          if (scriptInfo) {
+            if (scriptInfo.compatibility_date) compDate = scriptInfo.compatibility_date;
+            if (scriptInfo.compatibility_flags) compFlags = scriptInfo.compatibility_flags;
+            if (scriptInfo.placement) placement = scriptInfo.placement;
+          }
         }
-
-        // ==========================================
-        // 🟢 后端接口：执行代码覆盖更新 (纯JSON接口无损继承：变量、数据库、兼容性、放置地区)
-        // ==========================================
-        if (url.pathname === '/api/deploy' && request.method === 'POST') {
-            const cfToken = env.CF_API_TOKEN;
-            const accountId = env.CF_ACCOUNT_ID;
-            const workerName = env.CF_WORKER_NAME;
-            if (!cfToken || !accountId || !workerName) {
-                return Response.json({ success: false, error: '缺少 CF_API_TOKEN, CF_ACCOUNT_ID 或 CF_WORKER_NAME 环境变量' });
-            }
-            try {
-                const body = await request.json();
-                if (!body.newCode) return Response.json({ success: false, error: '代码内容为空。' });
-
-                // 1. 🚀 终极修复：调用纯 JSON 的 services 接口获取真实配置，绝对不再崩溃！
-                const serviceRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/services/${workerName}`, {
-                    headers: { 'Authorization': `Bearer ${cfToken}` }
-                });
-                const serviceData = await serviceRes.json();
-
-                let compDate = "2024-01-01"; // 依然保留兜底，但这次绝不会用到
-                let compFlags = undefined;
-                let placement = undefined;
-
-                if (serviceData.success && serviceData.result) {
-                    // 精准从 JSON 中提取你原本的配置
-                    let scriptInfo = null;
-                    if (serviceData.result.default_environment && serviceData.result.default_environment.script) {
-                        scriptInfo = serviceData.result.default_environment.script;
-                    } else if (serviceData.result.script) {
-                        scriptInfo = serviceData.result.script;
-                    }
-
-                    if (scriptInfo) {
-                        if (scriptInfo.compatibility_date) compDate = scriptInfo.compatibility_date;
-                        if (scriptInfo.compatibility_flags) compFlags = scriptInfo.compatibility_flags;
-                        if (scriptInfo.placement) placement = scriptInfo.placement;
-                    }
-                }
-
-                const preservedBindings = [];
-                // 2. 备份普通的字符串变量
-                for (const key in env) {
-                    if (typeof env[key] === 'string') {
-                        preservedBindings.push({ name: key, type: 'plain_text', text: env[key] });
-                    }
-                }
-
-                // 3. 拉取 D1、KV 等高级绑定并无损合并
-                const bindingsRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}/bindings`, {
-                    headers: { 'Authorization': `Bearer ${cfToken}` }
-                });
-                const bindingsData = await bindingsRes.json();
-                if (bindingsData.success && Array.isArray(bindingsData.result)) {
-                    for (const b of bindingsData.result) {
-                        if (b.type !== 'plain_text' && b.type !== 'secret_text' && b.type !== 'inherited') {
-                            preservedBindings.push(b);
-                        }
-                    }
-                }
-
-                // 4. 组装最终的部署请求
-                const formData = new FormData();
-                const metadata = {
-                    main_module: 'worker.js',
-                    bindings: preservedBindings,
-                    compatibility_date: compDate
-                };
-                if (compFlags) metadata.compatibility_flags = compFlags;
-                if (placement) metadata.placement = placement; // 🎯 完美带上你原始的放置地区！
-
-                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
-                formData.append('worker.js', new Blob([body.newCode], { type: 'application/javascript+module' }), 'worker.js');
-
-                const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}`;
-                const res = await fetch(cfUrl, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${cfToken}` },
-                    body: formData
-                });
-                const data = await res.json();
-                if (data.success) {
-                    return Response.json({ success: true, msg: '代码更新成功，并已完美保留原有放置地区和兼容配置！' });
-                } else {
-                    throw new Error(JSON.stringify(data.errors));
-                }
-            } catch (e) {
-                return Response.json({ success: false, error: e.message });
-            }
+        const preservedBindings = [];
+        for (const key in env) {
+          if (typeof env[key] === "string") {
+            preservedBindings.push({ name: key, type: "plain_text", text: env[key] });
+          }
         }
-        // ==========================================
-        // 2.4 系统级与提取工具 API 
-        // ==========================================
-        if (url.pathname === '/api/purge-cache' && request.method === 'POST') {
-            const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID;
-            if (!cfToken || !zoneId) return Response.json({ success: false, error: '缺少 CF_API_TOKEN 或 CF_ZONE_ID 变量' });
-            try {
-                const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, { method: 'POST', headers: { 'Authorization': `Bearer ${cfToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ purge_everything: true }) });
-                const data = await res.json();
-                if (!data.success) throw new Error(JSON.stringify(data.errors));
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }); }
-        }
-
-        if (url.pathname === '/api/ping-node') {
-            const target = url.searchParams.get('url');
-            if (!target) return Response.json({ ms: -1 });
-            const start = Date.now();
-            try {
-                const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 2000);
-                await fetch(target + '/', { method: 'HEAD', signal: controller.signal });
-                clearTimeout(timeoutId); return Response.json({ ms: Date.now() - start });
-            } catch (e) { return Response.json({ ms: -1 }); }
-        }
-
-        // 手动触发探测（外部 cron / 调试用）。需 ?key=<ADMIN_TOKEN>。
-        if (url.pathname === '/api/_probe_now') {
-            const key = url.searchParams.get('key') || '';
-            if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
-                return new Response('forbidden', { status: 403 });
+        const bindingsRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}/bindings`, {
+          headers: { "Authorization": `Bearer ${cfToken}` }
+        });
+        const bindingsData = await bindingsRes.json();
+        if (bindingsData.success && Array.isArray(bindingsData.result)) {
+          for (const b of bindingsData.result) {
+            if (b.type !== "plain_text" && b.type !== "secret_text" && b.type !== "inherited") {
+              preservedBindings.push(b);
             }
-            if (!env.DB) return new Response('no DB', { status: 500 });
-            const t0 = Date.now();
-            try {
-                await probeAll(env);
-                return Response.json({ ok: true, ms: Date.now() - t0 });
-            } catch (e) {
-                return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
-            }
+          }
         }
-
-        // 手动触发媒体计数抓取（外部 cron 每日一次）。需 ?key=<ADMIN_TOKEN>。
-        if (url.pathname === '/api/_counts_now') {
-            const key = url.searchParams.get('key') || '';
-            if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
-                return new Response('forbidden', { status: 403 });
-            }
-            if (!env.DB) return new Response('no DB', { status: 500 });
-            const t0 = Date.now();
-            try {
-                await ensureSchema(env);
-                const { results: routes } = await dbAll(env, `
+        const formData = new FormData();
+        const metadata = {
+          main_module: "worker.js",
+          bindings: preservedBindings,
+          compatibility_date: compDate
+        };
+        if (compFlags) metadata.compatibility_flags = compFlags;
+        if (placement) metadata.placement = placement;
+        formData.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }), "metadata.json");
+        formData.append("worker.js", new Blob([body.newCode], { type: "application/javascript+module" }), "worker.js");
+        const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}`;
+        const res = await fetch(cfUrl, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${cfToken}` },
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          return Response.json({ success: true, msg: "\u4EE3\u7801\u66F4\u65B0\u6210\u529F\uFF0C\u5E76\u5DF2\u5B8C\u7F8E\u4FDD\u7559\u539F\u6709\u653E\u7F6E\u5730\u533A\u548C\u517C\u5BB9\u914D\u7F6E\uFF01" });
+        } else {
+          throw new Error(JSON.stringify(data.errors));
+        }
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+    if (url.pathname === "/api/purge-cache" && request.method === "POST") {
+      const cfToken = env.CF_API_TOKEN;
+      const zoneId = env.CF_ZONE_ID;
+      if (!cfToken || !zoneId) return Response.json({ success: false, error: "\u7F3A\u5C11 CF_API_TOKEN \u6216 CF_ZONE_ID \u53D8\u91CF" });
+      try {
+        const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, { method: "POST", headers: { "Authorization": `Bearer ${cfToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ purge_everything: true }) });
+        const data = await res.json();
+        if (!data.success) throw new Error(JSON.stringify(data.errors));
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+    if (url.pathname === "/api/ping-node") {
+      const target = url.searchParams.get("url");
+      if (!target) return Response.json({ ms: -1 });
+      const start = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2e3);
+        await fetch(target + "/", { method: "HEAD", signal: controller.signal });
+        clearTimeout(timeoutId);
+        return Response.json({ ms: Date.now() - start });
+      } catch (e) {
+        return Response.json({ ms: -1 });
+      }
+    }
+    if (url.pathname === "/api/_probe_now") {
+      const key = url.searchParams.get("key") || "";
+      if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
+        return new Response("forbidden", { status: 403 });
+      }
+      if (!env.DB) return new Response("no DB", { status: 500 });
+      const t0 = Date.now();
+      try {
+        await probeAll(env);
+        return Response.json({ ok: true, ms: Date.now() - t0 });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/_counts_now") {
+      const key = url.searchParams.get("key") || "";
+      if (!env.ADMIN_TOKEN || key !== env.ADMIN_TOKEN) {
+        return new Response("forbidden", { status: 403 });
+      }
+      if (!env.DB) return new Response("no DB", { status: 500 });
+      const t0 = Date.now();
+      try {
+        await ensureSchema(env);
+        const { results: routes } = await dbAll(env, `
                     SELECT prefix, target, custom_headers, media_counts_auto_auth, emby_auth_cache
                       FROM routes WHERE show_on_status = 1 AND media_counts_auto_auth = 1
                 `);
-                const now = Math.floor(Date.now() / 1000);
-                await maybeFetchMediaCounts(env, routes || [], now);
-                return Response.json({ ok: true, routes: (routes || []).length, ms: Date.now() - t0 });
-            } catch (e) {
-                return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
-            }
+        const now = Math.floor(Date.now() / 1e3);
+        await maybeFetchMediaCounts(env, routes || [], now);
+        return Response.json({ ok: true, routes: (routes || []).length, ms: Date.now() - t0 });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e && e.message || e), ms: Date.now() - t0 }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/speedtest-down") {
+      const bytes = Math.min(parseInt(url.searchParams.get("bytes") || "5242880", 10) || 5242880, 50 * 1024 * 1024);
+      const chunkSize = 65536;
+      const chunk = new Uint8Array(chunkSize);
+      let sent = 0;
+      const stream = new ReadableStream({
+        pull(controller) {
+          if (sent >= bytes) {
+            controller.close();
+            return;
+          }
+          const remaining = bytes - sent;
+          if (remaining < chunkSize) {
+            controller.enqueue(chunk.subarray(0, remaining));
+            sent += remaining;
+          } else {
+            controller.enqueue(chunk);
+            sent += chunkSize;
+          }
         }
-
-        // ==========================================
-        // 🚀 下载测速端点：客户端 → 当前 CF 入口 → Worker 的实际带宽
-        // ==========================================
-        if (url.pathname === '/api/speedtest-down') {
-            const bytes = Math.min(parseInt(url.searchParams.get('bytes') || '5242880', 10) || 5242880, 50 * 1024 * 1024);
-            const chunkSize = 65536;
-            const chunk = new Uint8Array(chunkSize);
-            let sent = 0;
-            const stream = new ReadableStream({
-                pull(controller) {
-                    if (sent >= bytes) { controller.close(); return; }
-                    const remaining = bytes - sent;
-                    if (remaining < chunkSize) {
-                        controller.enqueue(chunk.subarray(0, remaining));
-                        sent += remaining;
-                    } else {
-                        controller.enqueue(chunk);
-                        sent += chunkSize;
-                    }
-                }
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(bytes),
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+    if (url.pathname === "/api/manual-redirect-domains") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      await ensureSchema(env);
+      if (request.method === "GET") {
+        const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
+        const domains = String(row?.v || "").split("\n").map((s) => s.trim()).filter(Boolean);
+        return Response.json({ success: true, domains });
+      }
+      if (request.method === "POST") {
+        try {
+          const body = await request.json();
+          const list = Array.isArray(body.domains) ? body.domains : [];
+          const cleaned = list.map((s) => String(s || "").trim().toLowerCase()).filter((s) => s && /^[a-z0-9.-]+$/.test(s));
+          const v = cleaned.join("\n");
+          await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('manual_redirect_domains', ?, CURRENT_TIMESTAMP)`, v);
+          updateManualRedirectHosts(new Set(cleaned));
+          return Response.json({ success: true, domains: cleaned });
+        } catch (e) {
+          return Response.json({ success: false, error: e.message }, { status: 400 });
+        }
+      }
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (url.pathname === "/api/optimized-domains" && request.method === "GET") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      await ensureSchema(env);
+      const { results } = await dbAll(env, `SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`);
+      return Response.json({ success: true, items: results || [] });
+    }
+    if (url.pathname === "/api/optimized-domains" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      await ensureSchema(env);
+      try {
+        const { domain, note } = await request.json();
+        const d = String(domain || "").trim().toLowerCase();
+        if (!d || !/^[a-z0-9.-]+$/.test(d)) return Response.json({ success: false, error: "\u57DF\u540D\u683C\u5F0F\u975E\u6CD5" }, { status: 400 });
+        await dbRun(env, `INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 0, 1)`, d, String(note || ""));
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 400 });
+      }
+    }
+    if (url.pathname.startsWith("/api/optimized-domains/") && url.pathname !== "/api/optimized-domains/speedtest") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      await ensureSchema(env);
+      const id = parseInt(url.pathname.split("/").pop(), 10);
+      if (!id) return Response.json({ success: false, error: "invalid id" }, { status: 400 });
+      const row = await dbFirst(env, `SELECT * FROM optimized_domains WHERE id = ?`, id);
+      if (!row) return Response.json({ success: false, error: "\u8BB0\u5F55\u4E0D\u5B58\u5728" }, { status: 404 });
+      if (request.method === "PATCH") {
+        try {
+          const body = await request.json();
+          const enabled = body.enabled === void 0 ? row.enabled : body.enabled ? 1 : 0;
+          const note = body.note === void 0 ? row.note : String(body.note || "");
+          await dbRun(env, `UPDATE optimized_domains SET enabled = ?, note = ? WHERE id = ?`, enabled, note, id);
+          return Response.json({ success: true });
+        } catch (e) {
+          return Response.json({ success: false, error: e.message }, { status: 400 });
+        }
+      }
+      if (request.method === "DELETE") {
+        if (row.builtin) return Response.json({ success: false, error: "\u5185\u7F6E\u57DF\u540D\u4E0D\u53EF\u5220\u9664\uFF08\u53EF\u7981\u7528\uFF09" }, { status: 400 });
+        await dbRun(env, `DELETE FROM optimized_domains WHERE id = ?`, id);
+        return Response.json({ success: true });
+      }
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (url.pathname === "/api/optimized-domains/speedtest" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" });
+      await ensureSchema(env);
+      const { results } = await dbAll(env, `SELECT id, domain FROM optimized_domains WHERE enabled = 1`);
+      const rows = results || [];
+      const measured = await Promise.all(rows.map(async (r) => {
+        const probe = await probeDomain(r.domain);
+        return { id: r.id, domain: r.domain, ms: probe.ms, ok: probe.ok };
+      }));
+      try {
+        const stmts = measured.map((m) => env.DB.prepare(`UPDATE optimized_domains SET last_ms = ? WHERE id = ?`).bind(m.ms, m.id));
+        if (stmts.length) await env.DB.batch(stmts);
+      } catch (e) {
+      }
+      measured.sort((a, b) => {
+        if (!a.ok && !b.ok) return 0;
+        if (!a.ok) return 1;
+        if (!b.ok) return -1;
+        return a.ms - b.ms;
+      });
+      return Response.json({ success: true, items: measured });
+    }
+    if (url.pathname === "/api/dns-ready" && request.method === "GET") {
+      const ok = !!(env.CF_API_TOKEN && env.CF_ZONE_ID && env.CF_DOMAIN);
+      return Response.json({ success: true, ready: ok, domain: env.CF_DOMAIN || "" });
+    }
+    if (url.pathname === "/api/dns/replace" && request.method === "POST") {
+      try {
+        const body = await request.json();
+        const newDomain = String(body.domain || "").trim().toLowerCase();
+        if (!newDomain) return Response.json({ success: false, error: "\u7F3A\u5C11\u76EE\u6807\u57DF\u540D" }, { status: 400 });
+        const cfToken = env.CF_API_TOKEN;
+        const zoneId = env.CF_ZONE_ID;
+        const domain = env.CF_DOMAIN;
+        if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: "\u7F3A\u5C11\u73AF\u5883\u53D8\u91CF CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN" }, { status: 400 });
+        const listRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, {
+          headers: { "Authorization": `Bearer ${cfToken}` }
+        });
+        const listData = await listRes.json();
+        if (!listData.success) return Response.json({ success: false, error: "CF \u62C9\u53D6\u8BB0\u5F55\u5931\u8D25: " + JSON.stringify(listData.errors) }, { status: 502 });
+        const oldRecords = (listData.result || []).filter((r) => r.type === "A" || r.type === "AAAA" || r.type === "CNAME");
+        for (const r of oldRecords) {
+          await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${r.id}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${cfToken}` }
+          });
+        }
+        const postRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${cfToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "CNAME", name: domain, content: newDomain, ttl: 60, proxied: false })
+        });
+        const postData = await postRes.json();
+        if (!postData.success) return Response.json({ success: false, error: "CF \u5199\u5165\u5931\u8D25: " + JSON.stringify(postData.errors) }, { status: 502 });
+        return Response.json({ success: true, name: domain, content: newDomain, replaced: oldRecords.length });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/get-dns") {
+      const cfToken = env.CF_API_TOKEN;
+      const zoneId = env.CF_ZONE_ID;
+      const domain = env.CF_DOMAIN;
+      if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: "\u7F3A\u5C11 DNS \u73AF\u5883\u53D8\u91CF" });
+      try {
+        const getRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, { headers: { "Authorization": `Bearer ${cfToken}` } });
+        const getData = await getRes.json();
+        return Response.json({ success: true, result: getData.result });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message });
+      }
+    }
+    if (url.pathname === "/api/update-dns" && request.method === "POST") {
+      const body = await request.json();
+      const ips = body.ips;
+      const cfToken = env.CF_API_TOKEN;
+      const zoneId = env.CF_ZONE_ID;
+      const domain = env.CF_DOMAIN;
+      if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: "\u7F3A\u5C11 DNS \u73AF\u5883\u53D8\u91CF" });
+      try {
+        const getRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, { headers: { "Authorization": `Bearer ${cfToken}` } });
+        const getData = await getRes.json();
+        if (!getData.success) throw new Error("\u83B7\u53D6\u73B0\u6709 DNS \u8BB0\u5F55\u5931\u8D25");
+        const oldRecords = getData.result.filter((r) => r.type === "A" || r.type === "AAAA" || r.type === "CNAME");
+        for (const record of oldRecords) {
+          await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${record.id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${cfToken}` } });
+        }
+        for (const ip of ips) {
+          const cleanItem = ip.replace(/[\[\]]/g, "");
+          let recordType = "A";
+          if (cleanItem.includes(":")) recordType = "AAAA";
+          else if (/[a-zA-Z]/.test(cleanItem)) recordType = "CNAME";
+          const postRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, { method: "POST", headers: { "Authorization": `Bearer ${cfToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: recordType, name: domain, content: cleanItem, ttl: 60, proxied: false }) });
+          const postData = await postRes.json();
+          if (!postData.success) throw new Error(`\u8BB0\u5F55\u63D0\u4EA4\u5931\u8D25: ` + JSON.stringify(postData.errors));
+        }
+        return Response.json({ success: true, message: `\u2705 \u6210\u529F\uFF01` });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message });
+      }
+    }
+    if (url.pathname === "/api/get-custom-api-ips") {
+      try {
+        const apiUrl = url.searchParams.get("url");
+        if (!apiUrl) throw new Error("\u7F3A\u5C11 URL");
+        const response = await fetch(apiUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const text = await response.text();
+        let validIPs = /* @__PURE__ */ new Set();
+        try {
+          const jsonObj = JSON.parse(text);
+          if (jsonObj && jsonObj.data && Array.isArray(jsonObj.data)) {
+            jsonObj.data.forEach((item) => {
+              if (item.ip) {
+                let ip = item.ip;
+                if (ip.includes(":") && !ip.startsWith("[")) ip = `[${ip}]`;
+                validIPs.add(ip);
+              }
             });
-            return new Response(stream, {
-                headers: {
-                    'Content-Type': 'application/octet-stream',
-                    'Content-Length': String(bytes),
-                    'Cache-Control': 'no-store',
-                    'Access-Control-Allow-Origin': '*'
-                }
-            });
+          }
+        } catch (e) {
         }
-
-        // ==========================================
-        // 🚀 F3: 手动重定向白名单管理
-        // ==========================================
-        if (url.pathname === '/api/manual-redirect-domains') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            await ensureSchema(env);
-            if (request.method === 'GET') {
-                const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'manual_redirect_domains'`);
-                const domains = String(row?.v || '').split('\n').map(s => s.trim()).filter(Boolean);
-                return Response.json({ success: true, domains });
+        if (validIPs.size === 0) {
+          const ipv4Regex = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
+          const matchedIPv4 = text.match(ipv4Regex) || [];
+          matchedIPv4.forEach((ip) => {
+            if (!ip.startsWith("10.") && !ip.startsWith("192.168.") && !ip.startsWith("127.")) validIPs.add(ip);
+          });
+          const ipv6Regex = /(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}|(?:[A-F0-9]{1,4}:)*:[A-F0-9]{1,4}(?::[A-F0-9]{1,4})*/gi;
+          const matchedIPv6 = text.match(ipv6Regex) || [];
+          matchedIPv6.forEach((ip) => {
+            if (ip.length > 7 && ip.includes(":") && !ip.startsWith("::1")) validIPs.add(ip.startsWith("[") ? ip : `[${ip}]`);
+          });
+        }
+        const uniqueIPArray = Array.from(validIPs);
+        for (let i = uniqueIPArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [uniqueIPArray[i], uniqueIPArray[j]] = [uniqueIPArray[j], uniqueIPArray[i]];
+        }
+        return Response.json({ success: true, ips: uniqueIPArray.slice(0, 15), totalCount: uniqueIPArray.length });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/get-remote-ips") {
+      try {
+        const reqType = (url.searchParams.get("type") || "all").toLowerCase();
+        const validIPs = /* @__PURE__ */ new Set();
+        if (["all", "\u7535\u4FE1", "\u8054\u901A", "\u79FB\u52A8", "\u591A\u7EBF", "ipv6"].includes(reqType)) {
+          try {
+            const res1 = await fetch("https://api.uouin.com/cloudflare.html", { headers: { "User-Agent": "Mozilla/5.0" } });
+            if (res1.ok) {
+              const text1 = await res1.text();
+              const cleanText = text1.replace(/<[^>]+>/g, " ");
+              const regex = /(电信|联通|移动|多线|ipv6)\s+((?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-fA-F0-9]{1,4}:)+[a-fA-F0-9]{1,4})/gi;
+              let match;
+              while ((match = regex.exec(cleanText)) !== null) {
+                const lineType = match[1].toLowerCase();
+                let ip = match[2];
+                if (ip.includes(":") && !ip.startsWith("[")) ip = `[${ip}]`;
+                if (reqType === "all" || reqType === lineType) validIPs.add(ip);
+              }
             }
-            if (request.method === 'POST') {
-                try {
-                    const body = await request.json();
-                    const list = Array.isArray(body.domains) ? body.domains : [];
-                    const cleaned = list.map(s => String(s || '').trim().toLowerCase()).filter(s => s && /^[a-z0-9.-]+$/.test(s));
-                    const v = cleaned.join('\n');
-                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('manual_redirect_domains', ?, CURRENT_TIMESTAMP)`, v);
-                    _manualRedirectHosts = new Set(cleaned);
-                    return Response.json({ success: true, domains: cleaned });
-                } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+          } catch (e) {
+          }
+        }
+        if (["all", "\u4F18\u9009"].includes(reqType)) {
+          try {
+            const res2 = await fetch("https://raw.githubusercontent.com/ZhiXuanWang/cf-speed-dns/refs/heads/main/ipTop10.html", { headers: { "User-Agent": "Mozilla/5.0" } });
+            if (res2.ok) {
+              const text2 = await res2.text();
+              const ipv4Regex = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
+              const matched = text2.match(ipv4Regex) || [];
+              matched.forEach((ip) => {
+                if (!ip.startsWith("10.") && !ip.startsWith("192.168.") && !ip.startsWith("127.")) validIPs.add(ip);
+              });
             }
-            return new Response("Method not allowed", { status: 405 });
+          } catch (e) {
+          }
         }
-
-        // ==========================================
-        // 🚀 F4: 优选域名 CRUD + 测速
-        // ==========================================
-        if (url.pathname === '/api/optimized-domains' && request.method === 'GET') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            await ensureSchema(env);
-            const { results } = await dbAll(env, `SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`);
-            return Response.json({ success: true, items: results || [] });
+        const uniqueIPArray = Array.from(validIPs);
+        for (let i = uniqueIPArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [uniqueIPArray[i], uniqueIPArray[j]] = [uniqueIPArray[j], uniqueIPArray[i]];
         }
-        if (url.pathname === '/api/optimized-domains' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            await ensureSchema(env);
-            try {
-                const { domain, note } = await request.json();
-                const d = String(domain || '').trim().toLowerCase();
-                if (!d || !/^[a-z0-9.-]+$/.test(d)) return Response.json({ success: false, error: '域名格式非法' }, { status: 400 });
-                await dbRun(env, `INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 0, 1)`, d, String(note || ''));
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
+        return Response.json({ success: true, ips: uniqueIPArray.slice(0, 10), totalCount: uniqueIPArray.length });
+      } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/routes/reorder" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A DB" });
+      try {
+        const items = await request.json();
+        const stmts = items.map((item) => env.DB.prepare("UPDATE routes SET sort_order = ? WHERE prefix = ?").bind(item.sort_order, item.prefix));
+        await env.DB.batch(stmts);
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+    if (url.pathname === "/api/routes/import" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A DB" });
+      try {
+        const routes = await request.json();
+        const skipped = [];
+        let imported = 0;
+        for (const r of routes) {
+          if (!r.prefix || !r.target) {
+            skipped.push({ prefix: r.prefix || "(\u7A7A)", reason: "\u7F3A\u5C11 prefix \u6216 target" });
+            continue;
+          }
+          const reason = validateRoutePrefix(r.prefix);
+          if (reason) {
+            skipped.push({ prefix: r.prefix, reason });
+            continue;
+          }
+          await dbRun(
+            env,
+            "INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            r.prefix,
+            r.target,
+            r.mode || "off",
+            r.remark || "",
+            r.last_play || "",
+            r.icon || "",
+            r.cache_img || "on",
+            r.sort_order || 0,
+            r.custom_headers || "",
+            r.backend_url || "",
+            r.show_on_status ? 1 : 0,
+            r.public_alias || "",
+            r.media_counts_auto_auth ? 1 : 0
+          );
+          imported++;
         }
-        if (url.pathname.startsWith('/api/optimized-domains/') && url.pathname !== '/api/optimized-domains/speedtest') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            await ensureSchema(env);
-            const id = parseInt(url.pathname.split('/').pop(), 10);
-            if (!id) return Response.json({ success: false, error: 'invalid id' }, { status: 400 });
-            const row = await dbFirst(env, `SELECT * FROM optimized_domains WHERE id = ?`, id);
-            if (!row) return Response.json({ success: false, error: '记录不存在' }, { status: 404 });
-            if (request.method === 'PATCH') {
-                try {
-                    const body = await request.json();
-                    const enabled = body.enabled === undefined ? row.enabled : (body.enabled ? 1 : 0);
-                    const note = body.note === undefined ? row.note : String(body.note || '');
-                    await dbRun(env, `UPDATE optimized_domains SET enabled = ?, note = ? WHERE id = ?`, enabled, note, id);
-                    return Response.json({ success: true });
-                } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
-            }
-            if (request.method === 'DELETE') {
-                if (row.builtin) return Response.json({ success: false, error: '内置域名不可删除（可禁用）' }, { status: 400 });
-                await dbRun(env, `DELETE FROM optimized_domains WHERE id = ?`, id);
-                return Response.json({ success: true });
-            }
-            return new Response("Method not allowed", { status: 405 });
+        return Response.json({ success: true, imported, skipped });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message });
+      }
+    }
+    if (url.pathname === "/api/status/route-flags" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      try {
+        const body = await request.json();
+        const prefix = String(body.prefix || "").trim();
+        if (!prefix) return Response.json({ success: false, error: "\u7F3A\u5C11 prefix" }, { status: 400 });
+        const exists = await dbFirst(env, `SELECT prefix FROM routes WHERE prefix = ?`, prefix);
+        if (!exists) return Response.json({ success: false, error: "\u8282\u70B9\u4E0D\u5B58\u5728" }, { status: 404 });
+        const fields = [];
+        const values = [];
+        if (body.show_on_status !== void 0) {
+          fields.push("show_on_status = ?");
+          values.push(body.show_on_status ? 1 : 0);
         }
-        if (url.pathname === '/api/optimized-domains/speedtest' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
-            await ensureSchema(env);
-            const { results } = await dbAll(env, `SELECT id, domain FROM optimized_domains WHERE enabled = 1`);
-            const rows = results || [];
-            const measured = await Promise.all(rows.map(async r => {
-                const probe = await probeDomain(r.domain);
-                return { id: r.id, domain: r.domain, ms: probe.ms, ok: probe.ok };
-            }));
-            // 持久化 last_ms
-            try {
-                const stmts = measured.map(m => env.DB.prepare(`UPDATE optimized_domains SET last_ms = ? WHERE id = ?`).bind(m.ms, m.id));
-                if (stmts.length) await env.DB.batch(stmts);
-            } catch (e) {}
-            measured.sort((a, b) => {
-                if (!a.ok && !b.ok) return 0;
-                if (!a.ok) return 1;
-                if (!b.ok) return -1;
-                return a.ms - b.ms;
-            });
-            return Response.json({ success: true, items: measured });
+        if (body.public_alias !== void 0) {
+          fields.push("public_alias = ?");
+          values.push(String(body.public_alias || "").trim());
         }
-
-        // 检查 DNS 替换前置条件（env 变量是否齐全）
-        if (url.pathname === '/api/dns-ready' && request.method === 'GET') {
-            const ok = !!(env.CF_API_TOKEN && env.CF_ZONE_ID && env.CF_DOMAIN);
-            return Response.json({ success: true, ready: ok, domain: env.CF_DOMAIN || '' });
+        if (body.media_counts_auto_auth !== void 0) {
+          fields.push("media_counts_auto_auth = ?");
+          values.push(body.media_counts_auto_auth ? 1 : 0);
         }
-        if (url.pathname === '/api/dns/replace' && request.method === 'POST') {
-            try {
-                const body = await request.json();
-                const newDomain = String(body.domain || '').trim().toLowerCase();
-                if (!newDomain) return Response.json({ success: false, error: '缺少目标域名' }, { status: 400 });
-                const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID; const domain = env.CF_DOMAIN;
-                if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: '缺少环境变量 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN' }, { status: 400 });
-
-                // 拉取该域名下所有 A/AAAA/CNAME 记录
-                const listRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, {
-                    headers: { 'Authorization': `Bearer ${cfToken}` }
-                });
-                const listData = await listRes.json();
-                if (!listData.success) return Response.json({ success: false, error: 'CF 拉取记录失败: ' + JSON.stringify(listData.errors) }, { status: 502 });
-
-                const oldRecords = (listData.result || []).filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-                // 删除旧 A/AAAA/CNAME
-                for (const r of oldRecords) {
-                    await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${r.id}`, {
-                        method: 'DELETE', headers: { 'Authorization': `Bearer ${cfToken}` }
-                    });
-                }
-                // 写入新 CNAME
-                const postRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${cfToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'CNAME', name: domain, content: newDomain, ttl: 60, proxied: false })
-                });
-                const postData = await postRes.json();
-                if (!postData.success) return Response.json({ success: false, error: 'CF 写入失败: ' + JSON.stringify(postData.errors) }, { status: 502 });
-                return Response.json({ success: true, name: domain, content: newDomain, replaced: oldRecords.length });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
-        }
-
-        if (url.pathname === '/api/get-dns') {
-            const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID; const domain = env.CF_DOMAIN;
-            if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: '缺少 DNS 环境变量' });
-            try {
-                const getRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, { headers: { 'Authorization': `Bearer ${cfToken}` } });
-                const getData = await getRes.json();
-                return Response.json({ success: true, result: getData.result });
-            } catch (error) { return Response.json({ success: false, error: error.message }); }
-        }
-
-        if (url.pathname === '/api/update-dns' && request.method === 'POST') {
-            const body = await request.json(); const ips = body.ips;
-            const cfToken = env.CF_API_TOKEN; const zoneId = env.CF_ZONE_ID; const domain = env.CF_DOMAIN;
-
-            if (!cfToken || !zoneId || !domain) return Response.json({ success: false, error: '缺少 DNS 环境变量' });
-            try {
-                const getRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${domain}`, { headers: { 'Authorization': `Bearer ${cfToken}` } });
-                const getData = await getRes.json();
-                if (!getData.success) throw new Error('获取现有 DNS 记录失败');
-
-                const oldRecords = getData.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-                for (const record of oldRecords) {
-                    await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${record.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${cfToken}` } });
-                }
-
-                for (const ip of ips) {
-                    const cleanItem = ip.replace(/[\[\]]/g, ''); let recordType = 'A';
-                    if (cleanItem.includes(':')) recordType = 'AAAA'; else if (/[a-zA-Z]/.test(cleanItem)) recordType = 'CNAME';
-
-                    const postRes = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, { method: 'POST', headers: { 'Authorization': `Bearer ${cfToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: recordType, name: domain, content: cleanItem, ttl: 60, proxied: false }) });
-                    const postData = await postRes.json();
-                    if (!postData.success) throw new Error(`记录提交失败: ` + JSON.stringify(postData.errors));
-                }
-                return Response.json({ success: true, message: `✅ 成功！` });
-            } catch (error) { return Response.json({ success: false, error: error.message }); }
-        }
-
-        if (url.pathname === '/api/get-custom-api-ips') {
-            try {
-                const apiUrl = url.searchParams.get('url');
-                if (!apiUrl) throw new Error("缺少 URL");
-                const response = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-                const text = await response.text(); let validIPs = new Set();
-                try {
-                    const jsonObj = JSON.parse(text);
-                    if (jsonObj && jsonObj.data && Array.isArray(jsonObj.data)) {
-                        jsonObj.data.forEach(item => { if (item.ip) { let ip = item.ip; if (ip.includes(':') && !ip.startsWith('[')) ip = `[${ip}]`; validIPs.add(ip); } });
-                    }
-                } catch (e) { }
-
-                if (validIPs.size === 0) {
-                    const ipv4Regex = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
-                    const matchedIPv4 = text.match(ipv4Regex) || [];
-                    matchedIPv4.forEach(ip => { if (!ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('127.')) validIPs.add(ip); });
-
-                    const ipv6Regex = /(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}|(?:[A-F0-9]{1,4}:)*:[A-F0-9]{1,4}(?::[A-F0-9]{1,4})*/gi;
-                    const matchedIPv6 = text.match(ipv6Regex) || [];
-                    matchedIPv6.forEach(ip => { if (ip.length > 7 && ip.includes(':') && !ip.startsWith('::1')) validIPs.add(ip.startsWith('[') ? ip : `[${ip}]`); });
-                }
-                const uniqueIPArray = Array.from(validIPs);
-                for (let i = uniqueIPArray.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[uniqueIPArray[i], uniqueIPArray[j]] = [uniqueIPArray[j], uniqueIPArray[i]]; }
-                return Response.json({ success: true, ips: uniqueIPArray.slice(0, 15), totalCount: uniqueIPArray.length });
-            } catch (error) { return Response.json({ success: false, error: error.message }, { status: 500 }); }
-        }
-
-        if (url.pathname === '/api/get-remote-ips') {
-            try {
-                const reqType = (url.searchParams.get('type') || 'all').toLowerCase();
-                const validIPs = new Set();
-
-                if (['all', '电信', '联通', '移动', '多线', 'ipv6'].includes(reqType)) {
-                    try {
-                        const res1 = await fetch('https://api.uouin.com/cloudflare.html', { headers: { 'User-Agent': 'Mozilla/5.0' } });
-                        if (res1.ok) {
-                            const text1 = await res1.text(); const cleanText = text1.replace(/<[^>]+>/g, ' ');
-                            const regex = /(电信|联通|移动|多线|ipv6)\s+((?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-fA-F0-9]{1,4}:)+[a-fA-F0-9]{1,4})/gi;
-                            let match; while ((match = regex.exec(cleanText)) !== null) {
-                                const lineType = match[1].toLowerCase(); let ip = match[2];
-                                if (ip.includes(':') && !ip.startsWith('[')) ip = `[${ip}]`;
-                                if (reqType === 'all' || reqType === lineType) validIPs.add(ip);
-                            }
-                        }
-                    } catch (e) { }
-                }
-
-                if (['all', '优选'].includes(reqType)) {
-                    try {
-                        const res2 = await fetch('https://raw.githubusercontent.com/ZhiXuanWang/cf-speed-dns/refs/heads/main/ipTop10.html', { headers: { 'User-Agent': 'Mozilla/5.0' } });
-                        if (res2.ok) {
-                            const text2 = await res2.text(); const ipv4Regex = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
-                            const matched = text2.match(ipv4Regex) || []; matched.forEach(ip => { if (!ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('127.')) validIPs.add(ip); });
-                        }
-                    } catch (e) { }
-                }
-                const uniqueIPArray = Array.from(validIPs);
-                for (let i = uniqueIPArray.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[uniqueIPArray[i], uniqueIPArray[j]] = [uniqueIPArray[j], uniqueIPArray[i]]; }
-                return Response.json({ success: true, ips: uniqueIPArray.slice(0, 10), totalCount: uniqueIPArray.length });
-            } catch (error) { return Response.json({ success: false, error: error.message }, { status: 500 }); }
-        }
-
-        // ==========================================
-        // 2.5 数据库路由管理 API 
-        // ==========================================
-        if (url.pathname === '/api/routes/reorder' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
-            try {
-                const items = await request.json();
-                const stmts = items.map(item => env.DB.prepare('UPDATE routes SET sort_order = ? WHERE prefix = ?').bind(item.sort_order, item.prefix));
-                await env.DB.batch(stmts);
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }); }
-        }
-
-        if (url.pathname === '/api/routes/import' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: "未绑定 DB" });
-            try {
-                const routes = await request.json();
-                const skipped = []; let imported = 0;
-                for (const r of routes) {
-                    if (!r.prefix || !r.target) { skipped.push({ prefix: r.prefix || '(空)', reason: '缺少 prefix 或 target' }); continue; }
-                    const reason = validateRoutePrefix(r.prefix);
-                    if (reason) { skipped.push({ prefix: r.prefix, reason }); continue; }
-                    await dbRun(env, 'INSERT OR REPLACE INTO routes (prefix, target, mode, remark, last_play, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        r.prefix, r.target, r.mode || 'off', r.remark || '', r.last_play || '', r.icon || '', r.cache_img || 'on', r.sort_order || 0, r.custom_headers || '', r.backend_url || '', r.show_on_status ? 1 : 0, r.public_alias || '', r.media_counts_auto_auth ? 1 : 0);
-                    imported++;
-                }
-                return Response.json({ success: true, imported, skipped });
-            } catch (e) { return Response.json({ success: false, error: e.message }); }
-        }
-
-        // ==========================================
-        // emby-js 监控移植：节点状态开关 + 公开分享 + 令牌撤销
-        // ==========================================
-        if (url.pathname === '/api/status/route-flags' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            try {
-                const body = await request.json();
-                const prefix = String(body.prefix || '').trim();
-                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                const exists = await dbFirst(env, `SELECT prefix FROM routes WHERE prefix = ?`, prefix);
-                if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
-                const fields = [];
-                const values = [];
-                if (body.show_on_status !== undefined) { fields.push('show_on_status = ?'); values.push(body.show_on_status ? 1 : 0); }
-                if (body.public_alias !== undefined) { fields.push('public_alias = ?'); values.push(String(body.public_alias || '').trim()); }
-                if (body.media_counts_auto_auth !== undefined) { fields.push('media_counts_auto_auth = ?'); values.push(body.media_counts_auto_auth ? 1 : 0); }
-                if (!fields.length) return Response.json({ success: false, error: '无字段需要更新' }, { status: 400 });
-                values.push(prefix);
-                await dbRun(env, `UPDATE routes SET ${fields.join(', ')} WHERE prefix = ?`, ...values);
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
-        }
-        if (url.pathname === '/api/status/revoke-auth' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            try {
-                const body = await request.json();
-                const prefix = String(body.prefix || '').trim();
-                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                await dbRun(env, `UPDATE routes SET emby_auth_cache = '', emby_auth_seen_at = 0, emby_auth_used_at = 0 WHERE prefix = ?`, prefix);
-                HARVEST_MEM.delete(prefix);
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
-        }
-        // Admin probe data: same shape as /status (cards[]) — drives ECG strips on overview.
-        if (url.pathname === '/api/status/probes' && request.method === 'GET') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            try {
-                const data = await loadStatusData(env, {});
-                return Response.json({ success: true, cards: data.cards });
-            } catch (e) {
-                return Response.json({ success: false, error: e.message }, { status: 500 });
-            }
-        }
-        if (url.pathname === '/api/status/auth-state' && request.method === 'GET') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            const { results } = await dbAll(env, `
+        if (!fields.length) return Response.json({ success: false, error: "\u65E0\u5B57\u6BB5\u9700\u8981\u66F4\u65B0" }, { status: 400 });
+        values.push(prefix);
+        await dbRun(env, `UPDATE routes SET ${fields.join(", ")} WHERE prefix = ?`, ...values);
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 400 });
+      }
+    }
+    if (url.pathname === "/api/status/revoke-auth" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      try {
+        const body = await request.json();
+        const prefix = String(body.prefix || "").trim();
+        if (!prefix) return Response.json({ success: false, error: "\u7F3A\u5C11 prefix" }, { status: 400 });
+        await dbRun(env, `UPDATE routes SET emby_auth_cache = '', emby_auth_seen_at = 0, emby_auth_used_at = 0 WHERE prefix = ?`, prefix);
+        HARVEST_MEM.delete(prefix);
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 400 });
+      }
+    }
+    if (url.pathname === "/api/status/probes" && request.method === "GET") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      try {
+        const data = await loadStatusData(env, {});
+        return Response.json({ success: true, cards: data.cards });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/status/auth-state" && request.method === "GET") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      const { results } = await dbAll(env, `
                 SELECT prefix, show_on_status, public_alias, media_counts_auto_auth,
                        CASE WHEN emby_auth_cache = '' THEN 0 ELSE 1 END AS has_token,
                        emby_auth_seen_at, emby_auth_used_at
                   FROM routes
             `);
-            return Response.json({ success: true, items: results || [] });
+      return Response.json({ success: true, items: results || [] });
+    }
+    if (url.pathname === "/api/status/global-flags" && request.method === "GET") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
+      const ccRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
+      return Response.json({
+        success: true,
+        hide_node_names: row && row.v === "1" ? 1 : 0,
+        country_allowlist: ccRow && ccRow.v ? ccRow.v : ""
+      });
+    }
+    if (url.pathname === "/api/status/global-flags" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      try {
+        const body = await request.json();
+        if (body.hide_node_names !== void 0) {
+          const v = body.hide_node_names ? "1" : "0";
+          await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`, v);
         }
-        if (url.pathname === '/api/status/global-flags' && request.method === 'GET') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            const row = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'status_hide_node_names'`);
-            const ccRow = await dbFirst(env, `SELECT v FROM kv_config WHERE k = 'proxy_country_allowlist'`);
-            return Response.json({
-                success: true,
-                hide_node_names: (row && row.v === '1') ? 1 : 0,
-                country_allowlist: (ccRow && ccRow.v) ? ccRow.v : ''
-            });
+        if (body.country_allowlist !== void 0) {
+          const raw = String(body.country_allowlist || "");
+          const codes = Array.from(new Set(
+            raw.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+          ));
+          const v = codes.join(",");
+          await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('proxy_country_allowlist', ?, CURRENT_TIMESTAMP)`, v);
         }
-        if (url.pathname === '/api/status/global-flags' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            try {
-                const body = await request.json();
-                if (body.hide_node_names !== undefined) {
-                    const v = body.hide_node_names ? '1' : '0';
-                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('status_hide_node_names', ?, CURRENT_TIMESTAMP)`, v);
-                }
-                if (body.country_allowlist !== undefined) {
-                    const raw = String(body.country_allowlist || '');
-                    const codes = Array.from(new Set(
-                        raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-                    ));
-                    const v = codes.join(',');
-                    await dbRun(env, `INSERT OR REPLACE INTO kv_config (k, v, updated_at) VALUES ('proxy_country_allowlist', ?, CURRENT_TIMESTAMP)`, v);
-                }
-                return Response.json({ success: true });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 400 }); }
-        }
-        if (url.pathname === '/api/share/dashboard' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            try {
-                const token = newShareToken();
-                const now = Math.floor(Date.now() / 1000);
-                const expires = now + 3600;
-                await env.DB.batch([
-                    env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'dashboard'`),
-                    env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'dashboard', '', ?, ?)`).bind(token, expires, now)
-                ]);
-                const origin = new URL(request.url).origin;
-                return Response.json({ success: true, token, url: `${origin}/public/${token}`, expires_at: expires });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
-        }
-        if (url.pathname === '/api/share/card' && request.method === 'POST') {
-            if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' }, { status: 500 });
-            await ensureSchema(env);
-            try {
-                const body = await request.json();
-                const prefix = String(body.prefix || '').trim();
-                if (!prefix) return Response.json({ success: false, error: '缺少 prefix' }, { status: 400 });
-                const exists = await dbFirst(env, `SELECT show_on_status FROM routes WHERE prefix = ?`, prefix);
-                if (!exists) return Response.json({ success: false, error: '节点不存在' }, { status: 404 });
-                if (!exists.show_on_status) return Response.json({ success: false, error: '该节点未开启“在状态页展示”，无法生成分享卡片' }, { status: 400 });
-                const token = newShareToken();
-                const now = Math.floor(Date.now() / 1000);
-                const expires = now + 3600;
-                await env.DB.batch([
-                    env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'card' AND prefix = ?`).bind(prefix),
-                    env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'card', ?, ?, ?)`).bind(token, prefix, expires, now)
-                ]);
-                const origin = new URL(request.url).origin;
-                return Response.json({ success: true, token, url: `${origin}/card/${token}.svg`, expires_at: expires });
-            } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }
-        }
-
-        if (url.pathname.startsWith('/api/routes')) {
-            if (!env.DB) return Response.json({ error: "由于未绑定 D1 数据库，反代功能不可用。" }, { status: 500 });
-
-            await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
-            await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
-            // 大数据记录核心表：访客日志
-            await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
-
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN mode TEXT DEFAULT 'off'`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN remark TEXT DEFAULT ''`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN last_play TEXT DEFAULT ''`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN icon TEXT DEFAULT ''`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN cache_img TEXT DEFAULT 'on'`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`); } catch (e) { }
-            try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`); } catch (e) { }
-
-            // 数据防爆清理策略：自动清理过去 7 天的精细日志
-            try { await env.DB.exec(`DELETE FROM visitor_logs WHERE timestamp < datetime('now', '-7 days')`); } catch (e) { }
-
-            // 🚀 【方案A修复版】：独立并发查流，完美绕过 CF 免费版复杂度限制！
-            if (request.method === 'GET') {
-                const todayStr = new Date(Date.now() + 8 * 3600000).toISOString().split('T')[0];
-                const { results: routes } = await dbAll(env, `
+        return Response.json({ success: true });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 400 });
+      }
+    }
+    if (url.pathname === "/api/share/dashboard" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      try {
+        const token = newShareToken();
+        const now = Math.floor(Date.now() / 1e3);
+        const expires = now + 3600;
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'dashboard'`),
+          env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'dashboard', '', ?, ?)`).bind(token, expires, now)
+        ]);
+        const origin = new URL(request.url).origin;
+        return Response.json({ success: true, token, url: `${origin}/public/${token}`, expires_at: expires });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/share/card" && request.method === "POST") {
+      if (!env.DB) return Response.json({ success: false, error: "\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93" }, { status: 500 });
+      await ensureSchema(env);
+      try {
+        const body = await request.json();
+        const prefix = String(body.prefix || "").trim();
+        if (!prefix) return Response.json({ success: false, error: "\u7F3A\u5C11 prefix" }, { status: 400 });
+        const exists = await dbFirst(env, `SELECT show_on_status FROM routes WHERE prefix = ?`, prefix);
+        if (!exists) return Response.json({ success: false, error: "\u8282\u70B9\u4E0D\u5B58\u5728" }, { status: 404 });
+        if (!exists.show_on_status) return Response.json({ success: false, error: "\u8BE5\u8282\u70B9\u672A\u5F00\u542F\u201C\u5728\u72B6\u6001\u9875\u5C55\u793A\u201D\uFF0C\u65E0\u6CD5\u751F\u6210\u5206\u4EAB\u5361\u7247" }, { status: 400 });
+        const token = newShareToken();
+        const now = Math.floor(Date.now() / 1e3);
+        const expires = now + 3600;
+        await env.DB.batch([
+          env.DB.prepare(`DELETE FROM emby_public_share WHERE scope = 'card' AND prefix = ?`).bind(prefix),
+          env.DB.prepare(`INSERT INTO emby_public_share(token, scope, prefix, expires_at, created_at) VALUES(?, 'card', ?, ?, ?)`).bind(token, prefix, expires, now)
+        ]);
+        const origin = new URL(request.url).origin;
+        return Response.json({ success: true, token, url: `${origin}/card/${token}.svg`, expires_at: expires });
+      } catch (e) {
+        return Response.json({ success: false, error: e.message }, { status: 500 });
+      }
+    }
+    if (url.pathname.startsWith("/api/routes")) {
+      if (!env.DB) return Response.json({ error: "\u7531\u4E8E\u672A\u7ED1\u5B9A D1 \u6570\u636E\u5E93\uFF0C\u53CD\u4EE3\u529F\u80FD\u4E0D\u53EF\u7528\u3002" }, { status: 500 });
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN mode TEXT DEFAULT 'off'`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN remark TEXT DEFAULT ''`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN last_play TEXT DEFAULT ''`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN icon TEXT DEFAULT ''`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN cache_img TEXT DEFAULT 'on'`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN sort_order INTEGER DEFAULT 0`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN custom_headers TEXT DEFAULT ''`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`ALTER TABLE routes ADD COLUMN backend_url TEXT DEFAULT ''`);
+      } catch (e) {
+      }
+      try {
+        await env.DB.exec(`DELETE FROM visitor_logs WHERE timestamp < datetime('now', '-7 days')`);
+      } catch (e) {
+      }
+      if (request.method === "GET") {
+        const todayStr = new Date(Date.now() + 8 * 36e5).toISOString().split("T")[0];
+        const { results: routes } = await dbAll(env, `
                     SELECT r.*,
                     IFNULL(s.count, 0) as todayReqs,
                     (SELECT SUM(count) FROM request_stats WHERE prefix = r.prefix) as totalReqs
@@ -8809,18 +8765,15 @@ export default {
                     LEFT JOIN request_stats s ON r.prefix = s.prefix AND s.date = ?
                     ORDER BY r.sort_order ASC, r.prefix ASC
                 `, todayStr);
-
-                if (env.CF_API_TOKEN && env.CF_ZONE_ID && routes && routes.length > 0) {
-                    const end = new Date();
-                    const beijingTime = new Date(end.getTime() + 8 * 3600000);
-                    beijingTime.setUTCHours(0, 0, 0, 0);
-                    const start = new Date(beijingTime.getTime() - 8 * 3600000);
-
-                    // 核心修复：将“一条复杂查询”拆解为 Promise.all 并发单体查询，并且 limit 设为严格的 1
-                    await Promise.all(routes.map(async (r) => {
-                        try {
-                            const graphqlQuery = {
-                                query: `query {
+        if (env.CF_API_TOKEN && env.CF_ZONE_ID && routes && routes.length > 0) {
+          const end = /* @__PURE__ */ new Date();
+          const beijingTime = new Date(end.getTime() + 8 * 36e5);
+          beijingTime.setUTCHours(0, 0, 0, 0);
+          const start = new Date(beijingTime.getTime() - 8 * 36e5);
+          await Promise.all(routes.map(async (r) => {
+            try {
+              const graphqlQuery = {
+                query: `query {
                                   viewer {
                                     zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
                                       httpRequestsAdaptiveGroups(
@@ -8836,407 +8789,364 @@ export default {
                                     }
                                   }
                                 }`
-                            };
-
-                            const cfRes = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify(graphqlQuery)
-                            });
-
-                            const cfData = await cfRes.json();
-
-                            // 精准提取该节点跑出的流量字节
-                            const bytes = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups?.[0]?.sum?.edgeResponseBytes || 0;
-
-                            // 自动格式化换算单位
-                            let formatted = "0 B";
-                            if (bytes >= 1099511627776) formatted = (bytes / 1099511627776).toFixed(2) + " TB";
-                            else if (bytes >= 1073741824) formatted = (bytes / 1073741824).toFixed(2) + " GB";
-                            else if (bytes >= 1048576) formatted = (bytes / 1048576).toFixed(2) + " MB";
-                            else if (bytes >= 1024) formatted = (bytes / 1024).toFixed(2) + " KB";
-                            else if (bytes > 0) formatted = bytes + " B";
-
-                            r.todayBandwidth = formatted;
-                        } catch (e) {
-                            r.todayBandwidth = "获取异常";
-                        }
-                    }));
-                }
-
-                return Response.json(routes || []);
-            }
-
-            if (request.method === 'POST') {
-                const data = await request.json();
-                // F1: 保留前缀 + 格式校验
-                const invalidReason = validateRoutePrefix(data.prefix);
-                if (invalidReason) {
-                    return Response.json({ success: false, error: `路由别名 "${data.prefix}" 不可用：${invalidReason}` }, { status: 400 });
-                }
-                let currentSortOrder = 0;
-                let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0 };
-                if (data.oldPrefix && data.oldPrefix !== data.prefix) {
-                    const oldRow = await dbFirst(env, 'SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?', data.oldPrefix);
-                    if (oldRow) {
-                        currentSortOrder = oldRow.sort_order;
-                        prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
-                    }
-                    await dbRun(env, 'DELETE FROM routes WHERE prefix = ?', data.oldPrefix);
-                } else {
-                    const oldRow = await dbFirst(env, 'SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?', data.prefix);
-                    if (oldRow) {
-                        currentSortOrder = oldRow.sort_order;
-                        prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || '', media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
-                    }
-                }
-
-                const showOnStatus = data.show_on_status === undefined ? prevStatusFields.show_on_status : (data.show_on_status ? 1 : 0);
-                const publicAlias = data.public_alias === undefined ? prevStatusFields.public_alias : String(data.public_alias || '').trim();
-                const mediaAuto = data.media_counts_auto_auth === undefined ? prevStatusFields.media_counts_auto_auth : (data.media_counts_auto_auth ? 1 : 0);
-
-                await dbRun(env, 'INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    data.prefix, data.target, data.mode || 'off', data.remark || '', data.icon || '', data.cache_img || 'on', currentSortOrder, data.custom_headers || '', data.backend_url || '', showOnStatus, publicAlias, mediaAuto);
-                return Response.json({ success: true });
-            }
-
-            if (request.method === 'DELETE') {
-                const prefix = url.searchParams.get('prefix'); await dbRun(env, 'DELETE FROM routes WHERE prefix = ?', prefix); return Response.json({ success: true });
-            }
-            return new Response("Method not allowed", { status: 405 });
-        }
-
-        // ==========================================
-        // 2.6 核心反代与调度引擎
-        // ==========================================
-        let targetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
-        let customHeadersRaw = '';
-        const decodedPath = decodeURIComponent(url.pathname); let matchedPrefix = null;
-        let proxyOrigin = new URL(request.url).origin;
-
-        if (decodedPath.startsWith('/http://') || decodedPath.startsWith('/https://')) {
-            targetUrls = [decodedPath.substring(1)]; remainingPath = '';
-        } else {
-            const pathParts = decodedPath.split('/'); const prefix = pathParts[1];
-            if (!prefix) return new Response(`Not Found`, { status: 404 });
-
-            try {
-                if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-                const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, media_counts_auto_auth FROM routes WHERE prefix = ?`);
-                const route = await stmt.bind(prefix).first();
-                if (!route) return new Response(`404: Node not found`, { status: 404 });
-
-                currentMode = route.mode || 'off'; enableCache = (route.cache_img !== 'off');
-                matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
-                targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
-                customHeadersRaw = route.custom_headers || '';
-
-                // emby-js 监控移植：被动令牌收割（仅当节点显式开启 media_counts_auto_auth）
-                if (route.media_counts_auto_auth === 1 && ctx && ctx.waitUntil) {
-                    const tok = extractEmbyToken(request);
-                    if (tok) {
-                        const nowSec = Math.floor(Date.now() / 1000);
-                        const last = HARVEST_MEM.get(prefix);
-                        if (!last || last.token !== tok || (nowSec - last.writtenAt) > EMBY_HARVEST_DEBOUNCE_S) {
-                            HARVEST_MEM.set(prefix, { token: tok, writtenAt: nowSec });
-                            ctx.waitUntil(persistHarvestedToken(env, prefix, tok, nowSec));
-                        }
-                    }
-                }
-
-                if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
-            } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
-        }
-
-        if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
-
-        // 国家白名单网关：仅当 allowlist 非空时启用；未命中或缺失 cf-ipcountry 一律拦截（fail-closed）
-        const _allowSet = await loadCountryAllowlist(env);
-        if (_allowSet) {
-            const _cc = (request.headers.get('cf-ipcountry') || '').toUpperCase();
-            if (!_cc || _cc === 'XX' || !_allowSet.has(_cc)) {
-                return new Response('Forbidden: country not allowed', { status: 403 });
-            }
-        }
-
-        // ==========================================
-        // 2.6.5 WebSocket 反代 (Emby 会话保活 / 远程控制 / SyncPlay)
-        // ==========================================
-        if ((request.headers.get('Upgrade') || '').toLowerCase() === 'websocket') {
-            let wsLastError = null;
-            for (let i = 0; i < targetUrls.length; i++) {
-                const wsTarget = new URL(targetUrls[i] + remainingPath + url.search);
-                const wsHeaders = buildUpstreamHeaders(request, wsTarget, currentMode, customHeadersRaw);
-                try {
-                    const resp = await fetch(new Request(wsTarget, { headers: wsHeaders }));
-                    if (resp.webSocket) {
-                        return new Response(null, { status: 101, webSocket: resp.webSocket });
-                    }
-                    wsLastError = new Error(`Node ${i + 1}: upstream did not upgrade (status ${resp.status})`);
-                } catch (err) { wsLastError = err; }
-            }
-            return new Response("WebSocket upstream failed. Last Error: " + (wsLastError?.message || 'Unknown Error'), { status: 502 });
-        }
-
-        // ==========================================
-        // 2.7 防爆型精准日志拦截 (修复统计虚高：仅拦截点火请求)
-        // ==========================================
-        const isNewPlaySession = /\/PlaybackInfo/i.test(url.pathname);
-
-        // 核心修改：仅在点火请求时才记录 "今日播放" 和 "最后活跃"
-        if (isNewPlaySession && matchedPrefix && env.DB && ctx && ctx.waitUntil) {
-            try {
-                const todayStr = new Date(Date.now() + 8 * 3600000).toISOString().split('T')[0];
-                const nowTime = new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').split('.')[0];
-
-                let stmts = [
-                    env.DB.prepare(`INSERT INTO request_stats (prefix, date, count) VALUES (?, ?, 1) ON CONFLICT(prefix, date) DO UPDATE SET count = count + 1`).bind(matchedPrefix, todayStr),
-                    env.DB.prepare(`UPDATE routes SET last_play = ? WHERE prefix = ?`).bind(nowTime, matchedPrefix)
-                ];
-
-                const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || "Unknown";
-                const clientCountry = request.headers.get("cf-ipcountry") || "Unknown";
-                const clientUa = request.headers.get("User-Agent") || "Unknown";
-                stmts.push(env.DB.prepare(`INSERT INTO visitor_logs (prefix, ip, country, ua) VALUES (?, ?, ?, ?)`).bind(matchedPrefix, clientIp, clientCountry, clientUa));
-
-                ctx.waitUntil(env.DB.batch(stmts));
-            } catch (e) { }
-        }
-
-        // ==========================================
-        // 2.8 无伪装模式下的源站反代 (含强力防 403 引擎)
-        // ==========================================
-        const hasBody = request.method !== 'GET' && request.method !== 'HEAD' && !!request.body;
-        let bodyBuffer = null;
-        if (hasBody) {
-            const buf = await request.clone().arrayBuffer();
-            if (buf.byteLength <= MAX_RETRY_BODY_BYTES) { bodyBuffer = buf; }
-            // 超过上限：bodyBuffer 保持 null，走单次流式发送、不做协议/403 重试
-        }
-        // 请求体可重放时（无体 或 已缓冲）才允许协议回退 / 403 级联重试
-        const canRetry = !hasBody || bodyBuffer !== null;
-
-        let finalResponse = null; let lastError = null;
-        let triedUpstreamIndex = -1; let triedUpstreamCount = 0;
-
-        for (let i = 0; i < targetUrls.length; i++) {
-            const targetUrlStr = targetUrls[i] + remainingPath + url.search; const targetUrl = new URL(targetUrlStr);
-            const newHeaders = buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw);
-
-            const isStaticOrImage = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(targetUrl.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(targetUrl.pathname);
-
-            // F2: 每个上游 15s 超时；超时按上游失败处理并故障转移
-            const abortCtrl = new AbortController();
-            const timeoutId = setTimeout(() => abortCtrl.abort(), MAX_UPSTREAM_TIMEOUT_MS);
-
-            let fetchInit = { method: request.method, headers: newHeaders, redirect: 'manual', signal: abortCtrl.signal };
-
-            if (isStaticOrImage && enableCache) { fetchInit.cf = { cacheEverything: true, cacheTtl: 86400 }; }
-
-            if (hasBody) {
-                if (bodyBuffer !== null) { fetchInit.body = bodyBuffer; }
-                else { fetchInit.body = request.body; fetchInit.duplex = 'half'; }
-            }
-
-            triedUpstreamCount++;
-            try {
-                let response = await fetchWithSchemeFallback(targetUrl, fetchInit, canRetry);
-                clearTimeout(timeoutId);
-                // 源站 403 → 逐级调整请求头重试（同一上游内）
-                if (response.status === 403 && canRetry) {
-                    const cascaded = await attempt403Cascade(targetUrl, newHeaders, fetchInit, currentMode);
-                    if (cascaded) response = cascaded;
-                }
-                if (response.status === 502 || response.status === 503 || response.status === 504) { lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`); continue; }
-                triedUpstreamIndex = i;
-                finalResponse = response; break;
-            } catch (err) {
-                clearTimeout(timeoutId);
-                // AbortError 视为超时 → 故障转移
-                lastError = err; continue;
-            }
-        }
-
-        if (!finalResponse) return new Response("Worker Proxy Failover Exhausted. All nodes failed. Last Error: " + (lastError?.message || 'Unknown Error'), { status: 502 });
-
-        const responseHeaders = new Headers(finalResponse.headers);
-
-        // F2: 可选调试 header，仅在 env.DEBUG_FAILOVER === '1' 时输出
-        if (env.DEBUG_FAILOVER === '1') {
-            responseHeaders.set('X-Proxy-Upstream-Index', String(triedUpstreamIndex));
-            responseHeaders.set('X-Proxy-Upstream-Tries', String(triedUpstreamCount));
-        }
-
-        // 统一前缀变量，确保绝对安全，不会抛出未定义错误
-        // 假设你前面获取路由节点的变量叫 matchedPrefix，如果有值就带上斜杠
-        const safePrefix = matchedPrefix ? `/${matchedPrefix}` : '';
-
-        // ==========================================
-        // 🚀 修复版 302 拦截：恢复 URL 编码 + F3 白名单透传
-        // ==========================================
-        if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
-            const location = responseHeaders.get('Location');
-            if (location) {
-                // F3: 若 Location 指向白名单域名，则直接透传 3xx，不再套代理前缀
-                let absHost = null;
-                try {
-                    if (/^https?:\/\//i.test(location)) absHost = new URL(location).host.toLowerCase();
-                    else if (location.startsWith('//')) absHost = new URL(new URL(request.url).protocol + location).host.toLowerCase();
-                } catch (e) {}
-                const allowlist = await getManualRedirectHosts(env);
-                if (absHost && hostMatchesAllowlist(absHost, allowlist)) {
-                    responseHeaders.set('Access-Control-Allow-Origin', '*');
-                    return new Response(null, { status: finalResponse.status, headers: responseHeaders });
-                }
-
-                if (/^https?:\/\//i.test(location)) {
-                    // 绝对地址：套代理前缀 + encodeURIComponent，防止播放器解析重定向头时发疯
-                    responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(location)}`);
-                } else if (location.startsWith('//')) {
-                    // 协议相对地址 //host/path：补全协议后按绝对处理
-                    const abs = new URL(request.url).protocol + location;
-                    responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(abs)}`);
-                } else if (location.startsWith('/')) {
-                    // 根相对地址 /path：补回节点前缀，避免客户端逃出代理
-                    if (safePrefix) responseHeaders.set('Location', `${safePrefix}${location}`);
-                } else {
-                    // 裸相对地址 foo/bar：相对源站请求地址解析后按绝对处理
-                    try {
-                        const abs = new URL(location, targetUrls[0] + remainingPath).href;
-                        responseHeaders.set('Location', `${safePrefix}/${encodeURIComponent(abs)}`);
-                    } catch (e) { /* 解析失败则保持原样 */ }
-                }
-            }
-        }
-
-        responseHeaders.set('Access-Control-Allow-Origin', '*');
-
-        // ==========================================
-        // 2.10 响应体重写 (PlaybackInfo / M3U8 / 前后端分离自动兼容)
-        // ==========================================
-
-        // 🌟 前后端分离核心：前端 origin 已知，响应体里出现的其他 origin 就是泄露的后端地址
-        let frontendOrigin = '';
-        try { frontendOrigin = new URL(targetUrls[0]).origin; } catch (e) { }
-
-        // 通用 URL 改写：把非前端、非代理自身的绝对 URL 都套上代理前缀
-        // 正则只匹配到合法 URL 字符结束（不吃引号、空白、括号、逗号、分号）
-        function rewriteBackendUrls(text) {
-            return text.replace(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g, matched => {
-                // 去掉尾部可能被误匹配的标点
-                const trail = matched.match(/[.,;)]+$/)?.[0] || '';
-                const clean = trail ? matched.slice(0, -trail.length) : matched;
-                try {
-                    const u = new URL(clean);
-                    if (u.origin !== frontendOrigin && u.origin !== proxyOrigin) {
-                        return proxyOrigin + safePrefix + '/' + clean + trail;
-                    }
-                } catch (e) { }
-                return matched;
-            });
-        }
-
-        const contentType = responseHeaders.get("content-type") || '';
-        const pathLower = url.pathname.toLowerCase();
-
-        // 判断是否需要做响应体重写，避免对不需要处理的请求读取 body
-        const needsJsonPlayback = finalResponse.status === 200 && contentType.includes("json") && pathLower.includes("playbackinfo");
-        const needsSystemInfo = finalResponse.status === 200 && contentType.includes("json") && /\/system\/info(\/public)?$/i.test(pathLower);
-        const needsManifest = finalResponse.status === 200 && (
-            pathLower.endsWith('.m3u8') || pathLower.endsWith('.mpd') ||
-            contentType.includes('mpegurl') || contentType.includes('dash+xml')
-        );
-        const needsHtmlJs = finalResponse.status === 200 && frontendOrigin && (
-            contentType.includes('text/html') || contentType.includes('text/javascript') || contentType.includes('application/javascript')
-        );
-
-        if (needsJsonPlayback || needsSystemInfo || needsManifest || needsHtmlJs) {
-            try {
-                const bodyText = await finalResponse.text();
-
-                // ① PlaybackInfo：重写 DirectStreamUrl / TranscodingUrl
-                if (needsJsonPlayback) {
-                    try {
-                        const data = JSON.parse(bodyText);
-                        let modified = false;
-                        if (data && data.MediaSources) {
-                            data.MediaSources.forEach(source => {
-                                ['DirectStreamUrl', 'TranscodingUrl'].forEach(key => {
-                                    if (source[key] && source[key].startsWith('http') && !source[key].startsWith(proxyOrigin)) {
-                                        source[key] = proxyOrigin + safePrefix + '/' + source[key];
-                                        modified = true;
-                                    }
-                                });
-                            });
-                        }
-                        if (modified) {
-                            responseHeaders.delete("Content-Length");
-                            return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                        }
-                    } catch (e) { console.log("PlaybackInfo 重写失败:", e.message); }
-                }
-
-                // ② System/Info(/Public)：前后端分离场景下把 Address/LocalAddress 指向代理
-                if (needsSystemInfo) {
-                    try {
-                        const data = JSON.parse(bodyText);
-                        let modified = false;
-                        ['Address', 'LocalAddress'].forEach(key => {
-                            if (data[key] && data[key].startsWith('http') && !data[key].startsWith(proxyOrigin)) {
-                                data[key] = proxyOrigin + safePrefix;
-                                modified = true;
-                            }
-                        });
-                        if (modified) {
-                            responseHeaders.delete("Content-Length");
-                            return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                        }
-                    } catch (e) { console.log("System/Info 重写失败:", e.message); }
-                }
-
-                // ③ M3U8 / DASH 播放列表 (HLS .m3u8 + DASH .mpd)
-                if (needsManifest) {
-                    if (bodyText.includes('http://') || bodyText.includes('https://')) {
-                        const rewritten = rewriteBackendUrls(bodyText);
-                        responseHeaders.delete("Content-Length");
-                        return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                    }
-                }
-
-                // ④ HTML / JS：检测并改写泄露的后端地址
-                if (needsHtmlJs) {
-                    // 只有真的包含异源 URL 才做替换，避免修改无需处理的页面
-                    const urls = bodyText.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
-                    const hasLeakedBackend = urls.some(u => {
-                        try { const o = new URL(u).origin; return o !== frontendOrigin && o !== proxyOrigin; } catch (e) { return false; }
-                    });
-                    if (hasLeakedBackend) {
-                        const rewritten = rewriteBackendUrls(bodyText);
-                        responseHeaders.delete("Content-Length");
-                        return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-                    }
-                }
-
-                // 没有命中任何重写逻辑，原样返回已读取的文本
-                responseHeaders.delete("Content-Length");
-                return new Response(bodyText, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
-
+              };
+              const cfRes = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify(graphqlQuery)
+              });
+              const cfData = await cfRes.json();
+              const bytes = cfData?.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups?.[0]?.sum?.edgeResponseBytes || 0;
+              let formatted = "0 B";
+              if (bytes >= 1099511627776) formatted = (bytes / 1099511627776).toFixed(2) + " TB";
+              else if (bytes >= 1073741824) formatted = (bytes / 1073741824).toFixed(2) + " GB";
+              else if (bytes >= 1048576) formatted = (bytes / 1048576).toFixed(2) + " MB";
+              else if (bytes >= 1024) formatted = (bytes / 1024).toFixed(2) + " KB";
+              else if (bytes > 0) formatted = bytes + " B";
+              r.todayBandwidth = formatted;
             } catch (e) {
-                console.log("响应体重写异常:", e.message);
-                // 出错时降级：直接透传原始响应
+              r.todayBandwidth = "\u83B7\u53D6\u5F02\u5E38";
             }
+          }));
         }
-
-        // 静态资源缓存控制保持不变
-        const isStaticRes = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(url.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(url.pathname);
-        if (isStaticRes && enableCache) {
-            responseHeaders.set('Cache-Control', 'public, max-age=86400');
-            responseHeaders.delete('Expires');
-            responseHeaders.delete('Pragma');
+        return Response.json(routes || []);
+      }
+      if (request.method === "POST") {
+        const data = await request.json();
+        const invalidReason = validateRoutePrefix(data.prefix);
+        if (invalidReason) {
+          return Response.json({ success: false, error: `\u8DEF\u7531\u522B\u540D "${data.prefix}" \u4E0D\u53EF\u7528\uFF1A${invalidReason}` }, { status: 400 });
+        }
+        let currentSortOrder = 0;
+        let prevStatusFields = { show_on_status: 0, public_alias: "", media_counts_auto_auth: 0 };
+        if (data.oldPrefix && data.oldPrefix !== data.prefix) {
+          const oldRow = await dbFirst(env, "SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?", data.oldPrefix);
+          if (oldRow) {
+            currentSortOrder = oldRow.sort_order;
+            prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || "", media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
+          }
+          await dbRun(env, "DELETE FROM routes WHERE prefix = ?", data.oldPrefix);
         } else {
-            responseHeaders.set('Cache-Control', 'no-store');
+          const oldRow = await dbFirst(env, "SELECT sort_order, show_on_status, public_alias, media_counts_auto_auth FROM routes WHERE prefix = ?", data.prefix);
+          if (oldRow) {
+            currentSortOrder = oldRow.sort_order;
+            prevStatusFields = { show_on_status: oldRow.show_on_status | 0, public_alias: oldRow.public_alias || "", media_counts_auto_auth: oldRow.media_counts_auto_auth | 0 };
+          }
         }
-
-        return new Response(finalResponse.body, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+        const showOnStatus = data.show_on_status === void 0 ? prevStatusFields.show_on_status : data.show_on_status ? 1 : 0;
+        const publicAlias = data.public_alias === void 0 ? prevStatusFields.public_alias : String(data.public_alias || "").trim();
+        const mediaAuto = data.media_counts_auto_auth === void 0 ? prevStatusFields.media_counts_auto_auth : data.media_counts_auto_auth ? 1 : 0;
+        await dbRun(
+          env,
+          "INSERT OR REPLACE INTO routes (prefix, target, mode, remark, icon, cache_img, sort_order, custom_headers, backend_url, show_on_status, public_alias, media_counts_auto_auth) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          data.prefix,
+          data.target,
+          data.mode || "off",
+          data.remark || "",
+          data.icon || "",
+          data.cache_img || "on",
+          currentSortOrder,
+          data.custom_headers || "",
+          data.backend_url || "",
+          showOnStatus,
+          publicAlias,
+          mediaAuto
+        );
+        return Response.json({ success: true });
+      }
+      if (request.method === "DELETE") {
+        const prefix = url.searchParams.get("prefix");
+        await dbRun(env, "DELETE FROM routes WHERE prefix = ?", prefix);
+        return Response.json({ success: true });
+      }
+      return new Response("Method not allowed", { status: 405 });
     }
+    let targetUrls = [];
+    let currentMode = "off";
+    let enableCache = true;
+    let remainingPath = "";
+    let customHeadersRaw = "";
+    const decodedPath = decodeURIComponent(url.pathname);
+    let matchedPrefix = null;
+    let proxyOrigin = new URL(request.url).origin;
+    if (decodedPath.startsWith("/http://") || decodedPath.startsWith("/https://")) {
+      targetUrls = [decodedPath.substring(1)];
+      remainingPath = "";
+    } else {
+      const pathParts = decodedPath.split("/");
+      const prefix = pathParts[1];
+      if (!prefix) return new Response(`Not Found`, { status: 404 });
+      try {
+        if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
+        const stmt = env.DB.prepare(`SELECT target, mode, cache_img, custom_headers, media_counts_auto_auth FROM routes WHERE prefix = ?`);
+        const route = await stmt.bind(prefix).first();
+        if (!route) return new Response(`404: Node not found`, { status: 404 });
+        currentMode = route.mode || "off";
+        enableCache = route.cache_img !== "off";
+        matchedPrefix = prefix;
+        remainingPath = "/" + pathParts.slice(2).join("/");
+        targetUrls = route.target.split(",").map((s) => s.trim()).filter(Boolean);
+        customHeadersRaw = route.custom_headers || "";
+        if (route.media_counts_auto_auth === 1 && ctx && ctx.waitUntil) {
+          const tok = extractEmbyToken(request);
+          if (tok) {
+            const nowSec = Math.floor(Date.now() / 1e3);
+            const last = HARVEST_MEM.get(prefix);
+            if (!last || last.token !== tok || nowSec - last.writtenAt > EMBY_HARVEST_DEBOUNCE_S) {
+              HARVEST_MEM.set(prefix, { token: tok, writtenAt: nowSec });
+              ctx.waitUntil(persistHarvestedToken(env, prefix, tok, nowSec));
+            }
+          }
+        }
+        if (remainingPath.startsWith("/http://") || remainingPath.startsWith("/https://")) {
+          targetUrls = [remainingPath.substring(1)];
+          remainingPath = "";
+        }
+      } catch (e) {
+        return new Response("DB Error: " + e.message, { status: 500 });
+      }
+    }
+    if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
+    const _allowSet = await loadCountryAllowlist(env);
+    if (_allowSet) {
+      const _cc = (request.headers.get("cf-ipcountry") || "").toUpperCase();
+      if (!_cc || _cc === "XX" || !_allowSet.has(_cc)) {
+        return new Response("Forbidden: country not allowed", { status: 403 });
+      }
+    }
+    if ((request.headers.get("Upgrade") || "").toLowerCase() === "websocket") {
+      let wsLastError = null;
+      for (let i = 0; i < targetUrls.length; i++) {
+        const wsTarget = new URL(targetUrls[i] + remainingPath + url.search);
+        const wsHeaders = buildUpstreamHeaders(request, wsTarget, currentMode, customHeadersRaw);
+        try {
+          const resp = await fetch(new Request(wsTarget, { headers: wsHeaders }));
+          if (resp.webSocket) {
+            return new Response(null, { status: 101, webSocket: resp.webSocket });
+          }
+          wsLastError = new Error(`Node ${i + 1}: upstream did not upgrade (status ${resp.status})`);
+        } catch (err) {
+          wsLastError = err;
+        }
+      }
+      return new Response("WebSocket upstream failed. Last Error: " + (wsLastError?.message || "Unknown Error"), { status: 502 });
+    }
+    const isNewPlaySession = /\/PlaybackInfo/i.test(url.pathname);
+    if (isNewPlaySession && matchedPrefix && env.DB && ctx && ctx.waitUntil) {
+      try {
+        const todayStr = new Date(Date.now() + 8 * 36e5).toISOString().split("T")[0];
+        const nowTime = new Date(Date.now() + 8 * 36e5).toISOString().replace("T", " ").split(".")[0];
+        let stmts = [
+          env.DB.prepare(`INSERT INTO request_stats (prefix, date, count) VALUES (?, ?, 1) ON CONFLICT(prefix, date) DO UPDATE SET count = count + 1`).bind(matchedPrefix, todayStr),
+          env.DB.prepare(`UPDATE routes SET last_play = ? WHERE prefix = ?`).bind(nowTime, matchedPrefix)
+        ];
+        const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || "Unknown";
+        const clientCountry = request.headers.get("cf-ipcountry") || "Unknown";
+        const clientUa = request.headers.get("User-Agent") || "Unknown";
+        stmts.push(env.DB.prepare(`INSERT INTO visitor_logs (prefix, ip, country, ua) VALUES (?, ?, ?, ?)`).bind(matchedPrefix, clientIp, clientCountry, clientUa));
+        ctx.waitUntil(env.DB.batch(stmts));
+      } catch (e) {
+      }
+    }
+    const hasBody = request.method !== "GET" && request.method !== "HEAD" && !!request.body;
+    let bodyBuffer = null;
+    if (hasBody) {
+      const buf = await request.clone().arrayBuffer();
+      if (buf.byteLength <= MAX_RETRY_BODY_BYTES) {
+        bodyBuffer = buf;
+      }
+    }
+    const canRetry = !hasBody || bodyBuffer !== null;
+    let finalResponse = null;
+    let lastError = null;
+    let triedUpstreamIndex = -1;
+    let triedUpstreamCount = 0;
+    for (let i = 0; i < targetUrls.length; i++) {
+      const targetUrlStr = targetUrls[i] + remainingPath + url.search;
+      const targetUrl = new URL(targetUrlStr);
+      const newHeaders = buildUpstreamHeaders(request, targetUrl, currentMode, customHeadersRaw);
+      const isStaticOrImage = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(targetUrl.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(targetUrl.pathname);
+      const abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), MAX_UPSTREAM_TIMEOUT_MS);
+      let fetchInit = { method: request.method, headers: newHeaders, redirect: "manual", signal: abortCtrl.signal };
+      if (isStaticOrImage && enableCache) {
+        fetchInit.cf = { cacheEverything: true, cacheTtl: 86400 };
+      }
+      if (hasBody) {
+        if (bodyBuffer !== null) {
+          fetchInit.body = bodyBuffer;
+        } else {
+          fetchInit.body = request.body;
+          fetchInit.duplex = "half";
+        }
+      }
+      triedUpstreamCount++;
+      try {
+        let response = await fetchWithSchemeFallback(targetUrl, fetchInit, canRetry);
+        clearTimeout(timeoutId);
+        if (response.status === 403 && canRetry) {
+          const cascaded = await attempt403Cascade(targetUrl, newHeaders, fetchInit, currentMode);
+          if (cascaded) response = cascaded;
+        }
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+          lastError = new Error(`Node ${i + 1} returned HTTP ${response.status}`);
+          continue;
+        }
+        triedUpstreamIndex = i;
+        finalResponse = response;
+        break;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        lastError = err;
+        continue;
+      }
+    }
+    if (!finalResponse) return new Response("Worker Proxy Failover Exhausted. All nodes failed. Last Error: " + (lastError?.message || "Unknown Error"), { status: 502 });
+    const responseHeaders = new Headers(finalResponse.headers);
+    if (env.DEBUG_FAILOVER === "1") {
+      responseHeaders.set("X-Proxy-Upstream-Index", String(triedUpstreamIndex));
+      responseHeaders.set("X-Proxy-Upstream-Tries", String(triedUpstreamCount));
+    }
+    const safePrefix = matchedPrefix ? `/${matchedPrefix}` : "";
+    if ([301, 302, 303, 307, 308].includes(finalResponse.status)) {
+      const location = responseHeaders.get("Location");
+      if (location) {
+        let absHost = null;
+        try {
+          if (/^https?:\/\//i.test(location)) absHost = new URL(location).host.toLowerCase();
+          else if (location.startsWith("//")) absHost = new URL(new URL(request.url).protocol + location).host.toLowerCase();
+        } catch (e) {
+        }
+        const allowlist = await getManualRedirectHosts(env);
+        if (absHost && hostMatchesAllowlist(absHost, allowlist)) {
+          responseHeaders.set("Access-Control-Allow-Origin", "*");
+          return new Response(null, { status: finalResponse.status, headers: responseHeaders });
+        }
+        if (/^https?:\/\//i.test(location)) {
+          responseHeaders.set("Location", `${safePrefix}/${encodeURIComponent(location)}`);
+        } else if (location.startsWith("//")) {
+          const abs = new URL(request.url).protocol + location;
+          responseHeaders.set("Location", `${safePrefix}/${encodeURIComponent(abs)}`);
+        } else if (location.startsWith("/")) {
+          if (safePrefix) responseHeaders.set("Location", `${safePrefix}${location}`);
+        } else {
+          try {
+            const abs = new URL(location, targetUrls[0] + remainingPath).href;
+            responseHeaders.set("Location", `${safePrefix}/${encodeURIComponent(abs)}`);
+          } catch (e) {
+          }
+        }
+      }
+    }
+    responseHeaders.set("Access-Control-Allow-Origin", "*");
+    let frontendOrigin = "";
+    try {
+      frontendOrigin = new URL(targetUrls[0]).origin;
+    } catch (e) {
+    }
+    function rewriteBackendUrls(text) {
+      return text.replace(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g, (matched) => {
+        const trail = matched.match(/[.,;)]+$/)?.[0] || "";
+        const clean = trail ? matched.slice(0, -trail.length) : matched;
+        try {
+          const u = new URL(clean);
+          if (u.origin !== frontendOrigin && u.origin !== proxyOrigin) {
+            return proxyOrigin + safePrefix + "/" + clean + trail;
+          }
+        } catch (e) {
+        }
+        return matched;
+      });
+    }
+    const contentType = responseHeaders.get("content-type") || "";
+    const pathLower = url.pathname.toLowerCase();
+    const needsJsonPlayback = finalResponse.status === 200 && contentType.includes("json") && pathLower.includes("playbackinfo");
+    const needsSystemInfo = finalResponse.status === 200 && contentType.includes("json") && /\/system\/info(\/public)?$/i.test(pathLower);
+    const needsManifest = finalResponse.status === 200 && (pathLower.endsWith(".m3u8") || pathLower.endsWith(".mpd") || contentType.includes("mpegurl") || contentType.includes("dash+xml"));
+    const needsHtmlJs = finalResponse.status === 200 && frontendOrigin && (contentType.includes("text/html") || contentType.includes("text/javascript") || contentType.includes("application/javascript"));
+    if (needsJsonPlayback || needsSystemInfo || needsManifest || needsHtmlJs) {
+      try {
+        const bodyText = await finalResponse.text();
+        if (needsJsonPlayback) {
+          try {
+            const data = JSON.parse(bodyText);
+            let modified = false;
+            if (data && data.MediaSources) {
+              data.MediaSources.forEach((source) => {
+                ["DirectStreamUrl", "TranscodingUrl"].forEach((key) => {
+                  if (source[key] && source[key].startsWith("http") && !source[key].startsWith(proxyOrigin)) {
+                    source[key] = proxyOrigin + safePrefix + "/" + source[key];
+                    modified = true;
+                  }
+                });
+              });
+            }
+            if (modified) {
+              responseHeaders.delete("Content-Length");
+              return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+            }
+          } catch (e) {
+            console.log("PlaybackInfo \u91CD\u5199\u5931\u8D25:", e.message);
+          }
+        }
+        if (needsSystemInfo) {
+          try {
+            const data = JSON.parse(bodyText);
+            let modified = false;
+            ["Address", "LocalAddress"].forEach((key) => {
+              if (data[key] && data[key].startsWith("http") && !data[key].startsWith(proxyOrigin)) {
+                data[key] = proxyOrigin + safePrefix;
+                modified = true;
+              }
+            });
+            if (modified) {
+              responseHeaders.delete("Content-Length");
+              return new Response(JSON.stringify(data), { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+            }
+          } catch (e) {
+            console.log("System/Info \u91CD\u5199\u5931\u8D25:", e.message);
+          }
+        }
+        if (needsManifest) {
+          if (bodyText.includes("http://") || bodyText.includes("https://")) {
+            const rewritten = rewriteBackendUrls(bodyText);
+            responseHeaders.delete("Content-Length");
+            return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+          }
+        }
+        if (needsHtmlJs) {
+          const urls = bodyText.match(/https?:\/\/[^\s"'`<>{}|\\^[\]#,;)]+/g) || [];
+          const hasLeakedBackend = urls.some((u) => {
+            try {
+              const o = new URL(u).origin;
+              return o !== frontendOrigin && o !== proxyOrigin;
+            } catch (e) {
+              return false;
+            }
+          });
+          if (hasLeakedBackend) {
+            const rewritten = rewriteBackendUrls(bodyText);
+            responseHeaders.delete("Content-Length");
+            return new Response(rewritten, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+          }
+        }
+        responseHeaders.delete("Content-Length");
+        return new Response(bodyText, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+      } catch (e) {
+        console.log("\u54CD\u5E94\u4F53\u91CD\u5199\u5F02\u5E38:", e.message);
+      }
+    }
+    const isStaticRes = /\.(jpg|jpeg|gif|png|svg|ico|webp|js|css|woff2?|ttf|otf|map|webmanifest|srt|ass|vtt|sub)$/i.test(url.pathname) || /(\/Images\/|\/Icons\/|\/Branding\/|\/emby\/covers\/)/i.test(url.pathname);
+    if (isStaticRes && enableCache) {
+      responseHeaders.set("Cache-Control", "public, max-age=86400");
+      responseHeaders.delete("Expires");
+      responseHeaders.delete("Pragma");
+    } else {
+      responseHeaders.set("Cache-Control", "no-store");
+    }
+    return new Response(finalResponse.body, { status: finalResponse.status, statusText: finalResponse.statusText, headers: responseHeaders });
+  }
+};
+export {
+  index_default as default
 };

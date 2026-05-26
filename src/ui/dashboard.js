@@ -1,3 +1,6 @@
+import { CSS_COMMON } from './css.js';
+import { CURRENT_VERSION, GITHUB_RAW_URL } from '../util/version.js';
+
 export const HTML_UI = `
 <!DOCTYPE html>
 <html lang="zh-CN">

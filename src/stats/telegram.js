@@ -1,3 +1,6 @@
+import { dbAll, dbFirst } from '../db/helpers.js';
+import { getCFTraffic } from './cf.js';
+
 export async function sendTgStats(env, chatId) {
     try {
         const totalQuery = await dbFirst(env, `SELECT COUNT(*) as count FROM visitor_logs WHERE date(timestamp, '+8 hours') = date('now', '+8 hours')`);

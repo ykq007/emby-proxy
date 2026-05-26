@@ -1,3 +1,6 @@
+import { CSS_COMMON } from './css.js';
+import { CURRENT_VERSION } from '../util/version.js';
+
 export const LOGIN_UI = `
 <!DOCTYPE html>
 <html lang="zh-CN">
