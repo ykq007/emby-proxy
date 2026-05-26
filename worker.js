@@ -6977,6 +6977,17 @@ async function maybeFetchMediaCounts(env, routes, now) {
     }
 }
 
+function jsonResponse(body, status = 200, extraHeaders = {}) {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            ...extraHeaders,
+        },
+    });
+}
+
 function htmlEscape(s) {
     return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -7857,7 +7868,7 @@ export default {
                 const placementData = body.placement;
 
                 if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID || !env.CF_WORKER_NAME) {
-                    return new Response(JSON.stringify({ success: false, msg: '后台变量未配置全！请检查 CF_API_TOKEN, CF_ACCOUNT_ID, CF_WORKER_NAME' }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+                    return jsonResponse({ success: false, msg: '后台变量未配置全！请检查 CF_API_TOKEN, CF_ACCOUNT_ID, CF_WORKER_NAME' });
                 }
 
                 const formData = new FormData();
@@ -7872,12 +7883,12 @@ export default {
 
                 const cfData = await cfRes.json();
                 if (cfData.success) {
-                    return new Response(JSON.stringify({ success: true, msg: '部署区域修改成功！' }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+                    return jsonResponse({ success: true, msg: '部署区域修改成功！' });
                 } else {
-                    return new Response(JSON.stringify({ success: false, msg: 'CF报错: ' + (cfData.errors[0]?.message || '未知错误') }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+                    return jsonResponse({ success: false, msg: 'CF报错: ' + (cfData.errors[0]?.message || '未知错误') });
                 }
             } catch (e) {
-                return new Response(JSON.stringify({ success: false, msg: e.message }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+                return jsonResponse({ success: false, msg: e.message });
             }
         }
 
@@ -7899,17 +7910,12 @@ export default {
                 egressColo = '获取失败';
             }
 
-            return new Response(JSON.stringify({
+            return jsonResponse({
                 success: true,
                 entryCountry: cf.country || '未知',
                 entryCity: cf.city || '',
                 entryColo: cf.colo || '未知',
                 egressColo: egressColo
-            }), {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                }
             });
         }
 
@@ -7940,18 +7946,13 @@ export default {
                     .map(b => b.toString(16).padStart(2, '0')).join('');
             } catch (e) { cacheKey = ''; }
 
-            return new Response(JSON.stringify({
+            return jsonResponse({
                 success: true,
                 entryCountry: cf.country || '未知',
                 entryCity: cf.city || '',
                 entryColo,
                 egressColo,
                 cacheKey
-            }), {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                }
             });
         }
 
