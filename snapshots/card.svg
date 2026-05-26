@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120">
+  <defs>
+    <style>
+      .bg { fill:#1c1c1e; }
+      .text { fill:#f5f5f7; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
+      .name { font-size:16px; font-weight:600; }
+      .label { font-size:11px; fill:#98989d; }
+      .value { font-size:14px; font-weight:600; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="360" height="120" rx="14"/>
+  <circle cx="22" cy="24" r="6" fill="#30d158"/>
+  <text class="text name" x="38" y="29">Node A</text>
+  <text class="text label" x="20" y="60">状态</text>
+  <text class="text value" x="20" y="78" fill="#30d158">在线</text>
+  <text class="text label" x="130" y="60">7天可用</text>
+  <text class="text value" x="130" y="78">99.2%</text>
+  <text class="text label" x="240" y="60">延迟</text>
+  <text class="text value" x="240" y="78">120 ms</text>
+  <text class="text label" x="20" y="104">由 emby-proxy 监控</text>
+</svg>
