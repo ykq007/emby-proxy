@@ -1,0 +1,33 @@
+# ==============================================================================
+# emby-proxy — 环境变量示例 / Environment variable example
+# Copy this file to .dev.vars and fill in values (or fill them in during the
+# "Deploy to Cloudflare" guided setup).
+# 复制为 .dev.vars 并填写实际值（或在 "Deploy to Cloudflare" 引导流程中填写）。
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# REQUIRED — gates the panel & all /api/* routes. No default on purpose: a
+# shared default token would be an instant vulnerability.
+# 必填 — 保护面板及所有 /api/* 接口。有意不设默认值：共享默认 token 等于立即暴露漏洞。
+# Use a long random string, e.g. `openssl rand -hex 32`.
+# 建议使用长随机字符串，例如 `openssl rand -hex 32`。
+# ------------------------------------------------------------------------------
+ADMIN_TOKEN=
+
+# ------------------------------------------------------------------------------
+# OPTIONAL — Cloudflare DNS / failover / traffic stats (leave blank to disable)
+# 可选 — Cloudflare DNS / 故障转移 / 流量统计功能（留空即禁用该功能）
+# ------------------------------------------------------------------------------
+CF_API_TOKEN=
+CF_ACCOUNT_ID=
+CF_ZONE_ID=
+CF_DOMAIN=
+CF_WORKER_NAME=
+
+# ------------------------------------------------------------------------------
+# OPTIONAL — Telegram bot (leave blank to disable)
+# 可选 — Telegram 机器人通知（留空即禁用该功能）
+# ------------------------------------------------------------------------------
+TG_BOT_TOKEN=
+TG_CHAT_ID=
+TG_WEBHOOK_SECRET=

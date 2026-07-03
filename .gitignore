@@ -1,0 +1,26 @@
+AGENTS.md
+.agents/
+.claude/
+.codex/
+.trellis/.backup-*
+.trellis/worktrees/
+.trellis/.template-hashes.json
+.trellis/.runtime/
+.trellis/.cache/
+.tools/
+.wrangler/
+.wrangler-linux/
+node_modules/
+dist/
+public/
+.preview
+
+.impeccable/
+.ccg/
+
+# dev-only UI preview output (scripts/preview-ui.mjs)
+public/preview/
+
+# owner's real production config / secrets — never committed
+wrangler.prod.toml
+.dev.vars

@@ -1,0 +1,877 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Emby 反代面板</title>
+    <link rel="stylesheet" href="/static/app.003945b947.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="/static/app.f94f34be98.js"></script>
+</head>
+<body class="shell-on">
+    <div id="toast"></div>
+
+    <!-- Shared SVG sprite (UI Suggestions v2.0.7) -->
+    <svg width="0" height="0" class="pos-abs" aria-hidden="true">
+        <defs>
+            <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+            <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+            <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></symbol>
+            <symbol id="i-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+            <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+            <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+            <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+            <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+            <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></symbol>
+            <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+        </defs>
+    </svg>
+
+
+    <div id="workerUpdateModal" class="wu-overlay" style="display:none;">
+        <div class="card is-danger-highlight">
+            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="关闭">✖</button>
+            <h2 class="wu-title">一键覆盖/更新 Worker 核心层代码</h2>
+            <div class="wu-warning">警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过</div>
+            <textarea id="codeArea" class="wu-textarea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..."></textarea>
+            <div class="row-end">
+                <span class="wu-label">或 方式二：</span>
+                <input type="file" id="fileInput" class="wu-file-input" accept=".js">
+                <button type="button" class="btn-tier is-danger row-end-spacer" id="deployBtn" onclick="deployWorker()">立即覆盖部署并重启节点</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="em-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="emTitle" onclick="if(event.target===this) closeEditModal()">
+        <div class="em-modal">
+            <div class="em-modal-head">
+                <h3 id="emTitle" style="margin:0; font-size:var(--text-xl);">编辑节点</h3>
+                <button type="button" class="em-close" aria-label="关闭" onclick="closeEditModal()">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div id="editModalBody" class="em-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ⌘K 命令面板 -->
+    <div id="cmdk" aria-hidden="true" role="dialog" aria-modal="true" aria-label="命令面板">
+        <div class="cmdk-panel" role="document">
+            <div class="cmdk-head">
+                <svg class="cmdk-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="cmdk-input" type="text" placeholder="跳转目的地、节点，或执行操作…" aria-label="命令搜索" autocomplete="off" spellcheck="false">
+                <kbd class="cmdk-esc">ESC</kbd>
+            </div>
+            <div class="cmdk-list" role="listbox" aria-label="命令"></div>
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <!-- ===== 侧边栏 ===== -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                <div class="sidebar-brand-text">
+                    <div class="sidebar-brand-title">反代核心 · 安全中心</div>
+                    <div class="sidebar-brand-sub">Emby 反向代理管理喵板</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav" aria-label="主导航">
+                <button type="button" class="nav-item dest-item is-active" data-dest="monitor" onclick="showDest('monitor')">
+                    <svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+                    <span>监控</span>
+                </button>
+                <button type="button" class="nav-item dest-item" data-dest="network" onclick="showDest('network')">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+                    <span>网络</span>
+                </button>
+                <button type="button" class="nav-item dest-item" data-dest="config" onclick="showDest('config')">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>配置</span>
+                </button>
+            </nav>
+            <div class="sidebar-foot">
+                <button type="button" class="sidebar-collapse" id="sidebarCollapseBtn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span>收起侧栏</span>
+                </button>
+                <div class="sidebar-version">v2.5.1</div>
+            </div>
+        </aside>
+
+        <div class="app-main">
+            <!-- ===== 顶部状态栏 (保留 #cf-trace-card 供 JS 使用) ===== -->
+            <header id="cf-trace-card" class="topbar">
+                <div class="tb-stat" title="你的设备到云端边缘节点的真实往返延迟">
+                    <span class="dot green" id="rttDot"></span>
+                    <span class="lbl">运行</span>
+                    <span class="val" id="rttValue">测算中</span>
+                </div>
+                <div class="tb-stat">
+                    <span class="lbl">节点</span>
+                    <span class="val" id="tb-node-count">--</span>
+                </div>
+                <div class="tb-stat">
+                    <span class="lbl">今日流量</span>
+                    <span class="val" id="tb-traffic-today">--</span>
+                </div>
+                <div class="tb-stat" id="tb-health">
+                    <span class="dot green" id="tb-health-dot"></span>
+                    <span class="lbl">健康度</span>
+                    <span class="val" id="tb-health-val">--</span>
+                </div>
+                <div class="tb-stat pill expandable is-clickable" id="placePill" onclick="togglePlacementDrawer()">
+                    <span class="lbl">调度</span>
+                    <span id="placeModeLabel">智能</span>
+                    <span class="caret">▾</span>
+                </div>
+                <span class="val" id="trace-entry" style="display:none;">--</span>
+                <span class="val" id="trace-egress" style="display:none;">--</span>
+
+                <div class="topbar-spacer"><span class="tb-section-title" id="tbSectionTitle"></span></div>
+
+                <button class="tb-cmdk" onclick="openCmdK()" title="命令面板 (⌘K)" aria-label="打开命令面板">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span class="tb-cmdk-kbd">⌘K</span>
+                </button>
+                <button class="tb-icon-btn" onclick="openWorkerUpdate()" title="更新 Worker 核心代码" aria-label="更新 Worker 核心代码">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+                <button class="tb-icon-btn" id="themeToggle" onclick="toggleDarkMode()" data-theme="auto" title="切换主题" aria-label="切换主题">
+                    <span class="ico ico-auto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/></svg></span>
+                    <span class="ico ico-light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+                    <span class="ico ico-dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                </button>
+                <div class="topbar-user">
+                    <span class="ava">A</span>
+                    <span>admin</span>
+                    <button class="tb-icon-btn danger is-sm" onclick="logout()" title="退出系统" aria-label="退出系统">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Slim, dismissable update banner -->
+            <div id="updateAlert" class="tb-banner" style="display: none; margin: 14px 24px 0;">
+                <span class="b-tag">NEW</span>
+                <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
+                <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
+                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
+            </div>
+
+            <!-- Placement drawer (collapsed by default) -->
+            <div class="tb-drawer banner-spaced" id="placeDrawer" >
+                <h3>Worker 调度模式</h3>
+                <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
+                <div class="controls">
+                    <select id="cf-mode-select" onchange="handleModeChange()">
+                        <option value='{"mode":"smart"}'>智能调度 (Smart Placement)</option>
+                        <option value='{"mode":"off"}'>边缘节点 (Edge - 默认离访客近)</option>
+                        <optgroup label="指定云厂商物理机房落地">
+                            <option value="aws">☁️ AWS (亚马逊云)</option>
+                            <option value="gcp">☁️ GCP (谷歌云)</option>
+                            <option value="azure">☁️ Azure (微软云)</option>
+                        </optgroup>
+                        <option value="custom">✏️ 手动输入区域代码...</option>
+                    </select>
+                    <select id="cf-region-select" style="display: none;"></select>
+                    <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
+                    <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
+                </div>
+                <div class="status"><span id="place-status">后台全自动安全调度，不暴露任何私钥</span></div>
+            </div>
+
+        <div class="content">
+
+            <!-- iOS-native sticky compact bar (visible after large title scrolls away) -->
+            <div id="mobileTopbarCompact" aria-hidden="true"></div>
+
+            <!-- Operations Cockpit: 当前目的地的内层 tab 条 (JS 按 DEST_MAP 渲染) -->
+            <div class="subtab-bar" id="subtabBar" role="tablist" aria-label="子分区"></div>
+
+            <!-- Mobile-only status pills (v5: 2×2 grid — RTT / 健康 / 模式 / 今日) -->
+            <div class="m-pills" id="mobilePills" aria-label="移动端状态">
+                <span class="m-pill"><span class="dot green" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+                <span class="m-pill"><span class="dot green" id="m-pill-health-dot"></span><span class="lbl">健康</span><span class="val" id="m-pill-health">--</span></span>
+                <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
+                <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
+            </div>
+
+            <!-- ===== 分区: 数据统计 ===== -->
+            <section id="sec-stats" class="app-section" data-section="stats" style="display:none;">
+            <div class="card">
+                <div class="stats-head">
+                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-zap"/></svg>数据统计<span class="stats-head-sub">精确访客画像分析</span></h2>
+                    <button type="button" class="btn-tier is-sm" onclick="loadDashboardData()" title="重新拉取统计数据"><svg class="bt-ico" aria-hidden="true"><use href="#i-shuffle"/></svg>刷新</button>
+                </div>
+
+                <!-- 流量概览：克制的 instrument 统计带，等宽数值 + hairline 分隔 -->
+                <div class="stat-strip" role="group" aria-label="流量概览">
+                    <div class="stat-cell"><span class="stat-label">今天</span><span class="stat-value" id="trafficToday">加载中…</span></div>
+                    <div class="stat-cell"><span class="stat-label">近 7 天</span><span class="stat-value" id="traffic7d">加载中…</span></div>
+                    <div class="stat-cell"><span class="stat-label">近 30 天</span><span class="stat-value" id="traffic30d">加载中…</span></div>
+                </div>
+
+                <div class="stats-charts">
+                    <section class="stats-panel stats-panel-trend" aria-labelledby="trendTitle">
+                        <h3 class="stats-panel-title" id="trendTitle"><svg class="sp-ico" aria-hidden="true"><use href="#i-zap"/></svg>近 7 天播放趋势<span class="stats-panel-meta">有效播放 · 次</span></h3>
+                        <div class="chart-box"><canvas id="trendChart" role="img" aria-label="近 7 天每日有效播放次数趋势"></canvas></div>
+                        <div class="sr-only" id="trendTable"></div>
+                    </section>
+                    <section class="stats-panel stats-panel-loc" aria-labelledby="locTitle">
+                        <h3 class="stats-panel-title" id="locTitle"><svg class="sp-ico" aria-hidden="true"><use href="#i-globe"/></svg>访客来源地<span class="stats-panel-meta">近 7 天</span></h3>
+                        <div class="loc-body">
+                            <div class="chart-box chart-box-doughnut"><canvas id="locationChart" role="img" aria-label="访客来源地占比"></canvas></div>
+                            <div class="loc-legend" id="locLegend"></div>
+                        </div>
+                        <div class="sr-only" id="locTable"></div>
+                    </section>
+                </div>
+
+                <section class="stats-panel" aria-labelledby="top5Title">
+                    <h3 class="stats-panel-title" id="top5Title"><svg class="sp-ico" aria-hidden="true"><use href="#i-star"/></svg>今日节点流量消耗 · TOP 5</h3>
+                    <div id="top5-simple-container"></div>
+                </section>
+
+                <section class="stats-panel" aria-labelledby="logTitle">
+                    <h3 class="stats-panel-title" id="logTitle"><svg class="sp-ico" aria-hidden="true"><use href="#i-eye"/></svg>最新独立播放记录<span class="stats-panel-meta">仅 PlaybackInfo 真实播放</span></h3>
+                    <div class="table-wrapper">
+                        <table class="w-full stats-log-table">
+                            <thead><tr>
+                                <th id="logSortTh" class="log-th-sort" role="button" tabindex="0" aria-sort="descending" onclick="setLogSort('time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setLogSort('time');}" title="点击按时间排序">访问时间<span id="logSortInd" class="od-sort-ind" aria-hidden="true"></span></th>
+                                <th>目标节点</th>
+                                <th>真实 IP 地址</th>
+                                <th>归属地</th>
+                                <th>客户端/设备标识 (User-Agent)</th>
+                            </tr></thead>
+                            <tbody id="logTableBody"><tr><td colspan="5" class="cell-loading">加载数据中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+            </section><!-- /sec-stats -->
+
+            <!-- ===== 分区: 线路测速 ===== -->
+            <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
+
+            <div class="net-panel" data-net-panel="speed">
+            <!-- Mobile-only iOS large-title header (v2.6.0) -->
+            <header class="ios-page-header sd-page-header" aria-hidden="false">
+                <h1 class="ios-large-title">测速 &amp; DNS</h1>
+                <p class="sd-page-sub">节点延迟与解析探测</p>
+            </header>
+
+            <div class="card" id="speed-anchor">
+                <div class="section-header-row">
+                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-zap"/></svg>专属线路测速 &amp; 动态 DNS 解析</h2>
+                </div>
+
+                <div class="sd-dns-card" id="dnsStatusCard">
+                    <div class="sd-dns-head">
+                        <span class="sd-eyebrow"><svg class="eb-ico" aria-hidden="true"><use href="#i-globe"/></svg>当前生效解析</span>
+                        <span class="sd-dns-tag" id="sd-dns-tag">DNS</span>
+                    </div>
+                    <div id="dnsStatus" class="flex-wrap-tight">
+                        <span class="text-muted">加载中...</span>
+                    </div>
+                </div>
+
+                <!-- Mobile-only ISP segmented control (v2.6.0) -->
+                <nav class="sd-isp-seg" role="tablist" aria-label="ISP 筛选">
+                    <button type="button" role="tab" data-value="all" aria-selected="true">综合</button>
+                    <button type="button" role="tab" data-value="电信" aria-selected="false">电信</button>
+                    <button type="button" role="tab" data-value="联通" aria-selected="false">联通</button>
+                    <button type="button" role="tab" data-value="移动" aria-selected="false">移动</button>
+                    <button type="button" role="tab" data-value="多线" aria-selected="false">多线</button>
+                    <button type="button" role="tab" data-value="ipv6" aria-selected="false">IPv6</button>
+                    <button type="button" role="tab" data-value="优选" aria-selected="false">优选</button>
+                </nav>
+
+                <div class="toolbar">
+                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
+                        <option value="all">综合混合源</option>
+                        <option value="电信">电信专属</option>
+                        <option value="联通">联通专属</option>
+                        <option value="移动">移动专属</option>
+                        <option value="多线">多线 BGP</option>
+                        <option value="ipv6">IPv6 节点</option>
+                        <option value="优选">顶尖优选库</option>
+                    </select>
+
+                    <button type="button" class="btn-tier is-primary" id="btnFetchRemote" onclick="fetchRemoteAndTest()"><svg class="bt-ico" aria-hidden="true"><use href="#i-zap"/></svg>提取预设源并测速</button>
+                    <button type="button" class="btn-tier" id="btnTestCustom" onclick="testCustomIPs()">测试粘贴节点</button>
+                    <button type="button" class="btn-tier" id="btnFetchCustomApi" onclick="fetchCustomApiAndTest()">拉取 API</button>
+
+                    <span class="v-sep"></span>
+
+                    <button type="button" class="btn-tier is-success-line" id="btnSelectedDns" data-armed="0" onclick="updateSelectedToDns()"><svg class="bt-ico" aria-hidden="true"><use href="#i-upload"/></svg>提交选中至 DNS <span class="sd-sel-pill" id="sdSelDeskCount" hidden>0</span></button>
+
+                    <span class="v-sep"></span>
+
+                    <div class="menu-wrap">
+                        <button type="button" class="btn-tier" onclick="toggleMenu(this)">更多 <svg><use href="#i-chevron"/></svg></button>
+                        <div class="menu">
+                            <button type="button" onclick="batchTcpPing(); closeAllMenus();">复制去 ITDog</button>
+                            <button type="button" id="btnDirectCname" onclick="directSubmitCname(); closeAllMenus();">直推 CNAME (免测速)</button>
+                            <button type="button" id="btnTop3Dns" onclick="updateTop3ToDns(); closeAllMenus();">更新 TOP3 至 DNS</button>
+                            <hr/>
+                            <button type="button" class="danger" onclick="clearTest(); closeAllMenus();">清空列表</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile-only primary CTA stack + overflow trigger (v2.6.0) -->
+                <div class="sd-action-stack" aria-hidden="false">
+                    <button type="button" class="sd-cta-primary" onclick="fetchRemoteAndTest()">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>提取预设源并测速</span>
+                    </button>
+                    <div class="sd-action-row">
+                        <button type="button" class="sd-cta-ghost" onclick="testCustomIPs()">测试粘贴</button>
+                        <button type="button" class="sd-cta-ghost" onclick="fetchCustomApiAndTest()">拉取 API</button>
+                        <button type="button" class="sd-cta-more" onclick="openSdMoreSheet()" aria-label="更多操作">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <details class="sd-custom-fold">
+                    <summary class="sd-custom-summary">
+                        <span>自定义来源</span>
+                        <svg class="sd-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </summary>
+                    <div class="sd-custom-body" style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                        <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                    </div>
+                </details>
+                
+                <div id="statusText" class="sd-hint">
+                    <svg class="sd-hint-ico" aria-hidden="true"><use href="#i-info"/></svg>
+                    <span>测速完成后，勾选节点自由组合，点击「提交选中至 DNS」自动分发。</span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="col-w40"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
+                                <th>专属节点 (点击复制)</th>
+                                <th>预估延迟</th>
+                                <th>连通状态</th>
+                                <th>记录类型/归属地</th>
+                                <th>单节点操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="testTableBody">
+                            <tr><td colspan="6" class="text-center-muted">暂无数据，请拉取节点或输入自定义 IP/域名 测试</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile-only floating selection bar (v2.6.0) -->
+                <div class="sd-selection-bar" id="sdSelectionBar" hidden>
+                    <span class="sd-sel-label">已选 <strong id="sdSelCount">0</strong> 个</span>
+                    <button type="button" class="sd-sel-btn" onclick="updateSelectedToDns()">提交至 DNS
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            </div><!-- /net-panel speed -->
+
+            <div class="net-panel" data-net-panel="cdn" style="display:none;">
+            <!-- ===== F4: 优选 CDN 域名 + 一键 DNS CNAME ===== -->
+            <div class="card mt-4" >
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-star"/></svg>优选 CDN 域名 · 一键 DNS CNAME</h2>
+                    <div class="flex-wrap-tight">
+                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
+                        <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
+                        <button type="button" class="btn-tier" onclick="runDownloadSpeedtest()" title="测当前 DNS 路径的实际下载带宽"><svg class="bt-ico" aria-hidden="true"><use href="#i-download"/></svg>当前路径带宽</button>
+                        <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ 添加自定义</button>
+                    </div>
+                    <div id="downloadSpeedResult" style="margin-top:10px; font-size:var(--text-md); color:var(--text-sec);"></div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th>域名</th>
+                                <th>备注</th>
+                                <th class="col-w60 text-center">内置</th>
+                                <th class="col-w60 text-center">启用</th>
+                                <th id="odSortTh" class="od-th-sort" style="width:150px; text-align:right;" role="button" tabindex="0" aria-sort="ascending" onclick="setOdSort('ms')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setOdSort('ms');}" title="点击按延迟排序">延迟<span id="odSortInd" class="od-sort-ind" aria-hidden="true"></span></th>
+                                <th style="width:150px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optimizedDomainsBody">
+                            <tr><td colspan="6" class="text-center-muted">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="dnsReadyHint" style="margin-top:14px; padding:10px 14px; border-radius:var(--radius-md); font-size:var(--text-md);"></div>
+            </div>
+            </div><!-- /net-panel cdn -->
+
+            <div class="net-panel" data-net-panel="redirect" style="display:none;">
+            <!-- ===== F3: 重定向白名单 ===== -->
+            <div class="card mt-4" >
+                <h2 class="section-title" style="margin-bottom:10px;"><svg class="st-ico" aria-hidden="true"><use href="#i-shuffle"/></svg>3xx 重定向直通白名单</h2>
+                <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
+                <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
+                <div style="margin-top:10px;">
+                    <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">保存白名单</button>
+                </div>
+            </div>
+            </div><!-- /net-panel redirect -->
+
+            <!-- 客户端脚本已抽离为外部静态资源，见 <head> 的 defer 脚本 -->
+
+            <!-- Mobile-only overflow action sheet for 测速 & DNS (v2.6.0) -->
+            <div id="sdMoreSheet" class="sd-more-sheet" aria-hidden="true">
+                <div class="more-sheet-card" role="dialog" aria-modal="true" aria-label="更多操作">
+                    <span class="more-sheet-grip" aria-hidden="true"></span>
+                    <p class="more-sheet-title">测速 &amp; DNS · 更多操作</p>
+                    <div class="more-sheet-list">
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); batchTcpPing();">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="9" height="9" rx="2"/><rect x="12" y="12" width="9" height="9" rx="2"/></svg>
+                            <span>复制去 ITDog</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); directSubmitCname();">
+                            <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><line x1="18" y1="12" x2="6" y2="12"/></svg>
+                            <span>直推 CNAME (免测速)</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row" onclick="closeSdMoreSheet(); updateTop3ToDns();">
+                            <svg viewBox="0 0 24 24"><polyline points="12 19 12 5"/><polyline points="6 11 12 5 18 11"/></svg>
+                            <span>更新 TOP3 至 DNS</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <button type="button" class="more-sheet-row is-danger" onclick="closeSdMoreSheet(); clearTest();">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                            <span>清空列表</span>
+                            <svg class="ms-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="sd-sheet-cancel" onclick="closeSdMoreSheet()">取消</button>
+                </div>
+            </div>
+
+            </section><!-- /sec-speed -->
+
+            <!-- ===== 分区: 系统设置 ===== -->
+            <section id="sec-settings" class="app-section" data-section="settings" style="display:none;">
+
+            <div class="card" id="settings-anchor">
+                <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <h2 style="margin:0; font-size:var(--text-2xl); letter-spacing:-0.01em;">部署反代节点</h2>
+                        <div style="color:var(--text-sec); font-size:var(--text-md); margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
+                    </div>
+                    <div class="menu-wrap">
+                        <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>配置工具 <svg><use href="#i-chevron"/></svg></button>
+                        <div class="menu">
+                            <button type="button" onclick="exportConfig(); closeAllMenus();"><svg><use href="#i-download"/></svg>导出当前配置</button>
+                            <button type="button" onclick="importConfig(); closeAllMenus();"><svg><use href="#i-upload"/></svg>导入配置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="formHost">
+                <form id="addForm" class="a-form">
+                    <input type="hidden" id="oldPrefix" value="">
+
+                    <!-- 1. 基础信息 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">基础信息</span>
+                            <span class="a-field-aux">备注用于显示，前缀决定访问路径</span>
+                        </div>
+                        <div class="a-row">
+                            <input class="a-input" type="text" id="remark" placeholder="节点备注 (如: Misaka服)" required>
+                            <input class="a-input" type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" required>
+                            <input class="a-input" type="text" id="groupName" placeholder="分组/标签 (可选, 如: 家宽)">
+                            <select class="a-select" id="mode">
+                                <option value="off">保守 (抹除IP)</option>
+                                <option value="realip_only">严格 (透传IP)</option>
+                                <option value="dual">兼容 (双重透传)</option>
+                                <option value="strict">强力 (防403)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 2. 上游线路 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">上游线路</span>
+                            <span class="a-field-aux">主源失败时按顺序回退到备用，支持魔改分离版推流</span>
+                        </div>
+                        <div id="targetInputs" style="display:flex; flex-direction:column; gap:8px;">
+                            <div class="a-upstream-row">
+                                <span class="a-tag-pri">主源</span>
+                                <input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
+                            </div>
+                            <div class="a-upstream-row">
+                                <span class="a-tag-bk">备 1</span>
+                                <input type="url" class="a-input target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" oninput="handleTargetInputs()">
+                            </div>
+                        </div>
+                        <button type="button" class="a-add-row" onclick="addBackupLine()"><svg><use href="#i-plus"/></svg>添加备用线路</button>
+                    </div>
+
+                    <!-- 3. 自定义请求头 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">自定义请求头</span>
+                            <span class="a-field-aux">转发到上游时附加，<span id="hed-count">0</span> 条已启用</span>
+                        </div>
+                        <div class="hed" id="hed-editor">
+                            <div class="hed-head">
+                                <span></span><span>Header</span><span>Value</span>
+                                <span style="text-align:center">启用</span><span></span>
+                            </div>
+                            <div class="hed-list" id="hed-list"></div>
+                            <div class="hed-footer">
+                                <button type="button" class="a-add-row" onclick="HeadersEditor.addRow()"><svg><use href="#i-plus"/></svg>添加请求头</button>
+                                <div class="hed-meta"><span class="dot"></span><span>自动忽略空行 / 注释 (#) / 重复键</span></div>
+                            </div>
+                            <div class="templates">
+                                <span class="templates-label">常用模板：</span>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Authorization','Bearer ')">+ Authorization</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('Cookie','')">+ Cookie</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Emby-Token','')">+ X-Emby-Token</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('X-Forwarded-For','')">+ X-Forwarded-For</button>
+                                <button type="button" class="chip" onclick="HeadersEditor.insertTemplate('User-Agent','')">+ User-Agent</button>
+                                <button type="button" class="chip chip-import" onclick="HeadersEditor.openImportModal()"><svg><use href="#i-download"/></svg>从节点导入</button>
+                                <button type="button" class="chip chip-curl" onclick="HeadersEditor.openCurlModal()">粘贴 cURL...</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 保号提醒 -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">保号提醒</span>
+                            <span class="a-field-aux">超过 N 天未观看将通过 Telegram 提醒（0 = 关闭）</span>
+                        </div>
+                        <div class="a-row">
+                            <input type="number" id="keepaliveDays" class="a-input" min="0" max="365" placeholder="天数（0 关闭）">
+                        </div>
+                    </div>
+
+                    <!-- 媒体计数账号（本节点独立 Emby 账号；留空用全局共享） -->
+                    <div class="a-fieldset">
+                        <div class="a-fieldset-head">
+                            <span class="a-field-label">媒体计数账号</span>
+                            <span class="a-field-aux">为本节点单独指定 Emby 账号拉取媒体库计数；留空则使用全局共享账号。密码留空表示不修改</span>
+                        </div>
+                        <div class="a-row two">
+                            <input type="text" id="embyUsername" class="a-input" placeholder="独立用户名（可选）" autocomplete="off">
+                            <input type="password" id="embyPassword" class="a-input" placeholder="独立密码（留空不改）" autocomplete="new-password">
+                        </div>
+                    </div>
+
+                    <!-- 4. 显示 & 缓存 -->
+                    <div class="a-fieldset">
+                        <span class="a-field-label">显示 &amp; 缓存</span>
+                        <div class="a-row two">
+                            <div class="pos-rel">
+                                <div class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn">
+                                    <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
+                                    <span id="iconDefault" style="font-size:var(--text-3xl);line-height:1;">🎬</span>
+                                    <div class="flex-1-min0">
+                                        <div class="label-bold">节点图标</div>
+                                        <div id="iconSelectText" style="font-size:var(--text-xs); color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
+                                    </div>
+                                    <input type="hidden" id="iconUrl" value="">
+                                </div>
+                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
+                                        <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">加载</button>
+                                        <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">默认库</button>
+                                    </div>
+                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); width: 100%; font-size: var(--text-base); color: var(--text);" onkeyup="filterIcons()">
+                                    <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
+                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: var(--text-md);">加载图标库中...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="a-toggle-row" id="cacheToggleRow" onclick="toggleCacheSwitch(this)">
+                                <div class="ios-switch on"></div>
+                                <div class="flex-1">
+                                    <div class="label-bold">海报 &amp; 静态资源缓存</div>
+                                    <div style="font-size:var(--text-xs); color:var(--text-sec);">降低上游压力，建议开启</div>
+                                </div>
+                                <input type="checkbox" id="nodeCache" class="ip-checkbox" checked style="display:none;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="a-footer">
+                        <span class="a-footer-aux">所有更改实时保存到 Cloudflare D1</span>
+                        <div class="a-footer-actions">
+                            <button type="submit" id="submitBtn" class="btn-tier is-primary"><svg><use href="#i-save"/></svg>保存并部署</button>
+                        </div>
+                    </div>
+                </form>
+                </div>
+            </div>
+            </section><!-- /sec-settings -->
+
+            <!-- ===== 分区: 工具箱 ===== -->
+            <section id="sec-tools" class="app-section" data-section="tools" style="display:none;">
+            <div class="card">
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">工具箱</h2>
+                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
+                    <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
+                    <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL 请求头解析</button>
+                    <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>更新 Worker 核心代码</button>
+                </div>
+                <div style="margin-top:16px; font-size:var(--text-sm); color:var(--text-sec); line-height:1.6;">
+                    提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「系统设置」中准备好节点信息。
+                </div>
+            </div>
+            </section><!-- /sec-tools -->
+
+            <!-- ===== 分区: 概览 (节点管理) ===== -->
+            <section id="sec-overview" class="app-section is-active" data-section="overview">
+            <!-- Operations Cockpit · 运维看板：verdict-first + Four Golden Signals -->
+            <div class="cockpit-board" aria-label="运维看板">
+                <div class="cockpit-verdict" id="cockpitVerdict">
+                    <span class="cv-dot ok" id="cv-dot" aria-hidden="true"></span>
+                    <div class="cv-text">
+                        <span class="cv-headline" id="cv-headline">系统状态读取中…</span>
+                        <span class="cv-sub" id="cv-sub">实时反代节点活跃度</span>
+                    </div>
+                    <div class="cv-nodes"><b id="kpi-online-nodes">--</b> / <span id="kpi-total-nodes">--</span> <span class="cv-nodes-k">节点在线</span></div>
+                </div>
+                <div class="signal-strip" role="group" aria-label="核心信号 Golden Signals">
+                    <div class="signal-cell">
+                        <span class="sig-k">延迟</span>
+                        <span class="sig-v"><span id="kpi-rtt" class="skeleton">--</span><span class="sig-u">ms</span></span>
+                        <span class="sig-sub">边缘 RTT</span>
+                    </div>
+                    <div class="signal-cell">
+                        <span class="sig-k">流量</span>
+                        <span class="sig-v"><span id="kpi-traffic" class="skeleton">--</span></span>
+                        <span class="sig-sub">今日累积</span>
+                    </div>
+                    <div class="signal-cell">
+                        <span class="sig-k">错误</span>
+                        <span class="sig-v"><span id="kpi-errors" class="skeleton">--</span></span>
+                        <span class="sig-sub">离线节点</span>
+                    </div>
+                    <div class="signal-cell">
+                        <span class="sig-k">饱和</span>
+                        <span class="sig-v"><span id="kpi-health" class="skeleton">--</span><span class="sig-u">%</span></span>
+                        <div class="kpi-health-bar"><span id="kpi-health-bar-fill"></span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="section-header-row">
+                    <h2 class="section-title">已反代的媒体库</h2>
+                    <div style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+                        <div class="view-toggle" role="group" aria-label="视图切换">
+                            <button type="button" id="view-grid" class="view-toggle-btn is-active" onclick="setNodeView('grid')" title="卡片视图" aria-label="卡片视图" aria-pressed="true">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                            </button>
+                            <button type="button" id="view-list" class="view-toggle-btn" onclick="setNodeView('list')" title="列表视图" aria-label="列表视图" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.3"/><circle cx="3.5" cy="12" r="1.3"/><circle cx="3.5" cy="18" r="1.3"/></svg>
+                            </button>
+                        </div>
+                        <div class="view-toggle" role="group" aria-label="前缀打码">
+                            <button type="button" id="mask-prefix-btn" class="view-toggle-btn is-active" onclick="togglePrefixMask()" title="前缀已打码 · 点击显示明文" aria-label="切换前缀打码" aria-pressed="true">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+                            </button>
+                        </div>
+                        <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">全局测速</button>
+                        <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">刷新全站海报</button>
+                        <input type="text" id="searchNode" class="search-input" placeholder="🔍 搜索备注或后缀查找..." onkeyup="filterNodesList()">
+                    </div>
+                </div>
+
+                <!-- 监控与媒体计数：探针告警 + 反代白名单 + 全局共享 Emby 账号 -->
+                <details class="ov-monitor" id="ovMonitor">
+                    <summary class="ov-monitor-summary">
+                        <span class="ov-monitor-head">
+                            <svg class="ov-monitor-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+                            <span class="ov-monitor-title">监控与媒体计数</span>
+                        </span>
+                        <span class="ov-monitor-meta" id="ovMonitorMeta">在线 —/—</span>
+                        <svg class="ov-monitor-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </summary>
+                    <div class="ov-monitor-body">
+                        <div class="ov-monitor-actions">
+                            <span class="ov-monitor-fact"><span class="ov-monitor-fact-dot"></span>每分钟探测 · 连续 5 分钟失败告警 · 全部节点自动拉取媒体计数</span>
+                        </div>
+                        <div class="ns-controls">
+                            <div class="ns-control-row">
+                                <span class="ns-control-main">
+                                    <span class="ns-control-title">代理国家白名单</span>
+                                    <span class="ns-control-sub">仅允许这些国家/地区的客户端走反代；管理端点不受影响，留空即关闭</span>
+                                </span>
+                                <span class="ns-control-field">
+                                    <input type="text" id="proxyCountryAllowlist" class="ns-input" placeholder="例：CN,HK,TW">
+                                    <button type="button" class="btn-tier is-sm" onclick="saveCountryAllowlist()">保存</button>
+                                </span>
+                            </div>
+                            <div class="ns-control-row">
+                                <span class="ns-control-main">
+                                    <span class="ns-control-title">防盗链 Referer 白名单</span>
+                                    <span class="ns-control-sub">允许内嵌的来源域名（逗号分隔）；带 Referer 且不在名单的浏览器请求会被拦截，原生播放器（无 Referer）不受影响，留空即关闭</span>
+                                </span>
+                                <span class="ns-control-field">
+                                    <input type="text" id="hotlinkAllowHosts" class="ns-input" placeholder="例：emby.example.com,my.site">
+                                    <button type="button" class="btn-tier is-sm" onclick="saveHotlinkHosts()">保存</button>
+                                </span>
+                            </div>
+                            <div class="ns-control-row">
+                                <span class="ns-control-main">
+                                    <span class="ns-control-title">全局共享 Emby 账号</span>
+                                    <span class="ns-control-sub">媒体计数的默认登录账号，所有节点共用；可在某个节点的「编辑」里单独覆盖。鉴权 UA 取自该节点访问日志，日志无 UA 时不发起请求</span>
+                                </span>
+                                <span class="ns-control-field ns-control-field-creds">
+                                    <input type="text" id="embySharedUser" class="ns-input" placeholder="共享用户名" autocomplete="off">
+                                    <input type="password" id="embySharedPass" class="ns-input" placeholder="共享密码（留空不改）" autocomplete="new-password">
+                                    <button type="button" class="btn-tier is-sm" onclick="saveEmbySharedCreds()">保存</button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <div style="background: rgba(0, 122, 255, 0.05); padding: 12px 20px; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 20px; margin-top: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <label style="cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="selectAllNodes" onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; accent-color: var(--primary);"> 
+                全选节点
+            </label>
+            
+            <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
+                <option value="">读取模式中...</option>
+            </select>
+
+            <button onclick="batchUpdateModes()" style="background: var(--primary); color: var(--bg); border: none; padding: 8px 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px var(--primary-ring);">
+                批量应用模式
+            </button>
+
+            <span id="batch-status" class="label-bold"></span>
+        </div>
+                <div id="list-grid" class="node-grid">
+                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
+                </div>
+            </div>
+
+            <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
+                <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
+                    <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
+                </div>
+            </div>
+            </section><!-- /sec-overview -->
+
+            <!-- ===== 危险区 (独立分区, 替换原底部常驻条 v2.3.0) ===== -->
+            <section id="sec-danger" class="app-section" data-section="danger" style="display:none;">
+                <div class="danger-hero">
+                    <div class="dh-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="dh-text">
+                        <h2 class="dh-title">危险操作区</h2>
+                        <div class="dh-sub">以下操作不可逆，请确认理解每项影响后再执行。</div>
+                    </div>
+                </div>
+                <div class="ios-form-group danger-group" role="group" aria-label="危险操作">
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">刷新全站海报缓存</div>
+                            <div class="ifr-sub">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="purgeCache()">执行刷新</button>
+                    </div>
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">覆盖部署 Worker</div>
+                            <div class="ifr-sub">用本地源码覆盖线上 Worker 并重启节点。期间所有反代请求会出现 5–15 秒的连接抖动。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="openWorkerUpdate()">打开部署面板</button>
+                    </div>
+                    <div class="ios-form-row">
+                        <div class="flex-1-min0">
+                            <div class="ifr-label">退出登录</div>
+                            <div class="ifr-sub">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
+                        </div>
+                        <button type="button" class="btn-tier is-danger" onclick="logout()">立即退出</button>
+                    </div>
+                </div>
+            </section><!-- /sec-danger -->
+
+        </div><!-- /.content -->
+
+        </div><!-- /.app-main -->
+    </div><!-- /.app-shell -->
+
+    <!-- cURL paste modal (UI Suggestions v2.0.7) -->
+    <div class="curl-modal-bg" id="curlModal" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
+        <div class="curl-modal">
+            <h3>从 cURL 命令导入</h3>
+            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:var(--text-xs);">-H</code> 标头：</p>
+            <textarea id="curlInput" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \&#10;  -H 'x-emby-token: abc123' \&#10;  --compressed"></textarea>
+            <div class="curl-modal-actions">
+                <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">取消</button>
+                <button class="btn-tier is-primary" onclick="HeadersEditor.parseCurl()">解析并导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 从已有节点导入请求头 modal -->
+    <div class="curl-modal-bg" id="importHeadersModal" onclick="if(event.target===this) HeadersEditor.closeImportModal()">
+        <div class="curl-modal">
+            <h3>从已有节点导入请求头</h3>
+            <p>选择一个源节点，把它的自定义请求头合并到当前编辑器（<strong>同名键以源节点为准</strong>，其余追加）：</p>
+            <div class="import-node-list" id="importNodeList"></div>
+            <div class="curl-modal-actions">
+                <button class="btn-tier" onclick="HeadersEditor.closeImportModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动端底部导航 Tab Bar — Operations Cockpit 3 目的地 (桌面端 CSS 隐藏) -->
+    <nav id="mobileTabBar" aria-label="底部导航">
+        <button type="button" data-dest="monitor" class="active" aria-label="监控">
+            <svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+            <span>监控</span>
+        </button>
+        <button type="button" data-dest="network" aria-label="网络">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+            <span>网络</span>
+        </button>
+        <button type="button" data-dest="config" aria-label="配置">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>配置</span>
+        </button>
+    </nav>
+
+
+</body>
+</html>

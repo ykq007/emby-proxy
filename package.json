@@ -1,0 +1,33 @@
+{
+  "name": "emby-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "cloudflare": {
+    "bindings": {
+      "DB": { "description": "D1 database — routes, probes, stats, config. Schema auto-migrates on first request." },
+      "POSTER_CACHE": { "description": "R2 bucket — persistent cache for Emby posters/images (bounded to the free tier)." }
+    }
+  },
+  "scripts": {
+    "build:assets": "node scripts/build-assets.mjs",
+    "build": "node scripts/build-assets.mjs && esbuild src/index.js --bundle --minify --format=esm --target=es2022 --outfile=worker.js --legal-comments=inline --banner:js=\"// AUTO-GENERATED from src/ — do not edit directly. Run 'npm run build'.\"",
+    "obfuscate": "node scripts/obfuscate.js worker.js dist/worker.obf.js",
+    "deploy": "npm run build && npm run obfuscate && wrangler deploy --no-bundle",
+    "deploy:prod": "npm run build && npm run obfuscate && wrangler deploy --no-bundle -c wrangler.prod.toml",
+    "deploy:plain": "npm run build && wrangler deploy --main worker.js",
+    "snapshot:write": "node scripts/snapshot-ui.mjs --write",
+    "snapshot:check": "node scripts/snapshot-ui.mjs --check",
+    "lint": "eslint src/ui/dashboard/client",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "verify": "npm run build && npm run lint && npm run snapshot:check && npm test",
+    "tg:commands": "node scripts/register-tg-commands.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "javascript-obfuscator": "^4.1.0",
+    "wrangler": "^4.98.0"
+  }
+}

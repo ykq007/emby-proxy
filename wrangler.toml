@@ -1,0 +1,28 @@
+name = "emby-proxy"
+main = "dist/worker.obf.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+keep_vars = true
+
+# 登录穷举防护：失败鉴权按来源 IP 在 D1(auth_rl 表)固定窗口内计数限流，
+# 见 middleware/auth.js。不用 Cloudflare 原生 ratelimit 绑定——后者逐数据中心
+# 计数、无法全局聚合（实测同 IP 连发不触发），D1 方案全局一致且可验证。
+
+# 面板静态资源（CSS / 客户端 JS）由 Cloudflare 边缘直接托管，命中即返回、
+# 不进 worker；未命中的路径（/、/api/*、反代前缀等）回落到 worker。
+[assets]
+directory = "./public"
+
+[triggers]
+crons = ["*/5 * * * *", "0 * * * *", "0 0 * * *"]
+
+# database_id / bucket_name 有意省略：Cloudflare "Deploy to Cloudflare" 按钮会
+# 读取本文件并在部署时自动为每位部署者创建全新的 D1 数据库 / R2 存储桶，然后写回真实 ID。
+[[d1_databases]]
+binding = "DB"
+database_name = "emby-proxy-db"
+
+# 海报/图片持久缓存（见 proxy/poster-cache.js）。配 30 天对象生命周期(自动删除)
+# + 仅缓存 image/* 且 ≤5MB → 存储/操作稳在 R2 免费额度内。
+[[r2_buckets]]
+binding = "POSTER_CACHE"
