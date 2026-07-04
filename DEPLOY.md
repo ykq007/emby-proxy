@@ -12,6 +12,8 @@ Owner 的生产 Worker: `emby`(D1: `emby-proxy-prod-db`)
 - `wrangler.toml`(已提交,公开)——按钮/公共配置:worker 名 `emby-proxy`,故意省略
   `database_id` / `bucket_name`。Cloudflare "Deploy to Cloudflare" 按钮部署时会读取这份文件,
   为每位部署者自动新建一个全新的 D1 数据库 / R2 存储桶,再写回真实 ID。
+  文件里的 `[build] command`(build + obfuscate)是按钮部署能跑通的关键:dist/ 与 public/
+  都不入库,Workers Builds 里 wrangler 靠这条命令在部署前现场构建出入口文件和静态资源。
 
 **Owner 千万不要跑裸的 `npm run deploy`**——那会用公共 `wrangler.toml`(没有 owner 的真实
 `database_id`/`bucket_name`),在 owner 自己的 Cloudflare 账号上新建一套全新资源,而不是部署到

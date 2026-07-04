@@ -3,6 +3,15 @@ main = "dist/worker.obf.js"
 compatibility_date = "2025-09-01"
 workers_dev = true
 keep_vars = true
+# worker.obf.js 已是 esbuild 打包+混淆后的单文件，wrangler 不要再二次打包
+# （等价于 owner 部署脚本里的 --no-bundle）。
+no_bundle = true
+
+# 一键部署（"Deploy to Cloudflare" 按钮 / Workers Builds）跑的是 `npx wrangler deploy`，
+# 而 dist/ 与 public/ 均不入库——没有这条自定义构建命令，全新 clone 里找不到
+# 入口文件和静态资源目录，部署必然失败。wrangler 在每次 deploy 前自动执行它。
+[build]
+command = "npm run build && npm run obfuscate"
 
 # 登录穷举防护：失败鉴权按来源 IP 在 D1(auth_rl 表)固定窗口内计数限流，
 # 见 middleware/auth.js。不用 Cloudflare 原生 ratelimit 绑定——后者逐数据中心
