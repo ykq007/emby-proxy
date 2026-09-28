@@ -31,6 +31,10 @@ function fakeUpstream(req) {
     }
     const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key');
     if (tok !== UPTOK) return json({ message: 'bad token' }, 401);
+    // 像 sntp：令牌绑定登录设备（node1-viewers），带别的 DeviceId 用就是 invalid_token。
+    const dev = /DeviceId="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || '');
+    if (dev && dev[1] !== 'node1-viewers') return json({ ErrorCode: 'invalid_token' }, 401);
+    if (u.searchParams.get('DeviceId') && u.searchParams.get('DeviceId') !== 'node1-viewers') return json({ ErrorCode: 'invalid_token' }, 401);
     let m;
     if ((m = /^\/Users\/U1\/Items\/(\w+)$/.exec(p))) {
         const ep = { e1: [1, 1], e2: [1, 2], e3: [1, 3] }[m[1]];

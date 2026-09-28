@@ -12,6 +12,9 @@ import { buildEmbyLoginHeaders, parseCustomHeadersForProbe } from '../emby/heade
 
 const FALLBACK_UA = 'Emby/4.8 (Forward)';
 
+// 上游会话登录所用的设备 ID。部分 Emby 会把令牌绑定到登录设备，转发时必须沿用它。
+export const upstreamDeviceId = (prefix) => prefix + '-viewers';
+
 const MEM = new Map(); // prefix -> session
 
 export async function getUpstreamSession(env, prefix) {
@@ -59,7 +62,7 @@ async function loginUpstream(env, prefix) {
     let error = `无法连接上游或上游返回异常（${who}）`;
     const recent = await dbFirst(env,
         `SELECT ua FROM visitor_logs WHERE prefix = ? AND ua NOT IN ('', 'Unknown') AND ua NOT LIKE 'Mozilla%' ORDER BY id DESC LIMIT 1`, prefix);
-    const headers = { ...buildEmbyLoginHeaders(prefix + '-viewers', (recent && recent.ua) || FALLBACK_UA), ...parseCustomHeadersForProbe(route.custom_headers) };
+    const headers = { ...buildEmbyLoginHeaders(upstreamDeviceId(prefix), (recent && recent.ua) || FALLBACK_UA), ...parseCustomHeadersForProbe(route.custom_headers) };
     const body = JSON.stringify({ Username: creds.username, Pw: creds.password || '' });
     for (const base of String(route.target || '').split(',').map(s => s.trim()).filter(Boolean)) {
         const r = await fetchEmbyJsonWithFallback(base, ['/emby/Users/AuthenticateByName', '/Users/AuthenticateByName'],
