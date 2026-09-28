@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import { proxyRequest } from '../src/proxy/engine.js';
 import { handleViewers } from '../src/api/viewers.js';
+import { handleRoutes } from '../src/api/routes.js';
 import { ensureSchema, __resetSchemaReadyForTest } from '../src/db/schema.js';
 import { __setConfigForTest, __resetConfigCache } from '../src/proxy/config-cache.js';
 import { encryptSecret } from '../src/emby/tokens.js';
@@ -49,9 +50,9 @@ beforeEach(async () => {
     __resetConfigCache(); __resetSchemaReadyForTest(); clearResolveCache(); __resetUpstreamMemForTest();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret' };
     await ensureSchema(env);
-    env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent) VALUES (?, ?, ?, ?, ?)`)
+    env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent, viewers_enabled) VALUES (?, ?, ?, ?, ?, 1)`)
         .run('node1', UP, 'shared', await encryptSecret(env, 'pw'), 2);
-    __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0 }]]) });
+    __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 1 }]]) });
     seen = []; upstreamLogins = 0;
     const orig = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
@@ -233,8 +234,8 @@ test('admin: quota sum cannot exceed node cap; cap cannot drop below granted quo
     assert.equal(over.status, 400);
     assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v1, prefix: 'node1', quota: 1 })).status, 200, 're-grant excludes own quota');
     assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v2, prefix: 'node1', quota: 1 })).status, 200);
-    assert.equal((await admin('POST', '/api/viewers/cap', { prefix: 'node1', max_concurrent: 1 })).status, 400);
-    assert.equal((await admin('POST', '/api/viewers/cap', { prefix: 'node1', max_concurrent: 3 })).status, 200);
+    assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', max_concurrent: 1 })).status, 400);
+    assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', max_concurrent: 3 })).status, 200);
     assert.equal((await admin('POST', '/api/viewers', { username: 'v1', password: 'secret1' })).status, 409);
 });
 
@@ -256,4 +257,42 @@ test('upstream 401 drops the cached upstream session and re-logs in', async () =
     const r = await call('/emby/Users/U1/Items', { token: a.token });
     assert.equal(r.status, 200);
     assert.equal(upstreamLogins, before + 1);
+});
+
+test('switch off: node skips the viewer gate, viewer usernames go to upstream', async () => {
+    const a = await makeViewer('alice');
+    __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 0 }]]) });
+    const before = upstreamLogins;
+    const login = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'secret1' } });
+    assert.equal(login.status, 200);
+    assert.equal(upstreamLogins, before + 1, 'login forwarded to upstream');
+    assert.equal((await call('/emby/Users/U1/Items', { token: a.token })).status, 401, 'viewer token not swapped');
+});
+
+test('switch on requires a working upstream login; grants need the switch on', async () => {
+    env.DB.db.exec(`INSERT INTO routes (prefix, target) VALUES ('bare', '${UP}')`);
+    const v = (await admin('POST', '/api/viewers', { username: 'v1', password: 'secret1' })).body.id;
+    assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v, prefix: 'bare', quota: 1 })).status, 400, 'switch off');
+    const on = await admin('POST', '/api/viewers/node', { prefix: 'bare', viewers_enabled: true });
+    assert.equal(on.status, 400, 'no Emby credentials on node');
+    assert.equal(env.DB.db.prepare(`SELECT viewers_enabled FROM routes WHERE prefix = 'bare'`).get().viewers_enabled, 0);
+    assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: false })).status, 200);
+    assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: true })).status, 200);
+});
+
+test('editing a node keeps its viewer settings; renaming it moves viewer access', async () => {
+    const a = await makeViewer('alice');
+    const save = async (body) => {
+        const req = new Request(ORIGIN + '/api/routes', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
+        const r = await handleRoutes(req, env, { waitUntil() { } }, new URL(req.url));
+        assert.equal(r.status, 200, await r.clone().text());
+    };
+    await save({ prefix: 'node1', oldPrefix: 'node1', target: UP, remark: 'edited' });
+    let row = env.DB.db.prepare(`SELECT max_concurrent, viewers_enabled, remark FROM routes WHERE prefix = 'node1'`).get();
+    assert.deepEqual({ ...row }, { max_concurrent: 2, viewers_enabled: 1, remark: 'edited' });
+    await save({ prefix: 'node2', oldPrefix: 'node1', target: UP });
+    row = env.DB.db.prepare(`SELECT max_concurrent, viewers_enabled FROM routes WHERE prefix = 'node2'`).get();
+    assert.deepEqual({ ...row }, { max_concurrent: 2, viewers_enabled: 1 });
+    const acc = env.DB.db.prepare(`SELECT prefix FROM viewer_access WHERE viewer_id = ?`).all(a.id).map(r => r.prefix);
+    assert.deepEqual(acc, ['node2']);
 });

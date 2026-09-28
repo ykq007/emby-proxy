@@ -12,7 +12,7 @@ import {
     upsertRoute,
     deleteRoute,
 } from '../routing/route.js';
-import { forgetNode } from '../viewers/store.js';
+import { forgetNode, renameNode } from '../viewers/store.js';
 import { dropUpstreamSession } from '../viewers/upstream.js';
 
 export async function handleRoutes(request, env, ctx, url) {
@@ -120,7 +120,7 @@ export async function handleRoutes(request, env, ctx, url) {
             }
             let currentSortOrder = 0;
             let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0, monitor_enabled: 1 };
-            let prevRuntimeFields = { last_play: '', emby_auth_cache: '', emby_auth_seen_at: 0, emby_auth_used_at: 0, keepalive_last_played_at: 0, keepalive_last_reminded_at: 0, emby_username: '', emby_password_enc: '' };
+            let prevRuntimeFields = { last_play: '', emby_auth_cache: '', emby_auth_seen_at: 0, emby_auth_used_at: 0, keepalive_last_played_at: 0, keepalive_last_reminded_at: 0, emby_username: '', emby_password_enc: '', max_concurrent: 0, viewers_enabled: 0 };
             const absorbOldRow = (oldRow) => {
                 if (!oldRow) return;
                 currentSortOrder = oldRow.sort_order;
@@ -134,11 +134,15 @@ export async function handleRoutes(request, env, ctx, url) {
                     keepalive_last_reminded_at: oldRow.keepalive_last_reminded_at | 0,
                     emby_username: oldRow.emby_username || '',
                     emby_password_enc: oldRow.emby_password_enc || '',
+                    // viewer 设置只在「观看账号」页修改，编辑节点时原样保留。
+                    max_concurrent: oldRow.max_concurrent | 0,
+                    viewers_enabled: oldRow.viewers_enabled | 0,
                 };
             };
             if (data.oldPrefix && data.oldPrefix !== data.prefix) {
                 absorbOldRow(await dbFirst(env, `SELECT ${PREV_ROW_SELECT} FROM routes WHERE prefix = ?`, data.oldPrefix));
                 await deleteRoute(env, data.oldPrefix);
+                await renameNode(env, data.oldPrefix, data.prefix);
             } else {
                 absorbOldRow(await dbFirst(env, `SELECT ${PREV_ROW_SELECT} FROM routes WHERE prefix = ?`, data.prefix));
             }
@@ -173,6 +177,7 @@ export async function handleRoutes(request, env, ctx, url) {
                 keepalive_days: keepaliveDays, keepalive_last_played_at: prevRuntimeFields.keepalive_last_played_at,
                 keepalive_last_reminded_at: prevRuntimeFields.keepalive_last_reminded_at,
                 emby_username: embyUsername, emby_password_enc: embyPasswordEnc,
+                max_concurrent: prevRuntimeFields.max_concurrent, viewers_enabled: prevRuntimeFields.viewers_enabled,
             });
             if (credsChanged) await dropUpstreamSession(env, data.prefix);
             return Response.json({ success: true });

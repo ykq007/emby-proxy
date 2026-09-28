@@ -1209,10 +1209,12 @@
             __viewers.viewers.forEach(function (v) { v.access.forEach(function (a) { used[a.prefix] = (used[a.prefix] || 0) + a.quota; }); });
             document.getElementById('viewerNodes').innerHTML = __viewers.nodes.map(function (n) {
                 var p = vEsc(n.prefix);
-                return '<tr><td>' + vEsc(n.remark || n.prefix) + ' <span style="color:var(--text-sec)">/' + p + '</span></td><td>' + (used[n.prefix] || 0) + '</td>' +
-                    '<td><input class="a-input" type="number" min="0" style="max-width:90px" value="' + (n.max_concurrent || 0) + '" aria-label="' + p + ' 并发上限" onchange="saveNodeCap(\'' + p + '\', this.value)"></td></tr>';
-            }).join('') || '<tr><td colspan="3" class="cell-loading">暂无节点</td></tr>';
-            var nodeOpts = __viewers.nodes.map(function (n) { return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + '</option>'; }).join('');
+                return '<tr><td>' + vEsc(n.remark || n.prefix) + ' <span style="color:var(--text-sec)">/' + p + '</span></td>' +
+                    '<td><input type="checkbox"' + (n.viewers_enabled ? ' checked' : '') + ' aria-label="' + p + ' 开启观看账号" onchange="saveNode(\'' + p + '\', { viewers_enabled: this.checked })"></td>' +
+                    '<td>' + (used[n.prefix] || 0) + '</td>' +
+                    '<td><input class="a-input" type="number" min="0" style="max-width:90px" value="' + (n.max_concurrent || 0) + '" aria-label="' + p + ' 并发上限" onchange="saveNode(\'' + p + '\', { max_concurrent: Number(this.value) })"></td></tr>';
+            }).join('') || '<tr><td colspan="4" class="cell-loading">暂无节点</td></tr>';
+            var nodeOpts = __viewers.nodes.filter(function (n) { return n.viewers_enabled; }).map(function (n) { return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + '</option>'; }).join('');
             document.getElementById('viewerList').innerHTML = __viewers.viewers.map(function (v) {
                 var id = vEsc(v.id);
                 var access = v.access.map(function (a) {
@@ -1275,8 +1277,8 @@
             try { await viewerApi('DELETE', '/api/viewers/access?viewer_id=' + encodeURIComponent(id) + '&prefix=' + encodeURIComponent(prefix)); } catch (e) { return; }
             loadViewers();
         }
-        async function saveNodeCap(prefix, value) {
-            try { await viewerApi('POST', '/api/viewers/cap', { prefix: prefix, max_concurrent: Number(value) }); } catch (e) { loadViewers(); return; }
+        async function saveNode(prefix, fields) {
+            try { await viewerApi('POST', '/api/viewers/node', Object.assign({ prefix: prefix }, fields)); } catch (e) { loadViewers(); return; }
             showToast('已保存'); loadViewers();
         }
         async function editViewerLibraries(id, prefix, btn) {

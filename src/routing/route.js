@@ -24,7 +24,7 @@ import { invalidateConfigCache } from '../proxy/config-cache.js';
 
 // proxy/config-cache.js getConfig() 缓存的列 —— 唯一影响代理转发行为的字段。
 export const HOT_PATH_COLUMNS = Object.freeze([
-    'prefix', 'target', 'mode', 'cache_img', 'custom_headers', 'media_counts_auto_auth', 'keepalive_days',
+    'prefix', 'target', 'mode', 'cache_img', 'custom_headers', 'media_counts_auto_auth', 'keepalive_days', 'viewers_enabled',
 ]);
 export const HOT_PATH_SELECT = HOT_PATH_COLUMNS.join(', ');
 
@@ -75,6 +75,7 @@ export const PREV_ROW_COLUMNS = Object.freeze([
     'sort_order', 'show_on_status', 'public_alias', 'media_counts_auto_auth', 'monitor_enabled',
     'last_play', 'emby_auth_cache', 'emby_auth_seen_at', 'emby_auth_used_at',
     'keepalive_last_played_at', 'keepalive_last_reminded_at', 'emby_username', 'emby_password_enc',
+    'max_concurrent', 'viewers_enabled',
 ]);
 export const PREV_ROW_SELECT = PREV_ROW_COLUMNS.join(', ');
 
@@ -91,6 +92,7 @@ export const UPSERT_COLUMNS = Object.freeze([
     'custom_headers', 'backend_url', 'show_on_status', 'public_alias', 'media_counts_auto_auth',
     'monitor_enabled', 'last_play', 'emby_auth_cache', 'emby_auth_seen_at', 'emby_auth_used_at',
     'keepalive_days', 'keepalive_last_played_at', 'keepalive_last_reminded_at', 'emby_username', 'emby_password_enc',
+    'max_concurrent', 'viewers_enabled',
 ]);
 
 // ---------------------------------------------------------------------------

@@ -675,9 +675,9 @@ export const HTML_UI = `
                     <input class="a-input" type="password" id="viewerNewPass" aria-label="密码" placeholder="密码（至少 6 位）" autocomplete="new-password" minlength="6" required>
                     <button type="submit" class="btn-tier is-primary">新建账号</button>
                 </form>
-                <h3 style="margin:22px 0 8px; font-size:var(--text-lg);">节点并发上限</h3>
-                <div style="color:var(--text-sec); font-size:var(--text-sm); margin-bottom:8px;">0 = 不限。各账号在该节点的配额之和不能超过上限。</div>
-                <div class="table-wrapper"><table class="w-full"><thead><tr><th>节点</th><th>已分配配额</th><th>并发上限</th></tr></thead><tbody id="viewerNodes"><tr><td colspan="3" class="cell-loading">加载中...</td></tr></tbody></table></div>
+                <h3 style="margin:22px 0 8px; font-size:var(--text-lg);">节点设置</h3>
+                <div style="color:var(--text-sec); font-size:var(--text-sm); margin-bottom:8px;">只有开启了观看账号的节点才会处理 viewer 登录；未开启的节点照常直通上游。开启时会实际登录一次上游账号校验。并发上限 0 = 不限，各账号配额之和不能超过上限。</div>
+                <div class="table-wrapper"><table class="w-full"><thead><tr><th>节点</th><th>观看账号</th><th>已分配配额</th><th>并发上限</th></tr></thead><tbody id="viewerNodes"><tr><td colspan="4" class="cell-loading">加载中...</td></tr></tbody></table></div>
                 <h3 style="margin:22px 0 8px; font-size:var(--text-lg);">账号</h3>
                 <div id="viewerList"><div class="cell-loading">加载中...</div></div>
             </div>

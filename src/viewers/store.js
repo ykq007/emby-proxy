@@ -146,9 +146,10 @@ export async function deleteViewer(env, id) {
 export async function nodeCapacity(env, prefix, exceptViewer = '') {
     const row = await dbFirst(env,
         `SELECT (SELECT max_concurrent FROM routes WHERE prefix = ?) AS cap,
+                (SELECT viewers_enabled FROM routes WHERE prefix = ?) AS enabled,
                 (SELECT COALESCE(SUM(quota), 0) FROM viewer_access WHERE prefix = ? AND viewer_id != ?) AS used`,
-        prefix, prefix, exceptViewer);
-    return { exists: row && row.cap !== null && row.cap !== undefined, cap: Number(row?.cap) || 0, used: Number(row?.used) || 0 };
+        prefix, prefix, prefix, exceptViewer);
+    return { exists: row && row.cap !== null && row.cap !== undefined, enabled: !!Number(row?.enabled), cap: Number(row?.cap) || 0, used: Number(row?.used) || 0 };
 }
 
 export async function grantAccess(env, viewerId, prefix, quota, hiddenLibraries) {
@@ -184,5 +185,15 @@ export async function changeOwnPassword(env, s, currentPw, newPw) {
 export async function forgetNode(env, prefix) {
     await dbBatch(env, ['viewer_access', 'viewer_tokens', 'playback_slots', 'watch_state', 'viewer_upstream']
         .map(t => dbStmt(env, `DELETE FROM ${t} WHERE prefix = ?`, prefix)));
+    RESOLVE_MEM.clear();
+}
+
+// 节点改前缀：viewer 数据跟着走。上游会话密文以前缀为盐，直接丢弃，下次重新登录。
+export async function renameNode(env, from, to) {
+    await dbBatch(env, [
+        ...['viewer_access', 'viewer_tokens', 'playback_slots', 'watch_state']
+            .map(t => dbStmt(env, `UPDATE ${t} SET prefix = ? WHERE prefix = ?`, to, from)),
+        dbStmt(env, `DELETE FROM viewer_upstream WHERE prefix = ?`, from),
+    ]);
     RESOLVE_MEM.clear();
 }

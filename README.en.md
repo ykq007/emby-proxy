@@ -79,6 +79,7 @@ wrangler secret put TG_WEBHOOK_SECRET
 
 Give friends their own login on a node without sharing the node's Emby password (**Config → Viewer accounts**):
 
+- **Per-node switch, off by default.** A node that is switched off proxies exactly as before and skips all viewer code. Switching it on first checks that the proxy can log in upstream with the node's Emby account.
 - A viewer logs in from any Emby client at `https://<worker>/<alias>` with the username and password you created. The proxy signs in to upstream as the node's Emby account (the Emby username/password set on the node), so that field is required.
 - **Own watch state.** Played marks, resume positions, favorites, Continue Watching and Next Up are kept per viewer in D1. Writes go to upstream first and are saved locally only if upstream succeeds.
 - **Concurrent streams.** Each node has a cap, and each viewer gets a quota on each node. Quotas on a node can't add up to more than its cap (0 means unlimited). Going over returns 429. A slot is freed on stop, or after 3 minutes without a playback heartbeat.

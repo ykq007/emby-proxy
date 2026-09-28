@@ -34,7 +34,7 @@ export async function proxyRequest(request, env, ctx, url) {
     // 2.6 核心反代与调度引擎
     // ==========================================
     let targetUrls = []; let currentMode = 'off'; let enableCache = true; let remainingPath = '';
-    let customHeadersRaw = '';
+    let customHeadersRaw = ''; let viewersOn = false;
     const decodedPath = decodeURIComponent(url.pathname); let matchedPrefix = null;
     let proxyOrigin = new URL(request.url).origin;
 
@@ -73,6 +73,7 @@ export async function proxyRequest(request, env, ctx, url) {
             matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
             targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
             customHeadersRaw = route.custom_headers || '';
+            viewersOn = !!route.viewers_enabled;
 
             // 媒体计数鉴权已改为用户名/密码（AuthenticateByName），不再被动收割请求里的 token。
 
@@ -115,8 +116,8 @@ export async function proxyRequest(request, env, ctx, url) {
     const requestGateResponse = await applyRequestGate(request, env, config);
     if (requestGateResponse) return requestGateResponse;
 
-    // Viewer 网关：viewer 登录 / ev_ 令牌请求在此处理，经 proxyRequest 递归以上游账号令牌转发。
-    if (matchedPrefix && env.DB) {
+    // Viewer 网关（仅开启了观看账号的节点）：viewer 登录 / ev_ 令牌请求在此处理，经 proxyRequest 递归以上游账号令牌转发。
+    if (viewersOn && env.DB) {
         const viewerResponse = await handleViewerRequest(request, env, ctx, {
             prefix: matchedPrefix, path: remainingPath, url,
             forward: (req) => proxyRequest(req, env, ctx, new URL(req.url)),

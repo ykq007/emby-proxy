@@ -4,12 +4,12 @@
 //   DELETE /api/viewers?id=              删除 viewer 及其全部数据
 //   POST   /api/viewers/access           授权 {viewer_id, prefix, quota, hidden_libraries}
 //   DELETE /api/viewers/access?viewer_id=&prefix=
-//   POST   /api/viewers/cap              节点并发上限 {prefix, max_concurrent}
+//   POST   /api/viewers/node             节点设置 {prefix, viewers_enabled?, max_concurrent?}
 //   GET    /api/viewers/libraries?prefix= 节点上游媒体库（隐藏选择器用）
 import { dbAll } from '../db/helpers.js';
 import { updateRouteColumns } from '../routing/route.js';
 import { listViewers, createViewer, updateViewer, deleteViewer, grantAccess, revokeAccess, nodeCapacity } from '../viewers/store.js';
-import { getUpstreamSession } from '../viewers/upstream.js';
+import { getUpstreamSession, dropUpstreamSession } from '../viewers/upstream.js';
 import { proxyRequest } from '../proxy/engine.js';
 
 const ok = (extra) => Response.json({ success: true, ...extra });
@@ -23,7 +23,7 @@ export async function handleViewers(request, env, ctx, url) {
     const p = url.pathname; const m = request.method;
     try {
         if (p === '/api/viewers' && m === 'GET') {
-            const caps = await dbAll(env, `SELECT prefix, remark, max_concurrent FROM routes ORDER BY sort_order, prefix`);
+            const caps = await dbAll(env, `SELECT prefix, remark, max_concurrent, viewers_enabled FROM routes ORDER BY sort_order, prefix`);
             return ok({ viewers: await listViewers(env), nodes: caps.results || [] });
         }
         if (p === '/api/viewers' && m === 'POST') {
@@ -53,6 +53,7 @@ export async function handleViewers(request, env, ctx, url) {
             const hidden = Array.isArray(d.hidden_libraries) ? d.hidden_libraries.map(String) : [];
             const cap = await nodeCapacity(env, d.prefix, d.viewer_id);
             if (!cap.exists) return fail('节点不存在', 404);
+            if (!cap.enabled) return fail('请先在该节点开启观看账号');
             if (cap.cap > 0) {
                 if (quota < 1) return fail('节点设置了并发上限，配额至少为 1');
                 if (cap.used + quota > cap.cap) return fail(`配额超出节点上限：已分配 ${cap.used}/${cap.cap}，本次最多 ${cap.cap - cap.used}`);
@@ -64,14 +65,28 @@ export async function handleViewers(request, env, ctx, url) {
             await revokeAccess(env, url.searchParams.get('viewer_id') || '', url.searchParams.get('prefix') || '');
             return ok();
         }
-        if (p === '/api/viewers/cap' && m === 'POST') {
+        if (p === '/api/viewers/node' && m === 'POST') {
             const d = await request.json();
-            const max = Number(d.max_concurrent);
-            if (!d.prefix || !nonNegInt(max)) return fail('参数错误');
+            if (!d.prefix) return fail('参数错误');
             const cap = await nodeCapacity(env, d.prefix);
             if (!cap.exists) return fail('节点不存在', 404);
-            if (max > 0 && cap.used > max) return fail(`已分配配额 ${cap.used} 超过新上限 ${max}，请先调小 viewer 配额`);
-            await updateRouteColumns(env, String(d.prefix), { max_concurrent: max });
+            const fields = {};
+            if (d.max_concurrent !== undefined) {
+                const max = Number(d.max_concurrent);
+                if (!nonNegInt(max)) return fail('参数错误');
+                if (max > 0 && cap.used > max) return fail(`已分配配额 ${cap.used} 超过新上限 ${max}，请先调小 viewer 配额`);
+                fields.max_concurrent = max;
+            }
+            if (d.viewers_enabled !== undefined) {
+                if (d.viewers_enabled) {
+                    // 开启前实际登录一次上游，确认节点的上游账号可用。
+                    await dropUpstreamSession(env, String(d.prefix));
+                    const up = await getUpstreamSession(env, String(d.prefix), request.headers.get('User-Agent') || '');
+                    if (!up) return fail('无法登录上游：请先在节点里填写正确的 Emby 用户名/密码（或全局共享凭据）');
+                }
+                fields.viewers_enabled = d.viewers_enabled ? 1 : 0;
+            }
+            await updateRouteColumns(env, String(d.prefix), fields);
             return ok();
         }
         if (p === '/api/viewers/libraries' && m === 'GET') {
