@@ -86,7 +86,7 @@ export async function queryRouteTrafficBytes(env, routes, options = {}) {
 }
 
 export async function queryAggregateTrafficBytes(env, type, options = {}) {
-    if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) return { ok: false, reason: 'missing-env', message: '缺少变量' };
+    if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) return { ok: false, reason: 'missing-env', message: '未配置' };
     try {
         const cfApi = options.cfApi || createCfApi(env);
         const nowMs = options.nowMs || Date.now();

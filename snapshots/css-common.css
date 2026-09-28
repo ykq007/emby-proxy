@@ -393,20 +393,16 @@
     .a-detail-label, .info-label, .sig-k, .a-stat-label, small, .sidebar-version {
         letter-spacing: var(--tracking-caption);
     }
-    .sd-eyebrow, .stats-head-sub {
+    .sd-eyebrow {
         letter-spacing: var(--tracking-label);
     }
     /* Instrument readouts: all numerals tabular so columns of figures align. */
     .mono, .tnum { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
     /* === Nexus signature components === */
-    @keyframes op-pulse { 0%,100% { box-shadow: 0 0 0 0 var(--primary-glow); } 50% { box-shadow: 0 0 7px 1px var(--primary-glow); } }
     @keyframes nx-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     @keyframes nx-fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes nx-scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
-    @keyframes nx-glow-pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--primary-glow); } 50% { box-shadow: 0 0 14px 3px var(--primary-glow); } }
     @keyframes nx-slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-    @keyframes forge-reveal { from { opacity: 0; transform: translateY(20px) scale(0.97); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
-    @keyframes forge-notch-flash { 0%, 100% { border-color: transparent var(--primary-soft) transparent transparent; } 50% { border-color: transparent var(--primary-ring) transparent transparent; } }
 
     /* View Transitions: section cross-fade (driven by document.startViewTransition
        in showSection). Outgoing snapshot fades out; incoming fades + rises in
@@ -417,7 +413,6 @@
         ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
     }
     @media (prefers-reduced-motion: reduce) {
-        .node-grid > * { animation: none !important; }
         .card::after { transition: none; }
         .emby-card::after { transition: none; }
     }
@@ -476,6 +471,8 @@
     .sig-v { font-family: var(--font-mono); font-size: var(--text-3xl); font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; display: inline-flex; align-items: baseline; gap: 3px; }
     .sig-v .sig-u { font-size: var(--text-base); font-weight: 600; color: var(--text-sec); }
     .sig-v .is-bad { color: var(--err-text); }
+    .sig-v .is-na { font-family: var(--font-sans); font-size: var(--text-lg); font-weight: 600; color: var(--text-ter); letter-spacing: 0; }
+    .sig-v .is-na + .sig-u { display: none; }
     .sig-sub { font-size: var(--text-xs); color: var(--text-sec); }
     @media (max-width: 768px) {
         .cockpit-verdict { flex-wrap: wrap; gap: var(--space-3); }
@@ -635,13 +632,6 @@
     .search-input:focus, .a-input:focus, .a-select:focus, .hed-k:focus, .hed-v:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
 
     .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-5); margin-top: var(--space-5); }
-    .node-grid > * { animation: forge-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .node-grid > *:nth-child(1) { animation-delay: 0s; }
-    .node-grid > *:nth-child(2) { animation-delay: 0.08s; }
-    .node-grid > *:nth-child(3) { animation-delay: 0.16s; }
-    .node-grid > *:nth-child(4) { animation-delay: 0.24s; }
-    .node-grid > *:nth-child(5) { animation-delay: 0.32s; }
-    .node-grid > *:nth-child(n+6) { animation-delay: 0.4s; }
     .emby-card { background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius-xl); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3-5); position: relative; box-shadow: var(--card-shadow); transition: box-shadow var(--dur-macro) var(--ease-out), border-color var(--dur-macro) var(--ease-out); }
     @media (hover: hover) and (pointer: fine) {
         .emby-card:hover { border-color: var(--border); box-shadow: var(--card-shadow-hover); }
@@ -719,7 +709,7 @@
     .a-tag.warn { color: var(--warn-text); background: var(--warn-soft); border-color: var(--warn-ring); }
     .a-tag.grp { color: var(--primary); background: var(--primary-soft); border-color: var(--primary); }
     /* 节点矩阵行内分组小标签 */
-    .grp-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 10px; font-weight: 700; letter-spacing: .02em; color: var(--primary); background: var(--primary-soft); border: 1px solid var(--primary); vertical-align: middle; }
+    .grp-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 10px; font-weight: 700; letter-spacing: .02em; color: var(--text-sec); background: var(--surface-2); border: 1px solid var(--border); vertical-align: middle; }
     .a-tag.danger { color: var(--err-text); background: var(--err-soft); border-color: var(--err-ring); }
     .a-tag.primary { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-ring); cursor: pointer; }
     .a-tag.primary:hover { background: var(--primary-ring); }
@@ -900,7 +890,7 @@
     }
     .hed-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3-5); flex-wrap: wrap; gap: var(--space-2-5); }
     .hed-meta { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); color: var(--text-sec); }
-    .hed-meta .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; box-shadow: 0 0 6px var(--ok); }
+    .hed-meta .dot { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; box-shadow: 0 0 0 3px var(--ok-soft); }
     .hed-empty { text-align: center; padding: 26px 20px; color: var(--text-sec); font-size: var(--text-md); border: 1px dashed var(--border); border-radius: var(--radius-md); }
     .templates { margin-top: var(--space-3-5); padding-top: 14px; border-top: 0.5px solid var(--hairline); display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; }
     .templates-label { font-size: var(--text-sm); color: var(--text-sec); margin-right: var(--space-1); }
@@ -962,7 +952,8 @@
     .pill:hover { background: var(--wash); }
     .pill .lbl, .m-pill .lbl, .topbar .tb-stat .lbl { color: var(--text-sec); font-weight: 500; }
     .pill .val, .m-pill .val, .topbar .tb-stat .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
-    .pill .dot, .m-pill .dot, .topbar .tb-stat .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .pill .dot, .m-pill .dot, .topbar .tb-stat .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--text-ter); }
+    .m-pill .dot.red { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
     .pill .dot.green, .topbar .tb-stat .dot.green, .ecg-pill.ok .dot, .node-badge.is-online .bdot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
     .pill .dot.amber, .topbar .tb-stat .dot.amber, .node-badge.is-slow .bdot { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
     .pill .dot.red, .topbar .tb-stat .dot.red, .node-badge.is-offline .bdot { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
@@ -1662,7 +1653,6 @@
        数据统计 (sec-stats) — 一套面板 + 统计带 + 排行条的仪表系统
        ============================================================ */
     #sec-stats .stats-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-5); }
-    #sec-stats .stats-head-sub { font-size: var(--text-base); font-weight: 400; color: var(--text-sec); }
 
     /* 流量概览统计带：label 小字 + 等宽数值，hairline 分隔，不用彩色背景盒 */
     #sec-stats .stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); margin-bottom: var(--space-6); }
@@ -1871,15 +1861,11 @@
     /* --- 内容区与分区 --- */
     .content { flex: 1; padding: var(--space-6); max-width: 1400px; width: 100%; margin: 0 auto; }
     .app-section { display: none; }
-    /* fill-mode 'backwards' (not 'both'): once the entry animation settles, the
-       section must NOT retain transform/filter from the 'to' keyframe — a lingering
-       transform (identity matrix) or filter (blur(0)) still establishes a containing
-       block for position:fixed descendants, which would trap #sdMoreSheet's full-screen
-       backdrop inside the section box (mis-sized, off-viewport) while body scroll is
-       locked → "can't scroll" on the 测速 & DNS page. 'to' already equals the base
-       style, so dropping the retained values is visually identical. */
-    .app-section.is-active { display: block; animation: nx-section-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-    @keyframes nx-section-in { from { opacity: 0; transform: translateY(16px) scale(0.98); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
+    /* No entry keyframe: showDest() runs the switch inside a view transition,
+       and a second blurred rise on the live section compounded it. Keep the
+       section free of transform/filter too — either would become the containing
+       block for #sdMoreSheet's position:fixed backdrop. */
+    .app-section.is-active { display: block; }
 
     /* --- 危险区分区 (v2.3.0, 替代旧的底部常驻危险操作条) --- */
     /* Hero block — clearly destructive but composed, not chaotic */
@@ -1888,7 +1874,7 @@
         padding: var(--space-5) var(--space-6);
         border-radius: var(--radius-xl);
         border: 1px solid var(--err-ring);
-        background: linear-gradient(135deg, var(--err-soft), transparent 70%);
+        background: var(--err-soft);
         margin-bottom: var(--space-5);
         position: relative; overflow: hidden;
     }
@@ -1897,7 +1883,6 @@
         border-radius: var(--radius-lg);
         background: var(--err-fill); color: var(--on-primary);
         display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 6px 18px -4px rgba(255,59,48,0.45);
     }
     .danger-hero .dh-icon svg { width: 22px; height: 22px; }
     .danger-hero .dh-title { margin: 0; font-size: var(--text-2xl); font-weight: 700; color: var(--err-text); letter-spacing: -0.01em; }
@@ -1908,7 +1893,6 @@
        The .danger-group modifier subtly tints the inset card with the err ring. */
     .ios-form-group.danger-group {
         border-color: var(--err-ring);
-        background: linear-gradient(180deg, var(--err-soft), var(--card) 30%);
     }
     .ios-form-group.danger-group .ios-form-row {
         padding: var(--space-4) var(--space-5);
@@ -2232,11 +2216,6 @@
             font-size: var(--text-large-title);
         }
 
-        /* 测速分区在 .net-panel 内自带手写 .sd-page-header(移动大标题);
-           injectSectionHeaders() 另在分区顶部注入了一个 .ios-page-header,
-           移动端会与之重复。此处隐藏注入的那个(分区直接子级),只留手写标题。 */
-        #sec-speed > .ios-page-header { display: none; }
-
         /* --- Sticky compact top bar (fades in once large title scrolls away) --- */
         #mobileTopbarCompact {
             display: flex;
@@ -2466,22 +2445,6 @@
            #sec-speed; desktop guards live outside the MQ further down.
            ============================================================ */
 
-        /* 7.1 — Large-title page header (mobile only) */
-        #sec-speed .sd-page-header {
-            display: block;
-            padding: var(--space-2) var(--space-1) var(--space-3);
-        }
-        #sec-speed .sd-page-header .ios-large-title {
-            font-size: var(--text-large-title);
-            margin: 0;
-        }
-        #sec-speed .sd-page-header .sd-page-sub {
-            margin: var(--space-1) 0 0;
-            font-size: var(--text-md);
-            color: var(--text-sec);
-            font-weight: 500;
-            letter-spacing: -0.005em;
-        }
         /* Hide in-card legacy H2 since the large title carries context */
         #sec-speed .card .section-title,
         #sec-speed .card .section-header-row { display: none; }
@@ -2915,6 +2878,7 @@
             color: var(--text);
             font-variant-numeric: tabular-nums;
             word-break: break-all;
+            text-align: left; justify-self: start;
         }
         #sec-speed #optimizedDomainsBody td[data-label="备注"] {
             display: block !important;
@@ -3097,7 +3061,6 @@
        is byte-identical to pre-v2.6.0.
        ============================================================ */
     @media (min-width: 769px) {
-        .sd-page-header { display: none !important; }
         #sec-speed .sd-dns-card {
             background: var(--wash);
             border: 1px solid var(--border);
@@ -3628,6 +3591,11 @@
         /* A checkbox keeps its drawn 18px but gets a real target: the
            label around it is what the finger actually lands on. */
         .ip-checkbox { width: 22px; height: 22px; }
+        .lib-tools { width: 100%; }
+        .lib-tools .search-wrap { order: -1; flex: 1 1 100%; }
+        .lib-tools .search-input { width: 100%; }
+        /* 同一动作在 配置 · 危险区 里有正式入口；手机工具栏一行放不下，让给常用的测速。 */
+        .lib-tools #btnPurge { display: none; }
         label:has(> .ip-checkbox), .batch-select-label {
             display: inline-flex; align-items: center; gap: var(--space-2);
             min-height: var(--touch-min);
@@ -3655,6 +3623,12 @@
     }
     .batch-bar .a-select { width: auto; min-width: 180px; flex: 0 1 auto; }
     .batch-select-label { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 600; cursor: pointer; }
+    @media (max-width: 768px) {
+        .batch-bar { gap: var(--space-2) var(--space-3); padding: var(--space-3) var(--space-4); }
+        .batch-bar .batch-select-label { flex: 1 1 100%; }
+        .batch-bar .v-sep { display: none; }
+        .batch-bar .a-select { flex: 1 1 0; min-width: 0; }
+    }
 
     /* Load failure in the node list. Was a raw `读取失败: ${err.message}`
        line — the operator read "Failed to fetch" and got no way forward.

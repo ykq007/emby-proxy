@@ -129,7 +129,7 @@ export const HTML_UI = `
             <!-- ===== 顶部状态栏 (保留 #cf-trace-card 供 JS 使用) ===== -->
             <header id="cf-trace-card" class="topbar">
                 <div class="tb-stat" title="你的设备到云端边缘节点的真实往返延迟">
-                    <span class="dot green" id="rttDot"></span>
+                    <span class="dot" id="rttDot"></span>
                     <span class="lbl">运行</span>
                     <span class="val" id="rttValue">测算中</span>
                 </div>
@@ -142,7 +142,7 @@ export const HTML_UI = `
                     <span class="val" id="tb-traffic-today">--</span>
                 </div>
                 <div class="tb-stat" id="tb-health">
-                    <span class="dot green" id="tb-health-dot"></span>
+                    <span class="dot" id="tb-health-dot"></span>
                     <span class="lbl">健康度</span>
                     <span class="val" id="tb-health-val">--</span>
                 </div>
@@ -217,8 +217,8 @@ export const HTML_UI = `
 
             <!-- Mobile-only status pills (v5: 2×2 grid — RTT / 健康 / 模式 / 今日) -->
             <div class="m-pills" id="mobilePills" aria-label="移动端状态">
-                <span class="m-pill"><span class="dot green" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
-                <span class="m-pill"><span class="dot green" id="m-pill-health-dot"></span><span class="lbl">健康</span><span class="val" id="m-pill-health">--</span></span>
+                <span class="m-pill"><span class="dot" id="m-pill-rtt-dot"></span><span class="lbl">RTT</span><span class="val" id="m-pill-rtt">测算中</span></span>
+                <span class="m-pill"><span class="dot" id="m-pill-health-dot"></span><span class="lbl">健康</span><span class="val" id="m-pill-health">--</span></span>
                 <span class="m-pill tappable" role="button" tabindex="0" onclick="openPlacementDrawerFromMobile()"><span class="lbl">模式</span><span class="val" id="m-pill-mode">智能</span><span class="caret" aria-hidden="true">▾</span></span>
                 <span class="m-pill strong"><span class="lbl">今日</span><span class="val" id="m-pill-today">--</span></span>
             </div>
@@ -227,7 +227,7 @@ export const HTML_UI = `
             <section id="sec-stats" class="app-section" data-section="stats" style="display:none;">
             <div class="card">
                 <div class="stats-head">
-                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-zap"/></svg>数据统计<span class="stats-head-sub">精确访客画像分析</span></h2>
+                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-zap"/></svg>流量概览</h2>
                     <button type="button" class="btn-tier is-sm" onclick="loadDashboardData()" title="重新拉取统计数据"><svg class="bt-ico" aria-hidden="true"><use href="#i-shuffle"/></svg>刷新</button>
                 </div>
 
@@ -281,12 +281,6 @@ export const HTML_UI = `
             <section id="sec-speed" class="app-section" data-section="speed" style="display:none;">
 
             <div class="net-panel" data-net-panel="speed">
-            <!-- Mobile-only iOS large-title header (v2.6.0) -->
-            <header class="ios-page-header sd-page-header" aria-hidden="false">
-                <h1 class="ios-large-title">测速 &amp; DNS</h1>
-                <p class="sd-page-sub">节点延迟与解析探测</p>
-            </header>
-
             <div class="card" id="speed-anchor">
                 <div class="section-header-row">
                     <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-zap"/></svg>专属线路测速 &amp; 动态 DNS 解析</h2>
@@ -410,7 +404,7 @@ export const HTML_UI = `
             <!-- ===== F4: 优选 CDN 域名 + 一键 DNS CNAME ===== -->
             <div class="card mt-4" >
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-star"/></svg>优选 CDN 域名 · 一键 DNS CNAME</h2>
+                    <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-star"/></svg>域名列表</h2>
                     <div class="flex-wrap-tight">
                         <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
                         <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
@@ -443,7 +437,6 @@ export const HTML_UI = `
             <div class="net-panel" data-net-panel="redirect" style="display:none;">
             <!-- ===== F3: 重定向白名单 ===== -->
             <div class="card mt-4" >
-                <h2 class="section-title" style="margin-bottom:10px;"><svg class="st-ico" aria-hidden="true"><use href="#i-shuffle"/></svg>3xx 重定向直通白名单</h2>
                 <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
                 <textarea id="manualRedirectDomainsInput" rows="6" aria-label="重定向直通白名单域名，每行一个" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
                 <div style="margin-top:10px;">
@@ -491,11 +484,7 @@ export const HTML_UI = `
             <section id="sec-settings" class="app-section" data-section="settings" style="display:none;">
 
             <div class="card" id="settings-anchor">
-                <div style="display:flex; justify-content: space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <h2 style="margin:0; font-size:var(--text-2xl); letter-spacing:-0.01em;">部署反代节点</h2>
-                        <div style="color:var(--text-sec); font-size:var(--text-md); margin-top:4px;">填写下方信息后保存。每个节点占用一个 URL 前缀。</div>
-                    </div>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-2);">
                     <div class="menu-wrap">
                         <button type="button" class="btn-tier is-sm" onclick="toggleMenu(this)"><svg><use href="#i-more"/></svg>配置工具 <svg><use href="#i-chevron"/></svg></button>
                         <div class="menu">
@@ -651,8 +640,6 @@ export const HTML_UI = `
             <!-- ===== 分区: 工具箱 ===== -->
             <section id="sec-tools" class="app-section" data-section="tools" style="display:none;">
             <div class="card">
-                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">工具箱</h2>
-                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
                 <div class="flex-wrap-tight">
                     <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
                     <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
@@ -660,7 +647,7 @@ export const HTML_UI = `
                     <button type="button" class="btn-tier" onclick="openWorkerUpdate()"><svg><use href="#i-save"/></svg>更新 Worker 核心代码</button>
                 </div>
                 <div style="margin-top:16px; font-size:var(--text-sm); color:var(--text-sec); line-height:1.6;">
-                    提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「系统设置」中准备好节点信息。
+                    提示：cURL 解析会把粘贴的请求头填入当前部署表单的「自定义请求头」编辑器，请先在「部署节点」中准备好节点信息。
                 </div>
             </div>
             </section><!-- /sec-tools -->
@@ -668,7 +655,6 @@ export const HTML_UI = `
             <!-- ===== 分区: 观看账号 (Viewers) ===== -->
             <section id="sec-viewers" class="app-section" data-section="viewers" style="display:none;">
             <div class="card">
-                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">观看账号</h2>
                 <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">给朋友开独立账号：共享节点的上游 Emby 账号，但观看记录、收藏、继续观看各自独立；可按节点分配并发配额、隐藏首页媒体库。节点需先在「部署节点」里填写 Emby 用户名/密码。</div>
                 <form class="a-row" onsubmit="event.preventDefault(); createViewer();">
                     <input class="a-input" type="text" id="viewerNewName" aria-label="用户名" placeholder="用户名" autocomplete="off" required>
@@ -721,7 +707,7 @@ export const HTML_UI = `
             <div class="card">
                 <div class="section-header-row">
                     <h2 class="section-title">已反代的媒体库</h2>
-                    <div style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+                    <div class="lib-tools" style="display: flex; gap: 8px; align-items:center; flex-wrap: wrap;">
                         <div class="view-toggle" role="group" aria-label="视图切换">
                             <button type="button" id="view-grid" class="view-toggle-btn is-active" onclick="setNodeView('grid')" title="卡片视图" aria-label="卡片视图" aria-pressed="true">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>

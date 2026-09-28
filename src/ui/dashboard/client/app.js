@@ -2397,7 +2397,7 @@
             const ns = window.__nodeStats;
             if (!ns || ns.probed === 0) {
                 val.textContent = '--';
-                if (dot) dot.className = 'dot green';
+                if (dot) dot.className = 'dot';
                 updateAuroraKpis();
                 return;
             }
@@ -2417,6 +2417,7 @@
                 const had = !el.classList.contains('skeleton');
                 const changed = el.textContent !== String(v);
                 el.classList.remove('skeleton');
+                el.classList.toggle('is-na', !/\d/.test(String(v)));   // 未配置 / 测算中：安静文字、隐藏单位
                 // 数字滚动入场；指标真正变化时（非首次骨架）闪一圈金环。
                 LiveMotion.countUp(el, String(v));
                 if (had && changed) LiveMotion.flash(el);
@@ -2983,16 +2984,9 @@
                 rttEl.textContent = rtt + ' ms';
                 
                 // 根据延迟改变呼吸灯颜色
-                if (rtt < 80) {
-                    dotEl.style.background = 'var(--ok)'; dotEl.style.boxShadow = '0 0 8px var(--ok)';
-                    rttEl.style.color = 'var(--ok)';
-                } else if (rtt < 200) {
-                    dotEl.style.background = 'var(--warn)'; dotEl.style.boxShadow = '0 0 8px var(--warn)';
-                    rttEl.style.color = 'var(--warn)';
-                } else {
-                    dotEl.style.background = 'var(--err)'; dotEl.style.boxShadow = '0 0 8px var(--err)';
-                    rttEl.style.color = 'var(--err)';
-                }
+                const tone = rtt < 80 ? 'var(--ok)' : rtt < 200 ? 'var(--warn)' : 'var(--err)';
+                dotEl.style.background = tone;
+                rttEl.style.color = tone;
             } catch (e) {
                 document.getElementById('rttValue').textContent = '断连';
                 document.getElementById('rttDot').style.background = 'var(--err)';
@@ -3718,6 +3712,10 @@
                             if (txt && txt !== '加载中...') d.textContent = txt;
                         }
                     });
+                    [['rttDot', 'm-pill-rtt-dot'], ['tb-health-dot', 'm-pill-health-dot']].forEach(([src, dst]) => {
+                        const s = document.getElementById(src), d = document.getElementById(dst);
+                        if (s && d) { d.className = s.className; d.style.background = s.style.background; }
+                    });
                     if (typeof updateAuroraKpis === 'function') updateAuroraKpis();
                 };
                 sync();
@@ -3729,12 +3727,15 @@
             }
             // === iOS-native chrome v5: brand, large-title, scroll observer, logout row ===
             const IOS_SECTION_TITLES = {
-                overview:    { title: '概览',        sub: '实时状态与核心指标' },
-                speed:       { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
-                stats:       { title: '数据统计',     sub: '流量、并发与历史趋势' },
-                settings:    { title: '系统设置',     sub: '应用、通知与账户' },
+                // 按子 tab 键索引，标题与子 tab 标签同名（一处学会，处处一致）。
+                overview:    { title: '看板',         sub: '实时状态与核心指标' },
+                stats:       { title: '统计',         sub: '流量、访客与历史趋势' },
+                speed:       { title: '测速 & DNS',   sub: '节点延迟与解析探测' },
+                cdn:         { title: '优选 CDN',     sub: '优选域名测速与一键 DNS CNAME' },
+                redirect:    { title: '重定向白名单', sub: '3xx 直通，跳过代理重写' },
+                settings:    { title: '部署节点',     sub: '填写下方信息后保存，每个节点占用一个 URL 前缀' },
                 viewers:     { title: '观看账号',     sub: '独立观看记录与并发配额' },
-                tools:       { title: '工具箱',       sub: '实用工具集合' },
+                tools:       { title: '工具箱',       sub: '配置导入导出与 cURL 请求头解析' },
                 danger:      { title: '危险区',       sub: '不可逆操作，请谨慎' },
             };
             // 暴露给 showSection() 用来同步紧凑栏标题
@@ -3752,9 +3753,10 @@
             }
 
             function injectSectionHeaders() {
-                document.querySelectorAll('.app-section').forEach(sec => {
-                    if (sec.querySelector(':scope > .ios-page-header')) return;
-                    const key = sec.getAttribute('data-section');
+                // 网络的三个子 tab 共用 #sec-speed、按 .net-panel 切换：标题注入到各面板内，随面板显隐。
+                document.querySelectorAll('.app-section, .net-panel').forEach(sec => {
+                    if (sec.querySelector(':scope > .ios-page-header, :scope > .net-panel')) return;
+                    const key = sec.getAttribute('data-section') || sec.getAttribute('data-net-panel');
                     const meta = IOS_SECTION_TITLES[key];
                     if (!meta) return;
                     // v2.5.0: the Danger section keeps its own .danger-hero
@@ -3775,10 +3777,9 @@
                 const update = () => {
                     const activeSec = document.querySelector('.app-section.is-active');
                     if (!activeSec) return;
-                    const hdr = activeSec.querySelector(':scope > .ios-page-header');
-                    // 注入的分区头在测速分区被 CSS 隐藏(display:none, 由 .sd-page-header 接管),
-                    // getClientRects() 为空; 视作无头, 否则 bottom=0<8 会误触 is-scrolled。
-                    if (!hdr || !hdr.getClientRects().length) { document.body.classList.remove('is-scrolled'); return; }
+                    // 网络子 tab 的标题在 .net-panel 内；隐藏面板的标题 getClientRects() 为空，跳过。
+                    const hdr = [...activeSec.querySelectorAll('.ios-page-header')].find(h => h.getClientRects().length);
+                    if (!hdr) { document.body.classList.remove('is-scrolled'); return; }
                     const bottom = hdr.getBoundingClientRect().bottom;
                     document.body.classList.toggle('is-scrolled', bottom < 8);
                 };
@@ -3792,9 +3793,9 @@
             }
 
             function syncCompactBarTitle() {
+                const activeTab = document.querySelector('.subtab.is-active');
                 const activeSec = document.querySelector('.app-section.is-active');
-                if (!activeSec) return;
-                const key = activeSec.getAttribute('data-section');
+                const key = activeTab ? activeTab.getAttribute('data-tab') : activeSec && activeSec.getAttribute('data-section');
                 const meta = IOS_SECTION_TITLES[key];
                 if (!meta) return;
                 const compact = document.getElementById('mobileTopbarCompact');
