@@ -1,6 +1,7 @@
 // Viewer 存储：账号、密码哈希、令牌、访问授权（viewer_access）。
 // Viewer 令牌形如 ev_<32hex>；D1 只存其 SHA-256。
 import { dbRun, dbFirst, dbAll, dbStmt, dbBatch } from '../db/helpers.js';
+import { clearDeviceSessionCache } from './upstream.js';
 
 export const TOKEN_PREFIX = 'ev_';
 const PBKDF2_ITER = 100000; // Workers WebCrypto 上限
@@ -61,6 +62,13 @@ export function revokeViewerTokensStmt(env, viewerId) {
     return dbStmt(env, `DELETE FROM viewer_tokens WHERE viewer_id = ?`, viewerId);
 }
 
+// 该 viewer 设备的上游会话（须在删除其令牌之前执行，靠令牌表找到设备）。
+function dropViewerSessionsStmt(env, viewerId, prefix = null) {
+    return prefix === null
+        ? dbStmt(env, `DELETE FROM viewer_device_sessions WHERE (prefix, device_id) IN (SELECT prefix, device_id FROM viewer_tokens WHERE viewer_id = ?)`, viewerId)
+        : dbStmt(env, `DELETE FROM viewer_device_sessions WHERE prefix = ? AND device_id IN (SELECT device_id FROM viewer_tokens WHERE viewer_id = ? AND prefix = ?)`, prefix, viewerId, prefix);
+}
+
 // 令牌 → 会话。每次都核对 enabled + 仍有该节点授权（60s isolate 缓存），
 // 因此停用/撤销授权最迟 60s 生效，不依赖令牌签发时的快照。
 export async function resolveViewer(env, prefix, token, now = Date.now()) {
@@ -68,7 +76,7 @@ export async function resolveViewer(env, prefix, token, now = Date.now()) {
     const hit = RESOLVE_MEM.get(k);
     if (hit && now - hit.at < RESOLVE_TTL_MS) return hit.session;
     const row = await dbFirst(env,
-        `SELECT t.viewer_id, v.username, a.quota, a.hidden_libraries
+        `SELECT t.viewer_id, t.device_id, v.username, a.quota, a.hidden_libraries
            FROM viewer_tokens t
            JOIN viewers v ON v.id = t.viewer_id AND v.enabled = 1
            JOIN viewer_access a ON a.viewer_id = t.viewer_id AND a.prefix = t.prefix
@@ -85,6 +93,7 @@ export function toSession(row, prefix, token) {
     return {
         viewerId: row.viewer_id || row.id,
         username: row.username,
+        deviceId: row.device_id || '',
         prefix,
         token,
         quota: Number(row.quota) || 0,
@@ -126,20 +135,21 @@ export async function updateViewer(env, id, patch) {
     if (patch.username !== undefined) stmts.push(dbStmt(env, `UPDATE viewers SET username = ? WHERE id = ?`, patch.username, id));
     if (patch.password) stmts.push(dbStmt(env, `UPDATE viewers SET password = ? WHERE id = ?`, await hashPassword(patch.password), id));
     if (patch.enabled !== undefined) stmts.push(dbStmt(env, `UPDATE viewers SET enabled = ? WHERE id = ?`, patch.enabled ? 1 : 0, id));
-    if (patch.password || patch.enabled === false) stmts.push(revokeViewerTokensStmt(env, id));
+    if (patch.password || patch.enabled === false) stmts.push(dropViewerSessionsStmt(env, id), revokeViewerTokensStmt(env, id));
     if (stmts.length) await dbBatch(env, stmts);
-    RESOLVE_MEM.clear();
+    RESOLVE_MEM.clear(); clearDeviceSessionCache();
 }
 
 export async function deleteViewer(env, id) {
     await dbBatch(env, [
         dbStmt(env, `DELETE FROM viewers WHERE id = ?`, id),
         dbStmt(env, `DELETE FROM viewer_access WHERE viewer_id = ?`, id),
+        dropViewerSessionsStmt(env, id),
         revokeViewerTokensStmt(env, id),
         dbStmt(env, `DELETE FROM watch_state WHERE viewer_id = ?`, id),
         dbStmt(env, `DELETE FROM playback_slots WHERE viewer_id = ?`, id),
     ]);
-    RESOLVE_MEM.clear();
+    RESOLVE_MEM.clear(); clearDeviceSessionCache();
 }
 
 // 节点并发上限 + 已授权配额总和（不含 exceptViewer），供授权/改上限时校验。
@@ -163,10 +173,11 @@ export async function grantAccess(env, viewerId, prefix, quota, hiddenLibraries)
 export async function revokeAccess(env, viewerId, prefix) {
     await dbBatch(env, [
         dbStmt(env, `DELETE FROM viewer_access WHERE viewer_id = ? AND prefix = ?`, viewerId, prefix),
+        dropViewerSessionsStmt(env, viewerId, prefix),
         dbStmt(env, `DELETE FROM viewer_tokens WHERE viewer_id = ? AND prefix = ?`, viewerId, prefix),
         dbStmt(env, `DELETE FROM playback_slots WHERE viewer_id = ? AND prefix = ?`, viewerId, prefix),
     ]);
-    RESOLVE_MEM.clear();
+    RESOLVE_MEM.clear(); clearDeviceSessionCache();
 }
 
 // viewer 在 Emby 客户端里自助改密码：只吊销其他令牌，保留当前登录。
@@ -175,6 +186,7 @@ export async function changeOwnPassword(env, s, currentPw, newPw) {
     if (!row || !newPw || !(await verifyPassword(currentPw || '', row.password))) return false;
     await dbBatch(env, [
         dbStmt(env, `UPDATE viewers SET password = ? WHERE id = ?`, await hashPassword(newPw), s.viewerId),
+        dbStmt(env, `DELETE FROM viewer_device_sessions WHERE (prefix, device_id) IN (SELECT prefix, device_id FROM viewer_tokens WHERE viewer_id = ? AND token_hash != ? AND device_id != ?)`, s.viewerId, await sha256Hex(s.token), s.deviceId),
         dbStmt(env, `DELETE FROM viewer_tokens WHERE viewer_id = ? AND token_hash != ?`, s.viewerId, await sha256Hex(s.token)),
     ]);
     RESOLVE_MEM.clear();
@@ -183,9 +195,9 @@ export async function changeOwnPassword(env, s, currentPw, newPw) {
 
 // 节点被删除时清掉它名下的 viewer 数据。
 export async function forgetNode(env, prefix) {
-    await dbBatch(env, ['viewer_access', 'viewer_tokens', 'playback_slots', 'watch_state', 'viewer_upstream']
+    await dbBatch(env, ['viewer_access', 'viewer_tokens', 'playback_slots', 'watch_state', 'viewer_device_sessions']
         .map(t => dbStmt(env, `DELETE FROM ${t} WHERE prefix = ?`, prefix)));
-    RESOLVE_MEM.clear();
+    RESOLVE_MEM.clear(); clearDeviceSessionCache();
 }
 
 // 节点改前缀：viewer 数据跟着走。上游会话密文以前缀为盐，直接丢弃，下次重新登录。
@@ -193,7 +205,7 @@ export async function renameNode(env, from, to) {
     await dbBatch(env, [
         ...['viewer_access', 'viewer_tokens', 'playback_slots', 'watch_state']
             .map(t => dbStmt(env, `UPDATE ${t} SET prefix = ? WHERE prefix = ?`, to, from)),
-        dbStmt(env, `DELETE FROM viewer_upstream WHERE prefix = ?`, from),
+        dbStmt(env, `DELETE FROM viewer_device_sessions WHERE prefix = ?`, from),
     ]);
-    RESOLVE_MEM.clear();
+    RESOLVE_MEM.clear(); clearDeviceSessionCache();
 }

@@ -16,9 +16,12 @@ import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 const ORIGIN = 'https://proxy.test';
 const UP = 'https://up.example';
 const UPTOK = 'UPSTREAM_TOKEN_123';
-let env; let seen; let restoreFetch; let upstreamLogins; let loginUas;
+let env; let seen; let restoreFetch; let upstreamLogins; let loginUas; let loginDevices; let logouts; let tokenDevice;
+const devOf = (req, u) => (/DeviceId="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || u.searchParams.get('X-Emby-Authorization') || '') || [])[1]
+    || req.headers.get('X-Emby-Device-Id') || u.searchParams.get('DeviceId') || '';
 
 // 上游 Emby 的最小仿真：共享账号的 Played 历史是 true，用来验证覆盖不泄露。
+// 像 sntp：每次登录发一个绑定到登录设备的令牌（UPTOK-<DeviceId>），换设备用就是 invalid_token。
 function fakeUpstream(req) {
     const u = new URL(req.url);
     const p = u.pathname.replace(/^\/emby/, '');
@@ -26,11 +29,17 @@ function fakeUpstream(req) {
     if (p === '/Users/AuthenticateByName') {
         upstreamLogins++;
         loginUas.push(req.headers.get('User-Agent'));
+        const dev = devOf(req, u);
+        loginDevices.push(dev);
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
-        return req.clone().json().then(b => b.Pw === 'wrong' ? json({ message: 'bad' }, 401) : json({ AccessToken: UPTOK, User: { Id: 'U1' }, ServerId: 'S1' }));
+        return req.clone().json().then(b => b.Pw === 'wrong' ? json({ message: 'bad' }, 401) : json({ AccessToken: `${UPTOK}-${dev}`, User: { Id: 'U1' }, ServerId: 'S1' }));
     }
-    const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key');
-    if (tok !== UPTOK) return json({ message: 'bad token' }, 401);
+    const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key') || u.searchParams.get('X-Emby-Token') || '';
+    if (!tok.startsWith(UPTOK + '-')) return json({ message: 'bad token' }, 401);
+    const tokDev = tok.slice(UPTOK.length + 1);
+    const reqDev = devOf(req, u);
+    if (reqDev && reqDev !== tokDev) return json({ ErrorCode: 'invalid_token' }, 401);
+    if (p === '/Sessions/Logout') { logouts.push(tokDev); return new Response(null, { status: 204 }); }
     let m;
     if ((m = /^\/Users\/U1\/Items\/(\w+)$/.exec(p))) {
         const ep = { e1: [1, 1], e2: [1, 2], e3: [1, 3] }[m[1]];
@@ -43,8 +52,8 @@ function fakeUpstream(req) {
     }
     if (p === '/Users/U1/Views') return json({ Items: [{ Id: 'L1', Name: 'Movies', Type: 'CollectionFolder' }, { Id: 'L2', Name: 'Anime', Type: 'CollectionFolder' }], TotalRecordCount: 2 });
     if (p === '/Users/U1') return json({ Id: 'U1', Name: 'shared', Policy: { IsAdministrator: true } });
-    if (/^\/Items\/\w+\/PlaybackInfo$/.test(p)) return json({ MediaSources: [{ DirectStreamUrl: `/Videos/1/stream?api_key=${UPTOK}` }] });
-    if (/^\/Videos\/\w+\/master\.m3u8$/.test(p)) return new Response(`#EXTM3U\nseg0.ts?api_key=${UPTOK}\n`, { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
+    if (/^\/Items\/\w+\/PlaybackInfo$/.test(p)) return json({ MediaSources: [{ DirectStreamUrl: `/Videos/1/stream?api_key=${tok}` }] });
+    if (/^\/Videos\/\w+\/master\.m3u8$/.test(p)) return new Response(`#EXTM3U\nseg0.ts?api_key=${tok}\n`, { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
     if (/^\/Sessions\/Playing/.test(p)) return new Response(null, { status: 204 });
     if ((m = /^\/Users\/U1\/(PlayedItems|FavoriteItems)\/(\w+)$/.exec(p))) return json({ Played: true, IsFavorite: true, PlaybackPositionTicks: 0 });
     if (p === '/Shows/ser/Episodes') return json({ Items: ['e1', 'e2', 'e3'].map((Id, i) => ({ Id, ParentIndexNumber: 1, IndexNumber: i + 1, UserData: {} })) });
@@ -58,7 +67,7 @@ beforeEach(async () => {
     env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent, viewers_enabled) VALUES (?, ?, ?, ?, ?, 1)`)
         .run('node1', UP, 'shared', await encryptSecret(env, 'pw'), 2);
     __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 1 }]]) });
-    seen = []; upstreamLogins = 0; loginUas = [];
+    seen = []; upstreamLogins = 0; loginUas = []; loginDevices = []; logouts = []; tokenDevice = new Map();
     const orig = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
         const req = input instanceof Request ? input : new Request(input, init);
@@ -75,7 +84,9 @@ async function admin(method, path, body) {
     return { status: r.status, body: await r.json() };
 }
 
-async function call(path, { method = 'GET', token, body, device = 'dev1' } = {}) {
+// 真实客户端一个令牌对应一台设备：不指定 device 时沿用该令牌登录时的设备。
+async function call(path, { method = 'GET', token, body, device } = {}) {
+    device = device || tokenDevice.get(token) || 'dev1';
     const headers = { 'User-Agent': 'TestClient', 'X-Emby-Authorization': `MediaBrowser Client="T", Device="D", DeviceId="${device}", Version="1"` };
     if (token) headers['X-Emby-Token'] = token;
     if (body) headers['content-type'] = 'application/json';
@@ -87,12 +98,18 @@ async function call(path, { method = 'GET', token, body, device = 'dev1' } = {})
     return r;
 }
 
+async function loginAs(username, device) {
+    const r = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: username, Pw: 'secret1' }, device });
+    assert.equal(r.status, 200);
+    const d = await r.json();
+    tokenDevice.set(d.AccessToken, device);
+    return d;
+}
+
 async function makeViewer(username, quota = 1, hidden = []) {
     const { body } = await admin('POST', '/api/viewers', { username, password: 'secret1' });
     await admin('POST', '/api/viewers/access', { viewer_id: body.id, prefix: 'node1', quota, hidden_libraries: hidden });
-    const r = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: username, Pw: 'secret1' }, device: 'dev-' + username });
-    assert.equal(r.status, 200);
-    const d = await r.json();
+    const d = await loginAs(username, 'dev-' + username);
     return { id: body.id, token: d.AccessToken, login: d };
 }
 
@@ -122,7 +139,7 @@ test('viewer token is swapped for the upstream token and never leaks either way'
     const piText = await pi.text();
     assert.ok(piText.includes(`api_key=${token}`), piText);
     assert.ok(!piText.includes(UPTOK));
-    const hls = await call(`/emby/Videos/m1/master.m3u8?api_key=${token}`);
+    const hls = await call(`/emby/Videos/m1/master.m3u8?api_key=${token}`, { device: 'dev-alice' });
     const hlsText = await hls.text();
     assert.ok(hlsText.includes(token) && !hlsText.includes(UPTOK), hlsText);
     assert.ok(seen.length > 0);
@@ -153,22 +170,24 @@ test('viewers cannot delete items or edit the shared account', async () => {
 test('concurrency: viewer quota and node cap → 429; same device refreshes; stop releases', async () => {
     const a = await makeViewer('alice', 1);
     const b = await makeViewer('bob', 1);
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200);
-    assert.equal((await call('/emby/Items/m2/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200, 'same device refreshes');
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 429, 'viewer quota');
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: b.token, device: 'b1' })).status, 200);
-    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a.token, device: 'a1', body: { ItemId: 'm2', PositionTicks: 10 } });
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 200, 'slot released');
+    const a2 = (await loginAs('alice', 'alice-tv')).AccessToken;
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 200);
+    assert.equal((await call('/emby/Items/m2/PlaybackInfo', { token: a.token })).status, 200, 'same device refreshes');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 429, 'viewer quota');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: b.token })).status, 200);
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a.token, body: { ItemId: 'm2', PositionTicks: 10 } });
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 200, 'slot released');
 });
 
 test('concurrency: node cap applies across viewers and expired slots are reclaimed', async () => {
     env.DB.db.exec(`UPDATE routes SET max_concurrent = 0`);
     const a = await makeViewer('alice', 0);
+    const a2 = (await loginAs('alice', 'alice-tv')).AccessToken;
     env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200);
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 429, 'node cap');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 200);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 429, 'node cap');
     env.DB.db.exec(`UPDATE playback_slots SET heartbeat_at = 0`);
-    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 200, 'expired reclaimed');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 200, 'expired reclaimed');
 });
 
 test('watch state is per viewer and hides the shared upstream history', async () => {
@@ -254,10 +273,10 @@ test('admin: disabling a viewer revokes their tokens', async () => {
 
 test('upstream 401 drops the cached upstream session and re-logs in', async () => {
     const a = await makeViewer('alice');
-    env.DB.db.exec(`DELETE FROM viewer_upstream`);
     __resetUpstreamMemForTest();
-    env.DB.db.prepare(`INSERT INTO viewer_upstream (prefix, blob) VALUES ('node1', ?)`).run(
-        await (await import('../src/emby/tokens.js')).encryptToken(env, 'node1', JSON.stringify({ token: 'STALE', userId: 'U1', serverId: 'S1' })));
+    const ident = { client: 'T', device: 'D', deviceId: 'dev-alice', version: '1', ua: 'TestClient' };
+    env.DB.db.prepare(`UPDATE viewer_device_sessions SET blob = ? WHERE prefix = 'node1' AND device_id = 'dev-alice'`).run(
+        await (await import('../src/emby/tokens.js')).encryptToken(env, 'node1', JSON.stringify({ token: 'STALE', userId: 'U1', serverId: 'S1', ident })));
     const before = upstreamLogins;
     const r = await call('/emby/Users/U1/Items', { token: a.token });
     assert.equal(r.status, 200);
@@ -316,4 +335,40 @@ test('upstream login uses a real client UA from visitor logs, never a browser UA
     env.DB.db.exec(`UPDATE routes SET custom_headers = 'User-Agent: Custom/1' WHERE prefix = 'node1'`);
     assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: true })).status, 200);
     assert.equal(loginUas.at(-1), 'Custom/1');
+    assert.deepEqual(logouts, ['node1-admin-check', 'node1-admin-check'], 'check logins are logged out upstream');
+});
+
+test('each viewer device is its own upstream device; identity passes through unchanged', async () => {
+    const a = await makeViewer('alice');
+    const b = await makeViewer('bob');
+    assert.deepEqual(loginDevices.filter(d => d.startsWith('dev-')), ['dev-alice', 'dev-bob']);
+    seen = [];
+    assert.equal((await call('/emby/Users/U1/Items', { token: a.token })).status, 200);
+    assert.equal((await call('/emby/Users/U1/Items', { token: b.token })).status, 200);
+    assert.match(seen[0].headers, /DeviceId="dev-alice"/);
+    assert.match(seen[0].headers, new RegExp(`x-emby-token: ${UPTOK}-dev-alice`));
+    assert.match(seen[1].headers, /DeviceId="dev-bob"/);
+    assert.ok(seen.every(x => !x.headers.includes('node1-viewers') && !x.headers.includes('ev_')));
+});
+
+test('identity sent only in the URL (Hills style) logs in and is forwarded as-is', async () => {
+    await makeViewer('alice');
+    const auth = encodeURIComponent('Emby Client="Hills", Device="PNM-N49", DeviceId="2863f15995b48bf3", Version="1.9.1"');
+    const lr = new Request(`${ORIGIN}/node1/emby/Users/AuthenticateByName?X-Emby-Authorization=${auth}`,
+        { method: 'POST', headers: { 'User-Agent': 'Hills/1.9.1', 'content-type': 'application/json' }, body: JSON.stringify({ Username: 'alice', Pw: 'secret1' }) });
+    const login = await (await proxyRequest(lr, env, { waitUntil() { } }, new URL(lr.url))).json();
+    assert.equal(loginDevices.at(-1), '2863f15995b48bf3');
+    assert.equal(login.SessionInfo.Client, 'Hills');
+    const req = new Request(`${ORIGIN}/node1/emby/Users/U1/Views?X-Emby-Authorization=${auth}&X-Emby-Token=${login.AccessToken}`, { headers: { 'User-Agent': 'Hills/1.9.1' } });
+    const r = await proxyRequest(req, env, { waitUntil() { } }, new URL(req.url));
+    assert.equal(r.status, 200);
+    assert.ok(seen.at(-1).url.includes('2863f15995b48bf3') && seen.at(-1).url.includes(`${UPTOK}-2863f15995b48bf3`), seen.at(-1).url);
+});
+
+test('viewer logout signs that device out upstream too', async () => {
+    const a = await makeViewer('alice');
+    assert.equal((await call('/emby/Sessions/Logout', { method: 'POST', token: a.token })).status, 204);
+    assert.deepEqual(logouts, ['dev-alice']);
+    assert.equal(env.DB.db.prepare(`SELECT COUNT(*) AS n FROM viewer_device_sessions`).get().n, 0);
+    assert.equal((await call('/emby/Users/U1/Items', { token: a.token })).status, 401);
 });

@@ -9,7 +9,7 @@
 import { dbAll } from '../db/helpers.js';
 import { updateRouteColumns } from '../routing/route.js';
 import { listViewers, createViewer, updateViewer, deleteViewer, grantAccess, revokeAccess, nodeCapacity } from '../viewers/store.js';
-import { getUpstreamSession, checkUpstreamLogin } from '../viewers/upstream.js';
+import { withTempSession, identityHeaders } from '../viewers/upstream.js';
 import { proxyRequest } from '../proxy/engine.js';
 
 const ok = (extra) => Response.json({ success: true, ...extra });
@@ -80,8 +80,8 @@ export async function handleViewers(request, env, ctx, url) {
             if (d.viewers_enabled !== undefined) {
                 if (d.viewers_enabled) {
                     // 开启前实际登录一次上游，确认节点的上游账号可用。
-                    const err = await checkUpstreamLogin(env, String(d.prefix));
-                    if (err) return fail('无法开启：' + err);
+                    const t = await withTempSession(env, String(d.prefix));
+                    if (t.error) return fail('无法开启：' + t.error);
                 }
                 fields.viewers_enabled = d.viewers_enabled ? 1 : 0;
             }
@@ -90,13 +90,15 @@ export async function handleViewers(request, env, ctx, url) {
         }
         if (p === '/api/viewers/libraries' && m === 'GET') {
             const prefix = url.searchParams.get('prefix') || '';
-            const up = await getUpstreamSession(env, prefix);
-            if (!up) return fail('节点上游账号不可用：请先在节点里填写 Emby 用户名/密码', 503);
-            const r = await proxyRequest(new Request(`${url.origin}/${prefix}/emby/Users/${up.userId}/Views`, {
-                headers: { 'X-Emby-Token': up.token, 'Accept': 'application/json', 'User-Agent': request.headers.get('User-Agent') || '' },
-            }), env, ctx, new URL(`${url.origin}/${prefix}/emby/Users/${up.userId}/Views`));
-            const data = r.ok ? await r.json().catch(() => null) : null;
-            if (!data) return fail(`读取媒体库失败（HTTP ${r.status}）`, 502);
+            // 临时会话读取上游媒体库，读完即登出，不在上游留下设备。
+            const t = await withTempSession(env, prefix, async (up) => {
+                const viewsUrl = `${url.origin}/${prefix}/emby/Users/${up.userId}/Views`;
+                const r = await proxyRequest(new Request(viewsUrl, { headers: identityHeaders(up.ident, up.token) }), env, ctx, new URL(viewsUrl));
+                return { status: r.status, data: r.ok ? await r.json().catch(() => null) : null };
+            });
+            if (t.error) return fail('节点上游账号不可用：' + t.error, 503);
+            const data = t.result.data;
+            if (!data) return fail(`读取媒体库失败（HTTP ${t.result.status}）`, 502);
             return ok({ libraries: (data.Items || []).map(x => ({ id: String(x.Id), name: x.Name })) });
         }
         return new Response('Method not allowed', { status: 405 });

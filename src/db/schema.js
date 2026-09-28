@@ -8,7 +8,7 @@ let _schemaReady = false;
 // Schema 版本号：每次新增/修改 DDL 时递增此值即可触发下次冷启重新跑一遍迁移。
 // 版本号存在 kv_config(k=SCHEMA_VERSION_KEY) 里；命中且匹配时 ensureSchema 只做
 // 一次 SELECT 就返回，省掉冷启时 ~50 条 DDL exec 带来的延迟。
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 // Key constant lives in db/kv.js (the kv_config registry); re-exported here
 // so existing importers of SCHEMA_VERSION_KEY from this module keep working.
 export { SCHEMA_VERSION_KEY };
@@ -121,7 +121,9 @@ export async function ensureSchema(env) {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_access (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, quota INTEGER DEFAULT 1, hidden_libraries TEXT DEFAULT '[]', PRIMARY KEY(viewer_id, prefix))`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_tokens (token_hash TEXT PRIMARY KEY, viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, device_id TEXT DEFAULT '', created_at INTEGER DEFAULT 0)`);
         await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_viewer_tokens_viewer ON viewer_tokens(viewer_id)`);
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_upstream (prefix TEXT PRIMARY KEY, blob TEXT NOT NULL)`);
+        // 每个 viewer 设备一个上游会话（v4 起；取代按节点共享一个会话的 viewer_upstream）。
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_device_sessions (prefix TEXT NOT NULL, device_id TEXT NOT NULL, blob TEXT NOT NULL, PRIMARY KEY(prefix, device_id))`);
+        await env.DB.exec(`DROP TABLE IF EXISTS viewer_upstream`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS watch_state (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, item_id TEXT NOT NULL, item_type TEXT DEFAULT '', series_id TEXT DEFAULT '', parent_index INTEGER DEFAULT 0, index_number INTEGER DEFAULT 0, position_ticks INTEGER DEFAULT 0, runtime_ticks INTEGER DEFAULT 0, played INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, last_played INTEGER DEFAULT 0, PRIMARY KEY(viewer_id, prefix, item_id))`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS playback_slots (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, device_id TEXT NOT NULL, item_id TEXT DEFAULT '', heartbeat_at INTEGER NOT NULL, PRIMARY KEY(viewer_id, prefix, device_id))`);
 

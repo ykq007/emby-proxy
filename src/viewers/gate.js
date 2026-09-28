@@ -3,10 +3,12 @@
 //   - 有 ev_ 令牌：换成节点上游账号的令牌再经 forward（= proxyRequest 递归）转发；
 //     在此基础上叠加 并发限制 / 独立观看状态 / 首页媒体库隐藏，并把响应里的上游令牌换回 viewer 令牌。
 // viewer 登录后拿到的 User.Id 就是上游账号的 Id，所以 /Users/{id}/… 路径无需改写，身份只看令牌。
+// 每个 viewer 设备各自持有一个上游会话（以该设备自己的身份登录），请求除令牌外原样转发，
+// 上游看到的设备与客户端直连时一致。
 import { dbFirst } from '../db/helpers.js';
 import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
-import { getUpstreamSession, dropUpstreamSession } from './upstream.js';
+import { clientIdentity, identityHeaders, getDeviceSession, loginDevice, dropDeviceSession } from './upstream.js';
 import { acquireSlot, heartbeatSlot, releaseSlot } from './limits.js';
 import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from './watch.js';
 
@@ -48,12 +50,6 @@ export function extractToken(request, url) {
     return null;
 }
 
-function deviceIdOf(request, url, fallback) {
-    const h = request.headers;
-    const m = /DeviceId="?([^",]+)"?/i.exec(h.get('X-Emby-Authorization') || h.get('Authorization') || '');
-    return h.get('X-Emby-Device-Id') || (m && m[1]) || url.searchParams.get('DeviceId') || url.searchParams.get('deviceId') || fallback;
-}
-
 // 把请求里出现的 from 令牌（header / query / 授权串）全部换成 to。
 export function swapToken(request, from, to) {
     const u = new URL(request.url);
@@ -77,10 +73,6 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     if (!token || !token.startsWith(TOKEN_PREFIX)) return null;
     const s = await resolveViewer(env, prefix, token);
     if (!s) return unauthorized();
-    if (request.method === 'POST' && LOGOUT.test(path)) {
-        await revokeToken(env, token);
-        return new Response(null, { status: 204 });
-    }
     if (request.method === 'POST' && PASSWORD.test(path)) {
         const b = await readBody(request);
         const ok = await changeOwnPassword(env, s, b.CurrentPw ?? b.CurrentPassword, b.NewPw ?? b.NewPassword);
@@ -89,36 +81,47 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     if (DENIED.some(([m, p]) => m.test(request.method) && p.test(path))) {
         return Response.json({ message: 'Forbidden for viewer accounts' }, { status: 403 });
     }
-    const ua = request.headers.get('User-Agent') || '';
-    let up = await getUpstreamSession(env, prefix);
-    if (!up) return Response.json({ message: 'Upstream account unavailable' }, { status: 503 });
+    // 该令牌所属设备的上游会话；缺失（老令牌 / 会话被清）时按当前请求的设备身份补登。
+    const device = s.deviceId || clientIdentity(request, url).deviceId || token;
+    let up = await getDeviceSession(env, prefix, device);
+    if (!up) {
+        const fresh = await loginDevice(env, prefix, { ...clientIdentity(request, url), deviceId: device });
+        if (fresh.error) return Response.json({ message: fresh.error }, { status: 503 });
+        up = fresh;
+    }
 
-    // 上游令牌失效 → 丢弃会话重新登录；GET 可安全重放一次。
+    // 上游令牌失效 → 以同一设备身份重新登录；GET 可安全重放一次。
     const send = async (req) => {
         const retry = req.method === 'GET' ? req.clone() : null;
         let r = await opts.forward(swapToken(req, token, up.token));
         if (r.status === 401) {
-            await dropUpstreamSession(env, prefix);
-            const fresh = await getUpstreamSession(env, prefix);
-            if (fresh) {
+            await dropDeviceSession(env, prefix, device);
+            const fresh = await loginDevice(env, prefix, up.ident);
+            if (!fresh.error) {
                 up = fresh;
                 if (retry) r = await opts.forward(swapToken(retry, token, up.token));
             }
         }
         return r;
     };
+    // 代理自发的上游请求（Resume/NextUp/条目信息）也带上该设备的完整身份。
     const upJson = async (pathQuery) => {
-        const r = await send(new Request(`${url.origin}/${prefix}/emby${pathQuery}`,
-            { headers: { 'X-Emby-Token': token, 'Accept': 'application/json', 'User-Agent': ua } }));
+        const r = await send(new Request(`${url.origin}/${prefix}/emby${pathQuery}`, { headers: identityHeaders(up.ident, token) }));
         return r.ok ? r.json().catch(() => null) : null;
     };
+
+    if (request.method === 'POST' && LOGOUT.test(path)) {
+        await send(request).catch(() => null); // 上游同步登出该设备
+        await dropDeviceSession(env, prefix, device);
+        await revokeToken(env, token);
+        return new Response(null, { status: 204 });
+    }
     const fetchItem = (id) => upJson(`/Users/${up.userId}/Items/${encodeURIComponent(id)}`);
     const v = { env, ctx, s, token, url, path, method: request.method, get up() { return up; } };
     const m = request.method;
     let mm;
 
     if ((mm = PLAYBACK_INFO.exec(path))) {
-        const device = deviceIdOf(request, url, token);
         const blocked = await acquireSlot(env, s, device, mm[1]);
         if (blocked) return blocked;
         const r = await send(request);
@@ -129,7 +132,6 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     if (m === 'POST' && (mm = SESSION_PLAYING.exec(path))) {
         const kind = (mm[1] || 'playing').toLowerCase();
         const body = await readBody(request);
-        const device = deviceIdOf(request, url, token);
         const r = await send(request);
         const work = [kind === 'stopped' ? releaseSlot(env, s, device) : heartbeatSlot(env, s, device)];
         if (r.ok) work.push(recordPlayback(env, s, kind, body, fetchItem));
@@ -268,12 +270,12 @@ async function viewerLogin(request, env, opts) {
             { table: 'auth_rl', minuteLimit: 12, hourlyLimit: 100, banMs: 3600000, reason: 'viewer-bruteforce' }) : null;
         return limited || unauthorized();
     }
-    const up = await getUpstreamSession(env, opts.prefix);
-    if (!up) return Response.json({ message: 'Upstream account unavailable' }, { status: 503 });
-    const device = deviceIdOf(request, opts.url, '');
-    const token = await issueToken(env, row.id, opts.prefix, device);
-    const auth = request.headers.get('X-Emby-Authorization') || request.headers.get('Authorization') || '';
-    const field = (k) => (new RegExp(k + '="?([^",]+)"?', 'i').exec(auth) || [])[1] || '';
+    // 以这台设备自己的身份登录上游：上游看到的是这台真实设备。
+    const ident = clientIdentity(request, opts.url);
+    if (!ident.deviceId) ident.deviceId = 'ev-' + randomHex(8);
+    const up = await loginDevice(env, opts.prefix, ident);
+    if (up.error) return Response.json({ message: up.error }, { status: 503 });
+    const token = await issueToken(env, row.id, opts.prefix, ident.deviceId);
     const user = viewerize({
         Name: row.username, ServerId: up.serverId, Id: up.userId,
         HasPassword: true, HasConfiguredPassword: true, HasConfiguredEasyPassword: false, EnableAutoLogin: false,
@@ -295,7 +297,7 @@ async function viewerLogin(request, env, opts) {
         ServerId: up.serverId,
         SessionInfo: {
             UserId: up.userId, UserName: row.username, ServerId: up.serverId, Id: randomHex(16),
-            DeviceId: device, DeviceName: field('Device'), Client: field('Client'), ApplicationVersion: field('Version'),
+            DeviceId: ident.deviceId, DeviceName: ident.device, Client: ident.client, ApplicationVersion: ident.version,
             SupportsRemoteControl: false, PlayableMediaTypes: ['Audio', 'Video'], SupportedCommands: [],
         },
     }, { headers: { 'Access-Control-Allow-Origin': '*' } });

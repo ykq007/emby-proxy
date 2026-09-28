@@ -13,7 +13,7 @@ import {
     deleteRoute,
 } from '../routing/route.js';
 import { forgetNode, renameNode } from '../viewers/store.js';
-import { dropUpstreamSession } from '../viewers/upstream.js';
+import { dropNodeSessions } from '../viewers/upstream.js';
 
 export async function handleRoutes(request, env, ctx, url) {
     if (url.pathname === '/api/routes/reorder' && request.method === 'POST') {
@@ -179,7 +179,7 @@ export async function handleRoutes(request, env, ctx, url) {
                 emby_username: embyUsername, emby_password_enc: embyPasswordEnc,
                 max_concurrent: prevRuntimeFields.max_concurrent, viewers_enabled: prevRuntimeFields.viewers_enabled,
             });
-            if (credsChanged) await dropUpstreamSession(env, data.prefix);
+            if (credsChanged) await dropNodeSessions(env, data.prefix);
             return Response.json({ success: true });
         }
 
