@@ -85,9 +85,10 @@ async function admin(method, path, body) {
 }
 
 // 真实客户端一个令牌对应一台设备：不指定 device 时沿用该令牌登录时的设备。
-async function call(path, { method = 'GET', token, body, device } = {}) {
+async function call(path, { method = 'GET', token, body, device, country } = {}) {
     device = device || tokenDevice.get(token) || 'dev1';
     const headers = { 'User-Agent': 'TestClient', 'X-Emby-Authorization': `MediaBrowser Client="T", Device="D", DeviceId="${device}", Version="1"` };
+    if (country) headers['cf-ipcountry'] = country;
     if (token) headers['X-Emby-Token'] = token;
     if (body) headers['content-type'] = 'application/json';
     const pending = [];
@@ -238,6 +239,16 @@ test('progress feeds Continue Watching (one per series) and 90% stop marks playe
     assert.deepEqual(next.Items.map(i => i.Id), ['e3']);
     const resume2 = await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json();
     assert.deepEqual(resume2.Items.map(i => i.Id).sort(), ['e1', 'm1'], 'e2 finished; series falls back to e1 still in progress');
+});
+
+test('Continue Watching still works behind a country allowlist (proxy-built requests keep cf-ipcountry)', async () => {
+    const a = await makeViewer('alice');
+    __setConfigForTest({ countrySet: new Set(['MY']), routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 1 }]]) });
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'm1', PositionTicks: 100 }, country: 'MY' });
+    const resume = await (await call('/emby/Users/U1/Items/Resume', { token: a.token, country: 'MY' })).json();
+    assert.deepEqual(resume.Items.map(i => i.Id), ['m1']);
+    const row = env.DB.db.prepare(`SELECT item_type FROM watch_state WHERE viewer_id = ? AND item_id = 'm1'`).get(a.id);
+    assert.ok(row.item_type, 'item metadata fetched through the gate');
 });
 
 test('hidden libraries are dropped from Views only for that viewer', async () => {

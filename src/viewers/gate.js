@@ -105,8 +105,10 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         return r;
     };
     // 代理自发的上游请求（Resume/NextUp/条目信息）也带上该设备的完整身份。
+    // 这些请求会经 forward 重走国家网关，须带上原请求的 cf-ipcountry，否则开了国家白名单时一律 403。
     const upJson = async (pathQuery) => {
-        const r = await send(new Request(`${url.origin}/${prefix}/emby${pathQuery}`, { headers: identityHeaders(up.ident, token) }));
+        const headers = { ...identityHeaders(up.ident, token), 'cf-ipcountry': request.headers.get('cf-ipcountry') || '' };
+        const r = await send(new Request(`${url.origin}/${prefix}/emby${pathQuery}`, { headers }));
         return r.ok ? r.json().catch(() => null) : null;
     };
 
