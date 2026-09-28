@@ -6,7 +6,7 @@
 import { dbFirst } from '../db/helpers.js';
 import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
-import { getUpstreamSession, dropUpstreamSession, upstreamDeviceId } from './upstream.js';
+import { getUpstreamSession, dropUpstreamSession } from './upstream.js';
 import { acquireSlot, heartbeatSlot, releaseSlot } from './limits.js';
 import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from './watch.js';
 
@@ -54,22 +54,12 @@ function deviceIdOf(request, url, fallback) {
     return h.get('X-Emby-Device-Id') || (m && m[1]) || url.searchParams.get('DeviceId') || url.searchParams.get('deviceId') || fallback;
 }
 
-// 把请求里出现的 from 令牌（header / query / 授权串）全部换成 to；
-// 若给了 deviceId，同时把设备 ID 换成上游会话的登录设备（部分 Emby 令牌与设备绑定，
-// 换令牌不换设备会 401 invalid_token）。
-export function swapToken(request, from, to, deviceId) {
+// 把请求里出现的 from 令牌（header / query / 授权串）全部换成 to。
+export function swapToken(request, from, to) {
     const u = new URL(request.url);
-    for (const [k, v] of [...u.searchParams]) {
-        if (v === from) u.searchParams.set(k, to);
-        else if (deviceId && /^deviceid$/i.test(k)) u.searchParams.set(k, deviceId);
-    }
+    for (const [k, v] of [...u.searchParams]) if (v === from) u.searchParams.set(k, to);
     const req = new Request(u, request);
-    for (const [k, v] of [...req.headers]) {
-        let nv = v.includes(from) ? v.split(from).join(to) : v;
-        if (deviceId && /^(x-emby-authorization|authorization)$/i.test(k)) nv = nv.replace(/(DeviceId=)("?)[^",]*("?)/i, `$1$2${deviceId}$3`);
-        if (nv !== v) req.headers.set(k, nv);
-    }
-    if (deviceId && req.headers.has('X-Emby-Device-Id')) req.headers.set('X-Emby-Device-Id', deviceId);
+    for (const [k, v] of [...req.headers]) if (v.includes(from)) req.headers.set(k, v.split(from).join(to));
     return req;
 }
 
@@ -106,13 +96,13 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     // 上游令牌失效 → 丢弃会话重新登录；GET 可安全重放一次。
     const send = async (req) => {
         const retry = req.method === 'GET' ? req.clone() : null;
-        let r = await opts.forward(swapToken(req, token, up.token, upstreamDeviceId(prefix)));
+        let r = await opts.forward(swapToken(req, token, up.token));
         if (r.status === 401) {
             await dropUpstreamSession(env, prefix);
             const fresh = await getUpstreamSession(env, prefix);
             if (fresh) {
                 up = fresh;
-                if (retry) r = await opts.forward(swapToken(retry, token, up.token, upstreamDeviceId(prefix)));
+                if (retry) r = await opts.forward(swapToken(retry, token, up.token));
             }
         }
         return r;
