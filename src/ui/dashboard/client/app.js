@@ -19,8 +19,8 @@
                     const res = await fetch('/api/manual-redirect-domains', { method: 'POST', body: JSON.stringify({ domains }) });
                     const data = await res.json();
                     if (data.success) { showToast('白名单已保存 (' + data.domains.length + ')'); loadManualRedirectDomains(); }
-                    else showToast('保存失败: ' + (data.error || '未知'));
-                } catch (e) { showToast(e.message); }
+                    else showError('保存失败：' + (data.error || '未知错误'));
+                } catch (e) { showError('操作失败（' + e.message + '）'); }
             }
 
             // F4: 优选域名
@@ -122,7 +122,7 @@
                 const res = await fetch('/api/optimized-domains/' + id, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) { showToast('已删除'); loadOptimizedDomains(); }
-                else showToast((data.error || '失败'));
+                else showError('删除失败：' + (data.error || '未知错误'));
             }
             async function addOptimizedDomain() {
                 const domain = prompt('输入自定义优选域名（如 example.com）：');
@@ -131,7 +131,7 @@
                 const res = await fetch('/api/optimized-domains', { method: 'POST', body: JSON.stringify({ domain, note }) });
                 const data = await res.json();
                 if (data.success) { showToast('已添加'); loadOptimizedDomains(); }
-                else showToast((data.error || '失败'));
+                else showError('添加失败：' + (data.error || '未知错误'));
             }
             // 下载测速：拉自己 Worker 的 /api/speedtest-down，测客户端→当前 CF 入口→Worker 的有效带宽
             async function runDownloadSpeedtest() {
@@ -201,13 +201,13 @@
                 if (mode === 'edge') {
                     const res = await fetch('/api/optimized-domains/speedtest', { method: 'POST', body: '{}' });
                     const data = await res.json();
-                    if (!data.success) { showToast((data.error || '测速失败')); return; }
+                    if (!data.success) { showError('测速失败：' + (data.error || '未知错误')); return; }
                     measured = data.items || [];
                 } else {
                     // 客户端：先取启用域名列表
                     const listRes = await fetch('/api/optimized-domains');
                     const listData = await listRes.json();
-                    if (!listData.success) { showToast('拉取域名失败'); return; }
+                    if (!listData.success) { showError('拉取域名列表失败'); return; }
                     const enabled = (listData.items || []).filter(it => it.enabled);
                     measured = await Promise.all(enabled.map(async it => {
                         const p = await clientProbe(it.domain);
@@ -274,7 +274,7 @@
                     // 重新拉取当前指向并重渲染，让"生效中"标记落到新线路上。
                     loadDnsConfig().then(() => renderOptimizedDomains(_odItems));
                 }
-                else showToast((data.error || '替换失败'));
+                else showError('DNS 替换失败：' + (data.error || '未知错误'));
             }
 
             // 页面加载后立即拉一次（不依赖分区可见性）
@@ -450,6 +450,120 @@
                         if (e.key === 'Escape' && moreSheet.classList.contains('is-open')) window.closeSdMoreSheet();
                     });
                 }
+
+                // ---- Drag-to-dismiss ----------------------------------------
+                // The sheet tracks the finger 1:1 from wherever it was grabbed,
+                // resists past its own top edge rather than hitting a wall, and
+                // on release continues at the finger's exact velocity into a
+                // spring — so there is no seam between dragging and animating.
+                // A new press grabs it mid-flight and takes over from the live
+                // position, which is why this is a spring integrator and not a
+                // CSS transition: a transition cannot inherit release velocity
+                // and restarts from its own start value when interrupted.
+                function initSheetGesture(sheet) {
+                    const card = sheet.querySelector('.more-sheet-card');
+                    if (!card || !window.PointerEvent) return;
+                    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+                    const DISMISS_RATIO = 0.35;   // a third of its own height…
+                    const FLICK_PX_S = 350;       // …or a flick faster than this
+                    const GRAB_SLOP = 10;         // hysteresis, so taps stay taps
+                    let pointerId = null, startY = 0, y = 0;
+                    let dragging = false, moved = false, history = [], raf = 0, vel = 0;
+                    // 按下时量一次高度并缓存：在 pointermove 里读 offsetHeight 会在每个
+                    // 指针采样上强制同步布局(读-写-读)，手指还在屏幕上时这是最贵的一笔。
+                    let cardH = 0;
+
+                    const setY = px => { y = px; card.style.transform = 'translateY(' + px + 'px)'; };
+                    const clearY = () => { y = 0; card.style.transform = ''; };
+                    const stopSpring = () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } };
+
+                    // Progressive resistance past the top edge. Real things slow
+                    // before they stop; a hard stop reads as frozen, not as
+                    // "responsive, but there is nothing more here".
+                    const rubberband = (over, dim) => (over * dim * 0.55) / (dim + 0.55 * Math.abs(over));
+
+                    // Apple's momentum projection (exponential decay — not the
+                    // textbook v²/2a): where would this coast to a rest?
+                    const project = v => (v / 1000) * 0.998 / (1 - 0.998);
+
+                    // damping ratio 1.0, response 0.35s — critically damped, so
+                    // a dismissal settles without wobbling back at the user.
+                    function springTo(target, velocity, done) {
+                        stopSpring();
+                        if (reduce.matches) { setY(target); if (done) done(); return; }
+                        const w = 2 * Math.PI / 0.35;
+                        vel = velocity;
+                        let last = performance.now();
+                        raf = requestAnimationFrame(function step(now) {
+                            const dt = Math.min((now - last) / 1000, 1 / 30);
+                            last = now;
+                            vel += (-w * w * (y - target) - 2 * w * vel) * dt;
+                            setY(y + vel * dt);
+                            if (Math.abs(y - target) < 0.5 && Math.abs(vel) < 20) {
+                                setY(target); raf = 0; if (done) done(); return;
+                            }
+                            raf = requestAnimationFrame(step);
+                        });
+                    }
+
+                    card.addEventListener('pointerdown', e => {
+                        // Ignore extra fingers once a drag owns the sheet — without
+                        // this, switching fingers mid-drag teleports the surface.
+                        if (pointerId !== null) return;
+                        if (e.pointerType === 'mouse' && e.button !== 0) return;
+                        stopSpring();                    // grab it mid-flight
+                        cardH = card.offsetHeight;       // 本次手势期间高度不变，量一次就够
+                        pointerId = e.pointerId;
+                        startY = e.clientY - y;          // respect the grab offset
+                        dragging = false; moved = false;
+                        history = [{ t: e.timeStamp, y: e.clientY }];
+                    });
+
+                    card.addEventListener('pointermove', e => {
+                        if (e.pointerId !== pointerId) return;
+                        const raw = e.clientY - startY;
+                        if (!dragging) {
+                            if (Math.abs(raw - y) < GRAB_SLOP) return;
+                            dragging = true; moved = true;
+                            // Capture so the drag survives the pointer leaving the card.
+                            card.setPointerCapture(e.pointerId);
+                            card.classList.add('is-dragging');
+                        }
+                        history.push({ t: e.timeStamp, y: e.clientY });
+                        if (history.length > 5) history.shift();
+                        setY(raw < 0 ? -rubberband(-raw, cardH) : raw);
+                    });
+
+                    function release(e) {
+                        if (e.pointerId !== pointerId) return;
+                        pointerId = null;
+                        if (!dragging) return;
+                        dragging = false;
+                        card.classList.remove('is-dragging');
+                        const a = history[0], b = history[history.length - 1];
+                        const velocity = (b.y - a.y) / Math.max(b.t - a.t, 1) * 1000;
+                        const h = cardH || card.offsetHeight;
+                        // Judge against where the gesture is going, not where the
+                        // finger happened to stop: a short fast flick should throw.
+                        const dismiss = (y + project(velocity)) > h * DISMISS_RATIO
+                                        || velocity > FLICK_PX_S;
+                        if (dismiss) {
+                            springTo(h, velocity, () => { window.closeSdMoreSheet(); clearY(); });
+                        } else {
+                            springTo(0, velocity, clearY);
+                        }
+                    }
+                    card.addEventListener('pointerup', release);
+                    card.addEventListener('pointercancel', release);
+                    // A drag must not also fire the row it ended on.
+                    card.addEventListener('click', e => {
+                        if (!moved) return;
+                        moved = false;
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }, true);
+                }
+                if (moreSheet) initSheetGesture(moreSheet);
             })();
         const modeNames = { 'off': '保守', 'realip_only': '严格', 'dual': '兼容', 'strict': '强力' };
 
@@ -850,11 +964,15 @@
 
         function openWorkerUpdate() {
             const m = document.getElementById('workerUpdateModal');
-            if (m) m.style.display = 'block';
+            if (!m) return;
+            m.style.display = 'block';
+            modalOpened('workerUpdateModal', '#codeArea');
         }
         function closeWorkerUpdate() {
             const m = document.getElementById('workerUpdateModal');
-            if (m) m.style.display = 'none';
+            if (!m) return;
+            m.style.display = 'none';
+            modalClosed('workerUpdateModal');
         }
 
         async function loadIcons(forceUrl = null) {
@@ -900,10 +1018,11 @@
             const grid = document.getElementById('iconGrid');
             const lowerFilter = filterText.toLowerCase();
             const filtered = globalIcons.filter(item => (item.name || '').toLowerCase().includes(lowerFilter));
-            let html = `<div class="icon-item" onclick="selectIcon('', '默认 🎬')" title="使用默认图标"><span style="font-size:var(--text-2xl);">🎬</span></div>`;
+            let html = `<div class="icon-item" onclick="selectIcon('', '默认')" title="使用默认图标"><svg class="icon-item-default" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-film"/></svg></div>`;
             filtered.forEach(item => {
-                html += `<div class="icon-item" onclick="selectIcon('${item.url}', '${item.name}')" title="${item.name}">
-                            <img src="${item.url}" loading="lazy" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
+                const url = _embyEscape(item.url || ''), name = _embyEscape(item.name || '图标');
+                html += `<div class="icon-item" onclick="selectIcon('${url}', '${name}')" title="${name}">
+                            <img src="${url}" alt="${name}" loading="lazy" class="icon-item-img">
                         </div>`;
             });
             grid.innerHTML = html;
@@ -927,7 +1046,7 @@
                 text.textContent = name; text.style.color = 'var(--text)';
             } else {
                 preview.src = ''; preview.style.display = 'none'; def.style.display = 'block';
-                text.textContent = '点击选择图标 (默认 🎬)'; text.style.color = 'var(--text-sec)';
+                text.textContent = '点击选择图标 (默认)'; text.style.color = 'var(--text-sec)';
             }
             document.getElementById('iconPickerPanel').style.display = 'none';
         }
@@ -1034,11 +1153,15 @@
                     p.style.display = (p.getAttribute('data-net-panel') === (tabObj.panel || tab)) ? '' : 'none';
                 });
                 document.querySelectorAll('.dest-item').forEach(function (n) {
-                    n.classList.toggle('is-active', n.getAttribute('data-dest') === dest);
+                    var on = n.getAttribute('data-dest') === dest;
+                    n.classList.toggle('is-active', on);
+                    if (on) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
                 });
                 var bar = document.getElementById('mobileTabBar');
                 if (bar) bar.querySelectorAll('button[data-dest]').forEach(function (b) {
-                    b.classList.toggle('active', b.getAttribute('data-dest') === dest);
+                    var on = b.getAttribute('data-dest') === dest;
+                    b.classList.toggle('active', on);
+                    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
                 });
                 renderSubtabs(dest, tab);
                 try {
@@ -1104,11 +1227,35 @@
             } else { showDest(startDest, startTab); }
         })();
 
+        // 成功 / 中性反馈 → #toast (role="status")，3 秒自动消隐。
+        // 计时器句柄是模块级的：两条提示在 3 秒内相继出现时，后一条不会被前一条的
+        // 定时器提前掐断。
+        var _toastTimer = null;
         function showToast(msg) {
             const t = document.getElementById('toast');
+            if (!t) return;
+            t.classList.remove('is-error');
             t.textContent = msg; t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
         }
+        // 失败反馈 → #toastAlert (role="alert")，8 秒停留、可点击关闭。
+        // 与成功提示分流：失败不该和"已保存"长得一样、也不该只停 3 秒。
+        var _errTimer = null;
+        function showError(msg) {
+            const t = document.getElementById('toastAlert') || document.getElementById('toast');
+            if (!t) return;
+            t.textContent = msg;
+            t.classList.add('show', 'is-error');
+            if (!t.dataset.dismissWired) {
+                t.dataset.dismissWired = '1';
+                t.title = '点击关闭';
+                t.addEventListener('click', function () { clearTimeout(_errTimer); t.classList.remove('show'); });
+            }
+            clearTimeout(_errTimer);
+            _errTimer = setTimeout(() => t.classList.remove('show'), 8000);
+        }
+        window.showError = showError;
 
         async function purgeCache() {
             if(!confirm('确定要清理 Cloudflare 节点的全站海报和静态缓存吗？\n\n清理后可能导致短时间的加载缓慢。')) return;
@@ -1120,18 +1267,45 @@
                 const res = await fetch('/api/purge-cache', { method: 'POST' });
                 const data = await res.json();
                 if(data.success) showToast('缓存已清理，新海报已生效');
-                else showToast('清理失败: ' + data.error);
-            } catch(e) { showToast('网络请求错误'); } finally { btn.textContent = originalText; btn.disabled = false; }
+                else showError('缓存清理失败：' + (data.error || '未知错误'));
+            } catch(e) { showError('网络请求错误（' + e.message + '）'); } finally { btn.textContent = originalText; btn.disabled = false; }
         }
 
+        function clearNodeSearch() {
+            const box = document.getElementById('searchNode');
+            if (box) { box.value = ''; box.focus(); }
+            filterNodesList();
+        }
         function filterNodesList() {
-            const filterText = document.getElementById('searchNode').value.toLowerCase();
+            const box = document.getElementById('searchNode');
+            const raw = box ? box.value.trim() : '';
+            const filterText = raw.toLowerCase();
             const cards = document.querySelectorAll('.route-item');
+            let shown = 0;
             cards.forEach(card => {
                 const searchStr = (card.getAttribute('data-search') || '').toLowerCase();
-                card.style.display = searchStr.includes(filterText) ? '' : 'none';
+                const hit = searchStr.includes(filterText);
+                card.style.display = hit ? '' : 'none';
+                if (hit) shown++;
             });
+            // 零命中不留白：说清搜的是什么，并给一个出口(沿用节点列表的空状态形态)。
+            const grid = document.getElementById('list-grid');
+            if (!grid) return;
+            let empty = document.getElementById('nodeSearchEmpty');
+            if (cards.length && shown === 0) {
+                if (!empty) {
+                    empty = document.createElement('div');
+                    empty.id = 'nodeSearchEmpty';
+                    empty.style.cssText = 'text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;';
+                    grid.appendChild(empty);
+                }
+                empty.innerHTML = '没有匹配「' + _embyEscape(raw) + '」的节点'
+                    + '<div style="margin-top:12px;"><button type="button" class="btn-tier is-sm" onclick="clearNodeSearch()">清除搜索</button></div>';
+            } else if (empty) {
+                empty.remove();
+            }
         }
+        window.clearNodeSearch = clearNodeSearch;
 
         function makeUpstreamRow(idx, value = '') {
             const isMain = idx === 0;
@@ -1349,7 +1523,7 @@
                 '<div class="a-node-config">' +
                     '<div class="ns-monitor-row">' +
                         '<div class="ns-monitor-label">监控此节点<span class="ns-meta-hint">关闭后不探测状态、不抓取媒体计数</span></div>' +
-                        '<div class="ios-switch ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
+                        '<div class="ios-switch ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + _embyEscape(r.remark || r.prefix) + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
                     '</div>' +
                     '<div class="ns-auth-meta">' +
                         '<span class="ns-meta-item">登录态 <b class="' + (hasToken ? 'is-ok' : '') + '">' + (hasToken ? '已缓存' : '未登录') + '</b></span>' +
@@ -1382,7 +1556,7 @@
             } catch (e) {
                 el.classList.toggle('on', !enable); // 回滚
                 el.setAttribute('aria-checked', !enable ? 'true' : 'false');
-                showToast((e.message || '操作失败'));
+                showError('操作失败（' + (e.message || '未知错误') + '）');
             }
         }
         // 局部刷新单个节点卡片的配置块（避免整页重载/重测速）。
@@ -1433,10 +1607,10 @@
                     if (typeof showToast === 'function') showToast('共享凭据已保存');
                     loadEmbySharedCreds();
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '保存失败'));
+                    if (typeof showError === 'function') showError('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function saveCountryAllowlist() {
@@ -1452,10 +1626,10 @@
                     if (typeof showToast === 'function') showToast('已保存');
                     initMonitorControls();
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '保存失败'));
+                    if (typeof showError === 'function') showError('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function saveHotlinkHosts() {
@@ -1471,10 +1645,10 @@
                     if (typeof showToast === 'function') showToast('已保存');
                     initMonitorControls();
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '保存失败'));
+                    if (typeof showError === 'function') showError('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function updateEmbyGlobalFlag(field, value) {
@@ -1488,10 +1662,10 @@
                 if (data.success) {
                     if (typeof showToast === 'function') showToast('已保存');
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '保存失败'));
+                    if (typeof showError === 'function') showError('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function updateEmbyRouteFlag(prefix, field, value) {
@@ -1506,10 +1680,10 @@
                     if (typeof showToast === 'function') showToast('已保存');
                     refreshNodeConfig(prefix);
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '保存失败'));
+                    if (typeof showError === 'function') showError('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function revokeEmbyAuth(prefix) {
@@ -1523,10 +1697,10 @@
                     if (typeof showToast === 'function') showToast('已清除');
                     refreshNodeConfig(prefix);
                 } else {
-                    if (typeof showToast === 'function') showToast((data.error || '失败'));
+                    if (typeof showError === 'function') showError('清除失败：' + (data.error || '未知错误'));
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast(e.message);
+                if (typeof showError === 'function') showError('操作失败（' + e.message + '）');
             }
         }
         async function exportConfig() {
@@ -1536,7 +1710,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = 'emby_proxy_backup.json'; a.click();
                 URL.revokeObjectURL(url); showToast('配置已导出');
-            } catch (e) { showToast('导出失败'); }
+            } catch (e) { showError('导出失败（' + e.message + '）'); }
         }
 
         function importConfig() {
@@ -1549,7 +1723,7 @@
                         const res = await fetch('/api/routes/import', { method: 'POST', body: JSON.stringify(routes) });
                         const result = await res.json();
                         if (result.success) { showToast('配置已导入'); load(); } else throw new Error(result.error);
-                    } catch (err) { showToast('导入失败: ' + err.message); }
+                    } catch (err) { showError('导入失败（' + err.message + '）'); }
                 };
                 reader.readAsText(file);
             };
@@ -1611,7 +1785,7 @@
             const grp = (r.group_name || '').trim();
             const grpChip = grp ? '<span class="grp-tag" title="分组">' + nrdEsc(grp) + '</span>' : '';
             return '' +
-                '<div class="node-row route-item' + h.cardIdleCls + '" data-prefix="' + pfx + '" data-group-name="' + nrdEsc(grp) + '" data-search="' + nrdEsc(h.remarkName + ' ' + pfx + ' ' + grp) + '" data-custom-headers="' + (r.custom_headers || '').replace(/"/g, '&quot;') + '" data-emby-username="' + (r.emby_username || '').replace(/"/g, '&quot;') + '" data-has-emby-password="' + (r.has_emby_password ? 1 : 0) + '">' +
+                '<div class="node-row route-item' + h.cardIdleCls + '" data-prefix="' + pfx + '" data-group-name="' + nrdEsc(grp) + '" data-search="' + h.remarkName + ' ' + pfx + ' ' + nrdEsc(grp) + '" data-custom-headers="' + (r.custom_headers || '').replace(/"/g, '&quot;') + '" data-emby-username="' + (r.emby_username || '').replace(/"/g, '&quot;') + '" data-has-emby-password="' + (r.has_emby_password ? 1 : 0) + '">' +
                     '<div class="nr-line">' +
                         '<div class="nr-drag drag-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>' +
                         '<input type="checkbox" class="node-cb nr-cb" value="' + pfx + '">' +
@@ -1629,7 +1803,7 @@
                         '</div>' +
                         '<div class="nr-counts">' + renderCountsInline(pfx) + '</div>' +
                         '<div class="nr-actions">' +
-                            '<div class="ios-switch nr-mon ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
+                            '<div class="ios-switch nr-mon ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + h.remarkName + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
                             '<button class="a-icon-btn" onclick="copyTxt(\'' + h.proxyUrl + '\')" title="复制直达链接"><svg><use href="#i-copy"/></svg></button>' +
                             '<button type="button" class="nr-expand" aria-expanded="false" aria-label="展开详情与编辑" onclick="toggleNodeRow(this)"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>' +
                         '</div>' +
@@ -1732,7 +1906,7 @@
                 showToast('节点已更新');
                 load();
             } catch (err) {
-                showToast('保存失败: ' + err.message);
+                showError('保存失败（' + err.message + '）');
                 if (btn) btn.disabled = false;
             }
             return false;
@@ -1791,8 +1965,9 @@
                     const targets = r.target.split(',').map(s => s.trim()).filter(Boolean);
                     const mainTarget = targets[0]; 
                     
-                    const remarkName = r.remark || '未命名媒体库';
-                    const lastPlay = r.last_play ? r.last_play : '暂无播放记录';
+                    const remarkNameRaw = r.remark || '未命名媒体库';
+                    const remarkName = _embyEscape(remarkNameRaw);
+                    const lastPlay = _embyEscape(r.last_play ? r.last_play : '暂无播放记录');
                     
                     const encodedTargets = encodeURIComponent(JSON.stringify(targets));
 
@@ -1809,7 +1984,7 @@
                     const thumbIdleCls = isIdle ? ' idle' : '';
 
                     // 缩略图：有 icon URL 用图片，否则取备注首字
-                    const thumbLetter = (remarkName.replace(/\s+/g, '').charAt(0) || '?').toUpperCase();
+                    const thumbLetter = _embyEscape((remarkNameRaw.replace(/\s+/g, '').charAt(0) || '?').toUpperCase());
                     const thumbInner = r.icon
                         ? `<img src="${r.icon}" alt="">`
                         : thumbLetter;
@@ -1855,7 +2030,7 @@
                     }
 
                     container.innerHTML += `
-                    <div class="emby-card route-item${cardIdleCls}" data-prefix="${r.prefix}" data-group-name="${(r.group_name || '').trim().replace(/"/g, '&quot;')}" data-search="${remarkName} ${r.prefix} ${(r.group_name || '').trim()}" data-custom-headers="${(r.custom_headers || '').replace(/"/g, '&quot;')}" data-emby-username="${(r.emby_username || '').replace(/"/g, '&quot;')}" data-has-emby-password="${r.has_emby_password ? 1 : 0}">
+                    <div class="emby-card route-item${cardIdleCls}" data-prefix="${r.prefix}" data-group-name="${(r.group_name || '').trim().replace(/"/g, '&quot;')}" data-search="${remarkName} ${r.prefix} ${_embyEscape((r.group_name || '').trim())}" data-custom-headers="${(r.custom_headers || '').replace(/"/g, '&quot;')}" data-emby-username="${(r.emby_username || '').replace(/"/g, '&quot;')}" data-has-emby-password="${r.has_emby_password ? 1 : 0}">
                         <div class="a-head">
                             <div class="drag-handle a-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>
                             <input type="checkbox" class="node-cb a-cb" value="${r.prefix}">
@@ -1969,7 +2144,7 @@
                         try {
                             await fetch('/api/routes/reorder', { method: 'POST', body: JSON.stringify(items) });
                             showToast('排序已保存');
-                        } catch(e) { showToast('排序保存失败'); }
+                        } catch(e) { showError('排序保存失败（' + e.message + '）'); }
                     }
                 });
 
@@ -1989,7 +2164,7 @@
                 if (!window.__statsLoaded) { window.__statsLoaded = true; loadDashboardData(); }
 
             } catch (err) {
-                document.getElementById('list-grid').innerHTML = `<div style="text-align:center; color:var(--err); font-weight:600; grid-column: 1 / -1; padding: 20px;">读取失败: ${err.message}</div>`;
+                document.getElementById('list-grid').innerHTML = `<div class="load-error" role="alert"><strong>读取节点列表失败</strong><span>面板没能取到节点数据，可能是网络中断或 Worker 未就绪。</span><button type="button" class="btn-tier is-sm" onclick="load()">重试</button><span class="load-error-detail">${_embyEscape(err.message)}</span></div>`;
             }
         }
 
@@ -2203,7 +2378,7 @@
                 const foundItem = globalIcons.find(i => i.url === icon);
                 selectIcon(icon, foundItem ? foundItem.name : '已选择图标');
             } else {
-                selectIcon('', '默认 🎬');
+                selectIcon('', '默认');
             }
 
             document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存修改';
@@ -2253,7 +2428,7 @@
             if (form) {
                 form.reset();
                 const oldP = document.getElementById('oldPrefix'); if (oldP) oldP.value = '';
-                if (typeof selectIcon === 'function') selectIcon('', '默认 🎬');
+                if (typeof selectIcon === 'function') selectIcon('', '默认');
                 const nc = document.getElementById('nodeCache'); if (nc) nc.checked = true;
                 if (typeof syncCacheSwitch === 'function') syncCacheSwitch();
                 if (typeof HeadersEditor !== 'undefined' && HeadersEditor.set) HeadersEditor.set('');
@@ -2283,6 +2458,36 @@
                 else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
                 else if (!modal.contains(active)) { e.preventDefault(); first.focus(); }
             }
+        });
+
+        // 其余浮层(#workerUpdateModal / #curlModal / #importHeadersModal)的焦点管理。
+        // #editModal 有自己那套完整焦点环(见上)；这里只要"记住来处、关闭时还回去"。
+        var _ovPrevFocus = {};
+        function modalOpened(id, firstFocusSel) {
+            const m = document.getElementById(id);
+            if (!m) return;
+            _ovPrevFocus[id] = document.activeElement;
+            setTimeout(function () {
+                const el = (firstFocusSel && m.querySelector(firstFocusSel))
+                        || m.querySelector('button:not([disabled]), input:not([disabled]), textarea, select');
+                if (el && el.focus) el.focus();
+            }, 30);
+        }
+        function modalClosed(id) {
+            const prev = _ovPrevFocus[id];
+            _ovPrevFocus[id] = null;
+            if (prev && prev.focus) { try { prev.focus(); } catch (e) {} }
+        }
+        // Escape 关闭这三个浮层。#workerUpdateModal 装着能把面板打瘫的那个按钮，
+        // 更需要一条不用瞄准鼠标的退路。
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            const wu = document.getElementById('workerUpdateModal');
+            if (wu && wu.style.display && wu.style.display !== 'none') { closeWorkerUpdate(); return; }
+            const curl = document.getElementById('curlModal');
+            if (curl && curl.classList.contains('show')) { HeadersEditor.closeCurlModal(); return; }
+            const imp = document.getElementById('importHeadersModal');
+            if (imp && imp.classList.contains('show')) { HeadersEditor.closeImportModal(); }
         });
 
         document.getElementById('addForm').onsubmit = async (e) => {
@@ -2330,7 +2535,7 @@
                 } else {
                     document.getElementById('addForm').reset();
                     document.getElementById('oldPrefix').value = '';
-                    selectIcon('', '默认 🎬');
+                    selectIcon('', '默认');
                     document.getElementById('nodeCache').checked = true;
                     syncCacheSwitch();
                     HeadersEditor.set('');
@@ -2342,15 +2547,24 @@
                 showToast('节点已部署');
                 load();
             } catch(err) {
-                showToast('保存失败: ' + err.message);
+                showError('保存失败（' + err.message + '）');
             }
         };
 
         async function del(prefix) {
-            if(confirm('确定删除节点 /' + prefix + ' ?')) {
-                await fetch('/api/routes?prefix=' + prefix, { method: 'DELETE' });
+            // 运维者按「备注」认节点，不按 URL 前缀 —— 两个都念出来，再说清代价。
+            const r = (window.globalRoutesData || []).find(function (x) { return x.prefix === prefix; });
+            const remark = (r && r.remark) ? r.remark : '未命名媒体库';
+            if (!confirm('确定删除节点「' + remark + '」（/' + prefix + '）？\n\n'
+                + '该节点的上游线路、自定义请求头与独立 Emby 凭据会一并删除，且不可恢复。')) return;
+            try {
+                const res = await fetch('/api/routes?prefix=' + encodeURIComponent(prefix), { method: 'DELETE' });
+                const data = await res.json().catch(function () { return {}; });
+                if (!res.ok || data.success === false) throw new Error(data.error || ('HTTP ' + res.status));
                 showToast('节点已移除');
                 load();
+            } catch (e) {
+                showError('删除失败（' + e.message + '）');
             }
         }
 
@@ -2462,7 +2676,7 @@
                 document.getElementById('selectAll').checked = false;
                 showToast('自定义 API 测速完成');
                 statusTxt.innerHTML = `测速完成 · 可勾选节点更新 DNS`;
-            } catch (err) { showToast('拉取失败'); } 
+            } catch (err) { showError('拉取自定义 API 失败（' + err.message + '）'); } 
             finally { btn.disabled = false; btn.textContent = '🌐 拉取 API 并测速'; }
         }
         async function fetchRemoteAndTest() {
@@ -2500,7 +2714,7 @@
                 document.getElementById('selectAll').checked = false;
                 showToast('测速完成');
                 statusTxt.innerHTML = `测速完成`;
-            } catch (err) { showToast('拉取或测速失败'); } 
+            } catch (err) { showError('拉取或测速失败（' + err.message + '）'); } 
             finally { btn.disabled = false; btn.textContent = '提取预设源并测速'; }
         }
         function clearTest() {
@@ -2568,8 +2782,8 @@
                 const res = await fetch('/api/update-dns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ips }) });
                 const data = await res.json();
                 if(data.success) { showToast(data.message); btnElement.textContent = '已更新'; loadDNS(); } 
-                else { showToast('错误: ' + (data.error || '')); btnElement.textContent = originalText; }
-            } catch(e) { showToast('网络异常，请重试'); btnElement.textContent = originalText; } 
+                else { showError('DNS 更新失败：' + (data.error || '未知错误')); btnElement.textContent = originalText; }
+            } catch(e) { showError('网络异常，请重试（' + e.message + '）'); btnElement.textContent = originalText; } 
             finally { setTimeout(() => { if(btnElement.textContent === '已更新') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
         }
         function updateSingleDns(ip, btnElement) {
@@ -2623,7 +2837,9 @@
             } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
         }
         
+        // 确认收在这里，四个入口(顶栏图标 / 危险区 / ⌘K / 移动端行)都继承同一道闸。
         function logout() {
+            if (!confirm('确认退出登录？其他客户端不受影响，可随时重新登录。')) return;
             document.cookie = "admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.reload();
         }
@@ -2672,9 +2888,23 @@
             }
         }
         
-        // 先立即执行一次，然后每 3 秒循环探测
-        measureRTT();
-        setInterval(measureRTT, 3000);
+        // 先立即执行一次，然后每 3 秒循环探测。标签页隐藏时停表：这块面板会被整天开着，
+        // 后台标签没有理由每小时再打 1200 个请求。
+        var _rttTimer = null;
+        function startRTT() {
+            if (_rttTimer) return;
+            measureRTT();
+            _rttTimer = setInterval(measureRTT, 3000);
+        }
+        function stopRTT() {
+            if (!_rttTimer) return;
+            clearInterval(_rttTimer);
+            _rttTimer = null;
+        }
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) stopRTT(); else startRTT();   // 回到前台立刻补测一次
+        });
+        if (!document.hidden) startRTT();
 
     // 新增：前端探针自动检测脚本
         async function fetchCfTrace() {
@@ -2861,11 +3091,21 @@
             }
         }, 100); 
 
-        // 全选 / 取消全选逻辑
-        function toggleSelectAll(checkbox) {
-            const checkboxes = document.querySelectorAll('.node-cb');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        // 全选 / 取消全选 —— 概览节点矩阵(.node-cb) 与测速表(#testTableBody .row-checkbox)
+        // 是两套互不相干的选择集，各自一个显式入口。
+        function toggleSelectAllNodes(checkbox) {
+            if (!checkbox) return;
+            document.querySelectorAll('.node-cb').forEach(cb => { cb.checked = checkbox.checked; });
         }
+        function toggleSelectAllIps(checkbox) {
+            if (!checkbox) return;
+            document.querySelectorAll('#testTableBody .row-checkbox').forEach(cb => {
+                if (!cb.disabled) cb.checked = checkbox.checked;   // 超时行不可选
+            });
+            if (typeof window.sdUpdateSelectionBar === 'function') window.sdUpdateSelectionBar();
+        }
+        window.toggleSelectAllNodes = toggleSelectAllNodes;
+        window.toggleSelectAllIps = toggleSelectAllIps;
 
         // 并发批量修改模式逻辑 (终极多线程逐个击破版)
         async function batchUpdateModes() {
@@ -2928,7 +3168,7 @@
                 codeContent = await file.text();
             }
             if (!codeContent.trim()) {
-                alert('失败：请先粘贴代码，或者选择一个 .js 文件');
+                showError('请先粘贴代码，或选择一个 .js 文件');
                 return;
             }
             if (!confirm('危险操作确认 \n\n你即将强行覆盖当前 Worker 的代码。\n如果新代码有错误，此面板将会瘫痪，只能去网页后台抢修\n\n确定代码 100% 正确并覆盖吗？')) return;
@@ -2945,13 +3185,13 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('成功' + data.msg + '\n\n点击确定后页面将自动刷新。');
-                    window.location.reload(); 
+                    showToast('部署成功' + (data.msg || '') + ' · 即将刷新页面');
+                    setTimeout(() => window.location.reload(), 1200);
                 } else {
-                    alert('部署失败：\n' + JSON.stringify(data.error));
+                    showError('部署失败：' + (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)));
                 }
             } catch (e) {
-                alert('异常：\n' + e.message);
+                showError('操作失败（' + e.message + '）');
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
@@ -3004,13 +3244,13 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('在线已更新\n\n点击确定后页面将自动刷新，畅享新版本');
-                    window.location.reload(); 
+                    showToast('在线更新完成 · 即将刷新页面');
+                    setTimeout(() => window.location.reload(), 1200);
                 } else {
-                    alert('更新失败：\n' + JSON.stringify(data.error));
+                    showError('更新失败：' + (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)));
                 }
             } catch (e) {
-                alert('异常：\n' + e.message);
+                showError('操作失败（' + e.message + '）');
             } finally {
                 btn.innerText = '一键拉取并升级';
                 btn.disabled = false;
@@ -3286,16 +3526,18 @@
                         });
                     }
                     modal.classList.add('show');
+                    modalOpened('importHeadersModal', '.import-node-row');
                 },
                 closeImportModal() {
                     const m = document.getElementById('importHeadersModal');
                     if (m) m.classList.remove('show');
+                    modalClosed('importHeadersModal');
                 },
                 openCurlModal() {
                     const m = document.getElementById('curlModal');
                     if (m) {
                         m.classList.add('show');
-                        setTimeout(() => { const i = document.getElementById('curlInput'); if (i) i.focus(); }, 50);
+                        modalOpened('curlModal', '#curlInput');
                     }
                 },
                 closeCurlModal() {
@@ -3303,6 +3545,7 @@
                     if (m) m.classList.remove('show');
                     const i = document.getElementById('curlInput');
                     if (i) i.value = '';
+                    modalClosed('curlModal');
                 },
                 parseCurl() {
                     const input = document.getElementById('curlInput');
@@ -3460,9 +3703,7 @@
                     '<button type="button" class="ios-form-row is-tap is-danger" id="iosLogoutBtn" style="width:100%;border:none;background:transparent;font:inherit;cursor:pointer;justify-content:center;font-weight:600;">退出登录</button>';
                 settings.appendChild(group);
                 group.querySelector('#iosLogoutBtn').addEventListener('click', () => {
-                    if (confirm('确认退出登录？')) {
-                        if (typeof logout === 'function') logout();
-                    }
+                    if (typeof logout === 'function') logout();   // 确认已收敛进 logout()
                 });
             }
 
@@ -3495,6 +3736,8 @@
                 { label: '监控 · 看板', kw: 'monitor board overview gaikuang 概览 看板 监控', run: function () { showDest('monitor', 'overview'); } },
                 { label: '监控 · 统计', kw: 'stats tongji 统计 数据', run: function () { showDest('monitor', 'stats'); } },
                 { label: '网络 · 测速 & DNS', kw: 'network speed dns ceshe 测速 网络 解析', run: function () { showDest('network', 'speed'); } },
+                { label: '网络 · 优选 CDN', kw: 'network cdn youxuan 优选 域名 加速', run: function () { showDest('network', 'cdn'); } },
+                { label: '网络 · 重定向白名单', kw: 'network redirect whitelist chongdingxiang 重定向 白名单 直连', run: function () { showDest('network', 'redirect'); } },
                 { label: '配置 · 部署节点', kw: 'config deploy settings bushu 部署 配置 设置', run: function () { showDest('config', 'settings'); } },
                 { label: '配置 · 工具箱', kw: 'tools gongju 工具', run: function () { showDest('config', 'tools'); } },
                 { label: '配置 · 危险区', kw: 'danger weixian 危险', run: function () { showDest('config', 'danger'); } }
@@ -3521,32 +3764,92 @@
                 overlay = document.getElementById('cmdk'); if (!overlay || overlay._wired) return; overlay._wired = 1;
                 input = overlay.querySelector('.cmdk-input');
                 list = overlay.querySelector('.cmdk-list');
+                if (!list.id) list.id = 'cmdkList';
+                // listbox 要有一个 combobox 来指它，方向键移动才会被读出来。
+                input.setAttribute('role', 'combobox');
+                input.setAttribute('aria-controls', list.id);
+                input.setAttribute('aria-autocomplete', 'list');
+                input.setAttribute('aria-expanded', 'false');
                 overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
                 input.addEventListener('input', function () { render(input.value); });
                 input.addEventListener('keydown', function (e) {
                     if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
                     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
                     else if (e.key === 'Enter') { e.preventDefault(); exec(active); }
-                    else if (e.key === 'Escape') { e.preventDefault(); close(); }
-                    else if (e.key === 'Tab') { e.preventDefault(); } // 焦点困在面板内
                 });
+                // Escape 与 Tab 绑在浮层层级：焦点一旦落到某个选项按钮上，绑在 input 上的
+                // 处理器就再也收不到键了。焦点环形状沿用 #editModal 那一套。
+                overlay.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+                    if (e.key !== 'Tab') return;
+                    var f = focusable();
+                    if (!f.length) return;
+                    var first = f[0], last = f[f.length - 1], act = document.activeElement;
+                    if (e.shiftKey && act === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && act === last) { e.preventDefault(); first.focus(); }
+                    else if (!overlay.contains(act)) { e.preventDefault(); first.focus(); }
+                });
+            }
+            function focusable() {
+                if (!overlay) return [];
+                return Array.prototype.slice.call(overlay.querySelectorAll(
+                    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )).filter(function (el) { return el.offsetParent !== null; });
+            }
+            // 其它模态开着时不抢 ⌘K：面板会盖在它上面，且背后那个仍然可被 Tab 到。
+            function otherModalOpen() {
+                var wu = document.getElementById('workerUpdateModal');
+                if (wu && wu.style.display && wu.style.display !== 'none') return true;
+                var em = document.getElementById('editModal');
+                if (em && em.style.display && em.style.display !== 'none') return true;
+                var curl = document.getElementById('curlModal');
+                if (curl && curl.classList.contains('show')) return true;
+                var imp = document.getElementById('importHeadersModal');
+                return !!(imp && imp.classList.contains('show'));
             }
             function match(cmd, q) { if (!q) return true; q = q.toLowerCase(); return (cmd.label + ' ' + (cmd.kw || '')).toLowerCase().indexOf(q) !== -1; }
             function render(q) {
                 items = allCommands().filter(function (c) { return match(c, q); }); active = 0;
-                if (!items.length) { list.innerHTML = '<div class="cmdk-empty">无匹配命令</div>'; return; }
-                list.innerHTML = items.map(function (c, i) { return '<button type="button" class="cmdk-item' + (i === 0 ? ' is-active' : '') + '" role="option" data-i="' + i + '"><span class="cmdk-label">' + c.label + '</span>' + (c.hint ? '<span class="cmdk-hint">' + c.hint + '</span>' : '') + '</button>'; }).join('');
+                if (!items.length) {
+                    list.innerHTML = '<div class="cmdk-empty">无匹配命令</div>';
+                    if (input) input.removeAttribute('aria-activedescendant');
+                    return;
+                }
+                // label / hint 里有运维者自己填的备注(globalRoutesData)，一律转义后再拼。
+                list.innerHTML = items.map(function (c, i) {
+                    return '<button type="button" class="cmdk-item" role="option" id="cmdk-opt-' + i + '" aria-selected="false" data-i="' + i + '">'
+                        + '<span class="cmdk-label">' + _embyEscape(c.label) + '</span>'
+                        + (c.hint ? '<span class="cmdk-hint">' + _embyEscape(c.hint) + '</span>' : '')
+                        + '</button>';
+                }).join('');
                 Array.prototype.forEach.call(list.querySelectorAll('.cmdk-item'), function (el) {
                     el.addEventListener('mousemove', function () { setActive(+el.dataset.i); });
                     el.addEventListener('click', function () { exec(+el.dataset.i); });
                 });
+                setActive(0);
             }
-            function setActive(i) { active = i; Array.prototype.forEach.call(list.querySelectorAll('.cmdk-item'), function (el) { el.classList.toggle('is-active', +el.dataset.i === i); }); }
+            function setActive(i) {
+                active = i;
+                Array.prototype.forEach.call(list.querySelectorAll('.cmdk-item'), function (el) {
+                    var on = +el.dataset.i === i;
+                    el.classList.toggle('is-active', on);
+                    el.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                // 焦点留在输入框，由 aria-activedescendant 把"当前项"念出来。
+                if (input) input.setAttribute('aria-activedescendant', 'cmdk-opt-' + i);
+            }
             function move(d) { if (!items.length) return; var n = (active + d + items.length) % items.length; setActive(n); var el = list.querySelector('.cmdk-item[data-i="' + n + '"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }
             function exec(i) { var c = items[i]; close(); if (c && c.run) setTimeout(c.run, 0); }
-            function open() { build(); if (!overlay) return; prevFocus = document.activeElement; overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); input.value = ''; render(''); setTimeout(function () { input.focus(); }, 20); }
-            function close() { if (!overlay) return; overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden', 'true'); if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } }
+            function open() { build(); if (!overlay) return; prevFocus = document.activeElement; overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden', 'false'); input.setAttribute('aria-expanded', 'true'); input.value = ''; render(''); setTimeout(function () { input.focus(); }, 20); }
+            function close() { if (!overlay) return; overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden', 'true'); if (input) { input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); } if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } }
             window.openCmdK = open; window.closeCmdK = close;
-            document.addEventListener('keydown', function (e) { if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); var o = document.getElementById('cmdk'); if (o && o.classList.contains('is-open')) close(); else open(); } });
+            document.addEventListener('keydown', function (e) {
+                if (!((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))) return;
+                var o = document.getElementById('cmdk');
+                var isOpen = !!(o && o.classList.contains('is-open'));
+                if (!isOpen && otherModalOpen()) return;
+                e.preventDefault();
+                if (isOpen) close(); else open();
+            });
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
         })();

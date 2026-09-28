@@ -11,15 +11,16 @@ export const HTML_UI = `
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Emby 反代面板</title>
     <link rel="stylesheet" href="${CSS_HREF}">
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="${APP_JS_SRC}"></script>
 </head>
 <body class="shell-on">
-    <div id="toast"></div>
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="toastAlert" role="alert" aria-atomic="true"></div>
 
     <!-- Shared SVG sprite (UI Suggestions v2.0.7) -->
     <svg width="0" height="0" class="pos-abs" aria-hidden="true">
@@ -45,19 +46,21 @@ export const HTML_UI = `
             <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
             <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></symbol>
             <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+            <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><line x1="2" y1="9" x2="7" y2="9"/><line x1="2" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="22" y2="9"/><line x1="17" y1="15" x2="22" y2="15"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
         </defs>
     </svg>
 
 
-    <div id="workerUpdateModal" class="wu-overlay" style="display:none;">
+    <div id="workerUpdateModal" class="wu-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="wuTitle">
         <div class="card is-danger-highlight">
-            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="关闭">✖</button>
-            <h2 class="wu-title">一键覆盖/更新 Worker 核心层代码</h2>
+            <button class="wu-close" onclick="closeWorkerUpdate()" aria-label="关闭"><svg class="ico" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
+            <h2 class="wu-title" id="wuTitle">一键覆盖/更新 Worker 核心层代码</h2>
             <div class="wu-warning">警告：提交错误的代码会导致面板瞬间崩溃（500 错误）。请确保代码已在本地测试通过</div>
-            <textarea id="codeArea" class="wu-textarea" rows="8" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..."></textarea>
+            <textarea id="codeArea" class="wu-textarea" rows="8" aria-label="Worker 核心层代码全文" placeholder="方式一：在此处直接粘贴修改好的最新代码全文..."></textarea>
             <div class="row-end">
                 <span class="wu-label">或 方式二：</span>
-                <input type="file" id="fileInput" class="wu-file-input" accept=".js">
+                <input type="file" id="fileInput" class="wu-file-input" accept=".js" aria-label="选择本地 Worker 代码文件 (.js)">
                 <button type="button" class="btn-tier is-danger row-end-spacer" id="deployBtn" onclick="deployWorker()">立即覆盖部署并重启节点</button>
             </div>
         </div>
@@ -100,7 +103,7 @@ export const HTML_UI = `
                 </div>
             </div>
             <nav class="sidebar-nav" aria-label="主导航">
-                <button type="button" class="nav-item dest-item is-active" data-dest="monitor" onclick="showDest('monitor')">
+                <button type="button" class="nav-item dest-item is-active" data-dest="monitor" aria-current="page" onclick="showDest('monitor')">
                     <svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
                     <span>监控</span>
                 </button>
@@ -179,7 +182,7 @@ export const HTML_UI = `
                 <span class="b-tag">NEW</span>
                 <span class="b-msg" id="updateMsg">当前版本: v1.0.0 | 最新版本: v?.?.?</span>
                 <button class="b-cta" id="onlineUpdateBtn" onclick="doOnlineUpdate()">一键升级</button>
-                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略">✕</button>
+                <button class="b-dismiss" onclick="document.getElementById('updateAlert').style.display='none'" title="忽略" aria-label="忽略"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
             </div>
 
             <!-- Placement drawer (collapsed by default) -->
@@ -187,18 +190,18 @@ export const HTML_UI = `
                 <h3>Worker 调度模式</h3>
                 <div class="sub">控制 Worker 实际落地的物理机房，后台安全调度，不暴露任何私钥</div>
                 <div class="controls">
-                    <select id="cf-mode-select" onchange="handleModeChange()">
+                    <select id="cf-mode-select" aria-label="Worker 调度模式" onchange="handleModeChange()">
                         <option value='{"mode":"smart"}'>智能调度 (Smart Placement)</option>
                         <option value='{"mode":"off"}'>边缘节点 (Edge - 默认离访客近)</option>
                         <optgroup label="指定云厂商物理机房落地">
-                            <option value="aws">☁️ AWS (亚马逊云)</option>
-                            <option value="gcp">☁️ GCP (谷歌云)</option>
-                            <option value="azure">☁️ Azure (微软云)</option>
+                            <option value="aws">AWS (亚马逊云)</option>
+                            <option value="gcp">GCP (谷歌云)</option>
+                            <option value="azure">Azure (微软云)</option>
                         </optgroup>
-                        <option value="custom">✏️ 手动输入区域代码...</option>
+                        <option value="custom">手动输入区域代码...</option>
                     </select>
-                    <select id="cf-region-select" style="display: none;"></select>
-                    <input type="text" id="cf-custom-input" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
+                    <select id="cf-region-select" aria-label="落地区域" style="display: none;"></select>
+                    <input type="text" id="cf-custom-input" aria-label="自定义云区域代码" placeholder="输入云代码 (如 gcp:us-west1)" style="display: none;">
                     <button type="button" class="btn-tier is-primary" onclick="updatePlacement()">提交修改</button>
                 </div>
                 <div class="status"><span id="place-status">后台全自动安全调度，不暴露任何私钥</span></div>
@@ -311,7 +314,7 @@ export const HTML_UI = `
                 </nav>
 
                 <div class="toolbar">
-                    <select id="ipType" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
+                    <select id="ipType" aria-label="预设节点来源类型" style="font-weight: 600; color: var(--primary); padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--card);">
                         <option value="all">综合混合源</option>
                         <option value="电信">电信专属</option>
                         <option value="联通">联通专属</option>
@@ -363,9 +366,9 @@ export const HTML_UI = `
                         <span>自定义来源</span>
                         <svg class="sd-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                     </summary>
-                    <div class="sd-custom-body" style="background: rgba(120,120,120,0.05); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                        <input type="text" id="customApiUrl" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
-                        <textarea id="customIps" rows="2" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
+                    <div class="sd-custom-body" style="background: var(--ios-fill-quat); padding: 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); margin-bottom: 16px;">
+                        <input type="text" id="customApiUrl" aria-label="自定义节点 API 链接" value="https://ip.v2too.top/api/nodes" placeholder="自定义 JSON / 文本 API 链接（供「拉取 API」使用）" style="width: 100%; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border); background:var(--card); margin-bottom: 10px;">
+                        <textarea id="customIps" rows="2" aria-label="自定义 IP 或域名列表" placeholder="在此粘贴自定义 IPv4 / IPv6 / 优选域名（供「测试粘贴节点」使用，自动提取）" style="width: 100%; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); font-family: monospace; resize: vertical; background:var(--card);"></textarea>
                     </div>
                 </details>
                 
@@ -378,7 +381,7 @@ export const HTML_UI = `
                     <table class="w-full">
                         <thead>
                             <tr>
-                                <th class="col-w40"><input type="checkbox" id="selectAll" class="ip-checkbox" onclick="toggleSelectAll()"></th>
+                                <th class="col-w40"><input type="checkbox" id="selectAll" class="ip-checkbox" aria-label="全选测速节点" onclick="toggleSelectAllIps(this)"></th>
                                 <th>专属节点 (点击复制)</th>
                                 <th>预估延迟</th>
                                 <th>连通状态</th>
@@ -442,7 +445,7 @@ export const HTML_UI = `
             <div class="card mt-4" >
                 <h2 class="section-title" style="margin-bottom:10px;"><svg class="st-ico" aria-hidden="true"><use href="#i-shuffle"/></svg>3xx 重定向直通白名单</h2>
                 <div style="font-size:var(--text-md); color:var(--text-sec); margin-bottom:10px;">命中以下域名（或其子域名）的 302/301 Location 将直接透传给客户端，跳过代理重写。每行一个 host。</div>
-                <textarea id="manualRedirectDomainsInput" rows="6" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
+                <textarea id="manualRedirectDomainsInput" rows="6" aria-label="重定向直通白名单域名，每行一个" style="width:100%; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--card); font-family:monospace;"></textarea>
                 <div style="margin-top:10px;">
                     <button type="button" class="btn-tier is-primary" onclick="saveManualRedirectDomains()">保存白名单</button>
                 </div>
@@ -513,10 +516,10 @@ export const HTML_UI = `
                             <span class="a-field-aux">备注用于显示，前缀决定访问路径</span>
                         </div>
                         <div class="a-row">
-                            <input class="a-input" type="text" id="remark" placeholder="节点备注 (如: Misaka服)" required>
-                            <input class="a-input" type="text" id="prefix" placeholder="短路径后缀 (如: misaka)" required>
-                            <input class="a-input" type="text" id="groupName" placeholder="分组/标签 (可选, 如: 家宽)">
-                            <select class="a-select" id="mode">
+                            <input class="a-input" type="text" id="remark" aria-label="节点备注" placeholder="节点备注 (如: Misaka服)" required>
+                            <input class="a-input" type="text" id="prefix" aria-label="短路径后缀" placeholder="短路径后缀 (如: misaka)" required>
+                            <input class="a-input" type="text" id="groupName" aria-label="分组标签（可选）" placeholder="分组/标签 (可选, 如: 家宽)">
+                            <select class="a-select" id="mode" aria-label="反代模式">
                                 <option value="off">保守 (抹除IP)</option>
                                 <option value="realip_only">严格 (透传IP)</option>
                                 <option value="dual">兼容 (双重透传)</option>
@@ -533,12 +536,12 @@ export const HTML_UI = `
                         </div>
                         <div id="targetInputs" style="display:flex; flex-direction:column; gap:8px;">
                             <div class="a-upstream-row">
-                                <span class="a-tag-pri">主源</span>
-                                <input type="url" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
+                                <label class="a-tag-pri" for="targetPrimary">主源</label>
+                                <input type="url" id="targetPrimary" class="a-input target-input" placeholder="主线路地址 (如: http://1.1.1.1:8096)" required oninput="handleTargetInputs()">
                             </div>
                             <div class="a-upstream-row">
-                                <span class="a-tag-bk">备 1</span>
-                                <input type="url" class="a-input target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" oninput="handleTargetInputs()">
+                                <label class="a-tag-bk" for="targetBackup1">备 1</label>
+                                <input type="url" id="targetBackup1" class="a-input target-input" placeholder="备用线路 1 (选填，主源挂掉时触发)" oninput="handleTargetInputs()">
                             </div>
                         </div>
                         <button type="button" class="a-add-row" onclick="addBackupLine()"><svg><use href="#i-plus"/></svg>添加备用线路</button>
@@ -553,7 +556,7 @@ export const HTML_UI = `
                         <div class="hed" id="hed-editor">
                             <div class="hed-head">
                                 <span></span><span>Header</span><span>Value</span>
-                                <span style="text-align:center">启用</span><span></span>
+                                <span class="text-center">启用</span><span></span>
                             </div>
                             <div class="hed-list" id="hed-list"></div>
                             <div class="hed-footer">
@@ -576,7 +579,7 @@ export const HTML_UI = `
                     <!-- 保号提醒 -->
                     <div class="a-fieldset">
                         <div class="a-fieldset-head">
-                            <span class="a-field-label">保号提醒</span>
+                            <label class="a-field-label" for="keepaliveDays">保号提醒</label>
                             <span class="a-field-aux">超过 N 天未观看将通过 Telegram 提醒（0 = 关闭）</span>
                         </div>
                         <div class="a-row">
@@ -591,8 +594,8 @@ export const HTML_UI = `
                             <span class="a-field-aux">为本节点单独指定 Emby 账号拉取媒体库计数；留空则使用全局共享账号。密码留空表示不修改</span>
                         </div>
                         <div class="a-row two">
-                            <input type="text" id="embyUsername" class="a-input" placeholder="独立用户名（可选）" autocomplete="off">
-                            <input type="password" id="embyPassword" class="a-input" placeholder="独立密码（留空不改）" autocomplete="new-password">
+                            <input type="text" id="embyUsername" class="a-input" aria-label="本节点独立 Emby 用户名（可选）" placeholder="独立用户名（可选）" autocomplete="off">
+                            <input type="password" id="embyPassword" class="a-input" aria-label="本节点独立 Emby 密码（留空不改）" placeholder="独立密码（留空不改）" autocomplete="new-password">
                         </div>
                     </div>
 
@@ -602,23 +605,23 @@ export const HTML_UI = `
                         <div class="a-row two">
                             <div class="pos-rel">
                                 <div class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn">
-                                    <img id="iconPreview" src="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
-                                    <span id="iconDefault" style="font-size:var(--text-3xl);line-height:1;">🎬</span>
+                                    <img id="iconPreview" src="" alt="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
+                                    <span id="iconDefault" style="line-height:1;" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24"><use href="#i-film"/></svg></span>
                                     <div class="flex-1-min0">
                                         <div class="label-bold">节点图标</div>
                                         <div id="iconSelectText" style="font-size:var(--text-xs); color:var(--text-sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">点击选择 · 或粘贴 URL</div>
                                     </div>
                                     <input type="hidden" id="iconUrl" value="">
                                 </div>
-                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
+                                <div id="iconPickerPanel" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; box-shadow: var(--shadow-3); z-index: 100; margin-top: 8px; flex-direction: column; gap: 10px;">
                                     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-                                        <input type="text" id="customIconUrlInput" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
+                                        <input type="text" id="customIconUrlInput" aria-label="自定义 JSON 图标库链接" placeholder="输入自定义 JSON 图标库链接..." style="flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); font-size: var(--text-md); color: var(--text);">
                                         <button type="button" class="btn-tier is-primary is-sm" onclick="setCustomIconLibrary()">加载</button>
                                         <button type="button" class="btn-tier is-sm" onclick="resetIconLibrary()">默认库</button>
                                     </div>
-                                    <input type="text" id="iconSearch" placeholder="🔍 搜索图标名称..." style="padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background:var(--bg); width: 100%; font-size: var(--text-base); color: var(--text);" onkeyup="filterIcons()">
+                                    <span class="search-wrap" style="width:100%"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg><input type="text" id="iconSearch" class="search-input" aria-label="搜索图标名称" placeholder="搜索图标名称..." style="width:100%" onkeyup="filterIcons()"></span>
                                     <div id="iconGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; overflow-y: auto; max-height: 240px; padding-right: 4px;">
-                                        <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; font-size: var(--text-md);">加载图标库中...</div>
+                                        <div class="text-center-muted" style="grid-column: 1 / -1; font-size: var(--text-md);">加载图标库中...</div>
                                     </div>
                                 </div>
                             </div>
@@ -628,7 +631,7 @@ export const HTML_UI = `
                                     <div class="label-bold">海报 &amp; 静态资源缓存</div>
                                     <div style="font-size:var(--text-xs); color:var(--text-sec);">降低上游压力，建议开启</div>
                                 </div>
-                                <input type="checkbox" id="nodeCache" class="ip-checkbox" checked style="display:none;">
+                                <input type="checkbox" id="nodeCache" class="ip-checkbox" checked aria-label="海报与静态资源缓存" style="display:none;">
                             </div>
                         </div>
                     </div>
@@ -650,7 +653,7 @@ export const HTML_UI = `
             <div class="card">
                 <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">工具箱</h2>
                 <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">配置导入导出、cURL 请求头解析等实用工具。</div>
-                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div class="flex-wrap-tight">
                     <button type="button" class="btn-tier" onclick="exportConfig()"><svg><use href="#i-download"/></svg>导出当前配置</button>
                     <button type="button" class="btn-tier" onclick="importConfig()"><svg><use href="#i-upload"/></svg>导入配置</button>
                     <button type="button" class="btn-tier" onclick="HeadersEditor.openCurlModal()"><svg><use href="#i-key"/></svg>cURL 请求头解析</button>
@@ -715,8 +718,8 @@ export const HTML_UI = `
                             </button>
                         </div>
                         <button type="button" class="btn-tier is-sm" onclick="pingAllNodes()">全局测速</button>
-                        <button type="button" id="btnPurge" class="btn-tier is-sm is-danger" onclick="purgeCache()">刷新全站海报</button>
-                        <input type="text" id="searchNode" class="search-input" placeholder="🔍 搜索备注或后缀查找..." onkeyup="filterNodesList()">
+                        <button type="button" id="btnPurge" class="btn-tier is-sm" onclick="purgeCache()">刷新全站海报</button>
+                        <span class="search-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg><input type="text" id="searchNode" class="search-input" aria-label="搜索节点备注或后缀" placeholder="搜索备注或后缀查找..." onkeyup="filterNodesList()"></span>
                     </div>
                 </div>
 
@@ -737,7 +740,7 @@ export const HTML_UI = `
                         <div class="ns-controls">
                             <div class="ns-control-row">
                                 <span class="ns-control-main">
-                                    <span class="ns-control-title">代理国家白名单</span>
+                                    <label class="ns-control-title" for="proxyCountryAllowlist">代理国家白名单</label>
                                     <span class="ns-control-sub">仅允许这些国家/地区的客户端走反代；管理端点不受影响，留空即关闭</span>
                                 </span>
                                 <span class="ns-control-field">
@@ -747,7 +750,7 @@ export const HTML_UI = `
                             </div>
                             <div class="ns-control-row">
                                 <span class="ns-control-main">
-                                    <span class="ns-control-title">防盗链 Referer 白名单</span>
+                                    <label class="ns-control-title" for="hotlinkAllowHosts">防盗链 Referer 白名单</label>
                                     <span class="ns-control-sub">允许内嵌的来源域名（逗号分隔）；带 Referer 且不在名单的浏览器请求会被拦截，原生播放器（无 Referer）不受影响，留空即关闭</span>
                                 </span>
                                 <span class="ns-control-field">
@@ -761,8 +764,8 @@ export const HTML_UI = `
                                     <span class="ns-control-sub">媒体计数的默认登录账号，所有节点共用；可在某个节点的「编辑」里单独覆盖。鉴权 UA 取自该节点访问日志，日志无 UA 时不发起请求</span>
                                 </span>
                                 <span class="ns-control-field ns-control-field-creds">
-                                    <input type="text" id="embySharedUser" class="ns-input" placeholder="共享用户名" autocomplete="off">
-                                    <input type="password" id="embySharedPass" class="ns-input" placeholder="共享密码（留空不改）" autocomplete="new-password">
+                                    <input type="text" id="embySharedUser" class="ns-input" aria-label="全局共享 Emby 用户名" placeholder="共享用户名" autocomplete="off">
+                                    <input type="password" id="embySharedPass" class="ns-input" aria-label="全局共享 Emby 密码（留空不改）" placeholder="共享密码（留空不改）" autocomplete="new-password">
                                     <button type="button" class="btn-tier is-sm" onclick="saveEmbySharedCreds()">保存</button>
                                 </span>
                             </div>
@@ -770,32 +773,25 @@ export const HTML_UI = `
                     </div>
                 </details>
 
-                <div style="background: rgba(0, 122, 255, 0.05); padding: 12px 20px; border-radius: 12px; border: 1px dashed var(--primary); margin-bottom: 20px; margin-top: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <label style="cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
-                <input type="checkbox" id="selectAllNodes" onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; accent-color: var(--primary);"> 
+                <div class="batch-bar">
+            <label class="batch-select-label">
+                <input type="checkbox" id="selectAllNodes" class="ip-checkbox" onchange="toggleSelectAllNodes(this)">
                 全选节点
             </label>
-            
-            <div style="width: 2px; height: 20px; background: var(--border);"></div> <select id="batch-mode-select" style="padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 600;">
+
+            <div class="v-sep"></div> <select id="batch-mode-select" class="a-select" aria-label="批量应用的反代模式">
                 <option value="">读取模式中...</option>
             </select>
 
-            <button onclick="batchUpdateModes()" style="background: var(--primary); color: var(--bg); border: none; padding: 8px 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 10px var(--primary-ring);">
-                批量应用模式
-            </button>
+            <button type="button" class="btn-tier is-primary" onclick="batchUpdateModes()">批量应用模式</button>
 
             <span id="batch-status" class="label-bold"></span>
         </div>
                 <div id="list-grid" class="node-grid">
-                    <div style="text-align:center; color:var(--text-sec); grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
+                    <div class="text-center-muted" style="grid-column: 1 / -1; padding: 40px;">读取数据中...</div>
                 </div>
             </div>
 
-            <div style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
-                <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
-                    <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
-                </div>
-            </div>
             </section><!-- /sec-overview -->
 
             <!-- ===== 危险区 (独立分区, 替换原底部常驻条 v2.3.0) ===== -->
@@ -815,7 +811,7 @@ export const HTML_UI = `
                             <div class="ifr-label">刷新全站海报缓存</div>
                             <div class="ifr-sub">强制清空 CDN 海报缓存。客户端首次加载延迟会上升 1–3 秒，直到缓存重建。无法回滚。</div>
                         </div>
-                        <button type="button" class="btn-tier is-danger" onclick="purgeCache()">执行刷新</button>
+                        <button type="button" class="btn-tier is-warn" onclick="purgeCache()">执行刷新</button>
                     </div>
                     <div class="ios-form-row">
                         <div class="flex-1-min0">
@@ -829,10 +825,17 @@ export const HTML_UI = `
                             <div class="ifr-label">退出登录</div>
                             <div class="ifr-sub">清除当前会话，断开管理面板访问。其他客户端不受影响。可随时通过登录页重新进入。</div>
                         </div>
-                        <button type="button" class="btn-tier is-danger" onclick="logout()">立即退出</button>
+                        <button type="button" class="btn-tier" onclick="logout()">立即退出</button>
                     </div>
                 </div>
             </section><!-- /sec-danger -->
+
+            <!-- 免责声明：应用外壳级页脚，所有目的地共用（不再是监控视图的收尾） -->
+            <footer class="app-disclaimer" style="text-align: center; padding-top: 10px; padding-bottom: 20px;">
+                <div style="margin-top: 20px; font-size: var(--text-sm); color: var(--text-sec); line-height: 1.6; max-width: 600px; margin-left: auto; margin-right: auto; padding: 0 15px;">
+                    <strong>免责声明:</strong> 本项目仅供学习与技术测试使用，请遵守当地法律法规。使用者对配置、转发内容与访问行为承担全部责任，开发者不对任何直接或间接损失负责。
+                </div>
+            </footer>
 
         </div><!-- /.content -->
 
@@ -840,11 +843,11 @@ export const HTML_UI = `
     </div><!-- /.app-shell -->
 
     <!-- cURL paste modal (UI Suggestions v2.0.7) -->
-    <div class="curl-modal-bg" id="curlModal" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
+    <div class="curl-modal-bg" id="curlModal" role="dialog" aria-modal="true" aria-labelledby="curlModalTitle" onclick="if(event.target===this) HeadersEditor.closeCurlModal()">
         <div class="curl-modal">
-            <h3>从 cURL 命令导入</h3>
-            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:rgba(120,120,120,0.1);padding:1px 4px;border-radius:3px;font-size:var(--text-xs);">-H</code> 标头：</p>
-            <textarea id="curlInput" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \\&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \\&#10;  -H 'x-emby-token: abc123' \\&#10;  --compressed"></textarea>
+            <h3 id="curlModalTitle">从 cURL 命令导入</h3>
+            <p>粘贴浏览器 DevTools 「Copy as cURL」 出来的内容，自动提取所有 <code style="background:var(--ios-fill);padding:1px 4px;border-radius:4px;font-size:var(--text-xs);">-H</code> 标头：</p>
+            <textarea id="curlInput" aria-label="cURL 命令内容" placeholder="curl 'https://example.com/api/users/AuthenticateByName' \\&#10;  -H 'authorization: MediaBrowser Token=&quot;xxx&quot;' \\&#10;  -H 'x-emby-token: abc123' \\&#10;  --compressed"></textarea>
             <div class="curl-modal-actions">
                 <button class="btn-tier" onclick="HeadersEditor.closeCurlModal()">取消</button>
                 <button class="btn-tier is-primary" onclick="HeadersEditor.parseCurl()">解析并导入</button>
@@ -853,9 +856,9 @@ export const HTML_UI = `
     </div>
 
     <!-- 从已有节点导入请求头 modal -->
-    <div class="curl-modal-bg" id="importHeadersModal" onclick="if(event.target===this) HeadersEditor.closeImportModal()">
+    <div class="curl-modal-bg" id="importHeadersModal" role="dialog" aria-modal="true" aria-labelledby="importHeadersTitle" onclick="if(event.target===this) HeadersEditor.closeImportModal()">
         <div class="curl-modal">
-            <h3>从已有节点导入请求头</h3>
+            <h3 id="importHeadersTitle">从已有节点导入请求头</h3>
             <p>选择一个源节点，把它的自定义请求头合并到当前编辑器（<strong>同名键以源节点为准</strong>，其余追加）：</p>
             <div class="import-node-list" id="importNodeList"></div>
             <div class="curl-modal-actions">

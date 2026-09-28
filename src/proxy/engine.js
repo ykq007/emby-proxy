@@ -197,7 +197,12 @@ export async function proxyRequest(request, env, ctx, url) {
 
         let fetchInit = { method: request.method, headers: newHeaders, redirect: 'manual', signal: abortCtrl.signal };
 
-        if (isStaticOrImage && enableCache) { fetchInit.cf = { cacheEverything: true, cacheTtl: 86400 }; }
+        // 静态资源走边缘缓存；其余一律显式 cacheTtl:0 绕开缓存层——不写 cf 时
+        // 部分源站（自身也在 Cloudflare 后面、每次响应都带 Set-Cookie + BYPASS）
+        // 会让回源请求卡死到 15s 超时，而探测用的 cf:{cacheTtl:0} 始终 200。
+        fetchInit.cf = (isStaticOrImage && enableCache)
+            ? { cacheEverything: true, cacheTtl: 86400 }
+            : { cacheTtl: 0 };
 
         if (hasBody) {
             if (bodyBuffer !== null) { fetchInit.body = bodyBuffer; }

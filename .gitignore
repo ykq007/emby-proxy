@@ -12,14 +12,21 @@ AGENTS.md
 .wrangler-linux/
 node_modules/
 dist/
-public/
+public/*
 .preview
 
 .impeccable/
 .ccg/
 
-# dev-only UI preview output (scripts/preview-ui.mjs)
+# dev-only UI preview output (scripts/preview-ui.mjs).
+# Note public/ is the wrangler [assets] directory: gitignoring this output is
+# NOT enough, because wrangler uploads whatever is on disk and the edge then
+# serves the whole console shell without auth. public/.assetsignore is what
+# actually keeps it out of the deploy, so that one file stays tracked
+# (hence `public/*` above rather than `public/` — git cannot re-include a
+# file whose parent directory is excluded).
 public/preview/
+!public/.assetsignore
 
 # owner's real production config / secrets — never committed
 wrangler.prod.toml

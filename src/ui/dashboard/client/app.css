@@ -1,206 +1,413 @@
-/* Command Center v3.0 — unified design tokens & dashboard styles.
+/* Aqua — Apple-design token layer & dashboard styles.
  * Real source file (issue #20): promoted out of template-literal chunk
  * files. Edit here directly; scripts/build-assets.mjs hashes this file
  * verbatim into public/static/ and regenerates src/ui/asset-manifest.js.
  */
 
     :root {
-        /* === Signal Terminal v1.0 — instrument identity (light · blueprint paper) ===
-           Electric-cyan brand signal (hue 220) on a cool-neutral blueprint base.
-           Numbers are the protagonist; one accent; status speaks in green/amber/red.
-           Identity lives in the dot-grid blueprint, mono numerals and CSS-native
-           motion — not decoration. See DESIGN.md. */
-        --primary: oklch(0.52 0.12 220);
-        --primary-hover: oklch(0.46 0.13 220);
-        /* Solid fill for text-bearing primary buttons. In light the cyan deepens
-           enough to carry white text ≥4.5:1; dark flips on-primary to near-black
-           (see body.dark) since the accent goes luminous. */
-        --btn-fill: oklch(0.52 0.13 220);
-        --btn-fill-hover: oklch(0.46 0.13 220);
-        --on-primary: oklch(1 0 0);            /* text/icon on a button fill */
-        --bg: oklch(0.975 0.004 240);
-        --card: oklch(1 0 0);
-        --text: oklch(0.20 0.012 245);
-        --text-sec: oklch(0.46 0.012 245);
-        --border: oklch(0.20 0.012 245 / 0.10);
-        /* surfaces (light) */
-        --surface: oklch(1 0 0);
-        --surface-2: oklch(0.955 0.005 240);
-        --sidebar-bg: oklch(0.965 0.005 240);
-        --ok: oklch(0.52 0.15 150);
-        --warn: oklch(0.62 0.14 70);
-        --err: oklch(0.55 0.20 25);
-        --card-shadow: none;
-        /* type families — mono-forward: mono carries labels/keys/IDs/numerals,
-           sans reserved for CJK prose (no good monospace exists for Chinese). */
-        --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-        --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", ui-monospace, "DejaVu Sans Mono", "PingFang SC", monospace;
+        /* ============================================================
+           Aqua v1.0 — Apple-design identity (light).
+           Replaces "Signal Terminal". The identity is no longer a
+           texture: it is system-blue restraint, translucent materials,
+           optical typography and spring motion. Token NAMES are the
+           existing contract (--primary / --bg / --ok …) so every
+           component re-skins without markup changes; only values move.
+           Palette tracks Apple's system colors (systemBlue/Green/
+           Orange/Red, grouped backgrounds, label + fill hierarchies).
+           See DESIGN.md.
+           ============================================================ */
 
-        /* === Alignment system v2.2.0 — design tokens ===
-           Spec: .trellis/spec/frontend/ui-design-system.md "Alignment system" */
+        /* --- accent: systemBlue -------------------------------------
+           --primary is true systemBlue (#007AFF) for links, indicators
+           and selection. --btn-fill deepens it so white button labels
+           clear 4.5:1 — systemBlue itself only clears the 3:1 bar for
+           UI components, which is fine for a tint but not for text. */
+        --primary: oklch(0.56 0.21 259);
+        --primary-hover: oklch(0.50 0.20 259);
+        --btn-fill: oklch(0.50 0.20 259);
+        --btn-fill-hover: oklch(0.45 0.19 259);
+        --on-primary: oklch(1 0 0);
+
+        /* --- backgrounds: iOS grouped hierarchy --------------------- */
+        --bg: oklch(0.967 0.003 286);          /* systemGroupedBackground */
+        --card: oklch(1 0 0);                  /* secondarySystemGrouped  */
+        --surface: oklch(1 0 0);
+        --surface-2: oklch(0.955 0.003 286);   /* tertiarySystemGrouped   */
+        --sidebar-bg: oklch(0.955 0.003 286);
+
+        /* --- labels: Apple's four-step label hierarchy -------------- */
+        --text: oklch(0.17 0.006 286);         /* label          */
+        --text-sec: oklch(0.47 0.008 286);     /* secondaryLabel */
+        --text-ter: oklch(0.52 0.008 286);     /* tertiaryLabel — 5.5:1 */
+
+        /* --- separators: hairline, never a hard rule ---------------- */
+        --border: oklch(0.17 0.006 286 / 0.11);
+        --hairline: oklch(0.17 0.006 286 / 0.08);
+
+        /* --- status: systemGreen / systemOrange / systemRed --------- */
+        --ok: oklch(0.65 0.17 147);
+        --warn: oklch(0.72 0.16 62);
+        --err: oklch(0.58 0.22 27);
+
+        /* --- type families -----------------------------------------
+           San Francisco first: it ships optical sizing, tracking tables
+           and legibility tuning we would otherwise hand-roll. Mono is
+           reserved for numerals, keys and IDs. */
+        --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", "JetBrains Mono", "Cascadia Code", "DejaVu Sans Mono", "PingFang SC", monospace;
+
+        /* --- spacing (unchanged contract) --------------------------- */
         --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
-        --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 48px;
-        /* half-steps — only for legitimate optical compaction (icon paddings,
-           inline-row gaps, dense card spacing). Prefer whole steps in new code. */
+        --space-5: 20px; --space-6: 24px; --space-7: 32px;
         --space-1-5: 6px; --space-2-5: 10px; --space-3-5: 14px;
+
+        /* --- type scale --------------------------------------------- */
         --text-2xs:  9px; --text-xs:  11px; --text-sm:  12px; --text-md: 13px;
         --text-base: 14px; --text-lg:  15px; --text-xl:  16px;
         --text-2xl:  20px; --text-3xl: 28px;
-        /* radii — app-like generous rounding. pill stays for status chips. */
-        --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
-        --radius-xl: 16px; --radius-2xl: 20px; --radius-pill: 999px;
-        --ok-soft:   oklch(0.52 0.15 150 / 0.10);  --ok-ring:   oklch(0.52 0.15 150 / 0.22);
-        --warn-soft: oklch(0.62 0.14 70 / 0.10);   --warn-ring: oklch(0.62 0.14 70 / 0.22);
-        --err-soft:  oklch(0.55 0.20 25 / 0.10);   --err-ring:  oklch(0.55 0.20 25 / 0.22);
-        --primary-soft: oklch(0.52 0.12 220 / 0.08);
-        --primary-ring: oklch(0.52 0.12 220 / 0.25);
-        --primary-glow: oklch(0.52 0.12 220 / 0.20);
+
+        /* --- tracking & leading ------------------------------------
+           Tracking is size-specific — one letter-spacing value is wrong
+           somewhere. Large text reads too loose as it grows, so it goes
+           negative; small text needs a touch of air. Leading moves the
+           other way: tight on display, generous on body. */
+        --tracking-large: -0.032em;    /* ≥28px display / large titles */
+        --tracking-title: -0.021em;    /* 20–27px section titles       */
+        --tracking-headline: -0.013em; /* 15–19px headlines, buttons   */
+        --tracking-body: -0.005em;     /* 13–15px running text         */
+        --tracking-caption: 0.005em;   /* 11–12px captions             */
+        --tracking-label: 0.055em;     /* uppercase micro labels only  */
+        --leading-large: 1.08;
+        --leading-title: 1.22;
+        --leading-body: 1.47;
+
+        /* --- shape: iOS continuous corners --------------------------
+           Radii step with surface size — a chip and a sheet must not
+           share a corner. `corner-shape: squircle` (applied in the base
+           layer under @supports) turns these into true continuous
+           corners where the browser can; elsewhere they degrade to
+           ordinary rounding. */
+        --radius-sm: 8px; --radius-md: 10px; --radius-lg: 14px;
+        --radius-xl: 18px; --radius-2xl: 24px; --radius-pill: 999px;
+        --radius-sheet: 22px;
+
+        /* --- tints (soft fills + focus rings) ----------------------- */
+        --ok-soft:   oklch(0.65 0.17 147 / 0.12);  --ok-ring:   oklch(0.65 0.17 147 / 0.26);
+        --warn-soft: oklch(0.72 0.16 62 / 0.12);   --warn-ring: oklch(0.72 0.16 62 / 0.26);
+        --err-soft:  oklch(0.58 0.22 27 / 0.11);   --err-ring:  oklch(0.58 0.22 27 / 0.26);
+        --primary-soft: oklch(0.56 0.21 259 / 0.10);
+        --primary-ring: oklch(0.56 0.21 259 / 0.28);
+        --primary-glow: oklch(0.56 0.21 259 / 0.18);
         --accent-glow: var(--primary-soft);
         --touch-min: 44px;
+        --disabled-opacity: 0.6;
+        --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 3 1.8 21h20.4z'/%3E%3Cpath d='M12 10v4.4M12 18.2v.1'/%3E%3C/svg%3E");
+        /* Neutral hover/press wash. Was inlined as rgba(120,120,120,…)
+           at 16 sites, which does not flip with the theme. */
+        --wash: oklch(0.47 0.008 286 / 0.06);
+        --wash-strong: oklch(0.47 0.008 286 / 0.10);
 
-        /* === Aurora system v2.3.0 — distinctive surface tokens ===
-           Brand gradient + glass surfaces. Adds visible identity without
-           rewriting layout. Used by sidebar-brand, .kpi-tile.is-primary,
-           .btn-submit hover, glass topbar. */
-        /* flat signal — no decorative gradient; buttons fill with primary */
-        --aurora-grad: var(--primary);
-        --aurora-grad-soft: transparent;
-        --topbar-glass: oklch(0.975 0.004 240 / 0.85);
-        --card-shadow-lift: none;
-        --card-shadow-hover: none;
+        /* --- status, split by job -----------------------------------
+           Same reasoning as --btn-fill vs --primary: a colour bright
+           enough to read as a *signal* at dot size is not dark enough
+           to carry text. Three jobs, three values.
+             --ok / --warn / --err       dots, borders, tinted fills
+             --ok-text / …               status text on a page surface
+             --ok-fill / …               solid buttons carrying white
+           Measured: light --warn as text was 2.58:1, --ok 3.02:1, and
+           white on --ok fill was 1.87:1 in dark. All now clear 4.5:1.
+           Fills are theme-invariant — white-on-fill contrast does not
+           depend on what is behind the button. */
+        --ok-text:   oklch(0.52 0.17 147);   /* 5.05:1 on card */
+        --warn-text: oklch(0.55 0.16 62);    /* 5.05:1 on card */
+        --err-text:  oklch(0.58 0.22 27);    /* 4.78:1 on card */
+        --ok-fill:   oklch(0.52 0.17 147);   /* white 5.0:1 */
+        --warn-fill: oklch(0.55 0.16 62);    /* white 5.0:1 */
+        --err-fill:  oklch(0.56 0.22 27);    /* white 5.1:1 */
 
-        /* === Signal Terminal texture tokens === blueprint dot-grid (now live).
-           --grid-line carries the faint ink of the engineering grid; --grid-size
-           is the lattice pitch. --scanline retired (transparent legacy alias). */
-        --scanline: transparent;
-        --grid-line: oklch(0.20 0.012 245 / 0.05);
-        --grid-size: 22px;
+        /* --- z-index scale (DESIGN.md §Z-index) ---------------------
+           One ladder, no ad-hoc values. Anything that needs to sit
+           above something else picks a rung; it does not invent 9999. */
+        --z-dropdown: 100;
+        --z-sticky:   200;
+        --z-scrim:    300;
+        --z-modal:    400;
+        --z-toast:    500;
+        --z-cmdk:     600;
 
-        /* === Motion tokens (Signal Terminal) ===
-           --ease-out: standard decel curve. --ease-spring: linear() spring (no JS).
-           Durations follow Emil Kowalski's restraint: micro 150–220ms, macro ≤400ms. */
+        /* --- system fills (Apple's fill hierarchy) ------------------ */
+        --ios-fill: oklch(0.47 0.008 286 / 0.10);
+        --ios-fill-quat: oklch(0.47 0.008 286 / 0.05);
+        --ios-overlay: oklch(0.14 0.006 286 / 0.32);  /* dimming scrim  */
+
+        /* ============================================================
+           Materials — translucency as a floating functional layer.
+           Chrome (topbar, tab bar, sheets, menus) is a material with
+           content scrolling *under* it, not an opaque strip. Weight
+           encodes hierarchy: thin for small floating chips, regular for
+           bars, thick for surfaces that must carry their own content.
+           Never stack one light material directly on another.
+           ============================================================ */
+        /* --mat-thin / --mat-blur-thin: defined but not yet applied to any
+           component — the "thin" tier of this 3-tier system, kept for a
+           future small-floating-chip surface. */
+        --mat-thin: oklch(1 0 0 / 0.62);
+        --mat-regular: oklch(1 0 0 / 0.76);
+        --mat-thick: oklch(0.99 0.002 286 / 0.90);
+        --mat-blur-thin: saturate(180%) blur(20px);
+        --mat-blur-regular: saturate(180%) blur(30px);
+        --mat-blur-thick: saturate(190%) blur(40px);
+        /* Bright top edge = light catching the material. */
+        --mat-edge: oklch(1 0 0 / 0.55);
+        --topbar-glass: var(--mat-regular);
+
+        /* --- elevation ----------------------------------------------
+           Bigger surfaces read as thicker: more blur, deeper shadow.
+           Three steps only; anything else is decoration. */
+        --shadow-1: 0 1px 2px oklch(0 0 0 / 0.05), 0 1px 3px oklch(0 0 0 / 0.04);
+        --shadow-2: 0 2px 6px oklch(0 0 0 / 0.06), 0 8px 20px -6px oklch(0 0 0 / 0.10);
+        --shadow-3: 0 4px 12px oklch(0 0 0 / 0.08), 0 20px 48px -12px oklch(0 0 0 / 0.20);
+        --card-shadow: var(--shadow-1);
+        --card-shadow-hover: var(--shadow-2);
+
+        /* ============================================================
+           Motion — springs, not durations.
+           Apple parameterises springs by damping ratio (overshoot) and
+           response (how fast it reaches target), not mass/stiffness.
+           These linear() curves are sampled from those springs so plain
+           CSS transitions get spring behaviour with no JS:
+
+             --spring-smooth  damping 1.0 · response 0.40  (default)
+             --spring-snappy  damping 1.0 · response 0.28  (small UI)
+             --spring-drawer  damping 0.8 · response 0.30  (sheets)
+
+           Critically damped is the house default. Bounce is reserved
+           for motion the user's own gesture put in flight — overshoot
+           on a menu that merely faded in feels wrong; overshoot on a
+           card you flicked feels right. Gesture-driven motion uses the
+           WAAPI/spring path in app.js instead, because a transition
+           cannot inherit release velocity.
+           ============================================================ */
+        --spring-smooth: linear(0, 0.0209, 0.0725, 0.1419, 0.2201, 0.3008, 0.3801, 0.4553, 0.5249, 0.5883, 0.6452, 0.6957, 0.74, 0.7788, 0.8123, 0.8412, 0.8661, 0.8873, 0.9053, 0.9206, 0.9336, 0.9445, 0.9537, 0.9615, 0.968, 0.9734, 0.9779, 0.9817, 0.9848, 0.9875, 0.9896, 0.9914, 0.9929, 0.9942, 0.9952, 0.996, 0.9967, 0.9973, 0.9978, 0.9982, 0.9985);
+        --spring-snappy: linear(0, 0.0217, 0.0751, 0.1465, 0.2266, 0.309, 0.3895, 0.4656, 0.5357, 0.5993, 0.656, 0.7062, 0.75, 0.7881, 0.821, 0.8493, 0.8734, 0.8939, 0.9113, 0.9259, 0.9383, 0.9487, 0.9574, 0.9647, 0.9707, 0.9758, 0.98, 0.9835, 0.9864, 0.9888, 0.9908, 0.9924, 0.9938, 0.9949, 0.9958, 0.9966, 0.9972, 0.9977, 0.9981, 0.9985, 0.9987);
+        --spring-drawer: linear(0, 0.0196, 0.07, 0.1406, 0.2231, 0.3109, 0.3993, 0.4848, 0.5651, 0.6387, 0.7048, 0.763, 0.8134, 0.8564, 0.8925, 0.9223, 0.9465, 0.9658, 0.9809, 0.9924, 1.0009, 1.0069, 1.011, 1.0135, 1.0148, 1.0152, 1.0149, 1.0141, 1.013, 1.0118, 1.0105, 1.0091, 1.0078, 1.0066, 1.0055, 1.0045, 1.0036, 1.0028, 1.0022, 1.0016, 1.0012);
+        /* Spring settle times — a spring has no "duration", but a CSS
+           transition needs one; these are the sampled windows above. */
+        --dur-spring: 560ms;
+        --dur-spring-snappy: 400ms;
+        --dur-drawer: 400ms;
+        /* Non-spring curves: presses and colour changes. */
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-        --ease-spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849, 0.945 35.3%, 1.005 40.4%, 1.04 46.7%, 1.05, 1.049 56.7%, 1.029 67.5%, 1.001 79.4%, 0.991 86.5%, 0.998 100%);
-        --dur-micro: 180ms;
-        --dur-macro: 360ms;
+        --dur-press: 110ms;   /* press feedback must beat perception   */
+        --dur-micro: 200ms;
+        --dur-macro: 320ms;
 
-        /* === iOS-native tokens v2.4.0 — typography & shapes ===
-           iOS HIG values (34pt large title, 17pt headline, 16pt callout, 15pt body,
-           continuous-corner radii).
-           v2.5.0: desktop port — ios-page-header / ios-form-* / tb-section-title
-           promoted out of the mobile MQ; mobile-only tokens (large-title shrinks)
-           are still scoped via media queries. */
+        /* --- iOS type sizes (unchanged contract) -------------------- */
         --text-headline: 17px;
         --text-body-ios: 15px;
         --text-large-title: 34px;
-        --text-large-title-md: 30px;   /* ≤480 shrink */
-        --text-large-title-sm: 28px;   /* ≤360 shrink */
-        --text-large-title-lg: 40px;   /* ≥769px desktop */
-        --radius-ios: 12px;
-        --radius-ios-sm: 10px;
-        --hairline: oklch(0.20 0.012 245 / 0.08);
-        --ios-fill: oklch(0.46 0.012 245 / 0.10);
-        --ios-fill-quat: oklch(0.46 0.012 245 / 0.05);
-        --ios-overlay: oklch(0.14 0.008 245 / 0.5);
+        --text-large-title-md: 30px;
+        --text-large-title-sm: 28px;
+        --text-large-title-lg: 40px;
     }
 
     body.dark {
-        /* === Signal Terminal v1.0 — instrument identity (dark · default) ===
-           Deep slate surfaces (never pure black, so it reads calm not glaring),
-           the cyan accent goes luminous so primary actions and live status feel
-           alive. on-primary flips to near-black: a bright cyan button needs
-           dark glyphs to stay ≥4.5:1. */
-        --primary: oklch(0.80 0.13 200);
-        --primary-hover: oklch(0.86 0.11 200);
-        --btn-fill: oklch(0.80 0.14 200);
-        --btn-fill-hover: oklch(0.86 0.12 200);
-        --on-primary: oklch(0.16 0.02 230);
-        --bg: oklch(0.16 0.008 245);
-        --card: oklch(0.195 0.009 245);
-        --text: oklch(0.95 0.006 230);
-        --text-sec: oklch(0.64 0.012 240);
-        --border: oklch(0.95 0.006 230 / 0.09);
-        /* surfaces (dark) */
-        --surface: oklch(0.195 0.009 245);
-        --surface-2: oklch(0.24 0.01 245);
-        --sidebar-bg: oklch(0.13 0.007 245);
-        --ok: oklch(0.80 0.17 150);
-        --warn: oklch(0.82 0.15 75);
-        --err: oklch(0.68 0.20 25);
-        --card-shadow: none;
+        /* ============================================================
+           Aqua v1.0 — dark. Elevated greys (#1C1C1E / #2C2C2E family),
+           never pure black: a dashboard read for hours wants a surface,
+           not a hole. systemBlue goes brighter, status colours go
+           luminous, and the button fill stays deep enough that white
+           labels still clear 4.5:1.
+           ============================================================ */
+        --primary: oklch(0.64 0.19 258);
+        --primary-hover: oklch(0.70 0.17 258);
+        --btn-fill: oklch(0.56 0.21 258);
+        --btn-fill-hover: oklch(0.61 0.20 258);
+        --on-primary: oklch(1 0 0);
 
-        /* dark-mode overrides for tokens whose value differs */
-        --ok-soft:   oklch(0.80 0.17 150 / 0.14);   --ok-ring:   oklch(0.80 0.17 150 / 0.28);
-        --warn-soft: oklch(0.82 0.15 75 / 0.14);    --warn-ring: oklch(0.82 0.15 75 / 0.28);
-        --err-soft:  oklch(0.68 0.20 25 / 0.14);    --err-ring:  oklch(0.68 0.20 25 / 0.28);
-        --primary-soft: oklch(0.80 0.13 200 / 0.14);
-        --primary-ring: oklch(0.80 0.13 200 / 0.30);
-        --primary-glow: oklch(0.80 0.13 200 / 0.32);
+        --bg: oklch(0.215 0.004 286);
+        --card: oklch(0.265 0.004 286);
+        --surface: oklch(0.265 0.004 286);
+        --surface-2: oklch(0.315 0.004 286);
+        --sidebar-bg: oklch(0.185 0.004 286);
 
-        /* flat signal — dark variant */
-        --aurora-grad: var(--primary);
-        --aurora-grad-soft: transparent;
-        --topbar-glass: oklch(0.16 0.008 245 / 0.82);
-        --card-shadow-lift: none;
-        --card-shadow-hover: none;
+        --text: oklch(0.985 0 0);
+        --text-sec: oklch(0.72 0.006 286);
+        --text-ter: oklch(0.68 0.006 286);   /* 5.3:1 on --card */
 
-        /* blueprint dot-grid — dark variant (faint cool ink) */
-        --scanline: transparent;
-        --grid-line: oklch(0.95 0.006 230 / 0.05);
+        --border: oklch(1 0 0 / 0.13);
+        --hairline: oklch(1 0 0 / 0.09);
 
-        /* iOS-native tokens — dark variant */
-        --hairline: oklch(0.95 0.006 230 / 0.07);
-        --ios-fill: oklch(0.64 0.012 240 / 0.14);
-        --ios-fill-quat: oklch(0.64 0.012 240 / 0.07);
-        --ios-overlay: oklch(0 0 0 / 0.65);
+        --ok: oklch(0.78 0.18 147);
+        --warn: oklch(0.79 0.16 66);
+        --err: oklch(0.66 0.21 27);
+
+        /* Dark status colours are luminous enough to read as text as-is
+           (8.17:1 / 7.66:1). Only --err needed lifting: at 0.66 it sat
+           at 4.46:1 on --card, a hair under AA. Fills are inherited
+           from :root — white-on-fill does not care about the theme. */
+        --ok-text:   oklch(0.78 0.18 147);
+        --warn-text: oklch(0.79 0.16 66);
+        --err-text:  oklch(0.70 0.20 27);
+
+        --ok-soft:   oklch(0.78 0.18 147 / 0.16);  --ok-ring:   oklch(0.78 0.18 147 / 0.30);
+        --warn-soft: oklch(0.79 0.16 66 / 0.16);   --warn-ring: oklch(0.79 0.16 66 / 0.30);
+        --err-soft:  oklch(0.66 0.21 27 / 0.16);   --err-ring:  oklch(0.66 0.21 27 / 0.30);
+        --primary-soft: oklch(0.64 0.19 258 / 0.16);
+        --primary-ring: oklch(0.64 0.19 258 / 0.34);
+        --primary-glow: oklch(0.64 0.19 258 / 0.26);
+
+        --ios-fill: oklch(0.72 0.006 286 / 0.16);
+        --ios-fill-quat: oklch(0.72 0.006 286 / 0.08);
+        --ios-overlay: oklch(0 0 0 / 0.55);
+        --wash: oklch(1 0 0 / 0.07);
+        --wash-strong: oklch(1 0 0 / 0.12);
+
+        /* Dark materials are darker than the surface they float over,
+           so chrome reads as a layer above the content, not a fog. */
+        --mat-thin: oklch(0.24 0.004 286 / 0.60);
+        --mat-regular: oklch(0.235 0.004 286 / 0.74);
+        --mat-thick: oklch(0.21 0.004 286 / 0.88);
+        --mat-edge: oklch(1 0 0 / 0.10);
+        --topbar-glass: var(--mat-regular);
+
+        --shadow-1: 0 1px 2px oklch(0 0 0 / 0.30), 0 1px 3px oklch(0 0 0 / 0.24);
+        --shadow-2: 0 2px 6px oklch(0 0 0 / 0.34), 0 8px 20px -6px oklch(0 0 0 / 0.46);
+        --shadow-3: 0 4px 12px oklch(0 0 0 / 0.40), 0 20px 48px -12px oklch(0 0 0 / 0.62);
+        --card-shadow: var(--shadow-1);
+        --card-shadow-hover: var(--shadow-2);
     }
 
     * { box-sizing: border-box; touch-action: manipulation; }
     body {
-        font-family: var(--font-sans); background-color: var(--bg); color: var(--text);
+        font-family: var(--font-sans);
+        font-optical-sizing: auto;
+        font-size: var(--text-base);
+        line-height: var(--leading-body);
+        letter-spacing: var(--tracking-body);
+        background-color: var(--bg); color: var(--text);
         margin: 0; padding: var(--space-5); -webkit-text-size-adjust: 100%;
-        transition: background-color 0.4s ease, color 0.4s ease;
+        /* Ease the light↔dark swap: an abrupt brightness jump is one of
+           the motion-sensitivity triggers Apple calls out. */
+        transition: background-color var(--dur-macro) ease, color var(--dur-macro) ease;
     }
-    /* Blueprint dot-grid: the Signal Terminal signature surface. A faint
-       engineering lattice (radial dots) fixed behind all content; alpha lives in
-       --grid-line so it adapts per-theme. Top-biased mask adds depth without
-       fighting dense readouts lower on the page. */
-    body::after {
-        content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-        background-image: radial-gradient(var(--grid-line) 1.1px, transparent 1.3px);
-        background-size: var(--grid-size) var(--grid-size);
-        background-position: center top;
-        -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 38%, color-mix(in oklch, #000 55%, transparent) 100%);
-                mask-image: linear-gradient(180deg, #000 0%, #000 38%, color-mix(in oklch, #000 55%, transparent) 100%);
+    /* Continuous (squircle) corners where the engine has them. Pure
+       progressive enhancement: unsupported browsers keep plain radii. */
+    @supports (corner-shape: squircle) {
+        .card, .emby-card, .btn-tier, .btn-submit, .menu, .cmdk-panel,
+        .a-input, .a-select, .search-input, .icon-btn, .a-icon-btn,
+        .tb-icon-btn, .nav-item, .subtab, .stats-panel,
+        .curl-modal, .em-modal, .node-row { corner-shape: squircle; }
+    }
+
+    /* ============================================================
+       Press feedback — the foundation everything else sits on.
+       :active fires on pointer-DOWN, so the surface answers the
+       finger rather than the release. Zero-specificity :where() so
+       any component can still opt out or override.
+       ============================================================ */
+    :where(button, [role="button"], .nav-item, .subtab, .pill, .chip,
+           .icon-btn, .a-icon-btn, .tb-icon-btn, .btn-tier, .cmdk-item,
+           .m-pill, .node-row, .a-add-row) {
+        -webkit-tap-highlight-color: transparent;
+        transition: transform var(--dur-press) ease-out,
+                    background-color var(--dur-micro) ease,
+                    color var(--dur-micro) ease,
+                    border-color var(--dur-micro) ease,
+                    box-shadow var(--dur-micro) ease;
+    }
+    :where(button, [role="button"], .nav-item, .subtab, .pill, .chip,
+           .icon-btn, .a-icon-btn, .tb-icon-btn, .btn-tier, .cmdk-item,
+           .m-pill, .a-add-row):active:not(:disabled) {
+        transform: scale(0.97);
+    }
+
+    /* ============================================================
+       Accessibility — three independent signals, all honoured.
+       Reduced motion means gentler motion, not none: position and
+       spring motion go, opacity and colour stay so state changes
+       remain readable.
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 1ms !important;
+            animation-iteration-count: 1 !important;
+            transition-property: opacity, background-color, color, border-color, fill, stroke !important;
+            transition-duration: var(--dur-micro) !important;
+            transition-timing-function: ease !important;
+            scroll-behavior: auto !important;
+        }
+        :where(button, [role="button"], .btn-tier, .pill, .chip):active:not(:disabled) {
+            transform: none;
+        }
+    }
+    /* Translucency off → frost the materials solid and drop the blur;
+       legibility beats depth whenever the user has asked for it. */
+    @media (prefers-reduced-transparency: reduce) {
+        :root {
+            --mat-thin: var(--card);
+            --mat-regular: var(--card);
+            --mat-thick: var(--card);
+            --mat-blur-thin: none;
+            --mat-blur-regular: none;
+            --mat-blur-thick: none;
+        }
+        body.dark { --mat-thin: var(--card); --mat-regular: var(--card); --mat-thick: var(--card); }
+    }
+    /* High contrast → near-solid surfaces with a defined border. */
+    @media (prefers-contrast: more) {
+        :root {
+            --border: oklch(0.17 0.006 286 / 0.38);
+            --hairline: oklch(0.17 0.006 286 / 0.28);
+            --text-sec: oklch(0.36 0.008 286);
+            --text-ter: oklch(0.42 0.008 286);
+            --mat-thin: var(--card); --mat-regular: var(--card); --mat-thick: var(--card);
+            --mat-blur-thin: none; --mat-blur-regular: none; --mat-blur-thick: none;
+        }
+        body.dark {
+            --border: oklch(1 0 0 / 0.40);
+            --hairline: oklch(1 0 0 / 0.28);
+            --text-sec: oklch(0.86 0.006 286);
+            --text-ter: oklch(0.78 0.006 286);
+            --mat-thin: var(--card); --mat-regular: var(--card); --mat-thick: var(--card);
+        }
+    }
+
+    /* ============================================================
+       Typography — hierarchy built from size + weight + tracking +
+       leading as a set. Tracking tightens as text grows; leading
+       loosens as it shrinks.
+       ============================================================ */
+    h1, .ios-large-title, .login-box h2 {
+        letter-spacing: var(--tracking-large);
+        line-height: var(--leading-large);
+        font-weight: 700;
+    }
+    h2, .section-title, .cv-headline, .a-stat-val, .sig-v {
+        letter-spacing: var(--tracking-title);
+        line-height: var(--leading-title);
+    }
+    h3, h4, .a-name, .btn-tier, .btn-submit, .nav-item, .cmdk-input {
+        letter-spacing: var(--tracking-headline);
+    }
+    .a-detail-label, .info-label, .sig-k, .a-stat-label, small, .sidebar-version {
+        letter-spacing: var(--tracking-caption);
+    }
+    .sd-eyebrow, .stats-head-sub {
+        letter-spacing: var(--tracking-label);
     }
     /* Instrument readouts: all numerals tabular so columns of figures align. */
     .mono, .tnum { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
     /* === Nexus signature components === */
-    /* Section label: mono, uppercase, gold dot prefix — the section voice. */
-    .op-label { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); display: inline-flex; align-items: center; gap: var(--space-2); background: var(--primary-soft); padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2); border-radius: var(--radius-pill); border-left: 2px solid currentColor; }
-    .op-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-    /* Gold caret — the "live, awaiting input" memory point. */
-    .op-caret { display: inline-block; width: 0.55em; height: 1.05em; vertical-align: -0.18em; margin-left: 2px; background: var(--primary); box-shadow: 0 0 8px var(--primary-glow); animation: op-blink 1.05s steps(1) infinite; }
-    @keyframes op-blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
     @keyframes op-pulse { 0%,100% { box-shadow: 0 0 0 0 var(--primary-glow); } 50% { box-shadow: 0 0 7px 1px var(--primary-glow); } }
     @keyframes nx-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     @keyframes nx-fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes nx-scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
-    @keyframes nx-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.6; } }
     @keyframes nx-glow-pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--primary-glow); } 50% { box-shadow: 0 0 14px 3px var(--primary-glow); } }
     @keyframes nx-slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-    @keyframes nx-count { from { opacity: 0; transform: translateY(6px); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
     @keyframes forge-reveal { from { opacity: 0; transform: translateY(20px) scale(0.97); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
     @keyframes forge-notch-flash { 0%, 100% { border-color: transparent var(--primary-soft) transparent transparent; } 50% { border-color: transparent var(--primary-ring) transparent transparent; } }
 
-    /* === CSS-native motion layer (Signal Terminal, 2026) === */
-    /* Animatable integer for native number count-up (Chrome/Chromium; degrades
-       to the final value elsewhere). A .nx-counter element animates --num and
-       renders it via counter() so big readouts tick up on reveal. JS may set
-       --num as a custom property to drive live values. */
-    @property --num { syntax: '<integer>'; inherits: false; initial-value: 0; }
-    .nx-counter { counter-reset: num var(--num); }
-    .nx-counter::after { content: counter(num); font-variant-numeric: tabular-nums; }
     /* View Transitions: section cross-fade (driven by document.startViewTransition
        in showSection). Outgoing snapshot fades out; incoming fades + rises in
        (enter heavier than exit, per Emil Kowalski). Progressive enhancement. */
@@ -209,21 +416,7 @@
     @media (prefers-reduced-motion: reduce) {
         ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
     }
-    /* Scroll-driven staggered reveal — opt-in via .sd-reveal on a scroller's
-       children. Pure progressive enhancement: ignored where unsupported, leaving
-       elements in their final state. */
-    @supports (animation-timeline: view()) {
-        @media (prefers-reduced-motion: no-preference) {
-            .sd-reveal > * {
-                animation: nx-up linear both;
-                animation-timeline: view();
-                animation-range: entry 0% entry 38%;
-            }
-        }
-    }
     @media (prefers-reduced-motion: reduce) {
-        .op-caret { animation: none; }
-        .sd-reveal > * { animation: none !important; }
         .node-grid > * { animation: none !important; }
         .card::after { transition: none; }
         .emby-card::after { transition: none; }
@@ -232,11 +425,14 @@
     .content-wrap { flex: 1; }
     input, select, button, textarea { font-family: inherit; outline: none; font-size: var(--text-lg); }
     
-    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid var(--border); position: relative; overflow: hidden; transition: box-shadow var(--dur-macro) var(--ease-out), border-color var(--dur-macro) var(--ease-out), transform var(--dur-macro) var(--ease-out); }
-    /* Corner registration tick — instrument-panel signature (top-right L bracket). */
-    .card::after { content: ''; position: absolute; top: 11px; right: 11px; width: 9px; height: 9px; border-top: 1.5px solid var(--primary-ring); border-right: 1.5px solid var(--primary-ring); opacity: 0.55; transition: opacity var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out); pointer-events: none; }
-    .card:hover { box-shadow: 0 10px 30px -10px oklch(0 0 0 / 0.30), 0 0 0 1px var(--primary-ring); border-color: var(--primary-ring); transform: translateY(-2px); }
-    .card:hover::after { opacity: 1; border-color: var(--primary); }
+    /* Depth comes from elevation, not ornament: a hairline, a soft shadow,
+       and a second shadow step on hover. The corner registration tick is
+       gone — it was decoration that every card paid for. */
+    .card { background: var(--card); padding: var(--space-6); border-radius: var(--radius-lg); margin-bottom: var(--space-6); border: 1px solid var(--hairline); box-shadow: var(--card-shadow); position: relative; transition: box-shadow var(--dur-macro) var(--ease-out), border-color var(--dur-macro) var(--ease-out); }
+    /* Hover is a pointer affordance; touch devices fire it on tap, so gate it. */
+    @media (hover: hover) and (pointer: fine) {
+        .card:hover { box-shadow: var(--card-shadow-hover); border-color: var(--border); }
+    }
 
     /* === Operations Cockpit: 内层子分区 tab 条 === */
     .subtab-bar { display: none; gap: var(--space-1); align-items: flex-end; margin-bottom: var(--space-5); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
@@ -251,13 +447,12 @@
     .cockpit-verdict {
         display: flex; align-items: center; gap: var(--space-4);
         background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        border-left: 3px solid var(--primary);
         padding: var(--space-4) var(--space-5); margin-bottom: var(--space-3);
     }
     .cv-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; background: var(--text-sec); }
-    .cv-dot.ok { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); animation: nx-breathe 3s ease-in-out infinite; }
-    .cv-dot.warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); animation: nx-breathe 2.4s ease-in-out infinite; }
-    .cv-dot.err { background: var(--err); box-shadow: 0 0 0 4px var(--err-soft); animation: nx-breathe 1.6s ease-in-out infinite; }
+    .cv-dot.ok { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+    .cv-dot.warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+    .cv-dot.err { background: var(--err); box-shadow: 0 0 0 4px var(--err-soft); }
     .cv-dot.idle { background: var(--text-sec); }
     .cv-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
     .cv-headline { font-size: var(--text-2xl); font-weight: 700; letter-spacing: -0.01em; color: var(--text); line-height: 1.15; }
@@ -280,7 +475,7 @@
     .sig-k { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-sec); }
     .sig-v { font-family: var(--font-mono); font-size: var(--text-3xl); font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; display: inline-flex; align-items: baseline; gap: 3px; }
     .sig-v .sig-u { font-size: var(--text-base); font-weight: 600; color: var(--text-sec); }
-    .sig-v .is-bad { color: var(--err); }
+    .sig-v .is-bad { color: var(--err-text); }
     .sig-sub { font-size: var(--text-xs); color: var(--text-sec); }
     @media (max-width: 768px) {
         .cockpit-verdict { flex-wrap: wrap; gap: var(--space-3); }
@@ -297,9 +492,12 @@
     .tb-cmdk svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
     .tb-cmdk-kbd { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.04em; }
 
-    #cmdk { position: fixed; inset: 0; z-index: 600; display: none; justify-content: center; align-items: flex-start; padding: 12vh var(--space-4) var(--space-4); background: var(--ios-overlay); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-    #cmdk.is-open { display: flex; animation: nx-fade var(--dur-micro) var(--ease-out); }
-    .cmdk-panel { width: 100%; max-width: 560px; max-height: 64vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: 0 24px 60px -12px oklch(0 0 0 / 0.5); overflow: hidden; animation: nx-scale-in var(--dur-macro) var(--ease-spring); }
+    /* No enter animation, deliberately. The palette is opened by keyboard
+       dozens of times a day; any transition on that path reads as lag on
+       every single invocation. It appears the instant it is asked for. */
+    #cmdk { position: fixed; inset: 0; z-index: var(--z-cmdk); display: none; justify-content: center; align-items: flex-start; padding: 12vh var(--space-4) var(--space-4); background: var(--ios-overlay); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    #cmdk.is-open { display: flex; }
+    .cmdk-panel { width: 100%; max-width: 560px; max-height: 64vh; display: flex; flex-direction: column; background: var(--mat-thick); -webkit-backdrop-filter: var(--mat-blur-thick); backdrop-filter: var(--mat-blur-thick); border: 1px solid var(--mat-edge); border-radius: var(--radius-xl); box-shadow: var(--shadow-3); overflow: hidden; }
     .cmdk-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
     .cmdk-ico { width: 18px; height: 18px; fill: none; stroke: var(--text-sec); stroke-width: 2; flex: 0 0 auto; }
     .cmdk-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font-size: var(--text-xl); outline: none; }
@@ -313,23 +511,72 @@
     .cmdk-hint { font-size: var(--text-sm); color: var(--text-sec); margin-left: auto; font-variant-numeric: tabular-nums; }
     .cmdk-empty { padding: var(--space-5); text-align: center; color: var(--text-sec); font-size: var(--text-md); }
     @media (max-width: 768px) { .tb-cmdk-kbd { display: none; } #cmdk { padding-top: 8vh; } }
-    @media (prefers-reduced-motion: reduce) { #cmdk.is-open, .cmdk-panel { animation: none; } }
     
-    #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--text); padding: var(--space-3) var(--space-6); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: top 0.5s cubic-bezier(0.16, 1, 0.3, 1); z-index: 9999; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); text-align: center; max-width: 90vw; word-wrap: break-word; border: 1px solid var(--border); box-shadow: 0 8px 32px oklch(0 0 0 / 0.15); }
-    #toast.show { top: 20px; }
+    /* Animating `top` moves the element through layout every frame. Springing
+       a transform keeps it on the compositor, and the same path carries it
+       back out — in from the top, out to the top. */
+    #toast { position: fixed; top: 20px; left: 50%; transform: translate(-50%, calc(-100% - 40px)); opacity: 0; background: var(--mat-thick); -webkit-backdrop-filter: var(--mat-blur-thick); backdrop-filter: var(--mat-blur-thick); color: var(--text); padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: transform var(--dur-spring) var(--spring-smooth), opacity var(--dur-micro) ease; z-index: var(--z-toast); text-align: center; max-width: 90vw; word-wrap: break-word; border: 1px solid var(--mat-edge); box-shadow: var(--shadow-3); }
+    #toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+    /* Failures used to render as the same neutral pill as successes and
+       vanish in the same 3s — in a monitoring product, "did that work?"
+       is the whole interaction loop. #toastAlert is the role="alert"
+       region; .is-error is the visual half, tinted + iconned so the
+       distinction survives without colour alone. */
+    #toastAlert { position: fixed; top: 20px; left: 50%; transform: translate(-50%, calc(-100% - 40px)); opacity: 0; background: var(--mat-thick); -webkit-backdrop-filter: var(--mat-blur-thick); backdrop-filter: var(--mat-blur-thick); color: var(--text); padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill); font-size: var(--text-base); font-weight: 500; transition: transform var(--dur-spring) var(--spring-smooth), opacity var(--dur-micro) ease; z-index: var(--z-toast); text-align: center; max-width: 90vw; word-wrap: break-word; border: 1px solid var(--mat-edge); box-shadow: var(--shadow-3); }
+    #toastAlert.show { transform: translate(-50%, 0); opacity: 1; }
+    #toast.is-error, #toastAlert.is-error {
+        border-color: var(--err-ring);
+        background: var(--err-soft);
+        color: var(--err-text);
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: var(--radius-lg);
+        text-align: left;
+    }
+    #toast.is-error::before, #toastAlert.is-error::before {
+        content: '';
+        display: inline-block; vertical-align: -2px;
+        width: 15px; height: 15px; margin-right: var(--space-2);
+        background: currentColor;
+        -webkit-mask: var(--icon-alert) center / contain no-repeat;
+                mask: var(--icon-alert) center / contain no-repeat;
+    }
+
+    /* Search field with a leading drawn glyph — replaces the 🔍 that was
+       standing in for the icon system in two placeholders. */
+    .search-wrap { position: relative; display: inline-flex; align-items: center; }
+    .search-wrap > svg {
+        position: absolute; left: var(--space-3); width: 16px; height: 16px;
+        fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round;
+        color: var(--text-ter); pointer-events: none;
+    }
+    .search-wrap > input { padding-left: calc(var(--space-3) + 16px + var(--space-2)); }
+
+    /* Sprite icons inherit their box from here rather than each call site
+       carrying width/height attributes. */
+    .ico { width: 18px; height: 18px; flex-shrink: 0; }
+    .wu-close .ico { width: 20px; height: 20px; }
+
+    /* Caption pair — collects the inline `font-size:var(--text-md);
+       color:var(--text-sec)` repeated ~15× in the markup. */
+    .caption { font-size: var(--text-md); color: var(--text-sec); letter-spacing: var(--tracking-caption); }
 
     .toolbar { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); align-items: center; }
-    .btn-submit { padding: var(--space-3) var(--space-6); background: var(--btn-fill); color: var(--on-primary); border: none; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); position: relative; overflow: hidden; text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--text-sm); }
-    .btn-submit::before { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, oklch(1 0 0 / 0.28) 50%, transparent 70%); transform: translateX(-130%); transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
-    .btn-submit:hover { background: linear-gradient(135deg, var(--btn-fill-hover) 0%, var(--btn-fill) 50%, var(--btn-fill-hover) 100%); box-shadow: 0 4px 20px var(--primary-glow), inset 0 1px 0 oklch(1 0 0 / 0.1); transform: translateY(-1px); }
-    .btn-submit:hover::before { transform: translateX(130%); }
-    .btn-submit:active { transform: translateY(0) scale(0.97); }
+    /* Sentence case, tracking tightened rather than blown open: an uppercase
+       wide-tracked label is terminal voice, not system voice. The shimmer
+       sweep is gone — it animated on every hover for no informational gain. */
+    .btn-submit { padding: var(--space-3) var(--space-5); background: var(--btn-fill); color: var(--on-primary); border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-2); transition: background-color var(--dur-micro) ease, transform var(--dur-press) ease-out, box-shadow var(--dur-micro) ease; position: relative; letter-spacing: var(--tracking-headline); font-size: var(--text-base); }
+    @media (hover: hover) and (pointer: fine) {
+        .btn-submit:hover { background: var(--btn-fill-hover); }
+    }
+    .btn-submit:active { transform: scale(0.97); }
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; background: var(--primary); }
     
     .table-wrapper { width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; background: var(--card); }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th, td { padding: var(--space-4); border-bottom: 1px solid var(--border); font-size: var(--text-base); vertical-align: middle; }
-    th { color: var(--text-sec); font-weight: 600; background: rgba(120,120,120,0.05); }
+    th { color: var(--text-sec); font-weight: 600; background: var(--wash); }
     tr:last-child td { border-bottom: none; }
     /* DNS 就绪提示条：用语义 token 而非硬编码 rgba，明暗主题统一。 */
     .dns-ready-hint.ok   { background: var(--ok-soft);   border: 1px solid var(--ok-ring);   color: var(--text); }
@@ -348,7 +595,7 @@
        globally so they never fall back to the browser-default blue. */
     input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
     
-    .action-group { display: inline-flex; gap: var(--space-2); background: rgba(120,120,120,0.05); padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-md); border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
+    .action-group { display: inline-flex; gap: var(--space-2); background: var(--wash); padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-md); border: 1px solid var(--border); align-items: flex-start; max-width: 100%; flex-wrap: wrap; }
     /* === Icon button family (v2.2.0) ===
        Canonical ghost-bordered icon button. Three intent classes share base rules:
          .icon-btn      — generic (= .a-icon-btn)
@@ -359,11 +606,11 @@
         width: 32px; height: 32px; border-radius: var(--radius-md);
         border: 1px solid var(--border); background: transparent;
         cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-        color: var(--text-sec); transition: 0.15s; padding: 0;
+        color: var(--text-sec); transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); padding: 0;
         font-size: var(--text-xl); flex-shrink: 0;
     }
     .icon-btn:hover, .a-icon-btn:hover { color: var(--text); background: var(--surface-2); border-color: var(--border); }
-    .icon-btn.danger-hover:hover, .a-icon-btn.danger-hover:hover, .hed-del:hover { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+    .icon-btn.danger-hover:hover, .a-icon-btn.danger-hover:hover, .hed-del:hover { color: var(--err-text); border-color: var(--err); background: var(--err-soft); }
     .icon-btn svg, .a-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
     .icon-btn.is-sm, .a-icon-btn.is-sm, .tb-icon-btn.is-sm { width: 28px; height: 28px; }
     .icon-btn.is-md, .a-icon-btn.is-md, .tb-icon-btn.is-md { width: 32px; height: 32px; }
@@ -371,9 +618,9 @@
     
     .badge { padding: var(--space-1) var(--space-2-5); border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; display: inline-block; }
     
-    .btn-edit { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--primary); border: 1px solid var(--primary); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; }
-    .btn-del { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--err); border: 1px solid var(--err); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; }
-    .btn-dns { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--ok); border: 1px solid var(--ok); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: 0.2s; white-space: nowrap; }
+    .btn-edit { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--primary); border: 1px solid var(--primary); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
+    .btn-del { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--err-text); border: 1px solid var(--err); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); }
+    .btn-dns { padding: var(--space-2) var(--space-3-5); background: var(--card); color: var(--ok-text); border: 1px solid var(--ok); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-md); font-weight: 600; transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); white-space: nowrap; }
     .btn-dns:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .ip-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
@@ -384,9 +631,7 @@
     .url-list-item { background: var(--bg); border: 1px solid var(--border); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: var(--text-sm); margin-top: var(--space-1-5); word-break: break-all; line-height: 1.4; color: var(--text); font-family: -apple-system, sans-serif; letter-spacing: normal; text-align: left; }
     .url-list-item:first-child { margin-top: 0; }
 
-    body.dark input, body.dark select, body.dark textarea { background: oklch(0.14 0.014 55); color: oklch(0.93 0.015 75); border: 1px solid oklch(0.93 0.015 75 / 0.10); }
-
-    .search-input { padding: var(--space-2-5) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: var(--text-base); width: 260px; transition: 0.3s; }
+    .search-input { padding: var(--space-2-5) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: var(--text-base); width: 260px; transition: color 0.3s var(--ease-out), background-color 0.3s var(--ease-out), border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out); }
     .search-input:focus, .a-input:focus, .a-select:focus, .hed-k:focus, .hed-v:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
 
     .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--space-5); margin-top: var(--space-5); }
@@ -397,21 +642,18 @@
     .node-grid > *:nth-child(4) { animation-delay: 0.24s; }
     .node-grid > *:nth-child(5) { animation-delay: 0.32s; }
     .node-grid > *:nth-child(n+6) { animation-delay: 0.4s; }
-    .emby-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3-5); position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-    .emby-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: opacity 0.4s ease; background: linear-gradient(135deg, var(--primary-soft), transparent 60%); pointer-events: none; }
-    .emby-card:hover { border-color: var(--primary-ring); box-shadow: 0 0 0 1px var(--primary-ring), 0 12px 32px -8px oklch(0 0 0 / 0.15); transform: translateY(-3px); }
-    .emby-card:hover::after { opacity: 1; }
+    .emby-card { background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius-xl); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3-5); position: relative; box-shadow: var(--card-shadow); transition: box-shadow var(--dur-macro) var(--ease-out), border-color var(--dur-macro) var(--ease-out); }
+    @media (hover: hover) and (pointer: fine) {
+        .emby-card:hover { border-color: var(--border); box-shadow: var(--card-shadow-hover); }
+    }
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 0.5px solid var(--hairline); padding-bottom: 12px; }
     .card-title-group, .a-head { display: flex; align-items: center; gap: var(--space-3); }
-    .emby-icon { font-size: var(--text-3xl); background: rgba(120,120,120,0.05); border-radius: var(--radius-md); padding: var(--space-1-5); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
+    .emby-icon { font-size: var(--text-3xl); background: var(--wash); border-radius: var(--radius-md); padding: var(--space-1-5); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; }
     .info-row { display: flex; align-items: flex-start; justify-content: space-between; font-size: var(--text-md); }
     .info-label { color: var(--text-sec); font-weight: 500; min-width: 65px; margin-top: var(--space-1); }
-    .card-footer { display: flex; justify-content: flex-end; gap: var(--space-2-5); margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .card-footer { display: flex; justify-content: flex-end; gap: var(--space-2-5); margin-top: auto; padding-top: 12px; border-top: 1px solid var(--hairline); }
 
-    .ping-badge { color: var(--text-sec); cursor: pointer; padding: var(--space-1) var(--space-2-5); background: rgba(120,120,120,0.05); border-radius: var(--radius-sm); font-size: var(--text-md); font-weight: 500; transition: 0.2s; border: 1px solid transparent; user-select: none; }
-    .ping-badge:hover { border-color: var(--border); background: var(--card); box-shadow: 0 2px 6px rgba(0,0,0,0.05); color: var(--primary); }
-
-    .icon-item { cursor: pointer; padding: var(--space-1-5); border-radius: var(--radius-md); border: 1px solid transparent; display: flex; justify-content: center; align-items: center; transition: 0.2s; background: var(--bg); height: 44px; }
+    .icon-item { cursor: pointer; padding: var(--space-1-5); border-radius: var(--radius-md); border: 1px solid transparent; display: flex; justify-content: center; align-items: center; transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out); background: var(--bg); height: 44px; }
     .icon-item:hover { border-color: var(--primary) !important; box-shadow: 0 2px 8px var(--primary-ring); transform: scale(1.05); }
     #iconGrid::-webkit-scrollbar { width: 6px; }
     #iconGrid::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-pill); }
@@ -440,10 +682,9 @@
     .a-meta .dot-sep, .a-stat-val.muted { color: var(--text-ter, #b0b0b5); }
     .a-mode { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: var(--text-sec); }
     .a-status-dot { width: 10px; height: 10px; min-width: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; transition: background 0.3s ease, box-shadow 0.3s ease; }
-    .a-status-dot.live, .m-pill .dot.green { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-    .a-status-dot.live { animation: nx-breathe 3s ease-in-out infinite; }
+    .a-status-dot.live, .m-pill .dot.green { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
     .a-status-dot.idle { background: var(--text-ter, #b0b0b5); }
-    .a-status-dot.warn, .m-pill .dot.amber { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+    .a-status-dot.warn, .m-pill .dot.amber { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
     .a-mode-badge { padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: var(--primary-soft); color: var(--primary); flex-shrink: 0; }
 
     .a-stats { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 0; padding: 14px 0; border-top: 0.5px solid var(--hairline); border-bottom: 0.5px solid var(--hairline); }
@@ -454,10 +695,10 @@
     .a-stat-val { font-size: var(--text-2xl); font-weight: 700; color: var(--text); line-height: 1.15; letter-spacing: -0.02em; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
     .topbar .tb-stat .val { font-variant-numeric: tabular-nums; }
     .a-stat-val .unit { font-size: var(--text-xs); font-weight: 600; color: var(--text-sec); margin-left: 2px; }
-    .a-stat-val.danger { color: var(--err); }
+    .a-stat-val.danger { color: var(--err-text); }
     .a-stat-sub { font-size: var(--text-xs); color: var(--text-sec); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .a-stat-sub.up { color: var(--ok); }
-    .a-stat-sub.down { color: var(--err); }
+    .a-stat-sub.up { color: var(--ok-text); }
+    .a-stat-sub.down { color: var(--err-text); }
 
     /* 媒体库计数条（卡片正面）：电影/剧集/集数 等 + 较昨日增量 */
     .a-counts { padding: var(--space-3) 0; border-bottom: 0.5px solid var(--hairline); }
@@ -468,18 +709,18 @@
     .a-count { display: inline-flex; align-items: baseline; gap: 5px; font-size: var(--text-sm); color: var(--text-sec); }
     .a-count b { font-size: var(--text-base); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
     .a-count-delta { font-style: normal; font-size: var(--text-xs); font-weight: 700; font-variant-numeric: tabular-nums; }
-    .a-count-delta.up { color: var(--ok); }
-    .a-count-delta.down { color: var(--err); }
+    .a-count-delta.up { color: var(--ok-text); }
+    .a-count-delta.down { color: var(--err-text); }
 
     .a-tags { display: flex; gap: var(--space-1-5); flex-wrap: wrap; align-items: center; min-height: 24px; }
-    .a-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: rgba(120,120,120,0.07); border: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; }
+    .a-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: var(--wash-strong); border: 1px solid var(--border); color: var(--text-sec); white-space: nowrap; }
     .a-tag svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
-    .a-tag.good { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-ring); }
-    .a-tag.warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-ring); }
+    .a-tag.good { color: var(--ok-text); background: var(--ok-soft); border-color: var(--ok-ring); }
+    .a-tag.warn { color: var(--warn-text); background: var(--warn-soft); border-color: var(--warn-ring); }
     .a-tag.grp { color: var(--primary); background: var(--primary-soft); border-color: var(--primary); }
     /* 节点矩阵行内分组小标签 */
     .grp-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 10px; font-weight: 700; letter-spacing: .02em; color: var(--primary); background: var(--primary-soft); border: 1px solid var(--primary); vertical-align: middle; }
-    .a-tag.danger { color: var(--err); background: var(--err-soft); border-color: var(--err-ring); }
+    .a-tag.danger { color: var(--err-text); background: var(--err-soft); border-color: var(--err-ring); }
     .a-tag.primary { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-ring); cursor: pointer; }
     .a-tag.primary:hover { background: var(--primary-ring); }
 
@@ -490,7 +731,7 @@
     .a-btn-edit:hover { border-color: var(--primary); color: var(--primary); }
     .a-btn-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 
-    .a-details { display: none; padding: var(--space-3-5); background: rgba(120,120,120,0.04); border-radius: var(--radius-md); border: 1px solid var(--border); margin-top: -4px; }
+    .a-details { display: none; padding: var(--space-3-5); background: var(--wash); border-radius: var(--radius-md); border: 1px solid var(--border); margin-top: -4px; }
     .a-details.open { display: block; }
     .a-detail-row { display: grid; grid-template-columns: 78px 1fr auto; gap: var(--space-2-5); align-items: center; padding: 6px 0; font-size: var(--text-sm); }
     .a-detail-row + .a-detail-row { border-top: 0.5px solid var(--hairline); }
@@ -500,8 +741,6 @@
     .a-detail-actions { display: flex; gap: var(--space-1); justify-self: end; }
     .a-detail-actions .a-icon-btn { width: 26px; height: 26px; }
     .a-detail-actions .a-icon-btn svg, .hed-del svg { width: 12px; height: 12px; }
-
-    /* 节点卡片是 ping-badge 的容器之一，但新版把 ping 放进 stat val，不再需要徽章样式 */
 
     /* ============================================================
        UI Suggestions v2.0.7 — 4-tier button system, dropdown menus,
@@ -517,43 +756,62 @@
         font: inherit; font-size: var(--text-md); font-weight: 600;
         cursor: pointer; white-space: nowrap;
         display: inline-flex; align-items: center; gap: var(--space-1-5);
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
+        transition: background-color var(--dur-micro) ease, border-color var(--dur-micro) ease,
+                    color var(--dur-micro) ease, transform var(--dur-press) ease-out;
     }
-    .btn-tier:hover { background: rgba(120,120,120,0.06); border-color: var(--text-sec); }
-    .btn-tier:active { transform: translateY(0); }
-    .btn-tier:disabled { opacity: 0.55; cursor: not-allowed; }
+    @media (hover: hover) and (pointer: fine) {
+        .btn-tier:hover { background: var(--ios-fill-quat); border-color: var(--border); }
+    }
+    /* Was translateY(0) — which silently cancelled the press feedback the
+       global layer grants every other control. */
+    .btn-tier:active:not(:disabled) { transform: scale(0.97); }
+    .btn-tier:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
     .btn-tier svg, .menu svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .btn-tier.is-primary { background: var(--primary); color: var(--bg); border-color: var(--primary); }
-    .btn-tier.is-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
-    .btn-tier.is-success { background: var(--ok); color: #fff; border-color: var(--ok); }
+    .btn-tier.is-primary { background: var(--btn-fill); color: var(--on-primary); border-color: var(--btn-fill); }
+    .btn-tier.is-primary:hover { background: var(--btn-fill-hover); border-color: var(--btn-fill-hover); }
+    .btn-tier.is-success { background: var(--ok-fill); color: var(--on-primary); border-color: var(--ok); }
     .btn-tier.is-success:hover, .btn-tier.is-danger:hover { filter: brightness(0.95); }
-    /* Amber secondary: a brand-signal action that reads as primary intent without
-       a wall of solid fill. Soft amber at rest, fills to gold on hover. */
+    /* Tinted secondary: a tinted action that reads as primary intent without a
+       wall of solid fill. Soft tint at rest, fills on hover. (.is-gold is a
+       legacy class name; the colour is systemBlue like everything else.) */
     .btn-tier.is-gold { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-ring); }
-    .btn-tier.is-gold:hover { background: var(--primary); color: var(--bg); border-color: var(--primary); }
+    .btn-tier.is-gold:hover { background: var(--btn-fill); color: var(--on-primary); border-color: var(--btn-fill); }
     .btn-tier.is-gold:disabled { background: var(--ios-fill-quat); color: var(--text-sec); border-color: var(--border); }
-    .btn-tier.is-danger  { background: var(--err); color: #fff; border-color: var(--err); }
+    .btn-tier.is-danger  { background: var(--err-fill); color: var(--on-primary); border-color: var(--err); }
     .btn-tier.is-ghost   { background: transparent; border-color: transparent; color: var(--text-sec); }
-    .btn-tier.is-ghost:hover { color: var(--text); background: rgba(120,120,120,0.07); }
+    .btn-tier.is-ghost:hover { color: var(--text); background: var(--wash-strong); }
     .btn-tier.is-sm { padding: var(--space-1-5) var(--space-3); font-size: var(--text-sm); }
     .v-sep { width: 1px; height: 22px; background: var(--border); align-self: center; }
 
     /* --- Generic dropdown menu --- */
     .menu-wrap { position: relative; display: inline-flex; }
+    /* Anchored to its trigger, not to its own centre: the menu grows out of
+       the button that opened it, so the spatial relationship is obvious.
+       allow-discrete + @starting-style let a plain transition drive a
+       display:none element, which stays interruptible where a keyframe
+       would restart from zero. */
     .menu {
         position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px;
-        background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: var(--space-1-5);
-        display: none; flex-direction: column; gap: 2px; z-index: 200;
+        background: var(--mat-thick); -webkit-backdrop-filter: var(--mat-blur-thick); backdrop-filter: var(--mat-blur-thick);
+        border: 1px solid var(--mat-edge); border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-3); padding: var(--space-1-5);
+        display: none; flex-direction: column; gap: 2px; z-index: var(--z-dropdown);
+        transform-origin: top right;
+        opacity: 0; transform: scale(0.96);
+        transition: opacity var(--dur-micro) var(--ease-out),
+                    transform var(--dur-spring-snappy) var(--spring-snappy),
+                    display var(--dur-spring-snappy) allow-discrete;
     }
     .menu.open, .curl-modal-bg.show { display: flex; }
+    .menu.open { opacity: 1; transform: scale(1); }
+    @starting-style { .menu.open { opacity: 0; transform: scale(0.96); } }
     .menu button {
         display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2-5); border-radius: var(--radius-md);
         border: none; background: transparent; color: var(--text); font: inherit; font-size: var(--text-md);
         text-align: left; cursor: pointer; width: 100%;
     }
-    .menu button:hover { background: rgba(120,120,120,0.07); }
-    .menu button.danger { color: var(--err); }
+    .menu button:hover { background: var(--ios-fill-quat); }
+    .menu button.danger { color: var(--err-text); }
     .menu button.danger:hover { background: var(--err-soft); }
     .menu hr { border: none; border-top: 0.5px solid var(--hairline); margin: 4px 6px; opacity: 0.6; }
 
@@ -572,7 +830,7 @@
     .a-input, .a-select {
         padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
         background: var(--card); color: var(--text); font: inherit; font-size: var(--text-base);
-        outline: none; width: 100%; transition: 0.15s;
+        width: 100%; transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
     }
     .a-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-2-5); }
     .a-row.two { grid-template-columns: 1fr 1fr; }
@@ -582,7 +840,7 @@
         text-align: center; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.04em;
     }
     .a-tag-pri { background: var(--primary-soft); color: var(--primary); }
-    .a-tag-bk  { background: rgba(120,120,120,0.1); color: var(--text-sec); }
+    .a-tag-bk  { background: var(--wash); color: var(--text-sec); }
     .a-add-row {
         align-self: flex-start;
         display: inline-flex; align-items: center; gap: var(--space-1-5);
@@ -607,7 +865,7 @@
     .a-footer .a-footer-aux { color: var(--text-sec); font-size: var(--text-sm); }
 
     /* --- Headers Editor --- */
-    .hed { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3-5) var(--space-4); background: rgba(120,120,120,0.025); }
+    .hed { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3-5) var(--space-4); background: var(--wash); }
     .hed-head { display: grid; grid-template-columns: 22px 1fr 1.4fr 44px 32px; gap: var(--space-2); align-items: center; padding: 0 4px 8px 4px; font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.06em; }
     .hed-list { display: flex; flex-direction: column; gap: var(--space-1-5); }
     .hed-row {
@@ -616,14 +874,14 @@
         transition: background 0.15s;
     }
     .hed-row.dragging { opacity: 0.35; }
-    .hed-row.disabled .hed-k, .hed-row.disabled .hed-v { opacity: 0.45; }
-    .hed-row:hover { background: rgba(120,120,120,0.05); }
+    .hed-row.disabled .hed-k, .hed-row.disabled .hed-v { opacity: var(--disabled-opacity); }
+    .hed-row:hover { background: var(--wash); }
     .hed-handle { cursor: grab; color: var(--text-sec); opacity: 0.5; text-align: center; user-select: none; font-size: var(--text-md); line-height: 1; padding: 8px 0; }
     .hed-k, .hed-v {
         width: 100%; padding: 9px 12px; border: 1px solid var(--border);
         border-radius: var(--radius-md); background: var(--card); color: var(--text);
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-md);
-        outline: none; transition: 0.15s;
+        transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
     }
     .hed-v-wrap { position: relative; }
     .hed-v-wrap .mask-btn {
@@ -638,7 +896,7 @@
         width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius-md);
         background: transparent; color: var(--text-sec); cursor: pointer;
         display: flex; align-items: center; justify-content: center; font-size: var(--text-base);
-        transition: 0.15s; justify-self: center;
+        transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); justify-self: center;
     }
     .hed-footer { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-3-5); flex-wrap: wrap; gap: var(--space-2-5); }
     .hed-meta { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); color: var(--text-sec); }
@@ -649,8 +907,8 @@
     .chip {
         display: inline-flex; align-items: center; gap: var(--space-1);
         padding: 5px 10px; border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600;
-        background: rgba(120,120,120,0.08); color: var(--text-sec); border: 1px solid var(--border);
-        cursor: pointer; transition: 0.15s; font-family: inherit;
+        background: var(--wash-strong); color: var(--text-sec); border: 1px solid var(--border);
+        cursor: pointer; transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); font-family: inherit;
     }
     .chip-curl { color: var(--primary); border-color: var(--primary-ring); background: var(--primary-soft); }
     .chip-import { color: var(--primary); border-color: var(--primary-ring); background: var(--primary-soft); }
@@ -662,14 +920,14 @@
         display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
         width: 100%; text-align: left; padding: var(--space-3) var(--space-3-5);
         border: 1px solid var(--border); border-radius: var(--radius-md);
-        background: var(--bg); color: var(--text); cursor: pointer; transition: 0.15s; font-family: inherit;
+        background: var(--bg); color: var(--text); cursor: pointer; transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); font-family: inherit;
     }
     .import-node-row:hover { border-color: var(--primary); background: var(--primary-soft); }
     .import-node-name { font-size: var(--text-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .import-node-meta { font-size: var(--text-sm); color: var(--text-sec); white-space: nowrap; flex-shrink: 0; }
 
-    /* --- cURL modal (separate from #dashboardModal) --- */
-    .curl-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+    /* --- cURL modal (separate from the edit modal) --- */
+    .curl-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: var(--z-modal); backdrop-filter: blur(4px); }
     .curl-modal { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); width: 90%; max-width: 540px; }
     .curl-modal h3 { margin: 0 0 6px 0; font-size: var(--text-xl); }
     .curl-modal p  { margin: 0 0 12px 0; font-size: var(--text-md); color: var(--text-sec); }
@@ -687,56 +945,46 @@
         padding: var(--space-2) var(--space-3-5); display: flex; align-items: center; gap: var(--space-3);
         font-size: var(--text-md); margin-bottom: var(--space-3-5);
     }
-    .tb-banner .b-tag { background: var(--ok); color: #fff; font-size: var(--text-xs); font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); }
+    .tb-banner .b-tag { background: var(--ok-fill); color: var(--on-primary); font-size: var(--text-xs); font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); }
     .tb-banner .b-msg { color: var(--text); flex: 1; }
-    .tb-banner .b-cta { background: var(--ok); color: #fff; border: none; padding: var(--space-1-5) var(--space-3-5); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font: inherit; font-size: var(--text-sm); }
+    .tb-banner .b-cta { background: var(--ok-fill); color: var(--on-primary); border: none; padding: var(--space-1-5) var(--space-3-5); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font: inherit; font-size: var(--text-sm); }
     .tb-banner .b-cta:disabled { opacity: 0.6; cursor: not-allowed; }
     .tb-banner .b-dismiss { background: transparent; border: none; color: var(--text-sec); cursor: pointer; font-size: var(--text-xl); line-height: 1; padding: 2px 6px; }
     .tb-banner .b-dismiss:hover { color: var(--text); }
 
-    .tb-bar {
-        background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl);
-        padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: var(--space-3-5);
-    }
-    .tb-title { display: flex; align-items: center; gap: var(--space-2-5); font-weight: 700; font-size: var(--text-xl); padding-right: 4px; }
-    .tb-title .tb-logo {
-        width: 28px; height: 28px; border-radius: var(--radius-md);
-        background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-        display: flex; align-items: center; justify-content: center; color: var(--bg); font-size: var(--text-base);
-    }
-    .tb-divider { width: 1px; height: 22px; background: var(--border); }
-
     .pill {
         display: inline-flex; align-items: center; gap: 7px;
         padding: 6px 11px; border-radius: var(--radius-pill);
-        background: rgba(120,120,120,0.06); border: 1px solid var(--border);
+        background: var(--wash); border: 1px solid var(--border);
         font-size: var(--text-sm); font-weight: 600; color: var(--text); cursor: default;
-        transition: 0.15s; position: relative; line-height: 1.2; white-space: nowrap;
+        transition: color 0.15s var(--ease-out), background-color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out); position: relative; line-height: 1.2; white-space: nowrap;
     }
-    .pill:hover { background: rgba(120,120,120,0.1); }
+    .pill:hover { background: var(--wash); }
     .pill .lbl, .m-pill .lbl, .topbar .tb-stat .lbl { color: var(--text-sec); font-weight: 500; }
     .pill .val, .m-pill .val, .topbar .tb-stat .val { font-family: ui-monospace, Menlo, Consolas, monospace; }
     .pill .dot, .m-pill .dot, .topbar .tb-stat .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .pill .dot.green, .topbar .tb-stat .dot.green, .ecg-pill.ok .dot, .node-badge.is-online .bdot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-    .pill .dot.amber, .topbar .tb-stat .dot.amber, .node-badge.is-slow .bdot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
-    .pill .dot.red, .topbar .tb-stat .dot.red, .node-badge.is-offline .bdot { background: var(--err); box-shadow: 0 0 6px var(--err); }
+    .pill .dot.green, .topbar .tb-stat .dot.green, .ecg-pill.ok .dot, .node-badge.is-online .bdot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+    .pill .dot.amber, .topbar .tb-stat .dot.amber, .node-badge.is-slow .bdot { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+    .pill .dot.red, .topbar .tb-stat .dot.red, .node-badge.is-offline .bdot { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
     .pill.expandable, .topbar .tb-stat.is-clickable, .cursor-pointer { cursor: pointer; }
     .pill .caret { font-size: var(--text-2xs); opacity: 0.6; transition: transform 0.2s; }
     .pill.expandable.open .caret { transform: rotate(180deg); }
 
     .pill .tip {
         position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-        background: #1d1d1f; color: #fff; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+        background: var(--text); color: var(--on-primary); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
         font-size: var(--text-xs); font-weight: 500; white-space: nowrap;
         display: flex; flex-direction: column; gap: var(--space-1);
-        opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 50;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        opacity: 0; pointer-events: none; z-index: 50;
+        transform-origin: top center;
+        transition: opacity 125ms var(--ease-out), transform 125ms var(--ease-out);
+        box-shadow: var(--shadow-2);
     }
-    .pill .tip::before { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: #1d1d1f; }
+    .pill .tip::before { content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: var(--text); }
     .pill .tip .line { display: flex; gap: var(--space-3-5); justify-content: space-between; }
-    .pill .tip .tip-key { color: #98989d; }
-    .pill:hover .tip { opacity: 1; }
+    .pill .tip .tip-key { color: var(--text-ter); }
+    .pill .tip { transform: translateX(-50%) scale(0.97); }
+    .pill:hover .tip { opacity: 1; transform: translateX(-50%) scale(1); }
 
     .tb-spacer { flex: 1; min-width: 8px; }
 
@@ -766,7 +1014,7 @@
     }
     .tb-icon-btn:active { transform: scale(0.94); }
     .tb-icon-btn.danger:hover {
-        color: var(--err); border-color: var(--err);
+        color: var(--err-text); border-color: var(--err);
         background: var(--err-soft);
         box-shadow: 0 2px 8px rgba(255,59,48,0.14);
     }
@@ -780,7 +1028,7 @@
         background: var(--card); border: 1px solid var(--border);
         border-radius: var(--radius-xl); overflow: hidden;
         max-height: 0; opacity: 0; padding: 0 20px;
-        transition: max-height 0.3s ease, opacity 0.2s, padding 0.3s, margin 0.3s;
+        transition: opacity var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
         margin-bottom: 0;
     }
     .tb-drawer.open { max-height: 320px; opacity: 1; padding: var(--space-4) var(--space-5); margin-bottom: var(--space-3-5); }
@@ -803,18 +1051,12 @@
         outline-offset: 2px;
         border-radius: var(--radius-sm);
     }
-    @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-        }
-    }
+    /* Reduced motion is handled once, in the accessibility layer near the
+       top of this file: movement is dropped, opacity and colour survive.
+       The old blanket that killed *every* transition at 0.01ms also killed
+       the feedback that tells you a control changed state. */
 
     @media (max-width: 768px) {
-        .tb-bar { padding: var(--space-2-5) var(--space-3); gap: var(--space-2); }
-        .tb-title { font-size: var(--text-base); }
-        .tb-title .tb-logo { width: 24px; height: 24px; font-size: var(--text-sm); }
-        .tb-bar .tb-divider { display: none; }
         .pill { font-size: var(--text-xs); padding: 5px 10px; }
         /* .tb-icon-btn mobile sizing now driven by --touch-min in the consolidated tap-target block below. */
         .tb-banner { flex-wrap: wrap; }
@@ -840,7 +1082,6 @@
     /* iOS-style mobile adaptation
        References the Mobile Adaptation prototype: bottom-sheet modals,
        large title + status pills, sticky bottom CTA, ≥44pt tap targets. */
-    @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     @media (max-width: 768px) {
         body { padding: var(--space-3); padding-bottom: max(env(safe-area-inset-bottom), 12px); }
@@ -856,6 +1097,23 @@
         .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit,
         .btn-tier, .icon-btn, .a-icon-btn, .tb-icon-btn { min-height: var(--touch-min); }
         .icon-btn, .a-icon-btn, .tb-icon-btn { min-width: var(--touch-min); }
+        /* The controls this block used to miss. .nr-expand is the most-used
+           interaction in the product — the caret that opens a node row — and
+           shipped at 30×30, 46% of the required target area. Text fields are
+           here too: a 35px field is a miss on a phone, and every one of them
+           is something an operator edits at 1am. */
+        .nr-expand { width: var(--touch-min); height: var(--touch-min); }
+        .view-toggle-btn { width: var(--touch-min); height: var(--touch-min); }
+        .subtab { min-height: var(--touch-min); }
+        .sd-sel-btn { min-height: var(--touch-min); }
+        input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+        .a-input, .a-select, .search-input, .hed-k, .hed-v { min-height: var(--touch-min); }
+        /* A 18px checkbox keeps its drawn size but gets a real hit area. */
+        input[type="checkbox"], input[type="radio"] {
+            min-width: 24px; min-height: 24px;
+            outline-offset: 4px;
+        }
+        label:has(> input[type="checkbox"]) { min-height: var(--touch-min); display: inline-flex; align-items: center; }
         /* Detail-row icon buttons may stay compact (inside an already-large card) */
         .a-detail-actions .a-icon-btn { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
         .a-stat-val { font-size: var(--text-2xl); }
@@ -878,37 +1136,6 @@
 
         /* Allow long IPv6 in speed-test rows to break */
         #testTableBody .ip-text { word-break: break-all; }
-
-        /* Modals → bottom sheet */
-        #dashboardModal {
-            padding: 0 !important;
-            display: flex !important;
-            align-items: flex-end !important;
-            justify-content: stretch !important;
-        }
-        #dashboardModal[style*="display:none"], #dashboardModal[style*="display: none"] { display: none !important; }
-        #dashboardModal > .card {
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: 92vh;
-            margin: 0 !important;
-            padding: 18px 16px 24px !important;
-            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0 !important;
-            box-shadow: 0 -8px 32px rgba(0,0,0,0.18) !important;
-            overflow-y: auto;
-            animation: sheet-up 0.28s cubic-bezier(.32,.72,.3,1);
-            position: relative;
-        }
-        #dashboardModal > .card::before {
-            content: ''; display: block;
-            width: 36px; height: 5px; border-radius: var(--radius-pill);
-            background: var(--border);
-            margin: -4px auto 14px;
-        }
-        #dashboardModal h2 { font-size: var(--text-2xl); flex-direction: column; align-items: flex-start; gap: var(--space-2); }
-        #dashboardModal h2 > div:last-child { font-size: var(--text-sm) !important; }
-        #dashboardModal h2 span { font-size: var(--text-sm); }
-        #dashboardModal .table-wrapper td { font-size: var(--text-md); }
 
         /* CF trace card → horizontal scrollable status strip */
         #cf-trace-card {
@@ -1015,7 +1242,7 @@
     .m-pill {
         display: inline-flex; align-items: center; gap: var(--space-1-5);
         padding: 6px 11px; border-radius: var(--radius-pill);
-        background: rgba(120,120,120,0.06);
+        background: var(--ios-fill-quat);
         border: 1px solid var(--border);
         font-size: var(--text-sm); font-weight: 600; color: var(--text);
         white-space: nowrap; flex-shrink: 0; line-height: 1.2;
@@ -1059,12 +1286,16 @@
         /* Bottom Tab Bar */
         #mobileTabBar {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
-            background: var(--topbar-glass);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            backdrop-filter: saturate(180%) blur(20px);
-            border-top: 0.5px solid var(--border);
+            /* Three destinations: 监控 / 网络 / 配置. Kept in one place —
+               a second rule with !important is what left 40% of the bar
+               empty. */
+            grid-template-columns: repeat(3, 1fr);
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky);
+            background: var(--mat-regular);
+            -webkit-backdrop-filter: var(--mat-blur-regular);
+            backdrop-filter: var(--mat-blur-regular);
+            border-top: 1px solid var(--hairline);
+            box-shadow: inset 0 1px 0 var(--mat-edge);
             padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
         }
         /* --topbar-glass is already theme-aware (paper / graphite at ~0.85 alpha) */
@@ -1085,9 +1316,9 @@
         /* Login mobile hero: gradient logo block */
         body.login-body .login-logo {
             display: flex; align-items: center; justify-content: center;
-            width: 64px; height: 64px; border-radius: var(--radius-2xl); color: var(--bg);
-            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-            box-shadow: 0 12px 28px var(--primary-glow);
+            width: 64px; height: 64px; border-radius: var(--radius-2xl); color: var(--on-primary);
+            background: var(--btn-fill);
+            box-shadow: var(--shadow-2);
             margin: 0 0 28px;
         }
         body.login-body .login-logo svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1141,7 +1372,6 @@
         #mobileTabBar button svg { width: 18px; height: 18px; }
         .node-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .a-row, .a-row.two { grid-template-columns: 1fr 1fr !important; }
-        #dashboardModal > .card { max-height: 96vh; padding: 14px 18px 18px !important; }
         /* Landscape login: two columns via simple flex split */
         body.login-body .login-box {
             display: flex !important;
@@ -1171,22 +1401,16 @@
         }
     }
 
-    /* Tactile feedback — only on touch pointers, never on desktop */
+    /* Press feedback is global now (see the base layer) — it belongs on every
+       pointer, not only touch, because a mouse press deserves the same answer.
+       What stays here is the touch-only sizing rule. */
     @media (hover: none) and (pointer: coarse) {
-        .btn-submit, .btn-edit, .btn-del, .btn-dns, .logout-btn,
-        .a-btn-edit, .pill, .login-box button, #mobileTabBar button,
-        .btn-tier, .m-pill, .tb-icon-btn {
+        .btn-edit, .btn-del, .btn-dns, .logout-btn, .a-btn-edit, .login-box button {
             -webkit-tap-highlight-color: transparent;
-            transition: transform 0.08s ease-out, box-shadow 0.18s ease;
+            transition: transform var(--dur-press) ease-out, background-color var(--dur-micro) ease;
         }
-        .btn-submit:active, .btn-edit:active, .btn-del:active, .btn-dns:active,
-        .logout-btn:active, .a-btn-edit:active, .pill:active,
-        .login-box button:active, #mobileTabBar button:active,
-        .btn-tier:active, .m-pill:active, .tb-icon-btn:active {
-            transform: scale(0.96);
-        }
-        /* Strip desktop hover lift when we're on touch */
-        .btn-submit:hover { transform: none; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2); }
+        .btn-edit:active, .btn-del:active, .btn-dns:active,
+        .logout-btn:active, .a-btn-edit:active, .login-box button:active { transform: scale(0.97); }
         /* iOS HIG: form rows must remain ≥44pt on touch */
         .ios-form-row { min-height: var(--touch-min); }
     }
@@ -1198,16 +1422,6 @@
                     mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
         }
 
-        /* Sheet handle becomes a real drag affordance */
-        #dashboardModal > .card::before {
-            cursor: grab;
-            transition: transform 0.18s ease, background 0.18s ease, width 0.18s ease;
-        }
-        #dashboardModal > .card.is-dragging::before {
-            background: var(--primary); transform: scaleX(1.25); cursor: grabbing;
-        }
-        #dashboardModal > .card.is-dragging { transition: none !important; will-change: transform; }
-
         /* Stacked table rows feel "pressable" */
         .table-wrapper tr { transition: transform 0.08s ease-out, box-shadow 0.18s ease; }
         .table-wrapper tr:active { transform: scale(0.99); }
@@ -1218,8 +1432,7 @@
 
     /* Honor reduced-motion preference */
     @media (prefers-reduced-motion: reduce) {
-        #dashboardModal > .card { animation: none !important; }
-        .kpi-tile .kpi-value { animation: none; }
+        #sdMoreSheet > .more-sheet-card { transition: opacity var(--dur-micro) ease !important; transform: none !important; }
         .app-section.is-active { animation: none; }
         .em-overlay, .em-modal { animation: none; }
         /* 延迟量规条直接落到终值，不做扫动。 */
@@ -1234,48 +1447,35 @@
     .app-shell { display: flex; min-height: 100vh; width: 100%; }
 
     /* --- 侧边栏 --- */
+    /* Material weight encodes hierarchy: the sidebar is a structural region,
+       so it takes the heavier material and a plain hairline edge. The accent
+       lives in the selection, never in the chrome itself. */
     .sidebar {
         width: 248px; flex-shrink: 0; background: var(--sidebar-bg);
-        border-right: none;
+        border-right: 1px solid var(--hairline);
         display: flex; flex-direction: column;
         position: sticky; top: 0; height: 100vh;
-        transition: width 0.22s ease;
+        transition: width var(--dur-spring-snappy) var(--spring-snappy);
+        /* ponytail: sidebar collapse still animates width — the grid track it
+           sits in has no transform-safe equivalent. One 400ms reflow on an
+           explicit user action, not a loop. */
         overflow-x: hidden;
-    }
-    .sidebar::after {
-        content: ''; position: absolute; right: 0; top: 0; bottom: 0;
-        width: 1px;
-        background: linear-gradient(180deg, transparent 0%, var(--primary) 30%, var(--primary) 70%, transparent 100%);
-        opacity: 0.3;
-        pointer-events: none;
     }
     .sidebar-brand {
         display: flex; align-items: center; gap: var(--space-3);
-        padding: var(--space-5) var(--space-4); border-bottom: 0.5px solid var(--hairline);
+        padding: var(--space-5) var(--space-4); border-bottom: 1px solid var(--hairline);
         position: relative; overflow: hidden;
-        background: linear-gradient(180deg, var(--primary-soft) 0%, transparent 100%);
     }
-    .sidebar-brand::before {
-        content: ''; position: absolute; inset: 0;
-        background: var(--aurora-grad-soft);
-        pointer-events: none;
-    }
-    .sidebar-brand > *, .danger-hero > *, .kpi-tile > * { position: relative; z-index: 1; }
+    .danger-hero > * { position: relative; z-index: 1; }
     .sidebar-logo {
         width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-        background: var(--aurora-grad);
+        background: var(--primary);
         display: flex; align-items: center; justify-content: center;
-        color: #fafafa;
-        box-shadow: 0 0 0 3px var(--primary-soft), 0 4px 14px -2px var(--primary-glow);
-        animation: forge-logo-ring 4s ease-in-out infinite alternate;
+        color: var(--surface-2);
+        box-shadow: var(--shadow-1);
     }
-    @keyframes forge-logo-ring {
-        0% { box-shadow: 0 0 0 3px var(--primary-soft), 0 4px 14px -2px var(--primary-glow); }
-        100% { box-shadow: 0 0 0 5px var(--primary-soft), 0 4px 20px -2px var(--primary-glow); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .sidebar-logo { animation: none; }
-    }
+    /* The 4s breathing ring is gone: a slow full-cycle oscillation sits right
+       in the band that triggers motion sensitivity, and it carried no state. */
     .sidebar-logo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
     .sidebar-brand-text { min-width: 0; }
     .sidebar-brand-title { font-weight: 700; font-size: var(--text-base); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1286,33 +1486,23 @@
         padding: var(--space-2-5) var(--space-4); margin: 2px var(--space-1);
         border-radius: var(--radius-md); cursor: pointer;
         color: var(--text-sec); font-size: var(--text-base); font-weight: 500;
-        border: 1px solid transparent; transition: all 0.25s ease; white-space: nowrap;
+        border: 1px solid transparent; white-space: nowrap;
+        transition: background-color var(--dur-micro) ease, color var(--dur-micro) ease, transform var(--dur-press) ease-out;
         font-family: inherit; background: transparent; width: calc(100% - var(--space-1) * 2); text-align: left; box-sizing: border-box;
         position: relative;
     }
-    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.18s ease; }
-    .nav-item:hover { color: var(--text); background: var(--primary-soft); }
-    .nav-item:hover svg { transform: translateX(1px); }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    @media (hover: hover) and (pointer: fine) {
+        .nav-item:hover { color: var(--text); background: var(--ios-fill-quat); }
+    }
+    /* Selection reads as a filled row — one shape, no glow, no underline
+       animating in behind it. What is selected is obvious at a glance. */
     .nav-item.is-active {
         color: var(--primary); font-weight: 600;
         background: var(--primary-soft);
         border-color: transparent;
     }
-    .nav-item.is-active::before {
-        content: ''; position: absolute;
-        left: var(--space-4); right: var(--space-4); bottom: 0; top: auto;
-        width: auto; height: 2px;
-        transform: none;
-        border-radius: 2px 2px 0 0;
-        background: var(--primary);
-        box-shadow: 0 -2px 10px var(--primary-glow);
-        animation: forge-indicator-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes forge-indicator-in { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) {
-        .nav-item.is-active::before { animation: none; }
-    }
-    .sidebar.collapsed .nav-item.is-active::before { left: var(--space-2); right: var(--space-2); }
+    .nav-item.is-active svg { stroke-width: 2.3; }
     .sidebar-foot {
         padding: var(--space-3); border-top: 0.5px solid var(--hairline);
         display: flex; flex-direction: column; gap: var(--space-2);
@@ -1320,7 +1510,7 @@
     .sidebar-collapse {
         display: flex; align-items: center; gap: var(--space-2-5); justify-content: center;
         padding: 9px; border-radius: var(--radius-md); cursor: pointer;
-        background: rgba(120,120,140,0.07); border: 1px solid var(--border);
+        background: var(--ios-fill-quat); border: 1px solid var(--border);
         color: var(--text-sec); font: inherit; font-size: var(--text-sm); font-weight: 600;
     }
     .sidebar-collapse:hover { color: var(--primary); border-color: var(--primary); }
@@ -1343,17 +1533,20 @@
     /* --- 顶部状态栏 (glass v2.3.0) --- */
     .topbar {
         display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap;
-        padding: var(--space-3-5) var(--space-6); background: var(--topbar-glass);
-        backdrop-filter: saturate(180%) blur(20px);
-        -webkit-backdrop-filter: saturate(180%) blur(20px);
-        border-bottom: 0.5px solid var(--hairline);
-        position: sticky; top: 0; z-index: 90;
+        padding: var(--space-3-5) var(--space-6); background: var(--mat-regular);
+        backdrop-filter: var(--mat-blur-regular);
+        -webkit-backdrop-filter: var(--mat-blur-regular);
+        border-bottom: none;
+        box-shadow: inset 0 1px 0 var(--mat-edge);
+        position: sticky; top: 0; z-index: var(--z-sticky);
     }
+    /* Scroll edge effect: content that slides under the bar fades out into
+       it instead of hitting a 1px rule. The gradient only exists where the
+       floating chrome actually overlaps content. */
     .topbar::after {
-        content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
-        height: 2px;
-        background: linear-gradient(90deg, transparent 5%, var(--primary) 30%, var(--primary) 70%, transparent 95%);
-        opacity: 0.6; pointer-events: none;
+        content: ''; position: absolute; left: 0; right: 0; top: 100%;
+        height: 12px; pointer-events: none;
+        background: linear-gradient(180deg, var(--mat-regular), transparent);
     }
     .topbar .tb-stat {
         display: inline-flex; align-items: center; gap: var(--space-2);
@@ -1366,8 +1559,8 @@
     /* Card variant: lifted modal-style card with danger left-border */
     .card.is-danger-highlight {
         max-width: 760px; margin: 60px auto; position: relative;
-        border-left: 4px solid var(--err);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        border: 1px solid var(--err-ring);
+        box-shadow: var(--shadow-3);
     }
     /* Trailing action row — last button pushed to the right edge */
     .row-end { display: flex; gap: var(--space-2-5); flex-wrap: wrap; align-items: center; }
@@ -1405,16 +1598,16 @@
     /* Outline "success" action — a second emphasised action that does NOT compete
        with the single gold primary fill. Reads as available, fills only once armed
        (rows selected), per signal-over-decoration. */
-    .btn-tier.is-success-line { color: var(--ok); border-color: var(--ok-ring); background: transparent; }
+    .btn-tier.is-success-line { color: var(--ok-text); border-color: var(--ok-ring); background: transparent; }
     .btn-tier.is-success-line:hover { background: var(--ok-soft); border-color: var(--ok); }
-    .btn-tier.is-success-line[data-armed="1"] { color: #fff; background: var(--ok); border-color: var(--ok); }
-    .btn-tier.is-success-line[data-armed="1"]:hover { filter: brightness(0.96); background: var(--ok); }
+    .btn-tier.is-success-line[data-armed="1"] { color: var(--on-primary); background: var(--ok-fill); border-color: var(--ok-fill); }
+    .btn-tier.is-success-line[data-armed="1"]:hover { filter: brightness(0.96); background: var(--ok-fill); }
     .btn-tier .sd-sel-pill {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px;
         border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 700;
         font-variant-numeric: tabular-nums;
-        background: var(--ok); color: #fff;
+        background: var(--ok-fill); color: var(--on-primary);
     }
     .btn-tier.is-success-line[data-armed="1"] .sd-sel-pill { background: rgba(255,255,255,0.22); }
     /* Status hint strip — full hairline frame, neutral surface, leading info glyph.
@@ -1423,7 +1616,7 @@
         display: flex; align-items: flex-start; gap: var(--space-2-5);
         line-height: 1.6; font-size: var(--text-base); color: var(--text-sec);
         margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4);
-        background: rgba(120,120,120,0.05);
+        background: var(--wash);
         border: 1px solid var(--border); border-radius: var(--radius-md);
     }
     .sd-hint .sd-hint-ico {
@@ -1452,7 +1645,7 @@
     .flex-wrap-tight { display: flex; gap: var(--space-2); flex-wrap: wrap; }
     .flex-wrap-loose { display: flex; gap: var(--space-5); flex-wrap: wrap; margin-top: var(--space-5); }
     .banner-spaced { margin: var(--space-3-5) var(--space-6) 0; }
-    .is-disabled { opacity: 0.4; cursor: not-allowed; }
+    .is-disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
     .pos-rel { position: relative; }
     .pos-abs { position: absolute; }
     .flex-1 { flex: 1; }
@@ -1536,7 +1729,7 @@
 
     /* === Worker-update modal (.wu-*) === */
     .wu-overlay {
-        position: fixed; inset: 0; z-index: 10000;
+        position: fixed; inset: 0; z-index: var(--z-modal);
         background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
         overflow-y: auto; padding: var(--space-5);
     }
@@ -1546,9 +1739,9 @@
         background: none; border: none; cursor: pointer;
         color: var(--text-sec); transition: color 0.2s;
     }
-    .wu-close:hover { color: var(--err); }
+    .wu-close:hover { color: var(--err-text); }
     .wu-title {
-        margin: 0 0 var(--space-3); font-size: var(--text-2xl); color: var(--err);
+        margin: 0 0 var(--space-3); font-size: var(--text-2xl); color: var(--err-text);
     }
     .wu-warning {
         font-size: var(--text-md); color: var(--text-sec);
@@ -1569,39 +1762,51 @@
     }
 
     /* === Edit node modal (.em-*) === */
+    /* A modal is not anchored to a trigger, so it keeps transform-origin:
+       center — the origin-from-trigger rule is for menus and popovers.
+       Dimming the scrim and pushing the page back is what says "this is a
+       task you finish before going back". */
     .em-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.5);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
+        background: var(--ios-overlay);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         display: none;
         align-items: flex-start;
         justify-content: center;
-        z-index: 900;
+        z-index: var(--z-scrim);
         padding: 40px 16px;
         overflow-y: auto;
-        animation: nx-fade 0.25s ease both;
+        animation: nx-fade var(--dur-micro) ease both;
     }
     .em-modal {
-        background: var(--card, #fff);
-        border-radius: var(--radius-xl, 18px);
+        background: var(--mat-thick, #fff);
+        -webkit-backdrop-filter: var(--mat-blur-thick);
+        backdrop-filter: var(--mat-blur-thick);
+        border-radius: var(--radius-2xl, 24px);
         width: 100%;
         max-width: 760px;
-        box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+        box-shadow: var(--shadow-3);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid var(--border, rgba(0,0,0,0.08));
-        animation: nx-scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+        border: 1px solid var(--mat-edge, rgba(0,0,0,0.08));
+        /* The surface materialises — blur and scale resolve together, so it
+           reads as glass arriving rather than a rectangle fading up. */
+        animation: em-materialize var(--dur-spring) var(--spring-smooth) both;
+    }
+    @keyframes em-materialize {
+        from { opacity: 0; transform: scale(0.96); filter: blur(6px); }
+        to   { opacity: 1; transform: scale(1);    filter: blur(0); }
     }
     .em-modal-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 16px 20px;
-        border-bottom: 1px solid var(--border, rgba(0,0,0,0.08));
-        background: var(--bg, transparent);
+        border-bottom: 1px solid var(--hairline, rgba(0,0,0,0.08));
+        background: transparent;
     }
     .em-close {
         background: transparent;
@@ -1615,7 +1820,7 @@
         justify-content: center;
         color: var(--text-sec, #888);
     }
-    .em-close:hover { background: rgba(0,0,0,0.06); color: var(--text, #000); }
+    .em-close:hover { background: var(--ios-fill-quat); color: var(--text, #000); }
     .em-close svg { stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
     .em-modal-body {
         padding: 20px;
@@ -1624,7 +1829,7 @@
     }
     @media (max-width: 640px) {
         .em-overlay { padding: 0; }
-        .em-modal { min-height: 100vh; border-radius: 0; max-width: 100%; }
+        .em-modal { min-height: 100vh; border-radius: 0; max-width: 100%; animation: none; }
         .em-modal-body { max-height: calc(100vh - 64px); }
     }
 
@@ -1659,7 +1864,7 @@
     .topbar-user .ava {
         width: 26px; height: 26px; border-radius: 50%;
         background: var(--primary);
-        color: #fff; display: flex; align-items: center; justify-content: center;
+        color: var(--on-primary); display: flex; align-items: center; justify-content: center;
         font-size: var(--text-sm); font-weight: 700;
     }
 
@@ -1677,19 +1882,6 @@
     @keyframes nx-section-in { from { opacity: 0; transform: translateY(16px) scale(0.98); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
 
     /* --- 危险区分区 (v2.3.0, 替代旧的底部常驻危险操作条) --- */
-    /* Nav tab tint — sidebar entry hints at destructive intent without screaming */
-    .nav-item.is-danger-tab { color: var(--err); }
-    .nav-item.is-danger-tab:hover {
-        color: var(--err); background: var(--err-soft);
-    }
-    .nav-item.is-danger-tab.is-active {
-        color: var(--err);
-        background: linear-gradient(90deg, var(--err-soft), transparent 80%);
-    }
-    .nav-item.is-danger-tab.is-active::before {
-        background: var(--err);
-        box-shadow: 0 0 12px var(--err);
-    }
     /* Hero block — clearly destructive but composed, not chaotic */
     .danger-hero {
         display: flex; align-items: center; gap: var(--space-4);
@@ -1700,20 +1892,15 @@
         margin-bottom: var(--space-5);
         position: relative; overflow: hidden;
     }
-    .danger-hero::before {
-        content: ''; position: absolute; inset: 0;
-        background: radial-gradient(120% 80% at 100% 0%, var(--err-soft), transparent 60%);
-        pointer-events: none;
-    }
     .danger-hero .dh-icon {
         width: 48px; height: 48px; flex-shrink: 0;
         border-radius: var(--radius-lg);
-        background: var(--err); color: #fff;
+        background: var(--err-fill); color: var(--on-primary);
         display: flex; align-items: center; justify-content: center;
         box-shadow: 0 6px 18px -4px rgba(255,59,48,0.45);
     }
     .danger-hero .dh-icon svg { width: 22px; height: 22px; }
-    .danger-hero .dh-title { margin: 0; font-size: var(--text-2xl); font-weight: 700; color: var(--err); letter-spacing: -0.01em; }
+    .danger-hero .dh-title { margin: 0; font-size: var(--text-2xl); font-weight: 700; color: var(--err-text); letter-spacing: -0.01em; }
     .danger-hero .dh-sub { font-size: var(--text-base); color: var(--text-sec); margin-top: 4px; }
 
     /* v2.5.0: Danger actions render as one .ios-form-group with three
@@ -1747,92 +1934,6 @@
         }
     }
 
-    /* ============================================================
-       Warm Metal KPI hero band (v2.3.0)
-       The visible centerpiece of the overview view — bento tiles
-       with one gradient primary tile (sparkline) and three neutral
-       tiles. Pulls live data from existing topbar IDs via JS.
-       ============================================================ */
-    /* === Warm Metal cluster (overview KPIs) ===
-       One hairline-framed instrument split into segments — not four floating
-       hero-metric cards. No drenched tile, no gradients; the gold signal
-       appears only in the live sparkline and the health gauge. */
-    .aurora-hero {
-        display: grid;
-        grid-template-columns: 1.4fr repeat(3, 1fr);
-        gap: var(--space-3);
-        padding: var(--space-5);
-        margin-bottom: var(--space-6);
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xl);
-    }
-    .kpi-tile {
-        position: relative; overflow: hidden;
-        display: flex; flex-direction: column;
-        padding: var(--space-4) var(--space-5);
-        min-height: 118px;
-        border: 1px solid var(--hairline);
-        border-radius: var(--radius-lg);
-        background: transparent;
-        transition: all 0.3s ease;
-    }
-    .kpi-tile:hover { background: var(--primary-soft); border-color: var(--primary-ring); }
-    /* primary segment is no longer special-cased visually — flatten everything */
-    .kpi-tile.is-primary { color: inherit; background: transparent; box-shadow: none; }
-    .kpi-tile.is-primary:hover { background: var(--primary-soft); }
-    .kpi-tile.is-primary::before { display: none; }
-    .kpi-label {
-        font-size: var(--text-sm);
-        font-weight: 600;
-        letter-spacing: 0;
-        text-transform: none;
-        color: var(--text-sec);
-        margin-bottom: var(--space-3);
-        display: flex; align-items: center; gap: var(--space-1-5);
-    }
-    .kpi-tile.is-primary .kpi-label { color: var(--text-sec); }
-    .kpi-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex-shrink: 0; box-shadow: 0 0 0 3px var(--ok-soft); }
-    .kpi-dot.warn { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
-    .kpi-dot.err { background: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
-    .kpi-value-row { display: flex; align-items: baseline; gap: var(--space-2); }
-    .kpi-value {
-        font-family: var(--font-mono);
-        font-size: 30px;
-        font-weight: 600;
-        letter-spacing: -0.01em;
-        line-height: 1.0;
-        font-variant-numeric: tabular-nums;
-        color: var(--text);
-    }
-    .kpi-tile.is-primary .kpi-value { color: var(--text); }
-    .kpi-tile .kpi-value { animation: nx-count 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .kpi-tile:nth-child(1) .kpi-value { animation-delay: 0.1s; }
-    .kpi-tile:nth-child(2) .kpi-value { animation-delay: 0.2s; }
-    .kpi-tile:nth-child(3) .kpi-value { animation-delay: 0.3s; }
-    .kpi-tile:nth-child(4) .kpi-value { animation-delay: 0.4s; }
-    @keyframes nx-count { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
-    .kpi-unit {
-        font-family: var(--font-mono);
-        font-size: var(--text-md);
-        font-weight: 500;
-        color: var(--text-sec);
-        font-variant-numeric: tabular-nums;
-    }
-    .kpi-tile.is-primary .kpi-unit, .kpi-tile.is-primary .kpi-sub { color: var(--text-sec); }
-    .kpi-sub {
-        margin-top: auto;
-        padding-top: var(--space-2);
-        font-size: var(--text-xs);
-        color: var(--text-sec);
-    }
-    .kpi-spark {
-        position: absolute; left: 0; right: 0; bottom: 0;
-        width: 100%; height: 30px;
-        pointer-events: none; opacity: 0.95;
-    }
-    .kpi-spark .ks-line { fill: none; stroke: var(--primary); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-    .kpi-spark .ks-area { fill: var(--primary-soft); stroke: none; }
     .kpi-health-bar {
         margin-top: var(--space-3);
         height: 5px; width: 100%;
@@ -1845,33 +1946,19 @@
         position: relative; overflow: hidden;
         border-radius: var(--radius-pill);
         background: linear-gradient(90deg, var(--primary), var(--primary-hover));
-        box-shadow: 0 0 8px var(--primary-glow);
-        transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transform-origin: left center;
     }
     /* 健康度条上掠过的高光——让仪表"通电运行"，传达实时性而非装饰。 */
     .kpi-health-bar > span::after {
         content: ''; position: absolute; inset: 0;
         background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.4), transparent);
         transform: translateX(-100%);
-        animation: kpi-health-sweep 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
-    @keyframes kpi-health-sweep { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(260%); } }
-    @media (max-width: 980px) {
-        .aurora-hero { grid-template-columns: 1fr 1fr; }
-        .kpi-value { font-size: 28px; }
-    }
-    @media (max-width: 520px) {
-        .aurora-hero { grid-template-columns: 1fr; }
-        .kpi-tile { min-height: 92px; padding: var(--space-4); }
-        .kpi-value { font-size: 26px; }
-    }
-
     /* Warm Metal 深色卡片阴影 */
     body.dark .card { box-shadow: 0 1px 4px oklch(0 0 0 / 0.2); }
     body.dark .emby-card { box-shadow: 0 1px 4px oklch(0 0 0 / 0.15); }
     body.dark .emby-card:hover { box-shadow: 0 0 0 1px var(--primary-ring), 0 4px 20px oklch(0 0 0 / 0.3); }
-    body.dark .kpi-tile { background: transparent; }
-    body.dark .kpi-tile:hover { background: var(--surface-2); }
 
     /* --- ECG 心电图 strip (overview + status) --- */
     .ecg-strip {
@@ -1902,8 +1989,8 @@
         animation: nx-fade .5s .35s both;
     }
     /* 最新一次读数：实心信号点 + 雷达式扩散环（"活体监测"信号，唯一持续动效）。 */
-    .ecg-strip .ecg-dot.ok  { fill: var(--ok);  color: var(--ok);  animation: ecg-dot-glow 2.4s ease-in-out infinite; }
-    .ecg-strip .ecg-dot.bad { fill: var(--err); color: var(--err); animation: ecg-dot-glow 2.4s ease-in-out infinite; }
+    .ecg-strip .ecg-dot.ok  { fill: var(--ok);  color: var(--ok-text); }
+    .ecg-strip .ecg-dot.bad { fill: var(--err); color: var(--err-text); animation: ecg-dot-glow 2.4s ease-in-out infinite; }
     .ecg-strip .ecg-ping {
         fill: none; stroke-width: 1;
         animation: ecg-ping 2.4s ease-out infinite;
@@ -1917,11 +2004,9 @@
         content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
         background: linear-gradient(90deg, transparent 0%, transparent 44%, var(--primary-glow) 50%, transparent 56%, transparent 100%);
         opacity: .55; mix-blend-mode: screen; transform: translateX(-100%);
-        animation: ecg-scan 6.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         animation-delay: calc(var(--ecg-i, 0) * -1.3s);
     }
     @keyframes ecg-draw { to { stroke-dashoffset: 0; } }
-    @keyframes ecg-scan { 0% { transform: translateX(-100%); } 16%, 100% { transform: translateX(100%); } }
     @keyframes ecg-ping { 0% { r: 2.4; opacity: .65; } 70%, 100% { r: 9; opacity: 0; } }
     @keyframes ecg-dot-glow {
         0%, 100% { filter: drop-shadow(0 0 1px currentColor); }
@@ -1943,8 +2028,8 @@
         font-size: var(--text-xs); font-weight: 700;
     }
     .ecg-pill .dot, .node-badge .bdot { width: 6px; height: 6px; border-radius: 50%; }
-    .ecg-pill.ok  { color: var(--ok);  background: var(--ok-soft); }
-    .ecg-pill.bad { color: var(--err); background: var(--err-soft); }
+    .ecg-pill.ok  { color: var(--ok-text);  background: var(--ok-soft); }
+    .ecg-pill.bad { color: var(--err-text); background: var(--err-soft); }
     .ecg-pill.bad .dot { background: var(--err); }
     .ecg-stat b {
         color: var(--text-sec); font-weight: 700; margin-right: 4px;
@@ -1957,9 +2042,9 @@
         font-size: 10px; font-weight: 800; letter-spacing: .04em;
         border: 1px solid currentColor;
     }
-    .sla-badge.sla-a { color: var(--ok);   background: var(--ok-soft); }
-    .sla-badge.sla-b { color: var(--warn); background: var(--warn-soft); }
-    .sla-badge.sla-c { color: var(--err);  background: var(--err-soft); }
+    .sla-badge.sla-a { color: var(--ok-text);   background: var(--ok-soft); }
+    .sla-badge.sla-b { color: var(--warn-text); background: var(--warn-soft); }
+    .sla-badge.sla-c { color: var(--err-text);  background: var(--err-soft); }
 
     /* 媒体入库趋势 sparkline */
     .trend-strip { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
@@ -1979,10 +2064,9 @@
         font-size: var(--text-xs); font-weight: 700; white-space: nowrap;
     }
     .node-badge { transition: color .3s ease, background-color .3s ease; }
-    .node-badge.is-online { color: var(--ok); background: var(--ok-soft); }
-    .node-badge.is-online .bdot { animation: nx-breathe 3s ease-in-out infinite; }
-    .node-badge.is-slow { color: var(--warn); background: var(--warn-soft); }
-    .node-badge.is-offline { color: var(--err); background: var(--err-soft); animation: badge-attn 2.6s ease-in-out infinite; }
+    .node-badge.is-online { color: var(--ok-text); background: var(--ok-soft); }
+    .node-badge.is-slow { color: var(--warn-text); background: var(--warn-soft); }
+    .node-badge.is-offline { color: var(--err-text); background: var(--err-soft); animation: badge-attn 2.6s ease-in-out infinite; }
     .node-badge.is-idle { color: var(--text-sec); background: rgba(142,142,147,0.14); }
     .node-badge.is-idle .bdot { background: var(--text-sec); }
     /* 状态切换时叠加一圈扩散光环（颜色已变，再确认一次），仅在真正变化时由 JS 触发。 */
@@ -2088,7 +2172,7 @@
     .ios-form-group {
         display: block;
         background: var(--card);
-        border-radius: var(--radius-ios-sm);
+        border-radius: var(--radius-md);
         overflow: hidden;
         border: 0.5px solid var(--hairline);
         margin: 0 0 var(--space-5);
@@ -2136,7 +2220,7 @@
         opacity: 0.45;
         margin-left: var(--space-1);
     }
-    .ios-form-row.is-danger { color: var(--err); }
+    .ios-form-row.is-danger { color: var(--err-text); }
 
     @media (max-width: 768px) {
         /* --- Mobile overrides for the large-title block (34/30/28 ramp) --- */
@@ -2157,7 +2241,7 @@
         #mobileTopbarCompact {
             display: flex;
             align-items: center; justify-content: center;
-            position: sticky; top: 0; z-index: 950;
+            position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-sticky);
             height: 44px;
             padding: 0 var(--space-4);
             background: var(--topbar-glass);
@@ -2198,16 +2282,16 @@
         .mob-brand .mb-logo {
             width: 28px; height: 28px;
             border-radius: var(--radius-sm);
-            background: var(--aurora-grad);
+            background: var(--primary);
             display: inline-flex; align-items: center; justify-content: center;
-            color: #fff;
+            color: var(--on-primary);
             box-shadow: 0 4px 10px -3px var(--primary-glow);
         }
         .mob-brand .mb-logo svg { width: 16px; height: 16px; }
 
         /* --- Continuous-corner cards (overrides v1 mobile radius) --- */
         .card {
-            border-radius: var(--radius-ios) !important;
+            border-radius: var(--radius-lg) !important;
             padding: var(--space-4) var(--space-4) !important;
         }
         body:not(.dark) .card {
@@ -2228,7 +2312,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 0.5px !important;
             background: var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             overflow: hidden;
             margin: 0 0 var(--space-4) !important;
             padding: 0 !important;
@@ -2274,7 +2358,6 @@
 
         /* --- Bottom Tab Bar: 5-up with filled/outline icon swap --- */
         #mobileTabBar {
-            grid-template-columns: repeat(5, 1fr) !important;
             border-top: 0.5px solid var(--hairline);
         }
         #mobileTabBar button .ico-filled { display: none; }
@@ -2295,7 +2378,7 @@
         #moreSheet {
             display: block;
             position: fixed; left: 0; right: 0; bottom: 0;
-            z-index: 1100;
+            z-index: var(--z-modal);
             transform: translateY(100%);
             transition: transform 0.28s cubic-bezier(.32,.72,.3,1);
             pointer-events: none;
@@ -2313,7 +2396,7 @@
         #moreSheet.is-open::before { opacity: 1; pointer-events: auto; }
         .more-sheet-card {
             background: var(--card);
-            border-radius: var(--radius-ios) var(--radius-ios) 0 0;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             padding: var(--space-3) var(--space-4)
                      calc(var(--space-4) + env(safe-area-inset-bottom));
             box-shadow: 0 -10px 36px rgba(0,0,0,0.18);
@@ -2332,7 +2415,7 @@
         }
         .more-sheet-list {
             background: var(--surface-2);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             overflow: hidden;
         }
         body.dark .more-sheet-list { background: var(--surface); }
@@ -2364,18 +2447,14 @@
             opacity: 0.45;
             stroke-width: 2.2;
         }
-        .more-sheet-row.is-danger { color: var(--err); }
-        .more-sheet-row.is-danger svg { color: var(--err); }
+        .more-sheet-row.is-danger { color: var(--err-text); }
+        .more-sheet-row.is-danger svg { color: var(--err-text); }
 
         /* iOS inset-grouped form rows now live outside this MQ (v2.5.0). Mobile
            keeps a 44pt touch-target override below via the hover:none block. */
         /* Logout row in Settings is mobile-only; desktop already has a topbar
            logout button. */
         #iosLogoutGroup { display: block; }
-
-        /* --- Sheet detents for dashboard modal (default 85vh, expand to 96vh) --- */
-        #dashboardModal > .card { max-height: 85vh !important; }
-        #dashboardModal > .card.is-expanded { max-height: 96vh !important; }
 
         /* --- Tactile feedback on bottom-tab buttons --- */
         #mobileTabBar button:active { transform: scale(0.94); }
@@ -2412,7 +2491,7 @@
         #sec-speed .sd-dns-card {
             background: var(--card);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             padding: var(--space-3) var(--space-3-5) var(--space-2);
             margin-bottom: var(--space-4);
             box-shadow:
@@ -2469,7 +2548,7 @@
         #sec-speed .sd-rec-pill.is-A    { color: var(--primary); background: var(--primary-soft); }
         #sec-speed .sd-rec-pill.is-AAAA { color: #0aa3a3;       background: rgba(10,163,163,0.12); }
         body.dark #sec-speed .sd-rec-pill.is-AAAA { color: #5fd1d1; background: rgba(95,209,209,0.16); }
-        #sec-speed .sd-rec-pill.is-CNAME{ color: var(--warn);    background: var(--warn-soft); }
+        #sec-speed .sd-rec-pill.is-CNAME{ color: var(--warn-text);    background: var(--warn-soft); }
         #sec-speed .sd-ip {
             flex: 1 1 auto; min-width: 0;
             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -2512,10 +2591,10 @@
             -webkit-tap-highlight-color: transparent;
         }
         #sec-speed .sd-isp-seg [role="tab"][aria-selected="true"] {
-            background: var(--primary);
+            background: var(--btn-fill);
             border-color: transparent;
-            color: var(--bg);
-            box-shadow: 0 4px 12px -4px var(--primary-glow);
+            color: var(--on-primary);
+            box-shadow: var(--shadow-1);
         }
         #sec-speed .sd-isp-seg [role="tab"]:active { transform: scale(0.96); }
 
@@ -2532,11 +2611,11 @@
             min-height: 50px;
             padding: 0 var(--space-5);
             border: none;
-            border-radius: var(--radius-ios-sm);
-            background: var(--aurora-grad);
+            border-radius: var(--radius-md);
+            background: var(--primary);
             background-size: 180% 100%;
             background-position: 0% 0%;
-            color: #fff;
+            color: var(--on-primary);
             font-size: var(--text-headline);
             font-weight: 700;
             letter-spacing: -0.005em;
@@ -2561,7 +2640,7 @@
             min-height: var(--touch-min);
             padding: 0 var(--space-3);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             background: var(--ios-fill-quat);
             color: var(--text);
             font-size: var(--text-md);
@@ -2583,7 +2662,7 @@
             position: fixed;
             left: var(--space-4); right: var(--space-4);
             bottom: calc(72px + env(safe-area-inset-bottom) + var(--space-3));
-            z-index: 900;
+            z-index: var(--z-modal);
             display: flex; align-items: center; justify-content: space-between;
             gap: var(--space-3);
             padding: var(--space-3) var(--space-4);
@@ -2591,7 +2670,7 @@
             -webkit-backdrop-filter: saturate(180%) blur(24px);
                     backdrop-filter: saturate(180%) blur(24px);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios);
+            border-radius: var(--radius-lg);
             box-shadow: 0 12px 36px -10px rgba(0,0,0,0.32);
             transform: translateY(20px); opacity: 0;
             transition: transform 0.22s cubic-bezier(.32,.72,.3,1), opacity 0.18s ease;
@@ -2617,8 +2696,8 @@
             padding: 0 var(--space-3-5);
             border: none;
             border-radius: var(--radius-pill);
-            background: var(--ok);
-            color: #fff;
+            background: var(--ok-fill);
+            color: var(--on-primary);
             font-size: var(--text-md);
             font-weight: 700;
             letter-spacing: -0.005em;
@@ -2628,7 +2707,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         #sec-speed .sd-sel-btn:active { transform: scale(0.96); }
-        body.dark #sec-speed .sd-sel-btn { box-shadow: 0 6px 16px -4px rgba(48,209,88,0.45); }
+        body.dark #sec-speed .sd-sel-btn { box-shadow: var(--shadow-2); }
 
         /* 7.6 — Collapsible custom source */
         #sec-speed .sd-custom-fold {
@@ -2642,7 +2721,7 @@
             min-height: var(--touch-min);
             background: var(--ios-fill-quat);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             font-size: var(--text-md);
             font-weight: 600;
             color: var(--text);
@@ -2682,7 +2761,7 @@
             margin-bottom: var(--space-2-5);
             background: var(--card);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             box-shadow:
                 0 1px 0 rgba(255,255,255,0.5) inset,
                 0 3px 10px -6px rgba(15,23,42,0.08);
@@ -2770,9 +2849,9 @@
             text-align: right;
             letter-spacing: -0.01em;
         }
-        #sec-speed .sd-lat-wrap.is-ok   .sd-lat-val { color: var(--ok); }
-        #sec-speed .sd-lat-wrap.is-warn .sd-lat-val { color: var(--warn); }
-        #sec-speed .sd-lat-wrap.is-err  .sd-lat-val { color: var(--err); }
+        #sec-speed .sd-lat-wrap.is-ok   .sd-lat-val { color: var(--ok-text); }
+        #sec-speed .sd-lat-wrap.is-warn .sd-lat-val { color: var(--warn-text); }
+        #sec-speed .sd-lat-wrap.is-err  .sd-lat-val { color: var(--err-text); }
         #sec-speed .sd-lat-wrap.is-loading .sd-lat-val { color: var(--text-sec); }
         /* Connectivity status cell — strip down inline styles */
         #sec-speed #testTableBody td[data-label="连通状态"] {
@@ -2816,7 +2895,7 @@
             margin-bottom: var(--space-2-5);
             background: var(--card);
             border: 0.5px solid var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             box-shadow:
                 0 1px 0 rgba(255,255,255,0.5) inset,
                 0 3px 10px -6px rgba(15,23,42,0.08);
@@ -2873,9 +2952,9 @@
             background: var(--ios-fill-quat);
             color: var(--text-sec);
         }
-        #sec-speed .sd-od-ms.is-ok   { color: var(--ok);   background: var(--ok-soft); }
-        #sec-speed .sd-od-ms.is-warn { color: var(--warn); background: var(--warn-soft); }
-        #sec-speed .sd-od-ms.is-err  { color: var(--err);  background: var(--err-soft); }
+        #sec-speed .sd-od-ms.is-ok   { color: var(--ok-text);   background: var(--ok-soft); }
+        #sec-speed .sd-od-ms.is-warn { color: var(--warn-text); background: var(--warn-soft); }
+        #sec-speed .sd-od-ms.is-err  { color: var(--err-text);  background: var(--err-soft); }
         /* Mobile keeps the colored pill; the desktop gauge bar is hidden here. */
         #sec-speed .sd-od-ms .sd-od-gauge { display: none; }
         #sec-speed .sd-od-ms .sd-od-msval { min-width: 0; }
@@ -2886,7 +2965,7 @@
             text-align: center;
             background: transparent;
             border: 0.5px dashed var(--hairline);
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
         }
         #sec-speed #optimizedDomainsBody tr:has(td[colspan]) td {
             display: block !important;
@@ -2935,27 +3014,44 @@
         #sdMoreSheet {
             display: block;
             position: fixed; left: 0; right: 0; bottom: 0; top: 0;
-            z-index: 1100;
+            z-index: var(--z-modal);
             pointer-events: none;
         }
+        /* A modal task dims what is behind it and pushes it back; the sheet
+           itself is a thick material so its own content stays legible. */
         #sdMoreSheet::before {
             content: '';
             position: fixed; inset: 0;
             background: var(--ios-overlay);
             opacity: 0;
-            transition: opacity 0.28s ease;
+            transition: opacity var(--dur-drawer) ease;
             pointer-events: none;
         }
         #sdMoreSheet > .more-sheet-card {
             position: absolute; left: 0; right: 0; bottom: 0;
             transform: translateY(100%);
-            transition: transform 0.28s cubic-bezier(.32,.72,.3,1);
-            background: var(--card);
-            border-radius: var(--radius-ios) var(--radius-ios) 0 0;
+            /* Spring, not a fixed curve, and a transition rather than a
+               keyframe: initSheetGesture() in app.js hands this surface off
+               to the finger and back, and both directions have to be able to
+               start from wherever the sheet currently is. */
+            transition: transform var(--dur-drawer) var(--spring-drawer);
+            background: var(--mat-thick);
+            -webkit-backdrop-filter: var(--mat-blur-thick);
+            backdrop-filter: var(--mat-blur-thick);
+            border-top: 1px solid var(--mat-edge);
+            border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
             padding: var(--space-3) var(--space-4)
                      calc(var(--space-4) + env(safe-area-inset-bottom));
-            box-shadow: 0 -10px 36px rgba(0,0,0,0.18);
+            box-shadow: var(--shadow-3);
+            /* none, not pan-y: the sheet handles the vertical drag itself, and
+               pan-y would hand it to the browser's scroller instead. */
+            touch-action: none;
         }
+        /* While the finger owns the sheet, nothing else may drive its
+           transform — the drag writes it directly every frame. */
+        #sdMoreSheet > .more-sheet-card.is-dragging { transition: none; will-change: transform; }
+        #sdMoreSheet .more-sheet-grip { cursor: grab; touch-action: none; }
+        #sdMoreSheet > .more-sheet-card.is-dragging .more-sheet-grip { cursor: grabbing; }
         #sdMoreSheet.is-open { pointer-events: auto; }
         #sdMoreSheet.is-open::before { opacity: 1; pointer-events: auto; }
         #sdMoreSheet.is-open > .more-sheet-card { transform: translateY(0); pointer-events: auto; }
@@ -2965,7 +3061,7 @@
             min-height: 50px;
             padding: 0;
             border: none;
-            border-radius: var(--radius-ios-sm);
+            border-radius: var(--radius-md);
             background: var(--surface-2);
             color: var(--primary);
             font-size: var(--text-headline);
@@ -3003,7 +3099,7 @@
     @media (min-width: 769px) {
         .sd-page-header { display: none !important; }
         #sec-speed .sd-dns-card {
-            background: rgba(120,120,120,0.05);
+            background: var(--wash);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
             padding: 12px 16px;
@@ -3035,7 +3131,7 @@
         #sec-speed .sd-rec-pill.is-A     { color: var(--primary); background: var(--primary-soft); }
         #sec-speed .sd-rec-pill.is-AAAA  { color: #0aa3a3; background: rgba(10,163,163,0.12); }
         body.dark #sec-speed .sd-rec-pill.is-AAAA { color: #5fd1d1; background: rgba(95,209,209,0.16); }
-        #sec-speed .sd-rec-pill.is-CNAME { color: var(--warn); background: var(--warn-soft); }
+        #sec-speed .sd-rec-pill.is-CNAME { color: var(--warn-text); background: var(--warn-soft); }
         #sec-speed .sd-ip {
             display: inline; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
             font-size: var(--text-md); font-weight: 600; color: var(--text);
@@ -3081,9 +3177,9 @@
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         #sec-speed #optimizedDomainsBody .sd-od-ms .sd-od-msval { min-width: 52px; text-align: right; white-space: nowrap; }
-        #sec-speed #optimizedDomainsBody .sd-od-ms.is-ok   { color: var(--ok); }
-        #sec-speed #optimizedDomainsBody .sd-od-ms.is-warn { color: var(--warn); }
-        #sec-speed #optimizedDomainsBody .sd-od-ms.is-err  { color: var(--err); }
+        #sec-speed #optimizedDomainsBody .sd-od-ms.is-ok   { color: var(--ok-text); }
+        #sec-speed #optimizedDomainsBody .sd-od-ms.is-warn { color: var(--warn-text); }
+        #sec-speed #optimizedDomainsBody .sd-od-ms.is-err  { color: var(--err-text); }
         #sec-speed #optimizedDomainsBody .sd-od-ms.is-idle { color: var(--text-sec); }
         #sec-speed #optimizedDomainsBody .sd-od-ms.is-idle .sd-od-gauge { opacity: 0.45; }
 
@@ -3097,7 +3193,7 @@
         #sec-speed #optimizedDomainsBody tr.is-fastest .sd-od-msval::after {
             content: '最快'; margin-left: var(--space-2);
             font-family: inherit; font-size: var(--text-xs); font-weight: 700;
-            color: var(--ok); background: var(--ok-soft);
+            color: var(--ok-text); background: var(--ok-soft);
             border-radius: var(--radius-pill); padding: 1px 7px;
             vertical-align: middle; letter-spacing: 0;
         }
@@ -3117,7 +3213,7 @@
             display: flex; gap: var(--space-2); align-items: center; justify-content: flex-start;
         }
         #sec-speed #optimizedDomainsBody .od-del { color: var(--text-sec); }
-        #sec-speed #optimizedDomainsBody .od-del:hover { color: var(--err); }
+        #sec-speed #optimizedDomainsBody .od-del:hover { color: var(--err-text); }
 
         /* 可排序表头：延迟列点击切升/降序 */
         #sec-speed .card.mt-4 th.od-th-sort {
@@ -3159,7 +3255,7 @@
        ============================================================ */
 
     /* Numeric readouts — KPI tiles, node stats, status pills, topbar stats */
-    .kpi-value, .a-stat-val, .a-stat-sub,
+    .a-stat-val, .a-stat-sub,
     .m-pill .val, .topbar .tb-stat .val, .pill .val {
         font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, Consolas, monospace;
         letter-spacing: -0.015em;
@@ -3169,11 +3265,6 @@
     /* Avatar carried a legacy purple gradient (#5856d6) — flatten to accent */
     .topbar-user .ava { background: var(--primary); }
 
-    /* Status / live dots: breathing gold pulse */
-    .pill .dot.green, .topbar .tb-stat .dot.green, .a-status-dot.live,
-    .m-pill .dot.green {
-        animation: nx-breathe 3s ease-in-out infinite;
-    }
 
     @media (max-width: 768px) {
         /* Glass mobile tab bar — Warm Metal frost, not solid */
@@ -3187,7 +3278,6 @@
        hardcoded colours, consistent switch/field vocabulary. Consumes
        :root tokens only. Shared between desktop + mobile (≤768).
        ============================================================ */
-    .ns-panel { display: block; }
     .ns-head {
         display: flex; align-items: flex-start; gap: var(--space-4);
         flex-wrap: wrap; margin-bottom: var(--space-5);
@@ -3200,12 +3290,6 @@
     .ns-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: flex-start; }
 
     /* stat readout — compact mono numerals, hairline columns (not metric cards) */
-    .ns-stat-strip {
-        display: grid; grid-template-columns: repeat(4, 1fr);
-        background: var(--surface-2); border: 1px solid var(--border);
-        border-radius: var(--radius-lg); overflow: hidden;
-        margin-bottom: var(--space-5);
-    }
     .ns-stat {
         display: flex; flex-direction: column; gap: 2px;
         padding: var(--space-4) var(--space-5);
@@ -3273,10 +3357,10 @@
     .ns-auth-meta {
         display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap;
         font-size: var(--text-xs); color: var(--text-sec);
-        padding-top: var(--space-2); border-top: 1px dashed var(--hairline);
+        padding-top: var(--space-2); border-top: 1px solid var(--hairline);
     }
     .ns-meta-item b { color: var(--text); font-weight: 600; font-family: var(--font-mono); margin-left: 4px; }
-    .ns-meta-item b.is-ok { color: var(--ok); }
+    .ns-meta-item b.is-ok { color: var(--ok-text); }
     .ns-meta-hint { color: var(--text-sec); font-size: var(--text-xs); margin-left: auto; opacity: .8; }
 
     /* 节点监控开关行 */
@@ -3319,7 +3403,7 @@
         user-select: none;
     }
     .ov-monitor-summary::-webkit-details-marker { display: none; }
-    .ov-monitor-summary:hover { background: rgba(120,120,120,0.05); }
+    .ov-monitor-summary:hover { background: var(--wash); }
     .ov-monitor-summary:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary-ring); }
     .ov-monitor-head { display: inline-flex; align-items: center; gap: var(--space-2); }
     .ov-monitor-ico { width: 18px; height: 18px; fill: none; stroke: var(--primary); stroke-width: 2; }
@@ -3347,7 +3431,7 @@
     /* ── 路由卡片内的「状态页与媒体计数」配置块 ── */
     .a-config-head {
         margin-top: var(--space-3); padding-top: var(--space-3);
-        border-top: 1px dashed var(--hairline);
+        border-top: 1px solid var(--hairline);
         font-size: var(--text-xs); font-weight: 600; color: var(--text-sec);
         letter-spacing: .02em;
     }
@@ -3358,7 +3442,6 @@
         .ns-track, .ns-track::after, .ns-input, .ov-monitor-chevron { transition: none; }
     }
     @media (max-width: 600px) {
-        .ns-stat-strip { grid-template-columns: 1fr 1fr; }
         .ns-stat:nth-child(odd) { border-left: none; }
         .ns-stat:nth-child(n+3) { border-top: 1px solid var(--hairline); }
         .ns-control-row { flex-direction: column; align-items: flex-start; }
@@ -3423,7 +3506,7 @@
     .nrd-v2 { font-size: var(--text-sm); color: var(--text); min-width: 0; }
     .nrd-empty { color: var(--text-sec); font-size: var(--text-sm); padding: var(--space-2) 0; }
     .nrd-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-    .nrd-edit { margin-top: var(--space-4); border-top: 1px dashed var(--border); padding-top: var(--space-4); }
+    .nrd-edit { margin-top: var(--space-4); border-top: 1px solid var(--hairline); padding-top: var(--space-4); }
     .nrd-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
     .nrd-f { display: flex; flex-direction: column; gap: var(--space-1); }
     .nrd-f > span { font-size: var(--text-xs); font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -3464,35 +3547,10 @@
        栅格雷达扫描=全队列操作正在执行。
        ============================================================ */
 
-    /* 1) 拂金高光：悬停时一道暖金高光斜掠卡面，像光扫过拉丝金属。
-          复用空闲的 ::before（::after 已被悬停柔光占用），screen 叠加只在亮处显形。 */
-    .emby-card::before {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        border-radius: inherit; pointer-events: none; z-index: 1;
-        /* 暖金薄沿在白卡面上以"色相沉淀"显形（screen 在纯白上不可见），
-           核心一道更亮的高光线模拟金属反光。 */
-        background: linear-gradient(115deg,
-            transparent 36%,
-            oklch(0.72 0.14 75 / 0.16) 46%,
-            oklch(0.86 0.13 78 / 0.42) 50%,
-            oklch(0.72 0.14 75 / 0.16) 54%,
-            transparent 64%);
-        background-size: 280% 280%;
-        background-position: 130% 0;
-        opacity: 0;
-    }
-    body.dark .emby-card::before { mix-blend-mode: screen; }
-    .emby-card:hover::before {
-        opacity: 1;
-        animation: nx-metal-sweep 0.9s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    @keyframes nx-metal-sweep {
-        0%   { background-position: 130% 0; opacity: 0; }
-        18%  { opacity: 1; }
-        100% { background-position: -60% 0; opacity: 0; }
-    }
-    /* 卡内真实内容需浮在高光之上 */
-    .emby-card > * { position: relative; z-index: 2; }
+    /* The amber metal sweep that used to live here animated on every
+       card hover for no informational gain — the same reason the
+       button shimmer was deleted a version earlier. It also carried
+       hue 75, which the token contract does not define. Removed. */
 
     /* 2) 增量跃入：媒体计数的 +N / -N 落地时上跃一下并短暂发光，宣告"刚拉到新数据"。 */
     .a-count-delta { display: inline-block; animation: nx-delta-pop 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -3512,7 +3570,7 @@
     .nx-counting { will-change: contents; }
 
     /* 4) KPI 数据落地脉冲：指标值真正变化时，瓦片闪一圈金环，把"刚刷新"推到眼前。 */
-    .kpi-tile.kpi-flash, .signal-cell.kpi-flash { animation: nx-kpi-flash 0.9s ease-out; }
+    .signal-cell.kpi-flash { animation: nx-kpi-flash 0.9s ease-out; }
     @keyframes nx-kpi-flash {
         0%   { box-shadow: inset 0 0 0 1px var(--primary-ring), 0 0 16px -2px var(--primary-glow); }
         100% { box-shadow: inset 0 0 0 1px transparent, 0 0 0 0 transparent; }
@@ -3524,9 +3582,7 @@
     .node-grid.is-scanning::after, .node-list.is-scanning::after {
         content: ''; position: absolute; left: -2%; right: -2%; top: 0; height: 30%;
         pointer-events: none; z-index: 30;
-        background:
-            linear-gradient(180deg, transparent 0%, oklch(0.55 0.16 75 / 0.55) 92%, oklch(0.62 0.18 75 / 0.9) 100%),
-            linear-gradient(180deg, transparent 0%, var(--primary-glow) 60%, var(--primary-soft) 100%);
+        background: linear-gradient(180deg, transparent 0%, var(--primary-soft) 60%, var(--primary-ring) 100%);
         animation: nx-grid-scan 1.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
     @keyframes nx-grid-scan {
@@ -3548,8 +3604,83 @@
         .kpi-health-bar > span::after { animation: none !important; opacity: 0 !important; }
         .btn-submit::before { display: none !important; }
         /* Live Instrument 层降级 */
-        .emby-card::before { display: none !important; }
         .a-count-delta { animation: none !important; }
-        .kpi-tile.kpi-flash { animation: none !important; }
         .node-grid.is-scanning::after, .node-list.is-scanning::after { animation: none !important; display: none !important; }
+    }
+
+    /* ============================================================
+       Tap targets — last block in the file on purpose.
+       These same rules exist in the mobile section above, but the
+       component defaults that set 34×30 and 37px are declared later
+       and won at equal specificity. Order, not specificity, was the
+       bug; declaring the floor last is the fix.
+       ============================================================ */
+    @media (max-width: 768px) {
+        .view-toggle-btn,
+        #mask-prefix-btn,
+        .nr-expand {
+            width: var(--touch-min); height: var(--touch-min);
+            min-width: var(--touch-min); min-height: var(--touch-min);
+        }
+        .btn-tier, .subtab, .sd-sel-btn { min-height: var(--touch-min); }
+        input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+        .a-input, .a-select, .search-input, .hed-k, .hed-v { min-height: var(--touch-min); }
+        /* A checkbox keeps its drawn 18px but gets a real target: the
+           label around it is what the finger actually lands on. */
+        .ip-checkbox { width: 22px; height: 22px; }
+        label:has(> .ip-checkbox), .batch-select-label {
+            display: inline-flex; align-items: center; gap: var(--space-2);
+            min-height: var(--touch-min);
+        }
+    }
+
+    /* 刷新全站海报 sits in the resting overview toolbar. It was --err,
+       which made a rebuildable CDN cache the loudest element on the
+       monitoring screen and spent the danger colour that 删除节点 needs.
+       A warn tier for "disruptive but reversible" now sits between. */
+    .btn-tier.is-warn { background: var(--warn-fill); color: var(--on-primary); border-color: var(--warn); }
+    .btn-tier.is-warn:hover { filter: brightness(0.95); }
+
+    /* Batch action bar. Was a tinted --primary-soft panel with a
+       --primary-ring glow on its button — the accent used as decoration,
+       which DESIGN.md reserves for state and primary action only. It is
+       a toolbar, so it reads as one: neutral surface, hairline, and a
+       single filled control that is the actual primary action. */
+    .batch-bar {
+        display: flex; align-items: center; gap: var(--space-3-5); flex-wrap: wrap;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-3) var(--space-5);
+        margin: var(--space-5) 0;
+    }
+    .batch-bar .a-select { width: auto; min-width: 180px; flex: 0 1 auto; }
+    .batch-select-label { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 600; cursor: pointer; }
+
+    /* Load failure in the node list. Was a raw `读取失败: ${err.message}`
+       line — the operator read "Failed to fetch" and got no way forward.
+       Names the problem, offers the recovery, keeps the exception as
+       context rather than the headline. */
+    .load-error {
+        grid-column: 1 / -1;
+        display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+        padding: var(--space-8, 32px) var(--space-5);
+        text-align: center; color: var(--text);
+    }
+    .load-error strong { font-size: var(--text-lg); color: var(--err-text); }
+    .load-error > span { color: var(--text-sec); font-size: var(--text-md); max-width: 46ch; }
+    .load-error .btn-tier { margin-top: var(--space-2); }
+    .load-error-detail { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-ter); }
+
+    .icon-item-img { width: 32px; height: 32px; object-fit: contain; border-radius: var(--radius-sm); }
+    .icon-item-default { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; color: var(--text-sec); }
+
+    /* ⌘K had no way in on mobile: the topbar hides everything but the
+       brand and the theme toggle, and a phone has no keyboard shortcut.
+       On a console with a dozen nodes, search is the fastest route to
+       any of them — it belongs on the smaller screen more, not less. */
+    @media (max-width: 768px) {
+        .topbar > .tb-cmdk { display: inline-flex !important; margin-left: auto !important; }
+        .topbar > #themeToggle { margin-left: var(--space-1) !important; }
+        .tb-cmdk { min-width: var(--touch-min); min-height: var(--touch-min); justify-content: center; }
+        .tb-cmdk .tb-cmdk-kbd { display: none; }
     }

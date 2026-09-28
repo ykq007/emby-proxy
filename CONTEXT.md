@@ -43,3 +43,19 @@ _Avoid_: CF stats, bandwidth stats
 **Telegram notification**:
 An operator-facing Telegram message for alerts, reminders, or daily statistics.
 _Avoid_: Bot message, alert text
+
+**Viewer**:
+A person the proxy authenticates itself, who plays through an Emby node's upstream account while keeping their own watch state.
+_Avoid_: User, member, account
+
+**Upstream account**:
+The Emby user on an Emby node that the proxy signs in as on behalf of viewers; one per Emby node, shared by all its viewers.
+_Avoid_: Shared account, Emby user, backend account
+
+**Viewer access**:
+The set of Emby nodes a viewer may reach, granted per route alias.
+_Avoid_: Permissions, ACL, subscription
+
+**Watch state**:
+One viewer's played mark, resume position and favorite for one item on one Emby node.
+_Avoid_: Watch history, user data, progress
