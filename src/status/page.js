@@ -77,36 +77,33 @@ export async function loadStatusData(env, opts) {
     // 24h 可用率改为读取已维护的小时汇总表（emby_probe_hourly），而不是扫描原始 emby_probes。
     // 原实现每次页面加载都要 COUNT(*) 全表(~67k 行/次)，一天下来轻松突破 D1 免费额度的 5M rows_read。
     // 汇总表按小时预聚合，行数是原来的 1/60，与 7d/30d 的查询方式保持一致。
-    const stmt24 = limitPrefix
-        ? dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ?${probeFilter} GROUP BY prefix`, since24, limitPrefix)
-        : dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ? GROUP BY prefix`, since24);
-    const stmt7d = limitPrefix
-        ? dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ?${probeFilter} GROUP BY prefix`, since7d, limitPrefix)
-        : dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ? GROUP BY prefix`, since7d);
-    const stmt30d = limitPrefix
-        ? dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ?${probeFilter} GROUP BY prefix`, since30d, limitPrefix)
-        : dbStmt(env, `SELECT prefix, SUM(ok_count) AS ok_count, SUM(ok_count) + SUM(fail_count) AS total
-                          FROM emby_probe_hourly WHERE hour_ts >= ? GROUP BY prefix`, since30d);
+    // 一次扫描出 24h/7d/30d 三个窗口（条件 SUM），原先三条语句各扫全表一遍，是 D1 rows_read 大头。
+    const hourlySql = `SELECT prefix,
+                              SUM(CASE WHEN hour_ts >= ?1 THEN ok_count ELSE 0 END) AS ok24,
+                              SUM(CASE WHEN hour_ts >= ?1 THEN ok_count + fail_count ELSE 0 END) AS total24,
+                              SUM(CASE WHEN hour_ts >= ?2 THEN ok_count ELSE 0 END) AS ok7d,
+                              SUM(CASE WHEN hour_ts >= ?2 THEN ok_count + fail_count ELSE 0 END) AS total7d,
+                              SUM(ok_count) AS ok30d, SUM(ok_count) + SUM(fail_count) AS total30d
+                         FROM emby_probe_hourly WHERE hour_ts >= ?3${probeFilter} GROUP BY prefix`;
+    const stmtHourly = limitPrefix
+        ? dbStmt(env, hourlySql, since24, since7d, since30d, limitPrefix)
+        : dbStmt(env, hourlySql, since24, since7d, since30d);
     // media counts: top-2 days per prefix; rn=1 → latest, rn=2 → previous
     const stmtCounts = limitPrefix
         ? dbStmt(env, `SELECT prefix, day, movies, series, episodes, artists, albums, songs, music_videos, box_sets, books,
                                  ROW_NUMBER() OVER (PARTITION BY prefix ORDER BY day DESC) AS rn
-                          FROM emby_media_counts WHERE day <= ?${probeFilter}`, today, limitPrefix)
+                          FROM emby_media_counts WHERE day <= ?1 AND day >= date(?1, '-14 days')${probeFilter}`, today, limitPrefix)
         : dbStmt(env, `SELECT prefix, day, movies, series, episodes, artists, albums, songs, music_videos, box_sets, books,
                                  ROW_NUMBER() OVER (PARTITION BY prefix ORDER BY day DESC) AS rn
-                          FROM emby_media_counts WHERE day <= ?`, today);
+                          FROM emby_media_counts WHERE day <= ?1 AND day >= date(?1, '-14 days')`, today);
 
     const stmtLive = limitPrefix
         ? dbStmt(env, `SELECT prefix, movies, series, episodes, artists, albums, songs, music_videos, box_sets, books, updated_at FROM emby_media_counts_live WHERE prefix = ?`, limitPrefix)
         : dbStmt(env, `SELECT prefix, movies, series, episodes, artists, albums, songs, music_videos, box_sets, books, updated_at FROM emby_media_counts_live`);
 
-    const [resRoutes, resProbes, res24, res7d, res30d, resCounts, resLive] =
-        await dbBatch(env, [stmtRoutes, stmtProbes, stmt24, stmt7d, stmt30d, stmtCounts, stmtLive]);
+    const [resRoutes, resProbes, resHourly, resCounts, resLive] =
+        await dbBatch(env, [stmtRoutes, stmtProbes, stmtHourly, stmtCounts, stmtLive]);
+    const hourlyRows = resHourly.results || [];
 
     const routes = resRoutes.results || [];
     if (!routes.length) return { routes: [], cards: [] };
@@ -123,7 +120,7 @@ export async function loadStatusData(env, opts) {
         }
     }
     const agg24By = new Map();
-    for (const r of (res24.results || [])) agg24By.set(r.prefix, { ok_count: r.ok_count | 0, total: r.total | 0 });
+    for (const r of hourlyRows) agg24By.set(r.prefix, { ok_count: r.ok24 | 0, total: r.total24 | 0 });
     // 小时汇总只包含"已完整走完"的小时（每小时整点才 rollup 一次），当前这一小时还没被
     // 汇总进 emby_probe_hourly，会导致 24h 可用率最多滞后 1 小时。resProbes 已经把最近 60
     // 分钟的原始探测数据拉到内存里(用于上面的 ECG)，而当前小时已过去的时长必然 < 60 分钟，
@@ -138,9 +135,9 @@ export async function loadStatusData(env, opts) {
         if (p.ok) agg.ok_count += 1;
     }
     const agg7dBy = new Map();
-    for (const r of (res7d.results || [])) agg7dBy.set(r.prefix, r);
+    for (const r of hourlyRows) agg7dBy.set(r.prefix, { prefix: r.prefix, ok_count: r.ok7d | 0, total: r.total7d | 0 });
     const agg30dBy = new Map();
-    for (const r of (res30d?.results || [])) agg30dBy.set(r.prefix, r);
+    for (const r of hourlyRows) agg30dBy.set(r.prefix, { prefix: r.prefix, ok_count: r.ok30d | 0, total: r.total30d | 0 });
     // Fallback: 今日还没抓到(跨日窗口 / 外部 cron 未跑 / token 临时挂)时,回退到最近一天已有的计数,
     // 保持 /status 永远不空白; delta 以"最近一天"对比"再前一天"。
     const latestCountsBy = new Map();

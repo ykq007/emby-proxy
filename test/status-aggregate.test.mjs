@@ -20,8 +20,8 @@ import { createD1Fake } from './helpers/d1-fake.mjs';
 // ---------------------------------------------------------------------------
 
 /**
- * Build a mock env.DB. loadStatusData prepares exactly 6 statements
- * (routes, probes, 24h, 7d, counts, live) then submits them in one batch.
+ * Build a mock env.DB. loadStatusData prepares exactly 5 statements
+ * (routes, probes, hourly 24h/7d/30d, counts, live) then submits them in one batch.
  *
  * `dataset` supplies the `.results` each prepared statement resolves to,
  * matched positionally by the order of prepare() calls — the agg24/agg7d/
@@ -33,7 +33,19 @@ import { createD1Fake } from './helpers/d1-fake.mjs';
  * property.
  */
 function makeDB(dataset) {
-    const order = ['routes', 'probes', 'agg24', 'agg7d', 'agg30d', 'counts', 'live'];
+    const order = ['routes', 'probes', 'hourly', 'counts', 'live'];
+    // The 24h/7d/30d windows are one conditional-SUM statement; fold the
+    // per-window fixtures into the combined row shape it returns.
+    const hourly = new Map();
+    for (const [key, sfx] of [['agg24', '24'], ['agg7d', '7d'], ['agg30d', '30d']]) {
+        for (const r of dataset[key] || []) {
+            const row = hourly.get(r.prefix) || { prefix: r.prefix };
+            row['ok' + sfx] = r.ok_count;
+            row['total' + sfx] = r.total;
+            hourly.set(r.prefix, row);
+        }
+    }
+    dataset = { ...dataset, hourly: [...hourly.values()] };
     let idx = 0;
     const db = createD1Fake([
         {
@@ -284,13 +296,13 @@ test('avail_24h with no probes in the current partial hour still reflects comple
     assert.equal(y.avail_24h, 0.9, 'falls back to the hourly-rollup-only value when no partial-hour probes exist');
 });
 
-test('env.DB.prepare call count is fixed (≤7) and independent of node count', async () => {
+test('env.DB.prepare call count is fixed (≤5) and independent of node count', async () => {
     // 3 nodes
     const db3 = makeDB(threeRouteDataset());
     await loadStatusData({ DB: db3 });
-    assert.ok(db3.prepareCount <= 7, `3 nodes: prepare called ${db3.prepareCount} times, expected ≤7`);
-    assert.equal(db3.prepareCount, 7, '3 nodes → exactly 7 prepared statements');
-    assert.deepEqual(db3.batchSizes, [7], 'single batch of 7 statements');
+    assert.ok(db3.prepareCount <= 5, `3 nodes: prepare called ${db3.prepareCount} times, expected ≤5`);
+    assert.equal(db3.prepareCount, 5, '3 nodes → exactly 5 prepared statements');
+    assert.deepEqual(db3.batchSizes, [5], 'single batch of 5 statements');
 
     // 50 nodes — fan-out must NOT grow with N.
     const big = { routes: [], probes: [], agg24: [], agg7d: [], counts: [], live: [] };
@@ -304,6 +316,6 @@ test('env.DB.prepare call count is fixed (≤7) and independent of node count', 
     const db50 = makeDB(big);
     const { cards } = await loadStatusData({ DB: db50 });
     assert.equal(cards.length, 50, 'all 50 nodes rendered');
-    assert.equal(db50.prepareCount, 7, '50 nodes → STILL exactly 7 prepared statements (no N×7 fan-out)');
-    assert.deepEqual(db50.batchSizes, [7], '50 nodes → single batch of 7');
+    assert.equal(db50.prepareCount, 5, '50 nodes → STILL exactly 5 prepared statements (no N×5 fan-out)');
+    assert.deepEqual(db50.batchSizes, [5], '50 nodes → single batch of 5');
 });

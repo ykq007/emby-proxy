@@ -8,7 +8,7 @@ let _schemaReady = false;
 // Schema 版本号：每次新增/修改 DDL 时递增此值即可触发下次冷启重新跑一遍迁移。
 // 版本号存在 kv_config(k=SCHEMA_VERSION_KEY) 里；命中且匹配时 ensureSchema 只做
 // 一次 SELECT 就返回，省掉冷启时 ~50 条 DDL exec 带来的延迟。
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 // Key constant lives in db/kv.js (the kv_config registry); re-exported here
 // so existing importers of SCHEMA_VERSION_KEY from this module keep working.
 export { SCHEMA_VERSION_KEY };
@@ -103,6 +103,9 @@ export async function ensureSchema(env) {
             try { await env.DB.exec(`ALTER TABLE emby_media_counts ADD COLUMN ${col} INTEGER DEFAULT 0`); } catch (e) {}
             try { await env.DB.exec(`ALTER TABLE emby_media_counts_live ADD COLUMN ${col} INTEGER DEFAULT 0`); } catch (e) {}
         }
+        // v5：热点查询的索引（D1 按扫描行计 rows_read）。getRecentUa 按 prefix 取最新 UA；状态页按 day 取近 14 天计数。
+        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_visitor_logs_prefix ON visitor_logs(prefix)`);
+        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_emby_media_counts_day ON emby_media_counts(day)`);
         // 今日带宽缓存：由 cron 周期性从 CF GraphQL 抓取并写入，/api/routes 只读此表，避免页面打开时实时拉取。
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS route_bandwidth_today (prefix TEXT NOT NULL, day TEXT NOT NULL, bytes INTEGER DEFAULT 0, updated_at INTEGER DEFAULT 0, PRIMARY KEY(prefix, day))`);
 

@@ -14,6 +14,7 @@
 // 探测已由 probe.js 内部重试确认，减少瞬时抖动误报）。
 import { ensureSchema } from './db/schema.js';
 import { dbAll, dbRun } from './db/helpers.js';
+import { beijingDayStr } from './util/clock.js';
 import { maybeFetchMediaCounts } from './emby/counts.js';
 import { probeAll } from './probes/probe.js';
 import { sendTgStats } from './stats/telegram.js';
@@ -57,6 +58,8 @@ export async function handleScheduled(event, env, ctx) {
                 try {
                     await ensureSchema(env);
                     await env.DB.exec(`DELETE FROM visitor_logs WHERE timestamp < datetime('now', '-7 days')`);
+                    // 只有「今天」会被读；旧日行不清会让 5 分钟一次的 MAX(updated_at) 节流查询越扫越多。
+                    await dbRun(env, `DELETE FROM route_bandwidth_today WHERE day < ?`, beijingDayStr());
                 } catch (e) {
                     console.log('scheduled visitor_logs cleanup error:', e && e.message || e);
                 }
