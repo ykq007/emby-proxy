@@ -12,6 +12,7 @@ import { handleOptimizedDomains } from './api/optimized-domains.js';
 import { handleDns } from './api/dns.js';
 import { handleRoutes } from './api/routes.js';
 import { handleStatusApi } from './api/status.js';
+import { handleViewers } from './api/viewers.js';
 
 export async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -51,6 +52,7 @@ export async function handleRequest(request, env, ctx) {
     if (r = await handleDns(request, env, ctx, url)) return r;               // dns-ready / dns/replace / get-dns / update-dns / get-*-ips
     if (r = await handleRoutes(request, env, ctx, url)) return r;            // routes/reorder / routes/import / routes CRUD
     if (r = await handleStatusApi(request, env, ctx, url)) return r;         // status/route-flags / revoke-auth / probes / auth-state / global-flags
+    if (r = await handleViewers(request, env, ctx, url)) return r;           // viewers CRUD / access / cap / libraries
 
     // ── 反代兜底 ─────────────────────────────────────────
     return proxyRequest(request, env, ctx, url);

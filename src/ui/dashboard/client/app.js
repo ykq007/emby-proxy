@@ -1115,7 +1115,7 @@
         var DEST_MAP = {
             monitor: { label: '监控', tabs: [ { key: 'overview', label: '看板' }, { key: 'stats', label: '统计' } ] },
             network: { label: '网络', tabs: [ { key: 'speed', label: '测速 & DNS', section: 'speed', panel: 'speed' }, { key: 'cdn', label: '优选 CDN', section: 'speed', panel: 'cdn' }, { key: 'redirect', label: '重定向白名单', section: 'speed', panel: 'redirect' } ] },
-            config:  { label: '配置', tabs: [ { key: 'settings', label: '部署节点' }, { key: 'tools', label: '工具箱' }, { key: 'danger', label: '危险区' } ] }
+            config:  { label: '配置', tabs: [ { key: 'settings', label: '部署节点' }, { key: 'viewers', label: '观看账号' }, { key: 'tools', label: '工具箱' }, { key: 'danger', label: '危险区' } ] }
         };
         function destOfSection(key) {
             for (var d in DEST_MAP) {
@@ -1173,6 +1173,7 @@
                     if (document.body) document.body.classList.remove('is-scrolled');
                 } catch (e) {}
                 try { localStorage.setItem('emby_active_section', tab); localStorage.setItem('emby_active_dest', dest); } catch (e) {}
+                if (tab === 'viewers') loadViewers();
                 if (tab === 'stats') {
                     if (!window.__statsLoaded) { window.__statsLoaded = true; loadDashboardData(); }
                     else { setTimeout(function () {
@@ -1190,6 +1191,114 @@
             } else { __apply(); }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        // ===== 观看账号 (Viewers) =====
+        var __viewers = { viewers: [], nodes: [] };
+        function vEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+        async function viewerApi(method, path, body) {
+            var res = await fetch(path, { method: method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+            var data = await res.json().catch(function () { return { success: false, error: 'HTTP ' + res.status }; });
+            if (!data.success) { showError(data.error || '操作失败'); throw new Error(data.error || 'failed'); }
+            return data;
+        }
+        async function loadViewers() {
+            try { __viewers = await viewerApi('GET', '/api/viewers'); } catch (e) { return; }
+            renderViewers();
+        }
+        function renderViewers() {
+            var used = {};
+            __viewers.viewers.forEach(function (v) { v.access.forEach(function (a) { used[a.prefix] = (used[a.prefix] || 0) + a.quota; }); });
+            document.getElementById('viewerNodes').innerHTML = __viewers.nodes.map(function (n) {
+                var p = vEsc(n.prefix);
+                return '<tr><td>' + vEsc(n.remark || n.prefix) + ' <span style="color:var(--text-sec)">/' + p + '</span></td><td>' + (used[n.prefix] || 0) + '</td>' +
+                    '<td><input class="a-input" type="number" min="0" style="max-width:90px" value="' + (n.max_concurrent || 0) + '" aria-label="' + p + ' 并发上限" onchange="saveNodeCap(\'' + p + '\', this.value)"></td></tr>';
+            }).join('') || '<tr><td colspan="3" class="cell-loading">暂无节点</td></tr>';
+            var nodeOpts = __viewers.nodes.map(function (n) { return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + '</option>'; }).join('');
+            document.getElementById('viewerList').innerHTML = __viewers.viewers.map(function (v) {
+                var id = vEsc(v.id);
+                var access = v.access.map(function (a) {
+                    var p = vEsc(a.prefix);
+                    return '<tr><td>/' + p + '</td>' +
+                        '<td><input class="a-input" type="number" min="0" style="max-width:80px" value="' + a.quota + '" aria-label="配额" onchange="grantViewer(\'' + id + '\', \'' + p + '\', this.value)"></td>' +
+                        '<td>' + (a.hidden_libraries.length ? a.hidden_libraries.length + ' 个已隐藏 ' : '') + '<button type="button" class="btn-tier is-sm" onclick="editViewerLibraries(\'' + id + '\', \'' + p + '\', this)">媒体库</button></td>' +
+                        '<td><button type="button" class="btn-tier is-sm is-danger" onclick="revokeViewer(\'' + id + '\', \'' + p + '\')">移除</button></td></tr>' +
+                        '<tr class="viewer-libs" data-for="' + id + '|' + p + '" style="display:none"><td colspan="4"></td></tr>';
+                }).join('');
+                return '<div class="card" style="margin:0 0 12px; padding:14px;">' +
+                    '<div class="flex-wrap-tight" style="align-items:center; justify-content:space-between;">' +
+                    '<strong>' + vEsc(v.username) + '</strong>' + (v.enabled ? '' : ' <span style="color:var(--text-sec)">（已停用）</span>') +
+                    '<div class="flex-wrap-tight">' +
+                    '<button type="button" class="btn-tier is-sm" onclick="toggleViewer(\'' + id + '\', ' + (v.enabled ? 'false' : 'true') + ')">' + (v.enabled ? '停用' : '启用') + '</button>' +
+                    '<button type="button" class="btn-tier is-sm" onclick="resetViewerPassword(\'' + id + '\')">改密码</button>' +
+                    '<button type="button" class="btn-tier is-sm is-danger" onclick="deleteViewer(\'' + id + '\')">删除</button></div></div>' +
+                    '<div class="table-wrapper" style="margin-top:10px"><table class="w-full"><thead><tr><th>节点</th><th>并发配额</th><th>首页媒体库</th><th></th></tr></thead><tbody>' +
+                    (access || '<tr><td colspan="4" class="cell-loading">尚未授权任何节点</td></tr>') + '</tbody></table></div>' +
+                    '<div class="a-row" style="margin-top:10px"><select class="a-select" id="grant-' + id + '" aria-label="授权节点">' + nodeOpts + '</select>' +
+                    '<button type="button" class="btn-tier is-sm" onclick="grantViewer(\'' + id + '\', document.getElementById(\'grant-' + id + '\').value, 1)">授权节点</button></div>' +
+                    '</div>';
+            }).join('') || '<div class="cell-loading">还没有观看账号</div>';
+        }
+        async function createViewer() {
+            var name = document.getElementById('viewerNewName'); var pass = document.getElementById('viewerNewPass');
+            try { await viewerApi('POST', '/api/viewers', { username: name.value.trim(), password: pass.value }); } catch (e) { return; }
+            name.value = ''; pass.value = ''; showToast('已创建'); loadViewers();
+        }
+        async function toggleViewer(id, enabled) {
+            try { await viewerApi('POST', '/api/viewers', { id: id, enabled: enabled }); } catch (e) { return; }
+            loadViewers();
+        }
+        async function resetViewerPassword(id) {
+            var pw = prompt('新密码（至少 6 位），该账号所有设备将被登出：');
+            if (!pw) return;
+            try { await viewerApi('POST', '/api/viewers', { id: id, password: pw }); } catch (e) { return; }
+            showToast('密码已修改');
+        }
+        async function deleteViewer(id) {
+            if (!confirm('删除该账号及其全部观看记录？不可恢复。')) return;
+            try { await viewerApi('DELETE', '/api/viewers?id=' + encodeURIComponent(id)); } catch (e) { return; }
+            loadViewers();
+        }
+        function viewerAccess(id, prefix) {
+            var v = __viewers.viewers.find(function (x) { return x.id === id; });
+            return v && v.access.find(function (a) { return a.prefix === prefix; });
+        }
+        async function grantViewer(id, prefix, quota, hidden) {
+            if (!prefix) return;
+            var cur = viewerAccess(id, prefix);
+            try {
+                await viewerApi('POST', '/api/viewers/access', { viewer_id: id, prefix: prefix, quota: Number(quota),
+                    hidden_libraries: hidden || (cur ? cur.hidden_libraries : []) });
+            } catch (e) { loadViewers(); return; }
+            showToast('已保存'); loadViewers();
+        }
+        async function revokeViewer(id, prefix) {
+            if (!confirm('移除该账号在 /' + prefix + ' 的访问权限？')) return;
+            try { await viewerApi('DELETE', '/api/viewers/access?viewer_id=' + encodeURIComponent(id) + '&prefix=' + encodeURIComponent(prefix)); } catch (e) { return; }
+            loadViewers();
+        }
+        async function saveNodeCap(prefix, value) {
+            try { await viewerApi('POST', '/api/viewers/cap', { prefix: prefix, max_concurrent: Number(value) }); } catch (e) { loadViewers(); return; }
+            showToast('已保存'); loadViewers();
+        }
+        async function editViewerLibraries(id, prefix, btn) {
+            var row = document.querySelector('.viewer-libs[data-for="' + id + '|' + prefix + '"]');
+            if (!row) return;
+            if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+            var cell = row.firstElementChild;
+            cell.innerHTML = '<span class="cell-loading">读取媒体库...</span>'; row.style.display = '';
+            var data;
+            try { data = await viewerApi('GET', '/api/viewers/libraries?prefix=' + encodeURIComponent(prefix)); } catch (e) { row.style.display = 'none'; return; }
+            var cur = viewerAccess(id, prefix);
+            var hidden = cur ? cur.hidden_libraries : [];
+            cell.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm); margin-bottom:6px">勾选 = 在该账号的首页隐藏（搜索、继续观看不受影响）</div><div class="flex-wrap-tight">' +
+                data.libraries.map(function (l) {
+                    return '<label style="display:inline-flex; gap:6px; align-items:center"><input type="checkbox" value="' + vEsc(l.id) + '"' + (hidden.indexOf(l.id) >= 0 ? ' checked' : '') + '>' + vEsc(l.name) + '</label>';
+                }).join('') + '</div><button type="button" class="btn-tier is-sm is-primary" style="margin-top:8px">保存</button>';
+            cell.querySelector('button').onclick = function () {
+                var ids = Array.prototype.map.call(cell.querySelectorAll('input:checked'), function (c) { return c.value; });
+                grantViewer(id, prefix, cur ? cur.quota : 1, ids);
+            };
+        }
+
         // 兼容旧调用：showSection(sectionKey) → 解析所属目的地后切换
         function showSection(key) { showDest(destOfSection(key), key); }
         window.showDest = showDest;
@@ -3622,6 +3731,7 @@
                 speed:       { title: '测速 & DNS',  sub: '节点延迟与解析探测' },
                 stats:       { title: '数据统计',     sub: '流量、并发与历史趋势' },
                 settings:    { title: '系统设置',     sub: '应用、通知与账户' },
+                viewers:     { title: '观看账号',     sub: '独立观看记录与并发配额' },
                 tools:       { title: '工具箱',       sub: '实用工具集合' },
                 danger:      { title: '危险区',       sub: '不可逆操作，请谨慎' },
             };

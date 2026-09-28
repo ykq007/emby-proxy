@@ -8,7 +8,7 @@ let _schemaReady = false;
 // Schema 版本号：每次新增/修改 DDL 时递增此值即可触发下次冷启重新跑一遍迁移。
 // 版本号存在 kv_config(k=SCHEMA_VERSION_KEY) 里；命中且匹配时 ensureSchema 只做
 // 一次 SELECT 就返回，省掉冷启时 ~50 条 DDL exec 带来的延迟。
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 // Key constant lives in db/kv.js (the kv_config registry); re-exported here
 // so existing importers of SCHEMA_VERSION_KEY from this module keep working.
 export { SCHEMA_VERSION_KEY };
@@ -112,6 +112,16 @@ export async function ensureSchema(env) {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS ip_bans (ip TEXT PRIMARY KEY, until INTEGER NOT NULL, reason TEXT DEFAULT '')`);
         // 代理层前缀扫描限流：按 IP + 60s 固定窗口计数(见 proxy/scan-guard.js)；旧窗口由每日 cron 清理。
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS scan_rl (ip TEXT NOT NULL, win INTEGER NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY(ip, win))`);
+
+        // Viewers（代理自有账号，共享节点上游账号，独立观看状态）。见 src/viewers/。
+        try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN max_concurrent INTEGER DEFAULT 0`); } catch (e) { }
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewers (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, password TEXT NOT NULL, enabled INTEGER DEFAULT 1, created_at INTEGER DEFAULT 0)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_access (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, quota INTEGER DEFAULT 1, hidden_libraries TEXT DEFAULT '[]', PRIMARY KEY(viewer_id, prefix))`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_tokens (token_hash TEXT PRIMARY KEY, viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, device_id TEXT DEFAULT '', created_at INTEGER DEFAULT 0)`);
+        await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_viewer_tokens_viewer ON viewer_tokens(viewer_id)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS viewer_upstream (prefix TEXT PRIMARY KEY, blob TEXT NOT NULL)`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS watch_state (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, item_id TEXT NOT NULL, item_type TEXT DEFAULT '', series_id TEXT DEFAULT '', parent_index INTEGER DEFAULT 0, index_number INTEGER DEFAULT 0, position_ticks INTEGER DEFAULT 0, runtime_ticks INTEGER DEFAULT 0, played INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, last_played INTEGER DEFAULT 0, PRIMARY KEY(viewer_id, prefix, item_id))`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS playback_slots (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, device_id TEXT NOT NULL, item_id TEXT DEFAULT '', heartbeat_at INTEGER NOT NULL, PRIMARY KEY(viewer_id, prefix, device_id))`);
 
         // Seed 内置优选域名（依赖 UNIQUE(domain) 去重，幂等）
         const seedStmts = DEFAULT_OPTIMIZED_DOMAINS.map(d =>

@@ -12,6 +12,8 @@ import {
     upsertRoute,
     deleteRoute,
 } from '../routing/route.js';
+import { forgetNode } from '../viewers/store.js';
+import { dropUpstreamSession } from '../viewers/upstream.js';
 
 export async function handleRoutes(request, env, ctx, url) {
     if (url.pathname === '/api/routes/reorder' && request.method === 'POST') {
@@ -172,12 +174,14 @@ export async function handleRoutes(request, env, ctx, url) {
                 keepalive_last_reminded_at: prevRuntimeFields.keepalive_last_reminded_at,
                 emby_username: embyUsername, emby_password_enc: embyPasswordEnc,
             });
+            if (credsChanged) await dropUpstreamSession(env, data.prefix);
             return Response.json({ success: true });
         }
 
         if (request.method === 'DELETE') {
             const prefix = url.searchParams.get('prefix');
             await deleteRoute(env, prefix);
+            await forgetNode(env, prefix);
             return Response.json({ success: true });
         }
         return new Response("Method not allowed", { status: 405 });

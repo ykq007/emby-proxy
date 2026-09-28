@@ -665,6 +665,24 @@ export const HTML_UI = `
             </div>
             </section><!-- /sec-tools -->
 
+            <!-- ===== 分区: 观看账号 (Viewers) ===== -->
+            <section id="sec-viewers" class="app-section" data-section="viewers" style="display:none;">
+            <div class="card">
+                <h2 style="margin:0 0 6px; font-size:var(--text-2xl);">观看账号</h2>
+                <div style="color:var(--text-sec); font-size:var(--text-md); margin-bottom:18px;">给朋友开独立账号：共享节点的上游 Emby 账号，但观看记录、收藏、继续观看各自独立；可按节点分配并发配额、隐藏首页媒体库。节点需先在「部署节点」里填写 Emby 用户名/密码。</div>
+                <form class="a-row" onsubmit="event.preventDefault(); createViewer();">
+                    <input class="a-input" type="text" id="viewerNewName" aria-label="用户名" placeholder="用户名" autocomplete="off" required>
+                    <input class="a-input" type="password" id="viewerNewPass" aria-label="密码" placeholder="密码（至少 6 位）" autocomplete="new-password" minlength="6" required>
+                    <button type="submit" class="btn-tier is-primary">新建账号</button>
+                </form>
+                <h3 style="margin:22px 0 8px; font-size:var(--text-lg);">节点并发上限</h3>
+                <div style="color:var(--text-sec); font-size:var(--text-sm); margin-bottom:8px;">0 = 不限。各账号在该节点的配额之和不能超过上限。</div>
+                <div class="table-wrapper"><table class="w-full"><thead><tr><th>节点</th><th>已分配配额</th><th>并发上限</th></tr></thead><tbody id="viewerNodes"><tr><td colspan="3" class="cell-loading">加载中...</td></tr></tbody></table></div>
+                <h3 style="margin:22px 0 8px; font-size:var(--text-lg);">账号</h3>
+                <div id="viewerList"><div class="cell-loading">加载中...</div></div>
+            </div>
+            </section><!-- /sec-viewers -->
+
             <!-- ===== 分区: 概览 (节点管理) ===== -->
             <section id="sec-overview" class="app-section is-active" data-section="overview">
             <!-- Operations Cockpit · 运维看板：verdict-first + Four Golden Signals -->

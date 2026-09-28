@@ -12,6 +12,7 @@ import { guardPrefixScan } from './scan-guard.js';
 import { applyRequestGate } from './request-gate.js';
 import { getConfig } from './config-cache.js';
 import { dbStmt, dbBatch } from '../db/helpers.js';
+import { handleViewerRequest } from '../viewers/gate.js';
 
 // 海报/图片请求识别（仅图片，不含 js/css）——用于 R2 持久缓存读写门控。
 const IMG_REQ_RE = /\.(jpe?g|gif|png|svg|ico|webp|avif)$/i;
@@ -113,6 +114,15 @@ export async function proxyRequest(request, env, ctx, url) {
 
     const requestGateResponse = await applyRequestGate(request, env, config);
     if (requestGateResponse) return requestGateResponse;
+
+    // Viewer 网关：viewer 登录 / ev_ 令牌请求在此处理，经 proxyRequest 递归以上游账号令牌转发。
+    if (matchedPrefix && env.DB) {
+        const viewerResponse = await handleViewerRequest(request, env, ctx, {
+            prefix: matchedPrefix, path: remainingPath, url,
+            forward: (req) => proxyRequest(req, env, ctx, new URL(req.url)),
+        });
+        if (viewerResponse) return viewerResponse;
+    }
 
     // ==========================================
     // 2.6.5 WebSocket 反代 (Emby 会话保活 / 远程控制 / SyncPlay)

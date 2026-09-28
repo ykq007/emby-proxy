@@ -1,0 +1,259 @@
+// Viewers：登录、令牌替换、并发限制、独立观看状态、媒体库隐藏、管理端校验。
+// 真实 SQL（node:sqlite）+ 假上游 Emby（stub fetch），走完整 proxyRequest 路径。
+import { test, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { proxyRequest } from '../src/proxy/engine.js';
+import { handleViewers } from '../src/api/viewers.js';
+import { ensureSchema, __resetSchemaReadyForTest } from '../src/db/schema.js';
+import { __setConfigForTest, __resetConfigCache } from '../src/proxy/config-cache.js';
+import { encryptSecret } from '../src/emby/tokens.js';
+import { clearResolveCache } from '../src/viewers/store.js';
+import { __resetUpstreamMemForTest } from '../src/viewers/upstream.js';
+import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
+
+const ORIGIN = 'https://proxy.test';
+const UP = 'https://up.example';
+const UPTOK = 'UPSTREAM_TOKEN_123';
+let env; let seen; let restoreFetch; let upstreamLogins;
+
+// 上游 Emby 的最小仿真：共享账号的 Played 历史是 true，用来验证覆盖不泄露。
+function fakeUpstream(req) {
+    const u = new URL(req.url);
+    const p = u.pathname.replace(/^\/emby/, '');
+    const json = (d, status = 200) => Response.json(d, { status });
+    if (p === '/Users/AuthenticateByName') { upstreamLogins++; return json({ AccessToken: UPTOK, User: { Id: 'U1' }, ServerId: 'S1' }); }
+    const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key');
+    if (tok !== UPTOK) return json({ message: 'bad token' }, 401);
+    let m;
+    if ((m = /^\/Users\/U1\/Items\/(\w+)$/.exec(p))) {
+        const ep = { e1: [1, 1], e2: [1, 2], e3: [1, 3] }[m[1]];
+        return json(ep ? { Id: m[1], Type: 'Episode', SeriesId: 'ser', ParentIndexNumber: ep[0], IndexNumber: ep[1], RunTimeTicks: 1000, UserData: { Played: true } }
+            : { Id: m[1], Type: 'Movie', RunTimeTicks: 1000, UserData: { Played: true } });
+    }
+    if (p === '/Users/U1/Items') {
+        const ids = (u.searchParams.get('Ids') || 'm1,m2').split(',');
+        return json({ Items: ids.map(Id => ({ Id, UserData: { Played: true, IsFavorite: true, PlaybackPositionTicks: 5 } })), TotalRecordCount: ids.length });
+    }
+    if (p === '/Users/U1/Views') return json({ Items: [{ Id: 'L1', Name: 'Movies', Type: 'CollectionFolder' }, { Id: 'L2', Name: 'Anime', Type: 'CollectionFolder' }], TotalRecordCount: 2 });
+    if (p === '/Users/U1') return json({ Id: 'U1', Name: 'shared', Policy: { IsAdministrator: true } });
+    if (/^\/Items\/\w+\/PlaybackInfo$/.test(p)) return json({ MediaSources: [{ DirectStreamUrl: `/Videos/1/stream?api_key=${UPTOK}` }] });
+    if (/^\/Videos\/\w+\/master\.m3u8$/.test(p)) return new Response(`#EXTM3U\nseg0.ts?api_key=${UPTOK}\n`, { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
+    if (/^\/Sessions\/Playing/.test(p)) return new Response(null, { status: 204 });
+    if ((m = /^\/Users\/U1\/(PlayedItems|FavoriteItems)\/(\w+)$/.exec(p))) return json({ Played: true, IsFavorite: true, PlaybackPositionTicks: 0 });
+    if (p === '/Shows/ser/Episodes') return json({ Items: ['e1', 'e2', 'e3'].map((Id, i) => ({ Id, ParentIndexNumber: 1, IndexNumber: i + 1, UserData: {} })) });
+    return json({ path: p });
+}
+
+beforeEach(async () => {
+    __resetConfigCache(); __resetSchemaReadyForTest(); clearResolveCache(); __resetUpstreamMemForTest();
+    env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret' };
+    await ensureSchema(env);
+    env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent) VALUES (?, ?, ?, ?, ?)`)
+        .run('node1', UP, 'shared', await encryptSecret(env, 'pw'), 2);
+    __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0 }]]) });
+    seen = []; upstreamLogins = 0;
+    const orig = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+        const req = input instanceof Request ? input : new Request(input, init);
+        seen.push({ url: req.url, headers: [...req.headers].map(([k, v]) => `${k}: ${v}`).join('\n') });
+        return fakeUpstream(req);
+    };
+    restoreFetch = () => { globalThis.fetch = orig; };
+});
+afterEach(() => restoreFetch());
+
+async function admin(method, path, body) {
+    const req = new Request(ORIGIN + path, { method, body: body ? JSON.stringify(body) : undefined, headers: { 'content-type': 'application/json' } });
+    const r = await handleViewers(req, env, { waitUntil() { } }, new URL(req.url));
+    return { status: r.status, body: await r.json() };
+}
+
+async function call(path, { method = 'GET', token, body, device = 'dev1' } = {}) {
+    const headers = { 'User-Agent': 'TestClient', 'X-Emby-Authorization': `MediaBrowser Client="T", Device="D", DeviceId="${device}", Version="1"` };
+    if (token) headers['X-Emby-Token'] = token;
+    if (body) headers['content-type'] = 'application/json';
+    const pending = [];
+    const ctx = { waitUntil(p) { pending.push(p); } };
+    const req = new Request(`${ORIGIN}/node1${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const r = await proxyRequest(req, env, ctx, new URL(req.url));
+    await Promise.all(pending);
+    return r;
+}
+
+async function makeViewer(username, quota = 1, hidden = []) {
+    const { body } = await admin('POST', '/api/viewers', { username, password: 'secret1' });
+    await admin('POST', '/api/viewers/access', { viewer_id: body.id, prefix: 'node1', quota, hidden_libraries: hidden });
+    const r = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: username, Pw: 'secret1' }, device: 'dev-' + username });
+    assert.equal(r.status, 200);
+    const d = await r.json();
+    return { id: body.id, token: d.AccessToken, login: d };
+}
+
+test('viewer login returns an ev_ token and the upstream user id, with the viewer name', async () => {
+    const { token, login } = await makeViewer('alice');
+    assert.match(token, /^ev_[0-9a-f]{32}$/);
+    assert.equal(login.User.Id, 'U1');
+    assert.equal(login.User.Name, 'alice');
+    assert.equal(login.ServerId, 'S1');
+    assert.equal(login.User.Policy.IsAdministrator, false);
+});
+
+test('wrong password → 401; unknown username is forwarded to upstream', async () => {
+    await makeViewer('alice');
+    const bad = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'nope' } });
+    assert.equal(bad.status, 401);
+    const before = upstreamLogins;
+    const other = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'someone', Pw: 'x' } });
+    assert.equal(other.status, 200);
+    assert.equal(upstreamLogins, before + 1);
+});
+
+test('viewer token is swapped for the upstream token and never leaks either way', async () => {
+    const { token } = await makeViewer('alice');
+    seen = [];
+    const pi = await call('/emby/Items/m1/PlaybackInfo', { token });
+    const piText = await pi.text();
+    assert.ok(piText.includes(`api_key=${token}`), piText);
+    assert.ok(!piText.includes(UPTOK));
+    const hls = await call(`/emby/Videos/m1/master.m3u8?api_key=${token}`);
+    const hlsText = await hls.text();
+    assert.ok(hlsText.includes(token) && !hlsText.includes(UPTOK), hlsText);
+    assert.ok(seen.length > 0);
+    for (const s of seen) assert.ok(!s.url.includes('ev_') && !s.headers.includes('ev_'), `leaked to upstream: ${s.url}\n${s.headers}`);
+});
+
+test('unknown / revoked ev_ token → 401; revoking access takes effect', async () => {
+    const { id, token } = await makeViewer('alice');
+    assert.equal((await call('/emby/Users/U1/Items', { token: 'ev_' + '0'.repeat(32) })).status, 401);
+    assert.equal((await call('/emby/Users/U1/Items', { token })).status, 200);
+    await admin('DELETE', `/api/viewers/access?viewer_id=${id}&prefix=node1`);
+    assert.equal((await call('/emby/Users/U1/Items', { token })).status, 401);
+});
+
+test('GET /Users/{id} is renamed to the viewer and loses admin', async () => {
+    const { token } = await makeViewer('alice');
+    const d = await (await call('/emby/Users/U1', { token })).json();
+    assert.equal(d.Name, 'alice');
+    assert.equal(d.Policy.IsAdministrator, false);
+});
+
+test('viewers cannot delete items or edit the shared account', async () => {
+    const { token } = await makeViewer('alice');
+    assert.equal((await call('/emby/Items/m1', { method: 'DELETE', token })).status, 403);
+    assert.equal((await call('/emby/Users/U1/Policy', { method: 'POST', token, body: {} })).status, 403);
+});
+
+test('concurrency: viewer quota and node cap → 429; same device refreshes; stop releases', async () => {
+    const a = await makeViewer('alice', 1);
+    const b = await makeViewer('bob', 1);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200);
+    assert.equal((await call('/emby/Items/m2/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200, 'same device refreshes');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 429, 'viewer quota');
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: b.token, device: 'b1' })).status, 200);
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a.token, device: 'a1', body: { ItemId: 'm2', PositionTicks: 10 } });
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 200, 'slot released');
+});
+
+test('concurrency: node cap applies across viewers and expired slots are reclaimed', async () => {
+    env.DB.db.exec(`UPDATE routes SET max_concurrent = 0`);
+    const a = await makeViewer('alice', 0);
+    env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a1' })).status, 200);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 429, 'node cap');
+    env.DB.db.exec(`UPDATE playback_slots SET heartbeat_at = 0`);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token, device: 'a2' })).status, 200, 'expired reclaimed');
+});
+
+test('watch state is per viewer and hides the shared upstream history', async () => {
+    const a = await makeViewer('alice');
+    const b = await makeViewer('bob');
+    const fresh = await (await call('/emby/Users/U1/Items', { token: b.token })).json();
+    assert.deepEqual(fresh.Items.map(i => [i.UserData.Played, i.UserData.IsFavorite, i.UserData.PlaybackPositionTicks]), [[false, false, 0], [false, false, 0]]);
+
+    const w = await call('/emby/Users/U1/PlayedItems/m1', { method: 'POST', token: a.token });
+    assert.equal((await w.json()).Played, true);
+    await call('/emby/Users/U1/FavoriteItems/m2', { method: 'POST', token: a.token });
+
+    const ai = await (await call('/emby/Users/U1/Items', { token: a.token })).json();
+    assert.deepEqual(ai.Items.map(i => [i.Id, i.UserData.Played, i.UserData.IsFavorite]), [['m1', true, false], ['m2', false, true]]);
+    const bi = await (await call('/emby/Users/U1/Items', { token: b.token })).json();
+    assert.ok(bi.Items.every(i => !i.UserData.Played && !i.UserData.IsFavorite));
+
+    const fav = await (await call('/emby/Users/U1/Items?Filters=IsFavorite&Recursive=true', { token: a.token })).json();
+    assert.deepEqual(fav.Items.map(i => i.Id), ['m2']);
+    const favB = await (await call('/emby/Users/U1/Items?Filters=IsFavorite', { token: b.token })).json();
+    assert.equal(favB.TotalRecordCount, 0);
+});
+
+test('failed upstream write stores nothing locally', async () => {
+    const a = await makeViewer('alice');
+    restoreFetch();
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => new Response('boom', { status: 500 });
+    try {
+        const r = await call('/emby/Users/U1/PlayedItems/m1', { method: 'POST', token: a.token });
+        assert.equal(r.status, 500);
+    } finally { globalThis.fetch = orig; }
+    const rows = env.DB.db.prepare(`SELECT COUNT(*) AS n FROM watch_state WHERE viewer_id = ?`).get(a.id);
+    assert.equal(rows.n, 0);
+});
+
+test('progress feeds Continue Watching (one per series) and 90% stop marks played', async () => {
+    const a = await makeViewer('alice');
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'e1', PositionTicks: 300 } });
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'e2', PositionTicks: 400 } });
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'm1', PositionTicks: 100 } });
+    const resume = await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json();
+    assert.deepEqual(resume.Items.map(i => i.Id).sort(), ['e2', 'm1']);
+    assert.equal(resume.Items.find(i => i.Id === 'm1').UserData.PlaybackPositionTicks, 100);
+
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a.token, body: { ItemId: 'e2', PositionTicks: 950 } });
+    const next = await (await call('/emby/Shows/NextUp', { token: a.token })).json();
+    assert.deepEqual(next.Items.map(i => i.Id), ['e3']);
+    const resume2 = await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json();
+    assert.deepEqual(resume2.Items.map(i => i.Id).sort(), ['e1', 'm1'], 'e2 finished; series falls back to e1 still in progress');
+});
+
+test('hidden libraries are dropped from Views only for that viewer', async () => {
+    const a = await makeViewer('alice', 1, ['L2']);
+    const b = await makeViewer('bob');
+    const va = await (await call('/emby/Users/U1/Views', { token: a.token })).json();
+    assert.deepEqual(va.Items.map(i => i.Id), ['L1']);
+    assert.equal(va.TotalRecordCount, 1);
+    const vb = await (await call('/emby/Users/U1/Views', { token: b.token })).json();
+    assert.deepEqual(vb.Items.map(i => i.Id), ['L1', 'L2']);
+});
+
+test('admin: quota sum cannot exceed node cap; cap cannot drop below granted quotas', async () => {
+    const v1 = (await admin('POST', '/api/viewers', { username: 'v1', password: 'secret1' })).body.id;
+    const v2 = (await admin('POST', '/api/viewers', { username: 'v2', password: 'secret1' })).body.id;
+    assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v1, prefix: 'node1', quota: 2 })).status, 200);
+    const over = await admin('POST', '/api/viewers/access', { viewer_id: v2, prefix: 'node1', quota: 1 });
+    assert.equal(over.status, 400);
+    assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v1, prefix: 'node1', quota: 1 })).status, 200, 're-grant excludes own quota');
+    assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v2, prefix: 'node1', quota: 1 })).status, 200);
+    assert.equal((await admin('POST', '/api/viewers/cap', { prefix: 'node1', max_concurrent: 1 })).status, 400);
+    assert.equal((await admin('POST', '/api/viewers/cap', { prefix: 'node1', max_concurrent: 3 })).status, 200);
+    assert.equal((await admin('POST', '/api/viewers', { username: 'v1', password: 'secret1' })).status, 409);
+});
+
+test('admin: disabling a viewer revokes their tokens', async () => {
+    const a = await makeViewer('alice');
+    await admin('POST', '/api/viewers', { id: a.id, enabled: false });
+    assert.equal((await call('/emby/Users/U1/Items', { token: a.token })).status, 401);
+    const relog = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'secret1' } });
+    assert.equal(relog.status, 401);
+});
+
+test('upstream 401 drops the cached upstream session and re-logs in', async () => {
+    const a = await makeViewer('alice');
+    env.DB.db.exec(`DELETE FROM viewer_upstream`);
+    __resetUpstreamMemForTest();
+    env.DB.db.prepare(`INSERT INTO viewer_upstream (prefix, blob) VALUES ('node1', ?)`).run(
+        await (await import('../src/emby/tokens.js')).encryptToken(env, 'node1', JSON.stringify({ token: 'STALE', userId: 'U1', serverId: 'S1' })));
+    const before = upstreamLogins;
+    const r = await call('/emby/Users/U1/Items', { token: a.token });
+    assert.equal(r.status, 200);
+    assert.equal(upstreamLogins, before + 1);
+});

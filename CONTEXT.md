@@ -59,3 +59,19 @@ _Avoid_: Permissions, ACL, subscription
 **Watch state**:
 One viewer's played mark, resume position and favorite for one item on one Emby node.
 _Avoid_: Watch history, user data, progress
+
+**Viewer token**:
+The `ev_`-prefixed token the proxy issues to a viewer at login; the proxy swaps it for the upstream account's token on every request and never lets either token cross to the other side.
+_Avoid_: Session, API key, access token
+
+**Node concurrency limit**:
+The maximum number of simultaneous viewer streams on one Emby node (`routes.max_concurrent`; 0 = unlimited).
+_Avoid_: Cap, max streams, capacity
+
+**Viewer quota**:
+The share of a node concurrency limit granted to one viewer on one Emby node; quotas on a node may not sum above its node concurrency limit.
+_Avoid_: Allowance, seat, slot count
+
+**Playback slot**:
+One viewer stream on one device counted against the viewer quota and node concurrency limit; taken at PlaybackInfo, released on stop or after 3 minutes without a heartbeat.
+_Avoid_: Session, lease, stream count

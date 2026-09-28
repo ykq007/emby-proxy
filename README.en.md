@@ -75,6 +75,19 @@ wrangler secret put TG_CHAT_ID
 wrangler secret put TG_WEBHOOK_SECRET
 ```
 
+## Viewer accounts
+
+Give friends their own login on a node without sharing the node's Emby password (**Config → Viewer accounts**):
+
+- A viewer logs in from any Emby client at `https://<worker>/<alias>` with the username and password you created. The proxy signs in to upstream as the node's Emby account (the Emby username/password set on the node), so that field is required.
+- **Own watch state.** Played marks, resume positions, favorites, Continue Watching and Next Up are kept per viewer in D1. Writes go to upstream first and are saved locally only if upstream succeeds.
+- **Concurrent streams.** Each node has a cap, and each viewer gets a quota on each node. Quotas on a node can't add up to more than its cap (0 means unlimited). Going over returns 429. A slot is freed on stop, or after 3 minutes without a playback heartbeat.
+- **Library hiding.** Hide chosen libraries from a viewer's home screen. Search and Continue Watching are not affected.
+- **Viewer tokens.** Viewer tokens (`ev_…`) never reach upstream, and the upstream token never reaches the viewer. Anyone using their own upstream Emby account is unaffected.
+- **Limitations.**
+  - The `IsUnplayed` filter and series unplayed counts still come from the shared upstream account.
+  - Use a **non-admin** upstream account. Viewers are blocked from deleting items and editing users, but the account's other rights still apply.
+
 ## Architecture
 
 - **Cloudflare Worker** — the whole app (routing, proxying, admin API, Telegram webhook) runs as a single Worker (`src/index.js`).
