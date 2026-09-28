@@ -9,7 +9,7 @@
 import { dbAll } from '../db/helpers.js';
 import { updateRouteColumns } from '../routing/route.js';
 import { listViewers, createViewer, updateViewer, deleteViewer, grantAccess, revokeAccess, nodeCapacity } from '../viewers/store.js';
-import { getUpstreamSession, dropUpstreamSession } from '../viewers/upstream.js';
+import { getUpstreamSession, checkUpstreamLogin } from '../viewers/upstream.js';
 import { proxyRequest } from '../proxy/engine.js';
 
 const ok = (extra) => Response.json({ success: true, ...extra });
@@ -80,9 +80,8 @@ export async function handleViewers(request, env, ctx, url) {
             if (d.viewers_enabled !== undefined) {
                 if (d.viewers_enabled) {
                     // 开启前实际登录一次上游，确认节点的上游账号可用。
-                    await dropUpstreamSession(env, String(d.prefix));
-                    const up = await getUpstreamSession(env, String(d.prefix), request.headers.get('User-Agent') || '');
-                    if (!up) return fail('无法登录上游：请先在节点里填写正确的 Emby 用户名/密码（或全局共享凭据）');
+                    const err = await checkUpstreamLogin(env, String(d.prefix));
+                    if (err) return fail('无法开启：' + err);
                 }
                 fields.viewers_enabled = d.viewers_enabled ? 1 : 0;
             }
@@ -91,7 +90,7 @@ export async function handleViewers(request, env, ctx, url) {
         }
         if (p === '/api/viewers/libraries' && m === 'GET') {
             const prefix = url.searchParams.get('prefix') || '';
-            const up = await getUpstreamSession(env, prefix, request.headers.get('User-Agent') || '');
+            const up = await getUpstreamSession(env, prefix);
             if (!up) return fail('节点上游账号不可用：请先在节点里填写 Emby 用户名/密码', 503);
             const r = await proxyRequest(new Request(`${url.origin}/${prefix}/emby/Users/${up.userId}/Views`, {
                 headers: { 'X-Emby-Token': up.token, 'Accept': 'application/json', 'User-Agent': request.headers.get('User-Agent') || '' },

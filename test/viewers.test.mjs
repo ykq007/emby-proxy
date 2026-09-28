@@ -16,14 +16,19 @@ import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 const ORIGIN = 'https://proxy.test';
 const UP = 'https://up.example';
 const UPTOK = 'UPSTREAM_TOKEN_123';
-let env; let seen; let restoreFetch; let upstreamLogins;
+let env; let seen; let restoreFetch; let upstreamLogins; let loginUas;
 
 // 上游 Emby 的最小仿真：共享账号的 Played 历史是 true，用来验证覆盖不泄露。
 function fakeUpstream(req) {
     const u = new URL(req.url);
     const p = u.pathname.replace(/^\/emby/, '');
     const json = (d, status = 200) => Response.json(d, { status });
-    if (p === '/Users/AuthenticateByName') { upstreamLogins++; return json({ AccessToken: UPTOK, User: { Id: 'U1' }, ServerId: 'S1' }); }
+    if (p === '/Users/AuthenticateByName') {
+        upstreamLogins++;
+        loginUas.push(req.headers.get('User-Agent'));
+        if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
+        return req.clone().json().then(b => b.Pw === 'wrong' ? json({ message: 'bad' }, 401) : json({ AccessToken: UPTOK, User: { Id: 'U1' }, ServerId: 'S1' }));
+    }
     const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key');
     if (tok !== UPTOK) return json({ message: 'bad token' }, 401);
     let m;
@@ -53,7 +58,7 @@ beforeEach(async () => {
     env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent, viewers_enabled) VALUES (?, ?, ?, ?, ?, 1)`)
         .run('node1', UP, 'shared', await encryptSecret(env, 'pw'), 2);
     __setConfigForTest({ routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 1 }]]) });
-    seen = []; upstreamLogins = 0;
+    seen = []; upstreamLogins = 0; loginUas = [];
     const orig = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
         const req = input instanceof Request ? input : new Request(input, init);
@@ -275,6 +280,10 @@ test('switch on requires a working upstream login; grants need the switch on', a
     assert.equal((await admin('POST', '/api/viewers/access', { viewer_id: v, prefix: 'bare', quota: 1 })).status, 400, 'switch off');
     const on = await admin('POST', '/api/viewers/node', { prefix: 'bare', viewers_enabled: true });
     assert.equal(on.status, 400, 'no Emby credentials on node');
+    assert.match(on.body.error, /没有 Emby 账号/);
+    env.DB.db.prepare(`UPDATE routes SET emby_username = 'shared', emby_password_enc = ? WHERE prefix = 'bare'`).run(await encryptSecret(env, 'wrong'));
+    const bad = await admin('POST', '/api/viewers/node', { prefix: 'bare', viewers_enabled: true });
+    assert.match(bad.body.error, /用户名或密码不对/);
     assert.equal(env.DB.db.prepare(`SELECT viewers_enabled FROM routes WHERE prefix = 'bare'`).get().viewers_enabled, 0);
     assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: false })).status, 200);
     assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: true })).status, 200);
@@ -295,4 +304,16 @@ test('editing a node keeps its viewer settings; renaming it moves viewer access'
     assert.deepEqual({ ...row }, { max_concurrent: 2, viewers_enabled: 1 });
     const acc = env.DB.db.prepare(`SELECT prefix FROM viewer_access WHERE viewer_id = ?`).all(a.id).map(r => r.prefix);
     assert.deepEqual(acc, ['node2']);
+});
+
+test('upstream login uses a real client UA from visitor logs, never a browser UA; custom headers win', async () => {
+    env.DB.db.exec(`INSERT INTO visitor_logs (prefix, ua) VALUES ('node1', 'Hills/1.9.0 (android; 17)'), ('node1', 'Mozilla/5.0 Chrome')`);
+    const req = { username: 'v1', password: 'secret1' };
+    await admin('POST', '/api/viewers', req);
+    const off = await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: true });
+    assert.equal(off.status, 200, JSON.stringify(off.body));
+    assert.equal(loginUas.at(-1), 'Hills/1.9.0 (android; 17)');
+    env.DB.db.exec(`UPDATE routes SET custom_headers = 'User-Agent: Custom/1' WHERE prefix = 'node1'`);
+    assert.equal((await admin('POST', '/api/viewers/node', { prefix: 'node1', viewers_enabled: true })).status, 200);
+    assert.equal(loginUas.at(-1), 'Custom/1');
 });

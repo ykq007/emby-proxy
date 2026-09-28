@@ -90,7 +90,7 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         return Response.json({ message: 'Forbidden for viewer accounts' }, { status: 403 });
     }
     const ua = request.headers.get('User-Agent') || '';
-    let up = await getUpstreamSession(env, prefix, ua);
+    let up = await getUpstreamSession(env, prefix);
     if (!up) return Response.json({ message: 'Upstream account unavailable' }, { status: 503 });
 
     // 上游令牌失效 → 丢弃会话重新登录；GET 可安全重放一次。
@@ -99,7 +99,7 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         let r = await opts.forward(swapToken(req, token, up.token));
         if (r.status === 401) {
             await dropUpstreamSession(env, prefix);
-            const fresh = await getUpstreamSession(env, prefix, ua);
+            const fresh = await getUpstreamSession(env, prefix);
             if (fresh) {
                 up = fresh;
                 if (retry) r = await opts.forward(swapToken(retry, token, up.token));
@@ -268,7 +268,7 @@ async function viewerLogin(request, env, opts) {
             { table: 'auth_rl', minuteLimit: 12, hourlyLimit: 100, banMs: 3600000, reason: 'viewer-bruteforce' }) : null;
         return limited || unauthorized();
     }
-    const up = await getUpstreamSession(env, opts.prefix, request.headers.get('User-Agent') || '');
+    const up = await getUpstreamSession(env, opts.prefix);
     if (!up) return Response.json({ message: 'Upstream account unavailable' }, { status: 503 });
     const device = deviceIdOf(request, opts.url, '');
     const token = await issueToken(env, row.id, opts.prefix, device);
