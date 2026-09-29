@@ -58,3 +58,17 @@ Cloudflare cron 不可靠时(账号级 cron 派发问题),用外部 cron-job.org
 
 - `GET /api/_probe_now`   每 1 分钟
 - `GET /api/_counts_now`  每天一次(UTC 00:05 推荐)
+
+## 自托管数据库(可选)
+
+生产库可以从 D1 搬到 VPS 上的 libSQL,避开 D1 免费版日配额。完整步骤见
+[docs/self-hosted-libsql.md](docs/self-hosted-libsql.md);owner 的命令都带上 `-c wrangler.prod.toml`:
+
+```bash
+npx wrangler d1 export emby-proxy-prod-db --remote --output d1.sql -c wrangler.prod.toml
+LIBSQL_URL=https://db.example.com LIBSQL_AUTH_TOKEN=... node scripts/libsql-import.mjs d1.sql
+npx wrangler secret put LIBSQL_URL -c wrangler.prod.toml
+npx wrangler secret put LIBSQL_AUTH_TOKEN -c wrangler.prod.toml
+```
+
+回退:`npx wrangler secret delete LIBSQL_URL -c wrangler.prod.toml`。

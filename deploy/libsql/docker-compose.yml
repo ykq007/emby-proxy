@@ -1,0 +1,30 @@
+# 自托管 libSQL（sqld）+ Caddy 自动 HTTPS。说明见 docs/self-hosted-libsql.md。
+# 同目录 .env 里需要：SQLD_AUTH_JWT_KEY（node scripts/libsql-keygen.mjs 生成）、DB_DOMAIN（如 db.example.com）。
+services:
+  sqld:
+    image: ghcr.io/tursodatabase/libsql-server:v0.24.33
+    restart: unless-stopped
+    environment:
+      SQLD_AUTH_JWT_KEY: ${SQLD_AUTH_JWT_KEY:?set SQLD_AUTH_JWT_KEY in .env}
+    volumes:
+      - ./data:/var/lib/sqld
+    # 只在本机回环口暴露（给备份脚本用）；外网只能经 Caddy 的 HTTPS 访问。
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DB_DOMAIN: ${DB_DOMAIN:?set DB_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - sqld
+
+volumes:
+  caddy-data:

@@ -1,0 +1,3 @@
+{$DB_DOMAIN} {
+	reverse_proxy sqld:8080
+}

@@ -31,3 +31,12 @@ CF_WORKER_NAME=
 TG_BOT_TOKEN=
 TG_CHAT_ID=
 TG_WEBHOOK_SECRET=
+
+# ------------------------------------------------------------------------------
+# OPTIONAL — self-hosted database (libSQL on your VPS) instead of D1, no daily
+# row caps. Leave blank to use D1. See docs/self-hosted-libsql.en.md.
+# 可选 — 改用 VPS 上的自托管 libSQL 代替 D1（无日配额）。留空即用 D1。
+# 见 docs/self-hosted-libsql.md。
+# ------------------------------------------------------------------------------
+LIBSQL_URL=
+LIBSQL_AUTH_TOKEN=

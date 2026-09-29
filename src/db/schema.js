@@ -4,6 +4,10 @@ import { DEFAULT_MANUAL_REDIRECT_DOMAINS, MANUAL_REDIRECT_DOMAINS_KEY } from '..
 import { SCHEMA_VERSION_KEY } from './kv.js';
 
 let _schemaReady = false;
+// 迁移失败后的冷却截止时间：DB 不可达（如自托管 libSQL 宕机）时，不让每个请求都
+// 再去撞一次超时，30s 内直接跳过，之后再试。
+let _retryAt = 0;
+const RETRY_COOLDOWN_MS = 30000;
 
 // Schema 版本号：每次新增/修改 DDL 时递增此值即可触发下次冷启重新跑一遍迁移。
 // 版本号存在 kv_config(k=SCHEMA_VERSION_KEY) 里；命中且匹配时 ensureSchema 只做
@@ -14,10 +18,10 @@ export const SCHEMA_VERSION = 5;
 export { SCHEMA_VERSION_KEY };
 
 // 仅供测试使用：重置模块级 ready 标志，让 ensureSchema 在同一进程内可重复触发。
-export function __resetSchemaReadyForTest() { _schemaReady = false; }
+export function __resetSchemaReadyForTest() { _schemaReady = false; _retryAt = 0; }
 
 export async function ensureSchema(env) {
-    if (_schemaReady || !env.DB) return;
+    if (_schemaReady || !env.DB || Date.now() < _retryAt) return;
     try {
         // 版本探测：命中且与当前 SCHEMA_VERSION 相等则直接返回，跳过下面的全量迁移。
         // 全新空库时 kv_config 表还不存在，这条 SELECT 会抛错（no such table）——
@@ -148,5 +152,6 @@ export async function ensureSchema(env) {
     } catch (e) {
         // 不抛错：DB 失败不能阻塞 Worker
         console.log('ensureSchema error:', e.message);
+        _retryAt = Date.now() + RETRY_COOLDOWN_MS;
     }
 }

@@ -200,6 +200,74 @@ test('batch-load failure → ok:false, null gate sets (fail-open), empty manualR
     assert.equal(attempts, 2, 'a failed load must not be cached — next call must retry the batch');
 });
 
+// ---------------------------------------------------------------------------
+// DB outage fallback: last good config in memory, then the Cache API snapshot
+// ---------------------------------------------------------------------------
+
+test('load failure after a good load → serves the last good config (stale), retries only after 10s', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'] });
+    try {
+        let down = false, attempts = 0;
+        const db = makeDB({ routeRows: [{ prefix: 'keep', target: 'https://keep.example.com' }] });
+        const realBatch = db.batch.bind(db);
+        db.batch = async (stmts) => { attempts++; if (down) throw new Error('libsql unreachable'); return realBatch(stmts); };
+        const env = { DB: db };
+
+        await getConfig(env);
+        down = true;
+        t.mock.timers.tick(61000);
+
+        const stale = await getConfig(env);
+        assert.equal(stale.stale, true);
+        assert.equal(stale.config.ok, true, 'a stale config still routes');
+        assert.equal(stale.config.routesMap.get('keep').target, 'https://keep.example.com');
+        assert.equal(attempts, 2);
+
+        t.mock.timers.tick(5000);
+        const warm = await getConfig(env);
+        assert.equal(warm.cacheHit, true, 'within the 10s back-off the stale copy is served without touching the DB');
+        assert.equal(attempts, 2);
+
+        t.mock.timers.tick(6000);
+        down = false;
+        const fresh = await getConfig(env);
+        assert.equal(fresh.cacheHit, false);
+        assert.equal(fresh.stale, undefined);
+        assert.equal(attempts, 3, 'retries once the back-off elapses');
+    } finally {
+        t.mock.timers.reset();
+    }
+});
+
+test('cold isolate + DB down → restores routes from the Cache API snapshot written by an earlier load', async () => {
+    const store = new Map();
+    globalThis.caches = {
+        default: {
+            async put(url, res) { store.set(String(url), await res.text()); },
+            async match(url) { return store.has(String(url)) ? new Response(store.get(String(url))) : undefined; },
+        },
+    };
+    try {
+        const db = makeDB({
+            routeRows: [{ prefix: 'snap', target: 'https://snap.example.com' }],
+            kvRows: { proxy_country_allowlist: 'cn' },
+        });
+        await getConfig({ DB: db });
+        assert.equal(store.size, 1, 'a successful load writes the snapshot');
+
+        __resetConfigCache(); // new isolate: nothing in memory
+        const broken = createD1Fake([]);
+        broken.batch = async () => { throw new Error('libsql unreachable'); };
+        const { config, stale } = await getConfig({ DB: broken });
+        assert.equal(stale, true);
+        assert.equal(config.ok, true);
+        assert.equal(config.routesMap.get('snap').target, 'https://snap.example.com');
+        assert.deepEqual([...config.countrySet], ['CN']);
+    } finally {
+        delete globalThis.caches;
+    }
+});
+
 test('no env.DB → ok:false sentinel, zero batch calls, no throw', async () => {
     const { config, cacheHit, loadMs } = await getConfig({});
     assert.equal(config.ok, false);

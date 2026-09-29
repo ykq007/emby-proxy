@@ -29,5 +29,8 @@
     "globals": "^17.7.0",
     "javascript-obfuscator": "^4.1.0",
     "wrangler": "^4.98.0"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
   }
 }
