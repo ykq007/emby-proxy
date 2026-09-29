@@ -3,6 +3,8 @@ import { dbAll, dbStmt, dbBatch } from '../db/helpers.js';
 import { PREFIX_SELECT } from '../routing/route.js';
 import { createCfApi } from '../cf/api.js';
 
+const ROUTE_TRENDS_BATCH = 25;
+
 export async function handleCf(request, env, ctx, url, deps = {}) {
     const cfApi = deps.cfApi || createCfApi(env);
     if (url.pathname === '/api/analytics' && request.method === 'GET') {
@@ -72,13 +74,13 @@ export async function handleCf(request, env, ctx, url, deps = {}) {
             const startIso = new Date(todayUtc.getTime() - (days - 1) * 86400000).toISOString();
             const endIso = new Date(todayUtc.getTime() + 86400000 - 1).toISOString();
 
-            const items = await Promise.all(routes.map(async (r) => {
-                const empty = dayKeys.map(() => 0);
-                try {
-                    const query = `query {
-                          viewer {
-                            zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) {
-                              httpRequestsAdaptiveGroups(
+            // 每个 GraphQL 请求用别名 r0..rN 一次查一批路由：Workers Free 每次调用最多 50 个 fetch 子请求，
+            // 一路由一请求在 49 个路由时就会超限。实测单个查询 51 个节点可以，60 个报 "too many nodes"。
+            const chunks = [];
+            for (let i = 0; i < routes.length; i += ROUTE_TRENDS_BATCH) chunks.push(routes.slice(i, i + ROUTE_TRENDS_BATCH));
+            let partial = false;
+            const items = (await Promise.all(chunks.map(async (chunk) => {
+                const nodes = chunk.map((r, i) => `r${i}: httpRequestsAdaptiveGroups(
                                 limit: ${days},
                                 filter: {
                                   clientRequestPath_like: "/${r.prefix}%",
@@ -89,23 +91,18 @@ export async function handleCf(request, env, ctx, url, deps = {}) {
                               ) {
                                 dimensions { date }
                                 sum { edgeResponseBytes }
-                              }
-                            }
-                          }
-                        }`;
-                    const g = await cfApi.graphql(query);
-                    if (!g.ok) return { prefix: r.prefix, bytes: empty };
-                    const groups = g.data?.viewer?.zones?.[0]?.httpRequestsAdaptiveGroups || [];
+                              }`).join('\n');
+                const g = await cfApi.graphql(`query { viewer { zones(filter: {zoneTag: "${env.CF_ZONE_ID}"}) { ${nodes} } } }`);
+                const zone = g.ok ? g.data?.viewer?.zones?.[0] : null;
+                if (!zone) partial = true;
+                return chunk.map((r, i) => {
                     const byDate = new Map();
-                    for (const grp of groups) {
+                    for (const grp of zone?.[`r${i}`] || []) {
                         byDate.set(grp.dimensions?.date, grp.sum?.edgeResponseBytes || 0);
                     }
-                    const bytes = dayKeys.map(d => byDate.get(d) || 0);
-                    return { prefix: r.prefix, bytes };
-                } catch (e) {
-                    return { prefix: r.prefix, bytes: empty };
-                }
-            }));
+                    return { prefix: r.prefix, bytes: dayKeys.map(d => byDate.get(d) || 0) };
+                });
+            }))).flat();
 
             const payload = {
                 ok: true,
@@ -114,7 +111,8 @@ export async function handleCf(request, env, ctx, url, deps = {}) {
                 source: 'cf-graphql',
                 items
             };
-            globalThis.__routeTrendCache.set(cacheKey, { expireAt: now + 30 * 60 * 1000, payload });
+            // 有批次失败时不缓存，否则那批路由会整整 30 分钟显示为 0
+            if (!partial) globalThis.__routeTrendCache.set(cacheKey, { expireAt: now + 30 * 60 * 1000, payload });
             return Response.json(payload);
         } catch (e) {
             return Response.json({ ok: false, reason: 'graphql-failed', error: e.message, days, items: [] });

@@ -134,13 +134,24 @@ function trendsEnv(overrides = {}) {
     return { CF_API_TOKEN: 'tok', CF_ZONE_ID: 'zone-1', DB: makeDB([{ prefix: 'movies' }, { prefix: 'tv' }]), ...overrides };
 }
 
-test('GET /api/route-trends: returns per-route byte series sourced from the GraphQL fake', async () => {
-    const cfApi = createFakeCfApi({
+// Answers every aliased node `rN: httpRequestsAdaptiveGroups(... "/<prefix>%" ...)`
+// in a query with today's bytesFor(prefix), or fails the whole query while failing().
+function trendsFake(bytesFor, failing = () => false) {
+    const today = new Date().toISOString().split('T')[0];
+    return createFakeCfApi({
         graphql: (query) => {
-            const bytes = query.includes('/movies%') ? 111 : 222;
-            return { ok: true, status: 200, data: { viewer: { zones: [{ httpRequestsAdaptiveGroups: [{ dimensions: { date: new Date().toISOString().split('T')[0] }, sum: { edgeResponseBytes: bytes } }] }] } } };
+            if (failing()) return { ok: false, reason: 'api-error', error: 'quota' };
+            const zone = {};
+            for (const [, alias, prefix] of query.matchAll(/(r\d+):\s*httpRequestsAdaptiveGroups\([^)]*?clientRequestPath_like:\s*"\/([^"]*)%"/g)) {
+                zone[alias] = [{ dimensions: { date: today }, sum: { edgeResponseBytes: bytesFor(prefix) } }];
+            }
+            return { ok: true, status: 200, data: { viewer: { zones: [zone] } } };
         },
     });
+}
+
+test('GET /api/route-trends: returns per-route byte series sourced from the GraphQL fake', async () => {
+    const cfApi = trendsFake(p => (p === 'movies' ? 111 : 222));
     const req = new Request('https://worker.example/api/route-trends?days=1');
     const res = await handleCf(req, trendsEnv(), {}, makeUrl('/api/route-trends', '?days=1'), { cfApi });
     const body = await res.json();
@@ -149,23 +160,37 @@ test('GET /api/route-trends: returns per-route byte series sourced from the Grap
     const byPrefix = Object.fromEntries(body.items.map(i => [i.prefix, i.bytes]));
     assert.deepEqual(byPrefix.movies, [111]);
     assert.deepEqual(byPrefix.tv, [222]);
-    assert.equal(cfApi.calls.graphql.length, 2);
+    assert.equal(cfApi.calls.graphql.length, 1);
 });
 
-test('GET /api/route-trends: a GraphQL failure for one route degrades to a zero-filled series, not a crash', async () => {
-    const cfApi = createFakeCfApi({
-        graphql: (query) => {
-            if (query.includes('/movies%')) return { ok: false, reason: 'api-error', error: 'rate limited' };
-            return { ok: true, status: 200, data: { viewer: { zones: [{ httpRequestsAdaptiveGroups: [] }] } } };
-        },
-    });
-    const req = new Request('https://worker.example/api/route-trends?days=1');
-    const res = await handleCf(req, trendsEnv(), {}, makeUrl('/api/route-trends', '?days=1'), { cfApi });
+// Workers Free allows 50 fetch() subrequests per invocation; one GraphQL call
+// per route blew past it at 49 routes and silently zeroed the overflow.
+test('GET /api/route-trends: GraphQL calls do not grow one-per-route', async () => {
+    const prefixes = Array.from({ length: 60 }, (_, i) => `p${i}`);
+    const cfApi = trendsFake(p => Number(p.slice(1)) + 1);
+    const env = trendsEnv({ DB: makeDB(prefixes.map(prefix => ({ prefix }))) });
+    const res = await handleCf(new Request('https://worker.example/api/route-trends?days=1'), env, {}, makeUrl('/api/route-trends', '?days=1'), { cfApi });
     const body = await res.json();
-    assert.equal(body.ok, true);
-    const byPrefix = Object.fromEntries(body.items.map(i => [i.prefix, i.bytes]));
-    assert.deepEqual(byPrefix.movies, [0]);
-    assert.deepEqual(byPrefix.tv, [0]);
+    assert.ok(cfApi.calls.graphql.length <= 3, `expected ≤3 GraphQL calls for 60 routes, got ${cfApi.calls.graphql.length}`);
+    // The live API rejected a 60-node query ("too many nodes") and accepted 51.
+    for (const { query } of cfApi.calls.graphql) {
+        assert.ok(query.match(/httpRequestsAdaptiveGroups/g).length <= 50);
+    }
+    assert.deepEqual(body.items.map(i => [i.prefix, i.bytes[0]]), prefixes.map((p, i) => [p, i + 1]));
+});
+
+test('GET /api/route-trends: a failed GraphQL batch zero-fills its routes and is not cached', async () => {
+    let failing = true;
+    const cfApi = trendsFake(() => 5, () => failing);
+    const call = async () => (await handleCf(new Request('https://worker.example/api/route-trends?days=1'), trendsEnv(), {}, makeUrl('/api/route-trends', '?days=1'), { cfApi })).json();
+
+    const first = await call();
+    assert.equal(first.ok, true);
+    assert.deepEqual(first.items.map(i => i.bytes), [[0], [0]]);
+
+    failing = false;
+    const second = await call();
+    assert.deepEqual(second.items.map(i => i.bytes), [[5], [5]]);
 });
 
 test('GET /api/route-trends: missing CF env vars short-circuits before touching cfApi', async () => {
