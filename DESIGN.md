@@ -15,6 +15,9 @@
 - Light：iOS grouped background（`#F2F2F7` 一族）+ 白色卡片，墨色标签层级。
 - Dark：抬升灰（`#1C1C1E` / `#2C2C2E` 一族）——**不用纯黑**，长时运维要的是一个表面而不是一个洞。systemBlue 提亮，状态色 luminous。
 - `--btn-fill` 比 `--primary` 更深：systemBlue 本身对白字只到 3:1（够 UI 组件，不够正文），承载文字的填充按钮需要加深到 ≥4.5:1。
+- 文字落在淡色底上用 **ink** 档：`--primary-ink`（选中导航 / 子 tab / 蓝色标签）、`--err-ink`（离线徽章等红底红字）、`--teal-ink`（AAAA 记录）。`--primary` / `--err-text` 在对应 `-soft` 底上只有 ~3.7–4.0:1。
+- 不用透明度做弱化：`opacity` 会把次要文字拉到 AA 以下（旧的 `.node-row.idle{opacity:.82}` 就是 131 处对比度失败的主因）。弱化用颜色 token。
+- 蓝色只给可点的东西。坏值、空值、计数用中性色（例：「0 / 6 节点在线」的 0 不再是蓝色）。
 
 ## Color (OKLCH)
 
@@ -103,7 +106,7 @@ token **名称沿用现有契约**（`--primary` / `--bg` / `--ok` …），仅�
 - **只动 `transform` / `opacity` / `filter`**；`top`/`height` 之类会每帧走布局。
 - **能被抓住的东西用 transition 不用 keyframes**：keyframes 被打断会从 0 重来，transition 会从当前值重新瞄准。
 - **⌘K 命令面板完全不做入场动画**——键盘触发、每天几十次，任何过渡都会被读成延迟。
-- **不要缓慢循环的装饰动效**（旧的 4s logo 呼吸环、8s 登录扫光已删除）：接近 0.2 Hz 的大面积振荡正是运动敏感用户要躲的东西。
+- **不要缓慢循环的装饰动效**（旧的 4s logo 呼吸环、8s 登录扫光、离线徽章 2.6s 脉冲、ECG 扩散环都已删除；KPI 变化只做一次底色淡出，不做辉光）：接近 0.2 Hz 的大面积振荡正是运动敏感用户要躲的东西。
 - 三个无障碍信号各自独立处理：`prefers-reduced-motion`（去位移，保留透明度／颜色过渡，**不是全部关掉**）、`prefers-reduced-transparency`（材质变实、去模糊）、`prefers-contrast`（近实底 + 明确边框）。
 
 ### 手势（Sheet 拖拽关闭）
@@ -121,10 +124,17 @@ token **名称沿用现有契约**（`--primary` / `--bg` / `--ok` …），仅�
 
 - **3 目的地**（`.dest-item[data-dest]` 侧边栏 + 移动 3 项底栏）：**监控 / 网络 / 配置**。`showDest(dest,tab)` 驱动，`#dest/tab` 深链，View Transitions 过渡。
 - **内层子分区** `.subtab-bar`/`.subtab`（由 `DEST_MAP` 动态渲染）。
-- **运维看板** `.cockpit-board`：`.cockpit-verdict`（状态点 + 一句话裁决 + 在线/总数）+ `.signal-strip` 四信号（Four Golden Signals：延迟/流量/错误/饱和）。
+- **每个数字只出现一次。** 状态唯一来源是 `window.__nodeStats`（服务端探针）。`updateAuroraKpis()` 一处计算，写到三个地方：顶栏 `#tbStatus`（点它回看板）、裁决行、信号带。
+- **运维看板** `.cockpit-board`：`.cockpit-verdict`（状态点 + 一句话裁决 + 离线节点点名 + 「更新于 N 秒前」+ 在线/总数）+ `.signal-strip` 四信号：延迟（你到边缘）/ 流量 / 离线 / 健康度。看板大标题只留给读屏（`srOnly`），裁决行就是标题。
+- **看板只负责看**：批量栏 `#batchBar` 勾选节点后才出现；全局设置（国家白名单 / Referer 白名单 / 共享 Emby 账号）在 **配置 › 全局设置**；刷新全站海报、覆盖部署 Worker 只在 **危险区** 和 ⌘K。
+- **节点徽章**：探针判离线 → 离线；1 小时内有播放 → 播放中；探针在线 → 在线；否则 → 空闲。
 - **节点矩阵** `.node-list` > `.node-row` > `.nr-line`，caret 就地展开 `.node-row-detail` + 内联编辑；中心 `#editModal` 为「高级…」回退。
 - **⌘K 命令面板** `#cmdk`：topbar 触发 + `⌘/Ctrl+K`，模糊过滤目的地/动作/节点。
-- 侧栏选中态是**填充行**（`--primary-soft` + 蓝字），不是带辉光的下划线。
+- 侧栏选中态是**填充行**（`--primary-soft` + `--primary-ink` 字），不是带辉光的下划线。
+- **历史**：用户点击用 `pushState`，启动与后退用 `replaceState`，`popstate` 回到上一个目的地。浏览器「返回」不会离开面板。
+- **真控件**：可点的都是 `<button>` 或 `<label>`。开关是 `<button role="switch" aria-checked>`，或视觉隐藏的 checkbox（`.switch-input`）加 `.ios-switch` 外观。视觉尺寸可以小，命中区 ≥44px（伪元素或负 margin 扩展）。收起的抽屉加 `inert`。
+- **确认**：用 `uiConfirm(msg, { danger, ok })`（原生 `<dialog>.showModal()`），不用 `confirm()`。危险操作默认聚焦「取消」。所有浮层共用一个 Tab 焦点环（`_activeOverlay`）。
+- **第三方脚本**：Sortable 钉版本 + SRI + `defer`；Chart.js 钉版本 + SRI，由 `ensureChartJs()` 按需加载。
 
 ## Z-index scale
 

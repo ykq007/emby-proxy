@@ -7,7 +7,8 @@ export const LOGIN_UI = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>控制台登录</title>
+    <title>Emby Proxy · 登录</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230a64e0'/%3E%3Cpolygon points='13 4 6 13.5 11.5 13.5 10.5 20 18 10.5 12.5 10.5 13 4' fill='%23fff'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="${CSS_HREF}">
     <style>
         /* === Split-screen login — Aqua ==============================
@@ -54,6 +55,7 @@ export const LOGIN_UI = `
             letter-spacing: var(--tracking-large);
             line-height: var(--leading-large);
             color: var(--text);
+            overflow-wrap: anywhere;
         }
         .forge-wordmark .wordmark-sub {
             display: block; margin-top: 12px;
@@ -121,6 +123,16 @@ export const LOGIN_UI = `
             outline: none; border-color: var(--primary); background: var(--card);
             box-shadow: 0 0 0 4px var(--primary-ring);
         }
+        /* 错误态：红框 + 红色光圈，替换而不是叠在蓝色焦点环上 */
+        .forge-fields input[aria-invalid="true"],
+        .forge-fields input[aria-invalid="true"]:focus { border-color: var(--err); box-shadow: 0 0 0 4px var(--err-ring); }
+        /* 错误就写在输入框下面：出错的地方就是看的地方 */
+        .forge-error {
+            display: flex; align-items: center; gap: var(--space-1-5);
+            margin: 0; font-size: var(--text-sm); color: var(--err-text);
+        }
+        .forge-error[hidden] { display: none; }
+        .forge-error svg { width: 14px; height: 14px; flex-shrink: 0; }
 
         .forge-btn {
             display: flex; align-items: center; justify-content: center; gap: var(--space-2);
@@ -158,7 +170,7 @@ export const LOGIN_UI = `
 
         /* ── Mobile (≤768px): brand becomes top strip ──────────── */
         @media (max-width: 768px) {
-            body.login-body { flex-direction: column; overflow-y: auto; }
+            body.login-body { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
 
             .forge-brand {
                 flex: 0 0 25vh; min-height: 160px;
@@ -184,15 +196,12 @@ export const LOGIN_UI = `
 <body class="login-body">
     <script>/* dark-first: resolve saved/system theme before paint to match the console */
     (function(){try{var legacy=localStorage.getItem('emby_proxy_dark');if(legacy!==null&&!localStorage.getItem('emby_theme')){localStorage.setItem('emby_theme',legacy==='1'?'dark':'light');}var p=localStorage.getItem('emby_theme')||'auto';var d=p==='dark'||(p==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.body.classList.add('dark');}catch(e){}})();</script>
-    <!-- Everything this toast carries on this page is an error (empty field,
-         wrong key), so one coherent role: alert. -->
-    <div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
     <!-- Brand panel — NOT aria-hidden: this is the only text naming the
          system being authenticated to. -->
     <aside class="forge-brand">
         <div class="forge-wordmark">
-            <span class="wordmark-text">EMBY</span>
+            <span class="wordmark-text">Emby Proxy</span>
             <span class="wordmark-sub">反向代理控制台</span>
         </div>
     </aside>
@@ -206,8 +215,9 @@ export const LOGIN_UI = `
             <form class="forge-fields" onsubmit="event.preventDefault(); login();">
                 <div class="input-group">
                     <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
-                    <input type="password" id="tokenInput" autocomplete="current-password" placeholder="密钥" aria-label="管理员密钥">
+                    <input type="password" id="tokenInput" autocomplete="current-password" placeholder="密钥" aria-label="管理员密钥" aria-describedby="tokenError">
                 </div>
+                <p class="forge-error" id="tokenError" role="alert" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span id="tokenErrorText"></span></p>
                 <button type="submit" class="forge-btn">
                     <span>进入</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -223,14 +233,16 @@ export const LOGIN_UI = `
 
     <script>
         const tokenInput = document.getElementById('tokenInput');
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.textContent = msg; t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000);
+        const tokenError = document.getElementById('tokenError');
+        function showFieldError(msg) {
+            document.getElementById('tokenErrorText').textContent = msg;
+            tokenError.hidden = false;
+            tokenInput.setAttribute('aria-invalid', 'true');
+            tokenInput.focus();
         }
         function login() {
             const token = tokenInput.value.trim();
-            if(!token) return showToast('请输入管理员密钥');
+            if(!token) return showFieldError('请输入管理员密钥');
             // A wrong key just re-serves this page, so the marker surviving the
             // reload is the only signal that the attempt failed.
             try { sessionStorage.setItem('emby_login_attempted', '1'); } catch(e) {}
@@ -244,15 +256,12 @@ export const LOGIN_UI = `
         try {
             if (sessionStorage.getItem('emby_login_attempted')) {
                 sessionStorage.removeItem('emby_login_attempted');
-                showToast('密钥不正确，请重试');
-                tokenInput.setAttribute('aria-invalid', 'true');
-                tokenInput.style.borderColor = 'var(--err)';
-                tokenInput.focus();
+                showFieldError('密钥不正确，请重试');
             }
         } catch(e) {}
         tokenInput.addEventListener('input', () => {
             tokenInput.removeAttribute('aria-invalid');
-            tokenInput.style.borderColor = '';
+            tokenError.hidden = true;
         });
     </script>
 </body>

@@ -118,7 +118,7 @@
                 await fetch('/api/optimized-domains/' + id, { method: 'PATCH', body: JSON.stringify({ enabled }) });
             }
             async function deleteOptimizedDomain(id) {
-                if (!confirm('确定删除此自定义域名？')) return;
+                if (!await uiConfirm('确定删除此自定义域名？', { danger: true })) return;
                 const res = await fetch('/api/optimized-domains/' + id, { method: 'DELETE' });
                 const data = await res.json();
                 if (data.success) { showToast('已删除'); loadOptimizedDomains(); }
@@ -266,7 +266,7 @@
                 } catch (e) { _dnsReady = false; }
             }
             async function replaceDns(domain) {
-                if (!confirm('确定将 DNS 记录的 CNAME 内容替换为 ' + domain + ' ?')) return;
+                if (!await uiConfirm('确定将 DNS 记录的 CNAME 内容替换为 ' + domain + ' ?')) return;
                 const res = await fetch('/api/dns/replace', { method: 'POST', body: JSON.stringify({ domain }) });
                 const data = await res.json();
                 if (data.success) {
@@ -649,15 +649,30 @@
         let locationChartInstance = null;
 
         // 设置 Chart.js 响应暗色模式
+        // Chart.js 只在统计里用到：按需加载、钉死版本并带 SRI，不再阻塞每个页面的首屏。
+        let _chartJsReq = null;
+        function ensureChartJs() {
+            if (window.Chart) return Promise.resolve();
+            if (!_chartJsReq) _chartJsReq = new Promise(function (resolve, reject) {
+                const sc = document.createElement('script');
+                sc.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js';
+                sc.integrity = 'sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ';
+                sc.crossOrigin = 'anonymous';
+                sc.onload = resolve;
+                sc.onerror = function () { _chartJsReq = null; reject(new Error('图表库加载失败')); };
+                document.head.appendChild(sc);
+            });
+            return _chartJsReq;
+        }
         function updateChartColors() {
-            const isDark = document.body.classList.contains('dark');
-            Chart.defaults.color = isDark ? '#98989d' : '#86868b';
-            // 极淡网格线，符合"密度有序"的 hairline 取向。
-            Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-            // 图表字体跟随 App 字体栈，不再用 Chart.js 默认无衬线。
-            Chart.defaults.font.family = getComputedStyle(document.body).getPropertyValue('--font-sans').trim()
-                || '-apple-system, "SF Pro SC", "PingFang SC", system-ui, sans-serif';
+            if (!window.Chart) return;
             const cs = getComputedStyle(document.body);
+            // 刻度文字用 --text-sec（两套主题都过 AA），网格线用 hairline token。
+            Chart.defaults.color = cs.getPropertyValue('--text-sec').trim() || '#6e6e73';
+            Chart.defaults.borderColor = cs.getPropertyValue('--hairline').trim() || 'rgba(0,0,0,0.06)';
+            // 图表字体跟随 App 字体栈，不再用 Chart.js 默认无衬线。
+            Chart.defaults.font.family = cs.getPropertyValue('--font-sans').trim()
+                || '-apple-system, "SF Pro SC", "PingFang SC", system-ui, sans-serif';
             const primary = (cs.getPropertyValue('--primary') || '#0074cf').trim();
             const primarySoft = (cs.getPropertyValue('--primary-soft') || 'rgba(0,116,207,0.1)').trim();
             if (trendChartInstance && trendChartInstance.data && trendChartInstance.data.datasets[0]) {
@@ -666,9 +681,10 @@
             }
         }
 
-        // 节点状态徽章: 依据延迟/活跃度映射 在线/延迟/离线
+        // 节点状态徽章：可达性优先（服务端探针判离线 → 离线），其次才是播放活跃度。
         function nodeBadgeHtml(statusClass) {
-            if (statusClass === 'live') return '<span class="node-badge is-online"><span class="bdot"></span>在线</span>';
+            if (statusClass === 'live') return '<span class="node-badge is-online"><span class="bdot"></span>播放中</span>';
+            if (statusClass === 'up') return '<span class="node-badge is-online"><span class="bdot"></span>在线</span>';
             if (statusClass === 'warn') return '<span class="node-badge is-slow"><span class="bdot"></span>延迟</span>';
             if (statusClass === 'offline') return '<span class="node-badge is-offline"><span class="bdot"></span>离线</span>';
             return '<span class="node-badge is-idle"><span class="bdot"></span>空闲</span>';
@@ -677,9 +693,7 @@
         // 迷你 SVG 折线图: 数据缺失时占位
         function nodeSparklineHtml(points) {
             var data = (points || []).filter(function (n) { return typeof n === 'number' && isFinite(n); });
-            if (data.length < 2) {
-                return '<div class="node-spark-empty">暂无趋势数据</div>';
-            }
+            if (data.length < 2) return '';   // 没有趋势就不画占位框：六个虚线「暂无数据」只是噪音
             var W = 100, H = 38, pad = 3;
             var max = Math.max.apply(null, data), min = Math.min.apply(null, data);
             var range = (max - min) || 1;
@@ -724,7 +738,7 @@
             const cs = getComputedStyle(document.body);
             const v = (n, f) => (cs.getPropertyValue(n) || f).trim();
             return [ v('--primary','#0074cf'), v('--ok','#1e9e57'), v('--warn','#c47d12'),
-                     '#6db3ec', '#9aa7b8', '#c2ccd8' ];
+                     v('--err','#d70015'), v('--text-sec','#6e6e73'), v('--text-ter','#8e8e93') ];
         }
 
         // 屏幕阅读器专用的图表数据表替代（caption/headers 为静态安全串，单元格转义）。
@@ -851,7 +865,7 @@
                     top5Html = '<div class="top5-box"><div class="top5-empty">今日暂无节点产生流量</div></div>';
                 }
             } else {
-                top5Html = '<div class="top5-box"><div class="top5-empty">主页暂无节点卡片</div></div>';
+                top5Html = '<div class="top5-box"><div class="top5-empty">还没有反代节点</div></div>';
             }
 
             // 瞬间把 TOP 5 写入网页
@@ -876,13 +890,17 @@
                 const data = await res.json();
                 if(!data.success) throw new Error(data.error);
 
-                updateChartColors();
-
                 document.getElementById('trafficToday').innerText = data.trafficToday || '未知';
                 document.getElementById('traffic7d').innerText = data.traffic7d || '未知';
                 document.getElementById('traffic30d').innerText = data.traffic30d || '未知';
+                // 三格都「未配置」时，一条说明代替三个谜语。
+                const envNote = document.getElementById('statsEnvNote');
+                if (envNote) envNote.hidden = !(/未配置/.test(data.trafficToday || '') && /未配置/.test(data.traffic30d || ''));
                 // 统计数据到位后刷新运维看板「今日流量」信号(看板预取/懒加载完成时回填)
                 if (typeof updateAuroraKpis === 'function') updateAuroraKpis();
+
+                await ensureChartJs();
+                updateChartColors();
 
                 const cs2 = getComputedStyle(document.body);
                 const primaryCol = (cs2.getPropertyValue('--primary') || '#0074cf').trim();
@@ -1033,7 +1051,10 @@
         function toggleIconPicker(e) {
             e.stopPropagation();
             const panel = document.getElementById('iconPickerPanel');
-            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+            const open = panel.style.display === 'none';
+            panel.style.display = open ? 'flex' : 'none';
+            const btn = document.getElementById('iconSelectBtn');
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
 
         function selectIcon(url, name) {
@@ -1049,6 +1070,7 @@
                 text.textContent = '点击选择图标 (默认)'; text.style.color = 'var(--text-sec)';
             }
             document.getElementById('iconPickerPanel').style.display = 'none';
+            const _ib = document.getElementById('iconSelectBtn'); if (_ib) _ib.setAttribute('aria-expanded', 'false');
         }
 
         document.addEventListener('click', (e) => {
@@ -1115,7 +1137,7 @@
         var DEST_MAP = {
             monitor: { label: '监控', tabs: [ { key: 'overview', label: '看板' }, { key: 'stats', label: '统计' } ] },
             network: { label: '网络', tabs: [ { key: 'speed', label: '测速 & DNS', section: 'speed', panel: 'speed' }, { key: 'cdn', label: '优选 CDN', section: 'speed', panel: 'cdn' }, { key: 'redirect', label: '重定向白名单', section: 'speed', panel: 'redirect' } ] },
-            config:  { label: '配置', tabs: [ { key: 'settings', label: '部署节点' }, { key: 'viewers', label: '观看账号' }, { key: 'tools', label: '工具箱' }, { key: 'danger', label: '危险区' } ] }
+            config:  { label: '配置', tabs: [ { key: 'settings', label: '部署节点' }, { key: 'global', label: '全局设置' }, { key: 'viewers', label: '观看账号' }, { key: 'tools', label: '工具箱' }, { key: 'danger', label: '危险区' } ] }
         };
         function destOfSection(key) {
             for (var d in DEST_MAP) {
@@ -1135,7 +1157,8 @@
             // 单 tab 目的地(网络)暂不显示 tab 条，留到 task6 拆分子 tab
             bar.style.display = tabs.length > 1 ? 'flex' : 'none';
         }
-        function showDest(dest, tab) {
+        // opts.replace：启动/后退时改写当前历史项；用户点击则压入新项，让「返回」回到上一个视图。
+        function showDest(dest, tab, opts) {
             if (!DEST_MAP[dest]) dest = 'monitor';
             var tabs = DEST_MAP[dest].tabs;
             var tabObj = null;
@@ -1182,7 +1205,10 @@
                     }, 60); }
                 }
                 var h = dest + '/' + tab;
-                if (location.hash.slice(1) !== h) history.replaceState(null, '', '#' + h);
+                if (location.hash.slice(1) !== h) {
+                    if (opts && opts.replace) history.replaceState(null, '', '#' + h);
+                    else history.pushState(null, '', '#' + h);
+                }
             };
             // View Transitions API: 跨视图淡入(渐进增强，reduced-motion / 不支持时瞬切)
             var __vtReduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1255,7 +1281,7 @@
             showToast('密码已修改');
         }
         async function deleteViewer(id) {
-            if (!confirm('删除该账号及其全部观看记录？不可恢复。')) return;
+            if (!await uiConfirm('删除该账号及其全部观看记录？不可恢复。', { danger: true })) return;
             try { await viewerApi('DELETE', '/api/viewers?id=' + encodeURIComponent(id)); } catch (e) { return; }
             loadViewers();
         }
@@ -1273,7 +1299,7 @@
             showToast('已保存'); loadViewers();
         }
         async function revokeViewer(id, prefix) {
-            if (!confirm('移除该账号在 /' + prefix + ' 的访问权限？')) return;
+            if (!await uiConfirm('移除该账号在 /' + prefix + ' 的访问权限？')) return;
             try { await viewerApi('DELETE', '/api/viewers/access?viewer_id=' + encodeURIComponent(id) + '&prefix=' + encodeURIComponent(prefix)); } catch (e) { return; }
             loadViewers();
         }
@@ -1334,8 +1360,13 @@
             } catch (e) {}
             // 延迟到 DOM 就绪后再切换
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function () { showDest(startDest, startTab); });
-            } else { showDest(startDest, startTab); }
+                document.addEventListener('DOMContentLoaded', function () { showDest(startDest, startTab, { replace: true }); });
+            } else { showDest(startDest, startTab, { replace: true }); }
+            // 浏览器「返回」/ Android 返回手势：回到上一个目的地，而不是离开面板。
+            window.addEventListener('popstate', function () {
+                var p = (location.hash || '').slice(1).split('/');
+                if (DEST_MAP[p[0]]) showDest(p[0], p[1], { replace: true });
+            });
         })();
 
         // 成功 / 中性反馈 → #toast (role="status")，3 秒自动消隐。
@@ -1369,7 +1400,7 @@
         window.showError = showError;
 
         async function purgeCache() {
-            if(!confirm('确定要清理 Cloudflare 节点的全站海报和静态缓存吗？\n\n清理后可能导致短时间的加载缓慢。')) return;
+            if(!await uiConfirm('确定要清理 Cloudflare 节点的全站海报和静态缓存吗？\n\n清理后可能导致短时间的加载缓慢。', { danger: true })) return;
             const btn = document.getElementById('btnPurge');
             const originalText = btn.textContent;
             btn.textContent = '正在清理...'; btn.disabled = true;
@@ -1502,7 +1533,7 @@
                 if (cls) sub.classList.add(cls);
             };
             // 依据测速结果刷新节点状态徽章 (在线/延迟/离线)
-            const card = pingEl.closest('.emby-card');
+            const card = pingEl.closest('.route-item');
             const setBadge = (state) => {
                 if (!card) return;
                 const badge = card.querySelector('.node-badge');
@@ -1523,11 +1554,11 @@
                 const data = await res.json();
                 if(data.ms >= 0) {
                     pingEl.innerHTML = data.ms + '<span class="unit">ms</span>';
-                    if (data.ms < 200) { pingEl.style.color = 'var(--ok)'; setSub('良好', 'up'); setBadge('online'); }
-                    else if (data.ms < 500) { pingEl.style.color = 'var(--primary)'; setSub('一般', null); setBadge('online'); }
-                    else { pingEl.style.color = 'var(--warn)'; setSub('偏高', 'down'); setBadge('slow'); }
-                } else { pingEl.textContent = '断连'; pingEl.style.color = 'var(--err)'; setSub('超时', 'down'); setBadge('offline'); }
-            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = 'var(--err)'; setSub('错误', 'down'); setBadge('offline'); }
+                    if (data.ms < 200) { pingEl.style.color = 'var(--ok-text)'; setSub('良好', 'up'); setBadge('online'); }
+                    else if (data.ms < 500) { pingEl.style.color = ''; setSub('一般', null); setBadge('online'); }
+                    else { pingEl.style.color = 'var(--warn-text)'; setSub('偏高', 'down'); setBadge('slow'); }
+                } else { pingEl.textContent = '断连'; pingEl.style.color = 'var(--err-text)'; setSub('超时', 'down'); setBadge('offline'); }
+            } catch(e) { pingEl.textContent = '异常'; pingEl.style.color = 'var(--err-text)'; setSub('错误', 'down'); setBadge('offline'); }
             if (typeof updateTopbarHealth === 'function') updateTopbarHealth();
         }
 
@@ -1568,9 +1599,8 @@
         }
         async function initMonitorControls() {
             try {
-                const [globalRes, probesRes, stateRes] = await Promise.all([
+                const [globalRes, stateRes] = await Promise.all([
                     fetch('/api/status/global-flags').then(r => r.json()).catch(() => ({})),
-                    fetchStatusProbes(),
                     fetch('/api/status/auth-state').then(r => r.json()).catch(() => ({}))
                 ]);
                 const ccInput = document.getElementById('proxyCountryAllowlist');
@@ -1584,12 +1614,6 @@
                     for (const it of stateRes.items) map[it.prefix] = it;
                     window.__embyAuthState = map;
                 }
-                let online = 0, probed = 0;
-                if (probesRes && probesRes.success && Array.isArray(probesRes.cards)) {
-                    for (const c of probesRes.cards) { probed++; if (c.ok) online++; }
-                }
-                const meta = document.getElementById('ovMonitorMeta');
-                if (meta) meta.textContent = '在线 ' + (probed ? (online + '/' + probed) : '—/—');
             } catch (e) { /* 非致命 */ }
         }
         function _fmtCountAge(ts) {
@@ -1646,7 +1670,7 @@
                 '<div class="a-node-config">' +
                     '<div class="ns-monitor-row">' +
                         '<div class="ns-monitor-label">监控此节点<span class="ns-meta-hint">关闭后不探测状态、不抓取媒体计数</span></div>' +
-                        '<div class="ios-switch ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + _embyEscape(r.remark || r.prefix) + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
+                        '<button type="button" class="ios-switch ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + _embyEscape(r.remark || r.prefix) + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></button>' +
                     '</div>' +
                     '<div class="ns-auth-meta">' +
                         '<span class="ns-meta-item">登录态 <b class="' + (hasToken ? 'is-ok' : '') + '">' + (hasToken ? '已缓存' : '未登录') + '</b></span>' +
@@ -1810,7 +1834,7 @@
             }
         }
         async function revokeEmbyAuth(prefix) {
-            if (!confirm('确认清除该节点已缓存的登录令牌？下次需要计数时会用账号密码重新登录。')) return;
+            if (!await uiConfirm('确认清除该节点已缓存的登录令牌？下次需要计数时会用账号密码重新登录。')) return;
             try {
                 const res = await fetch('/api/status/revoke-auth', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix })
@@ -1911,7 +1935,7 @@
                 '<div class="node-row route-item' + h.cardIdleCls + '" data-prefix="' + pfx + '" data-group-name="' + nrdEsc(grp) + '" data-search="' + h.remarkName + ' ' + pfx + ' ' + nrdEsc(grp) + '" data-custom-headers="' + (r.custom_headers || '').replace(/"/g, '&quot;') + '" data-emby-username="' + (r.emby_username || '').replace(/"/g, '&quot;') + '" data-has-emby-password="' + (r.has_emby_password ? 1 : 0) + '">' +
                     '<div class="nr-line">' +
                         '<div class="nr-drag drag-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>' +
-                        '<input type="checkbox" class="node-cb nr-cb" value="' + pfx + '">' +
+                        '<label class="cb-hit"><input type="checkbox" class="node-cb nr-cb" value="' + pfx + '" aria-label="选择 ' + h.remarkName + '"></label>' +
                         '<div class="nr-thumb' + h.thumbIdleCls + '">' + h.thumbInner + '</div>' +
                         '<div class="nr-id">' +
                             '<div class="nr-name">' + h.remarkName + grpChip + '</div>' +
@@ -1920,14 +1944,14 @@
                         '<div class="nr-badge">' + h.badgeHtml + '</div>' +
                         '<div class="nr-spark" data-spark="' + pfx + '" aria-hidden="true">' + (h.sparkHtml || '') + '</div>' +
                         '<div class="nr-metrics">' +
-                            '<div class="nr-metric"><span class="nr-k">延迟</span><span id="ping-' + idx + '" class="nr-v cursor-pointer" onclick="pingTarget(' + idx + ', \'' + h.mainTarget + '\')">测速中</span></div>' +
+                            '<div class="nr-metric"><span class="nr-k">延迟</span><button type="button" id="ping-' + idx + '" class="nr-v ping-btn" title="点击重新测速" onclick="pingTarget(' + idx + ', \'' + h.mainTarget + '\')">测速中</button></div>' +
                             '<div class="nr-metric"><span class="nr-k">今日流量</span><span class="nr-v' + (h.isIdle ? ' muted' : '') + '">' + h.todayBw + '</span></div>' +
                             '<div class="nr-metric"><span class="nr-k">今日播放</span><span class="nr-v' + (h.isIdle ? ' muted' : '') + '">' + h.todayReqs + '</span></div>' +
                         '</div>' +
                         '<div class="nr-counts">' + renderCountsInline(pfx) + '</div>' +
                         '<div class="nr-actions">' +
-                            '<div class="ios-switch nr-mon ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + h.remarkName + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></div>' +
-                            '<button class="a-icon-btn" onclick="copyTxt(\'' + h.proxyUrl + '\')" title="复制直达链接"><svg><use href="#i-copy"/></svg></button>' +
+                            '<button type="button" class="ios-switch nr-mon ' + (monOn ? 'on' : '') + '" role="switch" aria-checked="' + (monOn ? 'true' : 'false') + '" aria-label="监控节点 ' + h.remarkName + '" title="' + (monOn ? '监控已开启' : '监控已关闭') + '" onclick="toggleNodeMonitor(\'' + pfx + '\', this)"></button>' +
+                            '<button type="button" class="a-icon-btn" onclick="copyTxt(\'' + h.proxyUrl + '\')" title="复制直达链接" aria-label="复制 ' + h.remarkName + ' 的直达链接"><svg aria-hidden="true"><use href="#i-copy"/></svg></button>' +
                             '<button type="button" class="nr-expand" aria-expanded="false" aria-label="展开详情与编辑" onclick="toggleNodeRow(this)"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>' +
                         '</div>' +
                     '</div>' +
@@ -2055,18 +2079,18 @@
                 // 媒体库计数（含较昨日增量）+ 监控摘要，来自 /api/status/probes（实时 SWR）。
                 const countsBy = {};
                 let _online = 0, _probed = 0;
+                const _downPrefixes = [];
                 if (probesRes && probesRes.success && Array.isArray(probesRes.cards)) {
                     for (const c of probesRes.cards) {
                         countsBy[c.prefix] = c;
-                        _probed++; if (c.ok) _online++;
+                        _probed++; if (c.ok) _online++; else _downPrefixes.push(c.prefix);
                     }
                 }
+                const _down = _downPrefixes.map(p => { const r = data.find(x => x.prefix === p); return (r && r.remark) || p; });
                 window.__embyCounts = countsBy;
                 // 运维看板用的权威在线/离线 = 服务端探针(probesRes)，不依赖浏览器对上游的客户端 ping
                 // (浏览器无法直连私网/明文 http 上游，客户端 ping 会全部失败误判为离线)。
-                window.__nodeStats = { total: data.length, probed: _probed, online: _online, offline: Math.max(0, _probed - _online) };
-                const _meta = document.getElementById('ovMonitorMeta');
-                if (_meta) _meta.textContent = '在线 ' + (_probed ? (_online + '/' + _probed) : '—/—');
+                window.__nodeStats = { total: data.length, probed: _probed, online: _online, offline: Math.max(0, _probed - _online), down: _down };
 
                 // 🌟 新增：把节点流量数据存进全局内存，供大屏瞬间读取
                 window.globalRoutesData = data;
@@ -2099,8 +2123,10 @@
                     const totalReqs = r.totalReqs || r.todayReqs || 0;
                     const todayReqs = r.todayReqs || 0;
 
-                    // 状态点：last_play 为北京时间绝对时间戳，1 小时内有真实播放算 live
-                    const statusClass = isLastPlayLive(r.last_play) ? 'live' : 'idle';
+                    // 徽章：探针判离线 → offline；1 小时内有真实播放 → live；探针在线 → up；否则 idle。
+                    const probe = countsBy[r.prefix];
+                    const playing = isLastPlayLive(r.last_play);
+                    const statusClass = (probe && !probe.ok) ? 'offline' : playing ? 'live' : (probe && probe.ok) ? 'up' : 'idle';
 
                     const isIdle = (todayReqs === 0) && statusClass === 'idle';
                     const cardIdleCls = isIdle ? ' idle' : '';
@@ -2156,12 +2182,12 @@
                     <div class="emby-card route-item${cardIdleCls}" data-prefix="${r.prefix}" data-group-name="${(r.group_name || '').trim().replace(/"/g, '&quot;')}" data-search="${remarkName} ${r.prefix} ${_embyEscape((r.group_name || '').trim())}" data-custom-headers="${(r.custom_headers || '').replace(/"/g, '&quot;')}" data-emby-username="${(r.emby_username || '').replace(/"/g, '&quot;')}" data-has-emby-password="${r.has_emby_password ? 1 : 0}">
                         <div class="a-head">
                             <div class="drag-handle a-handle" title="拖拽排序"><svg><use href="#i-grip"/></svg></div>
-                            <input type="checkbox" class="node-cb a-cb" value="${r.prefix}">
+                            <label class="cb-hit"><input type="checkbox" class="node-cb a-cb" value="${r.prefix}" aria-label="选择 ${remarkName}"></label>
                             <div class="a-thumb${thumbIdleCls}">${thumbInner}</div>
                             <div class="a-title-block">
                                 <div class="a-name">${remarkName}</div>
                                 <div class="a-meta">
-                                    <span class="a-status-dot ${statusClass}" title="${lastPlay}"></span>
+                                    <span class="a-status-dot ${playing ? 'live' : 'idle'}" title="${lastPlay}"></span>
                                     <span class="node-pfx" data-pfx="${r.prefix}" title="访问后缀">/${pfxDisplay(r.prefix)}</span>
                                     <span class="dot-sep">·</span>
                                     <span class="a-mode">${modeNames[r.mode] || '未知'}</span>
@@ -2185,7 +2211,7 @@
                             </div>
                             <div class="a-stat">
                                 <div class="a-stat-label">延迟</div>
-                                <span id="ping-${idx}" class="a-stat-val cursor-pointer"  onclick="pingTarget(${idx}, '${mainTarget}')" title="点击重新测速">测速中</span>
+                                <button type="button" id="ping-${idx}" class="a-stat-val ping-btn" onclick="pingTarget(${idx}, '${mainTarget}')" title="点击重新测速">测速中</button>
                                 <div class="a-stat-sub">点击重测</div>
                             </div>
                         </div>
@@ -2200,7 +2226,7 @@
                                 ? '<span class="a-tag good"><svg><use href="#i-image"/></svg>海报缓存</span>'
                                 : '<span class="a-tag warn"><svg><use href="#i-image"/></svg>缓存已关闭</span>'}
                             ${headerKeys.length
-                                ? `<span class="a-tag primary" onclick="toggleDetails(this)" title="点击查看自定义请求头"><svg><use href="#i-key"/></svg>${headerKeys.length} 个自定义头</span>`
+                                ? `<button type="button" class="a-tag primary" onclick="toggleDetails(this)" title="点击查看自定义请求头"><svg><use href="#i-key"/></svg>${headerKeys.length} 个自定义头</button>`
                                 : ''}
                             ${keepaliveTag}
                             <span class="a-tag">最后活跃 ${lastPlay}</span>
@@ -2272,8 +2298,8 @@
                 });
 
                 // 刷新顶部状态栏: 节点总数
-                const tbCount = document.getElementById('tb-node-count');
-                if (tbCount) tbCount.textContent = String(data.length);
+                window.__loadedAt = Date.now();
+                updateBatchBar();
                 updateTopbarHealth();
 
                 // ECG 心电图 + 24h/7d 可用率（仅对开启了 show_on_status 的节点显示）
@@ -2399,26 +2425,10 @@
             } catch (e) { /* silent */ }
         }
 
-        // 依据服务端探针(window.__nodeStats)统计健康度并刷新顶栏(与运维看板同源)
-        function updateTopbarHealth() {
-            const dot = document.getElementById('tb-health-dot');
-            const val = document.getElementById('tb-health-val');
-            if (!val) { updateAuroraKpis(); return; }
-            const ns = window.__nodeStats;
-            if (!ns || ns.probed === 0) {
-                val.textContent = '--';
-                if (dot) dot.className = 'dot';
-                updateAuroraKpis();
-                return;
-            }
-            const pct = Math.round(ns.online / ns.probed * 100);
-            val.textContent = pct + '%';
-            if (dot) dot.className = 'dot ' + (pct >= 80 ? 'green' : pct >= 40 ? 'amber' : 'red');
-            updateAuroraKpis();
-        }
+        // 顶栏状态与看板裁决同源（window.__nodeStats，服务端探针），一处算、两处显示。
+        function updateTopbarHealth() { updateAuroraKpis(); }
 
-        // Aurora KPI hero — mirror topbar live data into the hero band.
-        // Cheap & defensive: no state of its own; reads from existing DOM.
+        // 运维看板：裁决行 + 三个信号。每个数字只出现一次（在线数在裁决行右侧）。
         function updateAuroraKpis() {
             const $ = function(id) { return document.getElementById(id); };
             const setText = function(id, v) {
@@ -2428,47 +2438,55 @@
                 const changed = el.textContent !== String(v);
                 el.classList.remove('skeleton');
                 el.classList.toggle('is-na', !/\d/.test(String(v)));   // 未配置 / 测算中：安静文字、隐藏单位
-                // 数字滚动入场；指标真正变化时（非首次骨架）闪一圈金环。
                 LiveMotion.countUp(el, String(v));
                 if (had && changed) LiveMotion.flash(el);
             };
             // 权威在线/离线来自服务端探针(window.__nodeStats)，不依赖客户端 ping 徽章。
-            // 未开监控的节点没有探针数据 → 不计入错误，只计入总数。
-            const ns = window.__nodeStats || { total: document.querySelectorAll('#list-grid .route-item').length, probed: 0, online: 0, offline: 0 };
+            // 未开监控的节点没有探针数据 → 不计入离线，只计入总数。
+            const ns = window.__nodeStats || { total: document.querySelectorAll('#list-grid .route-item').length, probed: 0, online: 0, offline: 0, down: [] };
             const total = ns.total | 0;
             const monitored = ns.probed | 0;
             const online = ns.online | 0;
-            const offline = ns.offline | 0;          // 探针失败的节点数 = 真实离线/错误
+            const offline = ns.offline | 0;
             setText('kpi-online-nodes', String(online));
             setText('kpi-total-nodes', String(monitored || total));
             setText('kpi-errors', String(offline));
-            const pct = monitored ? Math.round(online / monitored * 100) : (total ? 100 : 0);
+            const pct = monitored ? Math.round(online / monitored * 100) : 0;
             setText('kpi-health', monitored ? String(pct) : '--');
             const bar = $('kpi-health-bar-fill');
             if (bar) bar.style.width = (monitored ? pct : 0) + '%';
-            // 流量：优先读统计源 #trafficToday，回退顶栏镜像；跳过"加载中/拉取中"占位
-            let trafTxt = '';
-            const trafSrc = $('trafficToday'); if (trafSrc) trafTxt = trafSrc.textContent || '';
-            if (!trafTxt || /加载|拉取|未知|异常/.test(trafTxt)) { const tb = $('tb-traffic-today'); if (tb && tb.textContent) trafTxt = tb.textContent; }
+            const trafSrc = $('trafficToday');
+            const trafTxt = trafSrc ? (trafSrc.textContent || '') : '';
             if (trafTxt && !/加载|拉取/.test(trafTxt)) setText('kpi-traffic', trafTxt);
-            const rtt = $('rttValue');
-            if (rtt && rtt.textContent) {
-                const m = rtt.textContent.match(/(\d+(?:\.\d+)?)/);
-                setText('kpi-rtt', m ? m[1] : rtt.textContent);
-            }
-            // 健康结论行 (verdict-first)：状态点 + 一句话裁决 + 错误信号着色
-            const dot = $('cv-dot'), head = $('cv-headline'), sub = $('cv-sub'), errEl = $('kpi-errors');
+            // 裁决：一句结论 + 一句「下一步看哪里」（离线时直接点名离线节点）
+            const down = (ns.down || []).slice(0, 3).join('、') + ((ns.down || []).length > 3 ? ' 等' : '');
             let tone, headline, subline;
             if (total === 0) { tone = 'idle'; headline = '尚无反代节点'; subline = '前往「配置 · 部署节点」添加第一个节点'; }
-            else if (monitored === 0) { tone = 'idle'; headline = '监控未开启'; subline = '共 ' + total + ' 个节点 · 开启节点监控后显示在线状态'; }
-            else if (offline === 0) { tone = 'ok'; headline = '全部节点在线'; subline = online + ' 个监控节点运行正常 · 健康度 ' + pct + '%'; }
-            else if (pct >= 50) { tone = 'warn'; headline = '降级运行 · ' + offline + ' 个节点异常'; subline = online + '/' + monitored + ' 监控在线 · 健康度 ' + pct + '%'; }
-            else { tone = 'err'; headline = offline + ' 个节点离线'; subline = '仅 ' + online + '/' + monitored + ' 监控在线 · 健康度 ' + pct + '%'; }
+            else if (monitored === 0) { tone = 'idle'; headline = '监控未开启'; subline = '共 ' + total + ' 个节点 · 在节点行打开监控开关后显示在线状态'; }
+            else if (offline === 0) { tone = 'ok'; headline = '全部节点在线'; subline = online + ' 个监控节点运行正常'; }
+            else if (pct >= 50) { tone = 'warn'; headline = offline + ' 个节点离线'; subline = '离线：' + down; }
+            else { tone = 'err'; headline = offline + ' 个节点离线'; subline = '离线：' + down; }
+            const dot = $('cv-dot');
             if (dot) dot.className = 'cv-dot ' + tone;
-            if (head) head.textContent = headline;
-            if (sub) sub.textContent = subline;
+            if ($('cv-headline')) $('cv-headline').textContent = headline;
+            if ($('cv-sub')) $('cv-sub').textContent = subline;
+            const errEl = $('kpi-errors');
             if (errEl) errEl.classList.toggle('is-bad', offline > 0);
+            // 顶栏：同一句结论，任何目的地都看得到
+            const tbDot = $('tb-health-dot'), tbText = $('tbStatusText');
+            if (tbDot) tbDot.className = 'dot ' + ({ ok: 'green', warn: 'amber', err: 'red' }[tone] || '');
+            if (tbText) tbText.textContent = headline;
+            renderUpdatedAgo();
         }
+        // 「更新于 N 秒前」：让过期数据看起来就是过期的。
+        function renderUpdatedAgo() {
+            const el = document.getElementById('cv-updated');
+            if (!el || !window.__loadedAt) return;
+            const sec = Math.max(0, Math.round((Date.now() - window.__loadedAt) / 1000));
+            el.textContent = '更新于 ' + (sec < 5 ? '刚刚' : sec < 60 ? sec + ' 秒前' : Math.floor(sec / 60) + ' 分钟前');
+            el.classList.toggle('is-stale', sec >= 300);
+        }
+        setInterval(function () { if (!document.hidden) renderUpdatedAgo(); }, 10000);
 
         function editNode(prefix, targetStr, mode, remark, icon, cacheImg, keepaliveDays) {
             document.getElementById('oldPrefix').value = prefix;
@@ -2479,7 +2497,7 @@
             if (_gnEl) _gnEl.value = _gnCard ? (_gnCard.getAttribute('data-group-name') || '') : '';
             document.getElementById('mode').value = mode || 'off';
             document.getElementById('nodeCache').checked = (cacheImg !== 'off');
-            syncCacheSwitch();
+            syncModeHint();
             const keepaliveDaysEl = document.getElementById('keepaliveDays');
             if (keepaliveDaysEl) keepaliveDaysEl.value = parseInt(keepaliveDays, 10) || 0;
             // Read custom_headers from the card's data attribute to avoid inline escaping issues
@@ -2516,8 +2534,7 @@
 
         let _emPrevFocus = null;
         let _emPrevBodyOverflow = '';
-        function _emFocusable() {
-            const modal = document.getElementById('editModal');
+        function _focusableIn(modal) {
             if (!modal) return [];
             return Array.from(modal.querySelectorAll(
                 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -2552,13 +2569,13 @@
                 const oldP = document.getElementById('oldPrefix'); if (oldP) oldP.value = '';
                 if (typeof selectIcon === 'function') selectIcon('', '默认');
                 const nc = document.getElementById('nodeCache'); if (nc) nc.checked = true;
-                if (typeof syncCacheSwitch === 'function') syncCacheSwitch();
+                syncModeHint();
                 if (typeof HeadersEditor !== 'undefined' && HeadersEditor.set) HeadersEditor.set('');
                 const ka = document.getElementById('keepaliveDays'); if (ka) ka.value = '0';
                 const eu = document.getElementById('embyUsername'); if (eu) eu.value = '';
                 const ep = document.getElementById('embyPassword'); if (ep) { ep.value = ''; ep.placeholder = '独立密码（留空不改）'; }
                 const sb = document.getElementById('submitBtn');
-                if (sb) sb.innerHTML = '<svg><use href="#i-save"/></svg>保存并部署';
+                if (sb) sb.innerHTML = '<svg><use href="#i-save"/></svg>保存节点';
                 if (typeof resetTargetInputs === 'function') resetTargetInputs();
             }
             if (_emPrevFocus && typeof _emPrevFocus.focus === 'function') {
@@ -2567,12 +2584,19 @@
             _emPrevFocus = null;
         }
 
+        // 当前最上层的浮层：cURL / 导入 叠在编辑框之上，所以先查它们。
+        function _activeOverlay() {
+            const shown = function (id) { const m = document.getElementById(id); return m && m.classList.contains('show') ? m : null; };
+            const vis = function (id) { const m = document.getElementById(id); return m && m.style.display && m.style.display !== 'none' ? m : null; };
+            return shown('curlModal') || shown('importHeadersModal') || vis('workerUpdateModal') || vis('editModal');
+        }
+        // 所有浮层共用一套焦点环：Tab 不会溜到背后的页面（#workerUpdateModal 装着能把面板打瘫的按钮）。
         document.addEventListener('keydown', function (e) {
-            const modal = document.getElementById('editModal');
-            if (!modal || modal.style.display === 'none') return;
-            if (e.key === 'Escape') { closeEditModal(); return; }
+            const modal = _activeOverlay();
+            if (!modal) return;
+            if (e.key === 'Escape' && modal.id === 'editModal') { closeEditModal(); return; }
             if (e.key === 'Tab') {
-                const items = _emFocusable();
+                const items = _focusableIn(modal);
                 if (!items.length) return;
                 const first = items[0], last = items[items.length - 1];
                 const active = document.activeElement;
@@ -2582,8 +2606,32 @@
             }
         });
 
-        // 其余浮层(#workerUpdateModal / #curlModal / #importHeadersModal)的焦点管理。
-        // #editModal 有自己那套完整焦点环(见上)；这里只要"记住来处、关闭时还回去"。
+        // 应用内确认框：替代原生 confirm()，跟随主题。<dialog>.showModal() 负责焦点环、Esc 与背景 inert。
+        function uiConfirm(message, opts) {
+            opts = opts || {};
+            const dlg = document.getElementById('confirmDialog');
+            if (!dlg || typeof dlg.showModal !== 'function') return Promise.resolve(window.confirm(message));
+            const ok = document.getElementById('cfDialogOk');
+            const cancel = document.getElementById('cfDialogCancel');
+            document.getElementById('cfDialogMsg').textContent = message;
+            ok.textContent = opts.ok || '确定';
+            ok.className = 'btn-tier ' + (opts.danger ? 'is-danger' : 'is-primary');
+            if (!dlg.dataset.wired) {
+                dlg.dataset.wired = '1';
+                dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close('cancel'); });
+            }
+            dlg.returnValue = '';
+            dlg.showModal();
+            // 危险操作默认聚焦「取消」：习惯性回车不会直接执行。
+            (opts.danger ? cancel : ok).focus();
+            return new Promise(function (resolve) {
+                dlg.addEventListener('close', function () { resolve(dlg.returnValue === 'ok'); }, { once: true });
+            });
+        }
+        window.uiConfirm = uiConfirm;
+
+        // 其余浮层(#workerUpdateModal / #curlModal / #importHeadersModal)：记住来处、关闭时还回去。
+        // 焦点环见上方 _activeOverlay。
         var _ovPrevFocus = {};
         function modalOpened(id, firstFocusSel) {
             const m = document.getElementById(id);
@@ -2659,11 +2707,11 @@
                     document.getElementById('oldPrefix').value = '';
                     selectIcon('', '默认');
                     document.getElementById('nodeCache').checked = true;
-                    syncCacheSwitch();
+                    syncModeHint();
                     HeadersEditor.set('');
                     const _kaEl = document.getElementById('keepaliveDays');
                     if (_kaEl) _kaEl.value = '0';
-                    document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存并部署';
+                    document.getElementById('submitBtn').innerHTML = '<svg><use href="#i-save"/></svg>保存节点';
                     resetTargetInputs();
                 }
                 showToast('节点已部署');
@@ -2677,8 +2725,8 @@
             // 运维者按「备注」认节点，不按 URL 前缀 —— 两个都念出来，再说清代价。
             const r = (window.globalRoutesData || []).find(function (x) { return x.prefix === prefix; });
             const remark = (r && r.remark) ? r.remark : '未命名媒体库';
-            if (!confirm('确定删除节点「' + remark + '」（/' + prefix + '）？\n\n'
-                + '该节点的上游线路、自定义请求头与独立 Emby 凭据会一并删除，且不可恢复。')) return;
+            if (!await uiConfirm('确定删除节点「' + remark + '」（/' + prefix + '）？\n\n'
+                + '该节点的上游线路、自定义请求头与独立 Emby 凭据会一并删除，且不可恢复。', { danger: true, ok: '删除节点' })) return;
             try {
                 const res = await fetch('/api/routes?prefix=' + encodeURIComponent(prefix), { method: 'DELETE' });
                 const data = await res.json().catch(function () { return {}; });
@@ -2711,14 +2759,14 @@
                 setTimeout(() => { window.open('https://www.itdog.cn/batch_tcping/', '_blank'); }, 1500);
             });
         }
-        function directSubmitCname() {
+        async function directSubmitCname() {
             const input = document.getElementById('customIps').value.trim();
             if (!input) return showToast('请先在文本框内粘贴您的优选域名');
             const domainRegex = /\b([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b/g;
             const matchedDomains = input.match(domainRegex) || [];
             const realDomains = matchedDomains.filter(d => !/^\d+\.\d+\.\d+\.\d+$/.test(d));
             if (realDomains.length === 0) return showToast('未识别到合法域名，请检查输入');
-            if(!confirm(`✨ 提取到以下域名：\n${realDomains.join('\n')}\n\n确定要直接将其设为 CNAME 记录吗？\n(注意：这会清空你配置的域名下现有的记录)`)) return;
+            if(!await uiConfirm(`提取到以下域名：\n${realDomains.join('\n')}\n\n确定要直接将其设为 CNAME 记录吗？\n(注意：这会清空你配置的域名下现有的记录)`, { danger: true })) return;
             const btn = document.getElementById('btnDirectCname');
             sendDnsRequest(realDomains, btn);
         }
@@ -2908,18 +2956,18 @@
             } catch(e) { showError('网络异常，请重试（' + e.message + '）'); btnElement.textContent = originalText; } 
             finally { setTimeout(() => { if(btnElement.textContent === '已更新') btnElement.textContent = originalText; btnElement.disabled = false; }, 3000); }
         }
-        function updateSingleDns(ip, btnElement) {
-            if(!confirm(`确定要将域名解析到：\n${ip} \n警告：这会覆盖域名下的所有解析记录`)) return;
+        async function updateSingleDns(ip, btnElement) {
+            if(!await uiConfirm(`确定要将域名解析到：\n${ip} \n警告：这会覆盖域名下的所有解析记录`, { danger: true })) return;
             sendDnsRequest([ip], btnElement);
         }
-        function updateSelectedToDns() {
+        async function updateSelectedToDns() {
             const btn = document.getElementById('btnSelectedDns');
             const ips = getSelectedIps();
             if (ips.length === 0) return showToast('请先勾选您想使用的节点');
-            if(!confirm(`将应用勾选的 ${ips.length} 个节点：\n${ips.join('\n')}\n确定更新 DNS 记录吗？`)) return;
+            if(!await uiConfirm(`将应用勾选的 ${ips.length} 个节点：\n${ips.join('\n')}\n确定更新 DNS 记录吗？`)) return;
             sendDnsRequest(ips, btn);
         }
-        function updateTop3ToDns() {
+        async function updateTop3ToDns() {
             const btn = document.getElementById('btnTop3Dns');
             const rows = document.querySelectorAll('#testTableBody .test-row');
             let topIps = [];
@@ -2929,7 +2977,7 @@
                 if(topIps.length === 3) break;
             }
             if(topIps.length === 0) return showToast('没找到可用节点，请先测速');
-            if(!confirm(`将为您分发当前最快的 ${topIps.length} 个节点：\n${topIps.join('\n')}\n确定更新 DNS 记录吗？`)) return;
+            if(!await uiConfirm(`将为您分发当前最快的 ${topIps.length} 个节点：\n${topIps.join('\n')}\n确定更新 DNS 记录吗？`)) return;
             sendDnsRequest(topIps, btn);
         }
         async function loadDNS() {
@@ -2939,7 +2987,7 @@
                 if (data.success && data.result) {
                     const records = data.result.filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
                     if (records.length === 0) {
-                        container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn);">暂无解析记录</span>';
+                        container.innerHTML = '<span class="badge" style="background:var(--warn-soft);color:var(--warn-text);">暂无解析记录</span>';
                     } else {
                         // Dual-mode markup: desktop reads .sd-dns-badge (rendered inline like the original badges);
                         // mobile CSS upgrades the .sd-dns-list ul into iOS rows with rec-pill / ip / geo split.
@@ -2955,13 +3003,22 @@
                             }).join('')
                             + '</ul>';
                     }
-                } else container.innerHTML = `<span class="badge" style="background:var(--err-soft);color:var(--err);">${data.error || '获取失败'}</span>`;
-            } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err);">网络异常</span>'; }
+                } else container.innerHTML = `<span class="badge" style="background:var(--err-soft);color:var(--err-ink);">${data.error || '获取失败'}</span>`;
+                setDnsActionsEnabled(!!data.success, data.error);
+            } catch (e) { container.innerHTML = '<span class="badge" style="background:var(--err-soft);color:var(--err-ink);">网络异常</span>'; }
+        }
+        // DNS 没配好时，所有「写 DNS」的按钮都不可点，并说明原因 —— 而不是点了才报错。
+        function setDnsActionsEnabled(ok, reason) {
+            const why = ok ? '' : ('DNS 未就绪：' + (reason || '缺少 CF_API_TOKEN / CF_ZONE_ID / CF_DOMAIN'));
+            document.querySelectorAll('#btnSelectedDns, #btnDirectCname, #btnTop3Dns, .sd-sel-btn, [data-dns-action]').forEach(function (b) {
+                b.disabled = !ok;
+                if (why) b.title = why; else b.removeAttribute('title');
+            });
         }
         
         // 确认收在这里，四个入口(顶栏图标 / 危险区 / ⌘K / 移动端行)都继承同一道闸。
-        function logout() {
-            if (!confirm('确认退出登录？其他客户端不受影响，可随时重新登录。')) return;
+        async function logout() {
+            if (!await uiConfirm('确认退出登录？其他客户端不受影响，可随时重新登录。')) return;
             document.cookie = "admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.reload();
         }
@@ -2988,18 +3045,16 @@
                 // 加上时间戳强制绕过浏览器本地缓存
                 await fetch('/__client_rtt__?t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
                 const rtt = Math.round(performance.now() - start);
-                const rttEl = document.getElementById('rttValue');
-                const dotEl = document.getElementById('rttDot');
-                
-                rttEl.textContent = rtt + ' ms';
-                
-                // 根据延迟改变呼吸灯颜色
-                const tone = rtt < 80 ? 'var(--ok)' : rtt < 200 ? 'var(--warn)' : 'var(--err)';
-                dotEl.style.background = tone;
-                rttEl.style.color = tone;
+                // 直接写看板的延迟信号：不做滚动数字、不闪框 —— 它每 3 秒就会抖一下，那是噪音不是事件。
+                const el = document.getElementById('kpi-rtt');
+                if (el) {
+                    el.classList.remove('skeleton', 'is-na');
+                    el.textContent = String(rtt);
+                    el.dataset.tone = rtt < 80 ? 'ok' : rtt < 200 ? 'warn' : 'err';
+                }
             } catch (e) {
-                document.getElementById('rttValue').textContent = '断连';
-                document.getElementById('rttDot').style.background = 'var(--err)';
+                const el = document.getElementById('kpi-rtt');
+                if (el) { el.classList.remove('skeleton'); el.classList.add('is-na'); el.textContent = '断连'; el.dataset.tone = 'err'; }
             }
         }
         
@@ -3137,21 +3192,27 @@
             }
         }
 
-        function togglePlacementDrawer() {
-            var pill = document.getElementById('placePill');
-            var drawer = document.getElementById('placeDrawer');
-            if (!pill || !drawer) return;
-            pill.classList.toggle('open');
-            drawer.classList.toggle('open');
-        }
-
-        function openPlacementDrawerFromMobile() {
+        // 收起时 inert：看不见的控件不该吃到 Tab 焦点，也不该被读屏念出来。
+        function setPlacementDrawer(open) {
             var pill = document.getElementById('placePill');
             var drawer = document.getElementById('placeDrawer');
             if (!drawer) return;
-            if (pill) pill.classList.add('open');
-            drawer.classList.add('open');
+            drawer.classList.toggle('open', open);
+            drawer.inert = !open;
+            if (pill) { pill.classList.toggle('open', open); pill.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        }
+        function togglePlacementDrawer() {
+            var drawer = document.getElementById('placeDrawer');
+            setPlacementDrawer(!(drawer && drawer.classList.contains('open')));
+        }
+
+        function openPlacementDrawerFromMobile() {
+            var drawer = document.getElementById('placeDrawer');
+            if (!drawer) return;
+            setPlacementDrawer(true);
             try { drawer.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { drawer.scrollIntoView(); }
+            var sel = document.getElementById('cf-mode-select');
+            if (sel) sel.focus({ preventScroll: true });
         }
 
         // 新增：调用部署修改接口
@@ -3211,7 +3272,23 @@
         function toggleSelectAllNodes(checkbox) {
             if (!checkbox) return;
             document.querySelectorAll('.node-cb').forEach(cb => { cb.checked = checkbox.checked; });
+            updateBatchBar();
         }
+        // 批量栏只在有勾选时出现，并报出选中数量。
+        function updateBatchBar() {
+            const bar = document.getElementById('batchBar');
+            if (!bar) return;
+            const all = document.querySelectorAll('#list-grid .node-cb');
+            const n = document.querySelectorAll('#list-grid .node-cb:checked').length;
+            bar.hidden = n === 0;
+            const lbl = document.getElementById('batchSelCount');
+            if (lbl) lbl.textContent = '已选 ' + n + ' / ' + all.length;
+            const sa = document.getElementById('selectAllNodes');
+            if (sa) { sa.checked = n > 0 && n === all.length; sa.indeterminate = n > 0 && n < all.length; }
+        }
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.classList && e.target.classList.contains('node-cb')) updateBatchBar();
+        });
         function toggleSelectAllIps(checkbox) {
             if (!checkbox) return;
             document.querySelectorAll('#testTableBody .row-checkbox').forEach(cb => {
@@ -3235,7 +3312,7 @@
                 return;
             }
 
-            if (!confirm("确定要将勾选的 " + selectedPrefixes.length + " 个节点切换为该模式吗？")) return;
+            if (!await uiConfirm("确定要将勾选的 " + selectedPrefixes.length + " 个节点切换为该模式吗？")) return;
 
             statusElem.innerText = "正在多线程并发修改节点...";
             statusElem.style.color = "var(--primary)";
@@ -3286,7 +3363,7 @@
                 showError('请先粘贴代码，或选择一个 .js 文件');
                 return;
             }
-            if (!confirm('危险操作确认 \n\n你即将强行覆盖当前 Worker 的代码。\n如果新代码有错误，此面板将会瘫痪，只能去网页后台抢修\n\n确定代码 100% 正确并覆盖吗？')) return;
+            if (!await uiConfirm('危险操作确认 \n\n你即将强行覆盖当前 Worker 的代码。\n如果新代码有错误，此面板将会瘫痪，只能去网页后台抢修\n\n确定代码 100% 正确并覆盖吗？', { danger: true })) return;
             const btn = document.getElementById('deployBtn');
             const originalText = btn.innerText;
             btn.innerText = '正在与 Cloudflare 通信并部署...';
@@ -3323,6 +3400,8 @@
         let latestCode = ""; 
 
         async function checkForUpdates() {
+            // 未配置在线更新地址（仍是占位文案）时不发请求，免得每次加载都白白失败一次。
+            if (!/^https?:\/\//.test(GITHUB_RAW_URL)) return;
             try {
                 const res = await fetch(GITHUB_RAW_URL + '?t=' + new Date().getTime());
                 if (!res.ok) return;
@@ -3343,7 +3422,7 @@
         }
 
         async function doOnlineUpdate() {
-            if (!confirm('确定要从 GitHub 拉取最新版本并覆盖当前节点吗？\n\n（这将会保留你的所有环境变量和数据库绑定）')) return;
+            if (!await uiConfirm('确定要从 GitHub 拉取最新版本并覆盖当前节点吗？\n\n（这将会保留你的所有环境变量和数据库绑定）', { danger: true })) return;
             
             const btn = document.getElementById('onlineUpdateBtn');
             btn.innerText = '正在拉取并部署...';
@@ -3409,24 +3488,22 @@
             if (typeof handleTargetInputs === 'function') handleTargetInputs();
         }
 
-        // Two-way bind the iOS-style cache toggle with the underlying checkbox
-        function toggleCacheSwitch(el) {
-            const cb = document.getElementById('nodeCache');
-            if (!cb) return;
-            cb.checked = !cb.checked;
-            el.querySelector('.ios-switch').classList.toggle('on', cb.checked);
-        }
-        function syncCacheSwitch() {
-            const cb = document.getElementById('nodeCache');
-            const sw = document.querySelector('#cacheToggleRow .ios-switch');
-            if (cb && sw) sw.classList.toggle('on', cb.checked);
+        // 反代模式说明：选中哪个就解释哪个（内容对应 src/emby/headers.js 的实际行为）。
+        const MODE_HINTS = {
+            off: '不向上游传递访客 IP。',
+            realip_only: '用 X-Real-IP 把访客 IP 传给上游。',
+            dual: '同时用 X-Real-IP 和 X-Forwarded-For 传递访客 IP。',
+            strict: '把 Origin / Referer 改成上游地址并传递访客 IP。上游返回 403 时使用。'
+        };
+        function syncModeHint() {
+            const sel = document.getElementById('mode'), hint = document.getElementById('modeHint');
+            if (sel && hint) hint.textContent = MODE_HINTS[sel.value] || '';
         }
 
         // Headers Editor — KV editor that serializes to the legacy "Key: Value\n..." format
         const HeadersEditor = (() => {
             const SENSITIVE_KEYS = ['authorization','cookie','x-api-key','x-auth-token','x-emby-token','token'];
             let rows = [];
-            let dragSrc = null;
             let nextId = 1;
 
             const $list = () => document.getElementById('hed-list');
@@ -3452,15 +3529,16 @@
                 } else {
                     list.innerHTML = rows.map(r => {
                         const sensitive = r.masked || isSensitiveKey(r.key);
-                        return '<div class="hed-row ' + (r.on ? '' : 'disabled') + '" draggable="true" data-id="' + r.id + '">' +
-                            '<span class="hed-handle" title="拖拽排序">⋮⋮</span>' +
-                            '<input type="text" class="hed-k" value="' + escapeHtml(r.key) + '" placeholder="Header-Name" data-id="' + r.id + '" data-field="key">' +
+                        const name = escapeHtml(r.key) || '新请求头';
+                        return '<div class="hed-row ' + (r.on ? '' : 'disabled') + '" data-id="' + r.id + '">' +
+                            '<span class="hed-handle" title="拖拽排序" aria-hidden="true"><svg><use href="#i-grip"/></svg></span>' +
+                            '<input type="text" class="hed-k" value="' + escapeHtml(r.key) + '" placeholder="Header-Name" aria-label="请求头名称" data-id="' + r.id + '" data-field="key">' +
                             '<div class="hed-v-wrap">' +
-                                '<input type="' + (r.masked ? 'password' : 'text') + '" class="hed-v" value="' + escapeHtml(r.value) + '" placeholder="value" data-id="' + r.id + '" data-field="value">' +
-                                (sensitive ? '<button type="button" class="mask-btn" data-id="' + r.id + '" title="' + (r.masked ? '显示' : '隐藏') + '"><svg><use href="#' + (r.masked ? 'i-eye' : 'i-eye-off') + '"/></svg></button>' : '') +
+                                '<input type="' + (r.masked ? 'password' : 'text') + '" class="hed-v" value="' + escapeHtml(r.value) + '" placeholder="value" aria-label="' + name + ' 的值" data-id="' + r.id + '" data-field="value">' +
+                                (sensitive ? '<button type="button" class="mask-btn" data-id="' + r.id + '" title="' + (r.masked ? '显示' : '隐藏') + '" aria-label="' + (r.masked ? '显示' : '隐藏') + ' ' + name + '"><svg aria-hidden="true"><use href="#' + (r.masked ? 'i-eye' : 'i-eye-off') + '"/></svg></button>' : '') +
                             '</div>' +
-                            '<div class="ios-switch ' + (r.on ? 'on' : '') + '" data-id="' + r.id + '" title="' + (r.on ? '已启用' : '已停用') + '"></div>' +
-                            '<button type="button" class="hed-del" data-id="' + r.id + '" title="删除"><svg><use href="#i-x"/></svg></button>' +
+                            '<button type="button" class="ios-switch ' + (r.on ? 'on' : '') + '" role="switch" aria-checked="' + (r.on ? 'true' : 'false') + '" aria-label="启用 ' + name + '" data-id="' + r.id + '" title="' + (r.on ? '已启用' : '已停用') + '"></button>' +
+                            '<button type="button" class="hed-del" data-id="' + r.id + '" title="删除" aria-label="删除 ' + name + '"><svg aria-hidden="true"><use href="#i-x"/></svg></button>' +
                         '</div>';
                     }).join('');
                 }
@@ -3510,26 +3588,18 @@
                         render();
                     };
                 });
-                list.querySelectorAll('.hed-row').forEach(row => {
-                    row.ondragstart = (e) => {
-                        dragSrc = +row.dataset.id;
-                        row.classList.add('dragging');
-                        e.dataTransfer.effectAllowed = 'move';
-                    };
-                    row.ondragend = () => row.classList.remove('dragging');
-                    row.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-                    row.ondrop = (e) => {
-                        e.preventDefault();
-                        const targetId = +row.dataset.id;
-                        if (dragSrc === null || dragSrc === targetId) return;
-                        const srcIdx = rows.findIndex(r => r.id === dragSrc);
-                        const tgtIdx = rows.findIndex(r => r.id === targetId);
-                        const [moved] = rows.splice(srcIdx, 1);
-                        rows.splice(tgtIdx, 0, moved);
-                        dragSrc = null;
-                        render();
-                    };
-                });
+                // 排序用已加载的 Sortable：原生 HTML5 拖放在触屏上不工作。
+                if (window.Sortable && !list._sortable) {
+                    list._sortable = Sortable.create(list, {
+                        handle: '.hed-handle', animation: 150, ghostClass: 'dragging',
+                        onEnd: function (e) {
+                            if (e.oldIndex === e.newIndex) return;
+                            const [moved] = rows.splice(e.oldIndex, 1);
+                            rows.splice(e.newIndex, 0, moved);
+                            render();
+                        }
+                    });
+                }
             }
 
             function updateCount() {
@@ -3690,7 +3760,6 @@
         // Bootstrap empty editor once DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             HeadersEditor.init('');
-            syncCacheSwitch();
         });
         // 📱 Mobile bottom Tab Bar + status pills (mobile only; desktop CSS hides them)
         (function () {
@@ -3705,45 +3774,21 @@
                     });
                 });
             }
+            // 统计里的「今日流量」到位后回填看板信号。
             function initMobilePills() {
-                const sources = [
-                    { src: 'rttValue',       dst: 'm-pill-rtt' },
-                    { src: 'placeModeLabel', dst: 'm-pill-mode' },
-                    { src: 'trafficToday',   dst: 'm-pill-today' },
-                    { src: 'trafficToday',   dst: 'tb-traffic-today' },
-                    { src: 'tb-health-val',  dst: 'm-pill-health' },
-                ];
-                const sync = () => {
-                    sources.forEach(({ src, dst }) => {
-                        const s = document.getElementById(src);
-                        const d = document.getElementById(dst);
-                        if (s && d) {
-                            const txt = (s.textContent || '').trim();
-                            if (txt && txt !== '加载中...') d.textContent = txt;
-                        }
-                    });
-                    [['rttDot', 'm-pill-rtt-dot'], ['tb-health-dot', 'm-pill-health-dot']].forEach(([src, dst]) => {
-                        const s = document.getElementById(src), d = document.getElementById(dst);
-                        if (s && d) { d.className = s.className; d.style.background = s.style.background; }
-                    });
-                    if (typeof updateAuroraKpis === 'function') updateAuroraKpis();
-                };
-                sync();
-                sources.forEach(({ src }) => {
-                    const node = document.getElementById(src);
-                    if (!node) return;
-                    new MutationObserver(sync).observe(node, { childList: true, characterData: true, subtree: true });
-                });
+                const src = document.getElementById('trafficToday');
+                if (src) new MutationObserver(function () { updateAuroraKpis(); }).observe(src, { childList: true, characterData: true, subtree: true });
             }
             // === iOS-native chrome v5: brand, large-title, scroll observer, logout row ===
             const IOS_SECTION_TITLES = {
                 // 按子 tab 键索引，标题与子 tab 标签同名（一处学会，处处一致）。
-                overview:    { title: '看板',         sub: '实时状态与核心指标' },
+                overview:    { title: '看板',         sub: '实时状态与核心指标', srOnly: true },   // 裁决行就是这一页的标题，大标题只留给读屏
                 stats:       { title: '统计',         sub: '流量、访客与历史趋势' },
                 speed:       { title: '测速 & DNS',   sub: '节点延迟与解析探测' },
                 cdn:         { title: '优选 CDN',     sub: '优选域名测速与一键 DNS CNAME' },
                 redirect:    { title: '重定向白名单', sub: '3xx 直通，跳过代理重写' },
                 settings:    { title: '部署节点',     sub: '填写下方信息后保存，每个节点占用一个 URL 前缀' },
+                global:      { title: '全局设置',     sub: '所有节点共用的访问限制与媒体计数账号' },
                 viewers:     { title: '观看账号',     sub: '独立观看记录与并发配额' },
                 tools:       { title: '工具箱',       sub: '配置导入导出与 cURL 请求头解析' },
                 danger:      { title: '危险区',       sub: '不可逆操作，请谨慎' },
@@ -3758,7 +3803,7 @@
                 if (!topbar || topbar.querySelector('.mob-brand')) return;
                 const brand = document.createElement('div');
                 brand.className = 'mob-brand';
-                brand.innerHTML = '<span class="mb-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>反代核心</span>';
+                brand.innerHTML = '<span class="mb-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>Emby Proxy</span>';
                 topbar.insertBefore(brand, topbar.firstChild);
             }
 
@@ -3774,7 +3819,7 @@
                     // .ios-page-header on top would double the title.
                     if (key === 'danger' && sec.querySelector(':scope > .danger-hero')) return;
                     const hdr = document.createElement('header');
-                    hdr.className = 'ios-page-header';
+                    hdr.className = 'ios-page-header' + (meta.srOnly ? ' sr-only' : '');
                     hdr.innerHTML =
                         '<h1 class="ios-large-title">' + meta.title + '</h1>' +
                         '<p class="ios-sub">' + meta.sub + '</p>';
@@ -3862,6 +3907,8 @@
                 { label: '网络 · 优选 CDN', kw: 'network cdn youxuan 优选 域名 加速', run: function () { showDest('network', 'cdn'); } },
                 { label: '网络 · 重定向白名单', kw: 'network redirect whitelist chongdingxiang 重定向 白名单 直连', run: function () { showDest('network', 'redirect'); } },
                 { label: '配置 · 部署节点', kw: 'config deploy settings bushu 部署 配置 设置', run: function () { showDest('config', 'settings'); } },
+                { label: '配置 · 全局设置', kw: 'global allowlist referer country quanju 全局 白名单 国家 防盗链 共享账号', run: function () { showDest('config', 'global'); } },
+                { label: '配置 · 观看账号', kw: 'viewers accounts guankan 观看 账号 朋友 并发', run: function () { showDest('config', 'viewers'); } },
                 { label: '配置 · 工具箱', kw: 'tools gongju 工具', run: function () { showDest('config', 'tools'); } },
                 { label: '配置 · 危险区', kw: 'danger weixian 危险', run: function () { showDest('config', 'danger'); } }
             ];
@@ -3870,6 +3917,9 @@
                 { label: '全局测速', hint: '测试所有节点延迟', kw: 'speed test ping ceshe 全局 测速', run: function () { if (typeof pingAllNodes === 'function') pingAllNodes(); } },
                 { label: '刷新全站海报缓存', hint: '清空 CDN 海报', kw: 'purge cache poster shuaxin 刷新 海报 缓存', run: function () { if (typeof purgeCache === 'function') purgeCache(); } },
                 { label: '更新 Worker 核心代码', hint: '覆盖部署', kw: 'worker update gengxin 更新 核心', run: function () { if (typeof openWorkerUpdate === 'function') openWorkerUpdate(); } },
+                { label: 'Worker 调度模式', hint: '选择 Worker 落地机房', kw: 'placement smart region diaodu 调度 机房 落地', run: function () { openPlacementDrawerFromMobile(); } },
+                { label: '提交选中至 DNS', hint: '测速页勾选的节点', kw: 'dns submit selected tijiao 提交 解析 选中', run: function () { showDest('network', 'speed'); updateSelectedToDns(); } },
+                { label: '更新 TOP3 至 DNS', hint: '最快的 3 个测速节点', kw: 'dns top3 fastest zuikuai 最快 解析', run: function () { showDest('network', 'speed'); updateTop3ToDns(); } },
                 { label: '切换主题', hint: '明 / 暗 / 自动', kw: 'theme dark light zhuti 主题 切换', run: function () { if (typeof toggleDarkMode === 'function') toggleDarkMode(); } },
                 { label: '退出登录', hint: '断开管理会话', kw: 'logout signout tuichu 退出 登出', run: function () { if (typeof logout === 'function') logout(); } }
             ];
