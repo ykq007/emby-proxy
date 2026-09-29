@@ -37,7 +37,7 @@ export const LOGIN_UI = `
                load. It now materialises in place: a large surface moving
                across the viewport is the exact motion reduced-motion
                users are protecting themselves from. */
-            animation: brand-in var(--dur-spring) var(--spring-smooth) both;
+            animation: brand-in var(--dur-spring) var(--spring-smooth) backwards;   /* 不留 fill：结束后的 transform 动画仍会被算进可滚动宽度 */
         }
         @keyframes brand-in {
             from { opacity: 0; transform: scale(1.01); }
@@ -71,7 +71,7 @@ export const LOGIN_UI = `
             justify-content: center;
             padding: 56px 64px;
             background: var(--bg);
-            animation: form-enter var(--dur-spring) var(--spring-smooth) 120ms both;
+            animation: form-enter var(--dur-spring) var(--spring-smooth) 120ms backwards;
         }
         @keyframes form-enter {
             from { opacity: 0; transform: translateY(12px); }
@@ -170,7 +170,7 @@ export const LOGIN_UI = `
 
         /* ── Mobile (≤768px): brand becomes top strip ──────────── */
         @media (max-width: 768px) {
-            body.login-body { flex-direction: column; overflow-x: hidden; overflow-y: auto; }
+            body.login-body { flex-direction: column; overflow-y: auto; }
 
             .forge-brand {
                 flex: 0 0 25vh; min-height: 160px;

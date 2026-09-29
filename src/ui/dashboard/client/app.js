@@ -1059,14 +1059,21 @@
 
         function selectIcon(url, name) {
             document.getElementById('iconUrl').value = url;
-            const preview = document.getElementById('iconPreview');
             const def = document.getElementById('iconDefault');
             const text = document.getElementById('iconSelectText');
+            // 预览图只在真有 URL 时才创建：空 src 的 <img> 会发一次无效请求。
+            let preview = document.getElementById('iconPreview');
+            if (url && !preview) {
+                preview = document.createElement('img');
+                preview.id = 'iconPreview'; preview.alt = ''; preview.className = 'a-pick-img';
+                def.before(preview);
+            }
             if(url) {
-                preview.src = url; preview.style.display = 'block'; def.style.display = 'none';
+                preview.src = url; def.style.display = 'none';
                 text.textContent = name; text.style.color = 'var(--text)';
             } else {
-                preview.src = ''; preview.style.display = 'none'; def.style.display = 'block';
+                if (preview) preview.remove();
+                def.style.display = 'block';
                 text.textContent = '点击选择图标 (默认)'; text.style.color = 'var(--text-sec)';
             }
             document.getElementById('iconPickerPanel').style.display = 'none';

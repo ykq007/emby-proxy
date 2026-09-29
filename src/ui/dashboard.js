@@ -589,7 +589,6 @@ export const HTML_UI = `
                         <div class="a-row two">
                             <div class="pos-rel">
                                 <button type="button" class="a-card-pick" onclick="toggleIconPicker(event)" id="iconSelectBtn" aria-expanded="false" aria-controls="iconPickerPanel">
-                                    <img id="iconPreview" alt="" style="width:32px;height:32px;display:none;border-radius:var(--radius-md);object-fit:cover;">
                                     <span id="iconDefault" style="line-height:1;" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24"><use href="#i-film"/></svg></span>
                                     <span class="flex-1-min0">
                                         <span class="label-bold">节点图标</span>
