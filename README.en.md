@@ -54,8 +54,6 @@ wrangler secret put ADMIN_TOKEN
 | `TG_BOT_TOKEN` | No | Enables the Telegram bot (alerts + status/keepalive/mute/list commands). | Create a bot with [@BotFather](https://t.me/BotFather). |
 | `TG_CHAT_ID` | No | Chat/user ID the bot sends alerts and replies to. | Message your bot, then check the chat ID (e.g. via `getUpdates`). |
 | `TG_WEBHOOK_SECRET` | No | Verifies that incoming `/api/tg-webhook` calls actually come from Telegram. | Any random string; set the same value when registering your webhook. |
-| `LIBSQL_URL` | No | Use a self-hosted database (libSQL on your VPS) instead of D1, with no daily row caps. Unset = D1. | See [Self-hosted database](docs/self-hosted-libsql.en.md). |
-| `LIBSQL_AUTH_TOKEN` | No | The token for the database at `LIBSQL_URL`. | Generate with `node scripts/libsql-keygen.mjs`. |
 
 Any of `CF_*` / `TG_*` left blank simply disables the corresponding feature — the rest of the app works normally.
 
@@ -94,7 +92,7 @@ Give friends their own login on a node without sharing the node's Emby password 
 ## Architecture
 
 - **Cloudflare Worker** — the whole app (routing, proxying, admin API, Telegram webhook) runs as a single Worker (`src/index.js`).
-- **D1 (binding `DB`)** — persistent state: routes/nodes, DNS records, probe history, media counts, and auth rate-limiting. Schema self-migrates at runtime. With `LIBSQL_URL` set, this lives in libSQL on your own VPS instead; see [Self-hosted database](docs/self-hosted-libsql.en.md).
+- **D1 (binding `DB`)** — persistent state: routes/nodes, DNS records, probe history, media counts, and auth rate-limiting. Schema self-migrates at runtime.
 - **R2 (binding `POSTER_CACHE`)** — caches Emby poster/image responses to cut origin bandwidth, bounded by a 30-day object lifecycle and an image-only/≤5MB guard so it stays within the free tier.
 - **Cron triggers** — three schedules (`*/5 * * * *`, hourly, daily) drive node probing and media-count refresh (`src/scheduled.js`).
 - **Static assets (`public/`)** — the panel's CSS/JS are served directly from Cloudflare's edge via `[assets]`, bypassing the Worker on a cache hit.

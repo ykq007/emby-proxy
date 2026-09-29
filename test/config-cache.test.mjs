@@ -210,7 +210,7 @@ test('load failure after a good load → serves the last good config (stale), re
         let down = false, attempts = 0;
         const db = makeDB({ routeRows: [{ prefix: 'keep', target: 'https://keep.example.com' }] });
         const realBatch = db.batch.bind(db);
-        db.batch = async (stmts) => { attempts++; if (down) throw new Error('libsql unreachable'); return realBatch(stmts); };
+        db.batch = async (stmts) => { attempts++; if (down) throw new Error('db unreachable'); return realBatch(stmts); };
         const env = { DB: db };
 
         await getConfig(env);
@@ -257,7 +257,7 @@ test('cold isolate + DB down → restores routes from the Cache API snapshot wri
 
         __resetConfigCache(); // new isolate: nothing in memory
         const broken = createD1Fake([]);
-        broken.batch = async () => { throw new Error('libsql unreachable'); };
+        broken.batch = async () => { throw new Error('db unreachable'); };
         const { config, stale } = await getConfig({ DB: broken });
         assert.equal(stale, true);
         assert.equal(config.ok, true);

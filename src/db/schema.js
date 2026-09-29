@@ -4,7 +4,7 @@ import { DEFAULT_MANUAL_REDIRECT_DOMAINS, MANUAL_REDIRECT_DOMAINS_KEY } from '..
 import { SCHEMA_VERSION_KEY } from './kv.js';
 
 let _schemaReady = false;
-// 迁移失败后的冷却截止时间：DB 不可达（如自托管 libSQL 宕机）时，不让每个请求都
+// 迁移失败后的冷却截止时间：DB 不可达（如 D1 超出日配额）时，不让每个请求都
 // 再去撞一次超时，30s 内直接跳过，之后再试。
 let _retryAt = 0;
 const RETRY_COOLDOWN_MS = 30000;

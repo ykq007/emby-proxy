@@ -54,8 +54,6 @@ wrangler secret put ADMIN_TOKEN
 | `TG_BOT_TOKEN` | 否 | 启用 Telegram Bot：告警、状态查询、保活、静音、列表等指令。 | 从 [@BotFather](https://t.me/BotFather) 创建 Bot 获取。 |
 | `TG_CHAT_ID` | 否 | Bot 发送告警和回复的 chat/user ID。 | 向 Bot 发消息后，通过 `getUpdates` 等方式查看 chat ID。 |
 | `TG_WEBHOOK_SECRET` | 否 | 校验传入的 `/api/tg-webhook` 请求确实来自 Telegram。 | 自行生成任意随机字符串，并在注册 webhook 时使用同一个值。 |
-| `LIBSQL_URL` | 否 | 改用自托管数据库（VPS 上的 libSQL），不再受 D1 免费版日配额限制；不设置则用 D1。 | 见 [自托管数据库](docs/self-hosted-libsql.md)。 |
-| `LIBSQL_AUTH_TOKEN` | 否 | 配合 `LIBSQL_URL`：访问该数据库的令牌。 | `node scripts/libsql-keygen.mjs` 生成。 |
 
 留空的 `CF_*` / `TG_*` 变量只会禁用对应功能，其余功能仍可正常使用。
 
@@ -94,7 +92,7 @@ wrangler secret put TG_WEBHOOK_SECRET
 ## 架构
 
 - **Cloudflare Worker**：整个应用以单个 Worker (`src/index.js`) 运行，负责路由、反向代理、管理 API 与 Telegram webhook。
-- **D1（绑定名 `DB`）**：持久化节点/路由、DNS 记录、探针历史、媒体计数、鉴权限流等状态，schema 在运行时自动迁移。设置 `LIBSQL_URL` 后改存到你自己 VPS 上的 libSQL，见 [自托管数据库](docs/self-hosted-libsql.md)。
+- **D1（绑定名 `DB`）**：持久化节点/路由、DNS 记录、探针历史、媒体计数、鉴权限流等状态，schema 在运行时自动迁移。
 - **R2（绑定名 `POSTER_CACHE`）**：缓存 Emby 海报/图片响应以降低源站带宽；配合 30 天对象生命周期、仅图片且不超过 5MB 的保护规则，控制在免费额度内。
 - **Cron 触发器**：三条计划任务（`*/5 * * * *`、每小时、每天）驱动节点探测与媒体计数刷新（见 `src/scheduled.js`）。
 - **静态资源（`public/`）**：面板 CSS/JS 通过 `[assets]` 直接由 Cloudflare 边缘返回，命中缓存时不进入 Worker 逻辑。
