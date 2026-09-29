@@ -1554,11 +1554,23 @@
         // 每节点登录态/鉴权元数据（auth-state），供卡片内的「媒体计数」块使用。
         window.__embyAuthState = window.__embyAuthState || {};
         // 监控与媒体计数：把全局设置（国家白名单 / 共享账号）灌入概览页折叠面板，并刷新「在线 X/Y」摘要。
+        // /api/status/probes 每次都在服务端跑多张表的聚合查询并触发全节点计数刷新；
+        // 一次页面加载里 load() / initMonitorControls() / injectEcgStrips() 各要一份，
+        // 5s 内共用同一个请求。force=true（刚开关某节点监控）时强制重新拉取。
+        let _probesReq = null, _probesAt = 0;
+        function fetchStatusProbes(force) {
+            const now = Date.now();
+            if (force || !_probesReq || now - _probesAt > 5000) {
+                _probesAt = now;
+                _probesReq = fetch('/api/status/probes').then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+            }
+            return _probesReq;
+        }
         async function initMonitorControls() {
             try {
                 const [globalRes, probesRes, stateRes] = await Promise.all([
                     fetch('/api/status/global-flags').then(r => r.json()).catch(() => ({})),
-                    fetch('/api/status/probes').then(r => r.json()).catch(() => ({})),
+                    fetchStatusProbes(),
                     fetch('/api/status/auth-state').then(r => r.json()).catch(() => ({}))
                 ]);
                 const ccInput = document.getElementById('proxyCountryAllowlist');
@@ -1662,7 +1674,7 @@
                 showToast(enable ? '已开启监控：' + prefix : '已关闭监控：' + prefix);
                 const card = document.querySelector('.route-item[data-prefix="' + prefix + '"]');
                 if (!enable && card) { const m = card.querySelector('.ecg-mount'); if (m) m.remove(); }
-                if (enable && typeof injectEcgStrips === 'function') injectEcgStrips();
+                if (enable && typeof injectEcgStrips === 'function') injectEcgStrips(true);
                 if (typeof updateTopbarHealth === 'function') updateTopbarHealth();
             } catch (e) {
                 el.classList.toggle('on', !enable); // 回滚
@@ -2027,7 +2039,7 @@
                 const [res, stateRes, probesRes] = await Promise.all([
                     fetch('/api/routes'),
                     fetch('/api/status/auth-state').then(r => r.json()).catch(() => ({})),
-                    fetch('/api/status/probes').then(r => r.json()).catch(() => ({}))
+                    fetchStatusProbes()
                 ]);
                 if (!res.ok) throw new Error('请求失败，请检查环境配置');
                 const data = await res.json();
@@ -2340,11 +2352,9 @@
                 '</svg>';
         }
 
-        async function injectEcgStrips() {
+        async function injectEcgStrips(force) {
             try {
-                const res = await fetch('/api/status/probes');
-                if (!res.ok) return;
-                const data = await res.json();
+                const data = await fetchStatusProbes(force);
                 if (!data || !data.success || !Array.isArray(data.cards)) return;
                 const byPrefix = {};
                 for (const c of data.cards) byPrefix[c.prefix] = c;
