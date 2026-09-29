@@ -119,7 +119,8 @@ export async function handleRoutes(request, env, ctx, url) {
                 return Response.json({ success: false, error: `路由别名 "${data.prefix}" 不可用：${invalidReason}` }, { status: 400 });
             }
             let currentSortOrder = 0;
-            let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0, monitor_enabled: 1 };
+            // 新节点默认不监控（不探测、不拉媒体计数），需要时在面板里单独开启。
+            let prevStatusFields = { show_on_status: 0, public_alias: '', media_counts_auto_auth: 0, monitor_enabled: 0 };
             let prevRuntimeFields = { last_play: '', emby_auth_cache: '', emby_auth_seen_at: 0, emby_auth_used_at: 0, keepalive_last_played_at: 0, keepalive_last_reminded_at: 0, emby_username: '', emby_password_enc: '', max_concurrent: 0, viewers_enabled: 0 };
             const absorbOldRow = (oldRow) => {
                 if (!oldRow) return;
