@@ -1,10 +1,13 @@
 // 并发播放限制：节点上限 routes.max_concurrent + 每个 viewer 在该节点的配额 viewer_access.quota。
 // 槽位 = (viewer, 节点, 设备)，PlaybackInfo 占用，Sessions/Playing* 续心跳，Stopped 释放，
 // 3 分钟无心跳自动回收。0 表示不限。
+// 有的客户端（如 CapyPlayer）打开详情页就调 PlaybackInfo 却不播放：只占位、没收到 Sessions/Playing 的槽位
+// 按 PENDING_TTL_MS 回收，免得它把同一 viewer 的另一台设备挡 3 分钟。
 // ponytail: D1 先查后插非原子，两个设备同一瞬间起播可能超 1 个；要严格就换 Durable Object。
 import { dbRun, dbFirst } from '../db/helpers.js';
 
 export const SLOT_TTL_MS = 3 * 60 * 1000;
+export const PENDING_TTL_MS = 60 * 1000;
 
 // 返回 null = 已占到槽位；返回 Response(429) = 超限。
 export async function acquireSlot(env, s, deviceId, itemId, now = Date.now()) {
@@ -24,8 +27,8 @@ export async function acquireSlot(env, s, deviceId, itemId, now = Date.now()) {
     }
     await dbRun(env,
         `INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(viewer_id, prefix, device_id) DO UPDATE SET item_id = excluded.item_id, heartbeat_at = excluded.heartbeat_at`,
-        s.viewerId, s.prefix, deviceId, itemId, now);
+         ON CONFLICT(viewer_id, prefix, device_id) DO UPDATE SET item_id = excluded.item_id, heartbeat_at = MAX(heartbeat_at, excluded.heartbeat_at)`,
+        s.viewerId, s.prefix, deviceId, itemId, now - SLOT_TTL_MS + PENDING_TTL_MS);
     return null;
 }
 

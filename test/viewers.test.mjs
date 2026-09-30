@@ -191,6 +191,19 @@ test('concurrency: node cap applies across viewers and expired slots are reclaim
     assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 200, 'expired reclaimed');
 });
 
+test('concurrency: PlaybackInfo without playback frees the slot after the pending window', async () => {
+    const a = await makeViewer('alice', 1);
+    const a2 = (await loginAs('alice', 'alice-tv')).AccessToken;
+    const age = (ms) => env.DB.db.exec(`UPDATE playback_slots SET heartbeat_at = heartbeat_at - ${ms}`);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 200);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 429, 'pending slot still counts');
+    age(61_000);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a2 })).status, 200, 'unplayed slot reclaimed');
+    await call('/emby/Sessions/Playing', { method: 'POST', token: a2, body: { ItemId: 'm1' } });
+    age(61_000);
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 429, 'playing slot keeps full TTL');
+});
+
 test('watch state is per viewer and hides the shared upstream history', async () => {
     const a = await makeViewer('alice');
     const b = await makeViewer('bob');
