@@ -1234,43 +1234,70 @@
             return data;
         }
         async function loadViewers() {
-            try { __viewers = await viewerApi('GET', '/api/viewers'); } catch (e) { return; }
+            try { __viewers = await viewerApi('GET', '/api/viewers'); } catch (e) {
+                document.getElementById('viewerList').innerHTML = '<div class="vw-group vw-empty">读取失败<button type="button" class="btn-tier is-sm" onclick="loadViewers()">重试</button></div>';
+                return;
+            }
             renderViewers();
         }
+        function vwSwitch(label, checked, onchange, text) {
+            // 真复选框（视觉隐藏）+ .ios-switch 外观；请求期间禁用，重新渲染时恢复。
+            return '<label class="vw-switch">' + (text ? '<span>' + text + '</span>' : '') + '<input type="checkbox" class="switch-input" role="switch" aria-label="' + label + '"' + (checked ? ' checked' : '') +
+                ' onchange="this.disabled=true; ' + onchange + '"><span class="ios-switch" aria-hidden="true"></span></label>';
+        }
+        function vwNodeName(n, prefix) {
+            return '<span class="vw-node-name"><span class="vw-name">' + vEsc(n && n.remark || prefix) + '</span><span class="vw-prefix">/' + vEsc(prefix) + '</span></span>';
+        }
         function renderViewers() {
-            var used = {};
+            var used = {}, byPrefix = {};
+            __viewers.nodes.forEach(function (n) { byPrefix[n.prefix] = n; });
             __viewers.viewers.forEach(function (v) { v.access.forEach(function (a) { used[a.prefix] = (used[a.prefix] || 0) + a.quota; }); });
+
             document.getElementById('viewerNodes').innerHTML = __viewers.nodes.map(function (n) {
-                var p = vEsc(n.prefix);
-                return '<tr><td>' + vEsc(n.remark || n.prefix) + ' <span style="color:var(--text-sec)">/' + p + '</span></td>' +
-                    '<td><input type="checkbox"' + (n.viewers_enabled ? ' checked' : '') + ' aria-label="' + p + ' 开启观看账号" onchange="saveNode(\'' + p + '\', { viewers_enabled: this.checked })"></td>' +
-                    '<td>' + (used[n.prefix] || 0) + '</td>' +
-                    '<td><input class="a-input" type="number" min="0" style="max-width:90px" value="' + (n.max_concurrent || 0) + '" aria-label="' + p + ' 并发上限" onchange="saveNode(\'' + p + '\', { max_concurrent: Number(this.value) })"></td></tr>';
-            }).join('') || '<tr><td colspan="4" class="cell-loading">暂无节点</td></tr>';
-            var nodeOpts = __viewers.nodes.filter(function (n) { return n.viewers_enabled; }).map(function (n) { return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + '</option>'; }).join('');
-            document.getElementById('viewerList').innerHTML = __viewers.viewers.map(function (v) {
-                var id = vEsc(v.id);
-                var access = v.access.map(function (a) {
-                    var p = vEsc(a.prefix);
-                    return '<tr><td>/' + p + '</td>' +
-                        '<td><input class="a-input" type="number" min="0" style="max-width:80px" value="' + a.quota + '" aria-label="配额" onchange="grantViewer(\'' + id + '\', \'' + p + '\', this.value)"></td>' +
-                        '<td>' + (a.hidden_libraries.length ? a.hidden_libraries.length + ' 个已隐藏 ' : '') + '<button type="button" class="btn-tier is-sm" onclick="editViewerLibraries(\'' + id + '\', \'' + p + '\', this)">媒体库</button></td>' +
-                        '<td><button type="button" class="btn-tier is-sm is-danger" onclick="revokeViewer(\'' + id + '\', \'' + p + '\')">移除</button></td></tr>' +
-                        '<tr class="viewer-libs" data-for="' + id + '|' + p + '" style="display:none"><td colspan="4"></td></tr>';
-                }).join('');
-                return '<div class="card" style="margin:0 0 12px; padding:14px;">' +
-                    '<div class="flex-wrap-tight" style="align-items:center; justify-content:space-between;">' +
-                    '<strong>' + vEsc(v.username) + '</strong>' + (v.enabled ? '' : ' <span style="color:var(--text-sec)">（已停用）</span>') +
-                    '<div class="flex-wrap-tight">' +
-                    '<button type="button" class="btn-tier is-sm" onclick="toggleViewer(\'' + id + '\', ' + (v.enabled ? 'false' : 'true') + ')">' + (v.enabled ? '停用' : '启用') + '</button>' +
-                    '<button type="button" class="btn-tier is-sm" onclick="resetViewerPassword(\'' + id + '\')">改密码</button>' +
-                    '<button type="button" class="btn-tier is-sm is-danger" onclick="deleteViewer(\'' + id + '\')">删除</button></div></div>' +
-                    '<div class="table-wrapper" style="margin-top:10px"><table class="w-full"><thead><tr><th>节点</th><th>并发配额</th><th>首页媒体库</th><th></th></tr></thead><tbody>' +
-                    (access || '<tr><td colspan="4" class="cell-loading">尚未授权任何节点</td></tr>') + '</tbody></table></div>' +
-                    '<div class="a-row" style="margin-top:10px"><select class="a-select" id="grant-' + id + '" aria-label="授权节点">' + nodeOpts + '</select>' +
-                    '<button type="button" class="btn-tier is-sm" onclick="grantViewer(\'' + id + '\', document.getElementById(\'grant-' + id + '\').value, 1)">授权节点</button></div>' +
+                var p = vEsc(n.prefix), cap = n.max_concurrent || 0, u = used[n.prefix] || 0;
+                var load = cap > 0
+                    ? '<span class="vw-meter' + (u >= cap ? ' is-full' : '') + '" aria-hidden="true"><i style="width:' + Math.min(100, u / cap * 100) + '%"></i></span><span class="vw-cap-num">已分配 <b>' + u + '</b> / ' + cap + '</span>'
+                    : '<span class="vw-cap-num vw-grow">已分配 <b>' + u + '</b> · 不限</span>';
+                return '<div class="vw-node' + (n.viewers_enabled ? '' : ' is-off') + '">' +
+                    '<div class="vw-node-top">' + vwNodeName(n, n.prefix) + vwSwitch('/' + p + ' 开启观看账号', n.viewers_enabled, 'saveNode(\'' + p + '\', { viewers_enabled: this.checked })') + '</div>' +
+                    '<div class="vw-node-cap">' + load +
+                    '<label class="vw-field">上限<input class="ns-input vw-num" type="number" min="0" inputmode="numeric" value="' + cap + '" aria-label="/' + p + ' 并发上限" onchange="saveNode(\'' + p + '\', { max_concurrent: Number(this.value) })"></label></div>' +
                     '</div>';
-            }).join('') || '<div class="cell-loading">还没有观看账号</div>';
+            }).join('') || '<div class="vw-empty">还没有节点<button type="button" class="btn-tier is-sm" onclick="showDest(\'config\', \'settings\')">去部署节点</button></div>';
+
+            var enabled = __viewers.nodes.filter(function (n) { return n.viewers_enabled; });
+            document.getElementById('viewerCount').textContent = __viewers.viewers.length ? __viewers.viewers.length + ' 个' : '';
+            document.getElementById('viewerList').innerHTML = __viewers.viewers.map(function (v) {
+                var id = vEsc(v.id), name = vEsc(v.username), total = 0;
+                var access = v.access.map(function (a) {
+                    var p = vEsc(a.prefix), hid = a.hidden_libraries.length;
+                    total += a.quota;
+                    return '<div class="vw-acc">' + vwNodeName(byPrefix[a.prefix], a.prefix) +
+                        '<label class="vw-field vw-acc-q">并发<input class="ns-input vw-num" type="number" min="0" inputmode="numeric" value="' + a.quota + '" aria-label="' + name + ' 在 /' + p + ' 的并发配额" onchange="grantViewer(\'' + id + '\', \'' + p + '\', this.value)"></label>' +
+                        '<button type="button" class="btn-tier is-sm is-ghost vw-acc-libs" aria-expanded="false" onclick="editViewerLibraries(\'' + id + '\', \'' + p + '\', this)"><svg><use href="#i-film"/></svg>首页媒体库' + (hid ? '<span class="vw-hid">隐藏 ' + hid + '</span>' : '') + '</button>' +
+                        '<button type="button" class="a-icon-btn is-md danger-hover vw-acc-rm" aria-label="移除 ' + name + ' 在 /' + p + ' 的访问" title="移除访问" onclick="revokeViewer(\'' + id + '\', \'' + p + '\')"><svg><use href="#i-x"/></svg></button>' +
+                        '</div><div class="vw-libs" data-for="' + id + '|' + p + '" hidden></div>';
+                }).join('');
+                // 只列出还没授权的已开启节点：对已授权节点再授权会把配额重置为 1。
+                var granted = v.access.map(function (a) { return a.prefix; });
+                var opts = enabled.filter(function (n) { return granted.indexOf(n.prefix) < 0; }).map(function (n) {
+                    return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + ' /' + vEsc(n.prefix) + '</option>';
+                }).join('');
+                var grant = opts
+                    ? '<select class="ns-input" id="grant-' + id + '" aria-label="为 ' + name + ' 授权节点">' + opts + '</select>' +
+                      '<button type="button" class="btn-tier is-sm" onclick="grantViewer(\'' + id + '\', document.getElementById(\'grant-' + id + '\').value, 1)"><svg><use href="#i-plus"/></svg>授权节点</button>'
+                    : '<span class="vw-note">' + (enabled.length ? '已开启的节点均已授权' : '还没有开启观看账号的节点，先在「节点」里开启') + '</span>';
+                var meta = v.access.length ? v.access.length + ' 个节点 · 并发 ' + total : '未授权任何节点';
+                return '<article class="vw-group vw-card' + (v.enabled ? '' : ' is-off') + '">' +
+                    '<header class="vw-card-head"><div class="vw-who"><span class="vw-user">' + name + (v.enabled ? '' : '<span class="badge is-neutral">已停用</span>') + '</span><span class="vw-meta">' + meta + '</span></div>' +
+                    '<div class="vw-actions">' + vwSwitch('启用 ' + name, v.enabled, 'toggleViewer(\'' + id + '\', this.checked)', '启用') +
+                    '<button type="button" class="btn-tier is-sm is-ghost" aria-expanded="false" onclick="toggleViewerPw(\'' + id + '\', this)"><svg><use href="#i-key"/></svg>改密码</button>' +
+                    '<button type="button" class="btn-tier is-sm is-ghost vw-danger" onclick="deleteViewer(\'' + id + '\')"><svg><use href="#i-trash"/></svg>删除</button></div></header>' +
+                    '<form class="vw-pw" id="vwpw-' + id + '" hidden onsubmit="event.preventDefault(); resetViewerPassword(\'' + id + '\', this);">' +
+                    '<input class="ns-input" type="password" minlength="6" required autocomplete="new-password" aria-label="' + name + ' 的新密码" placeholder="新密码（至少 6 位）">' +
+                    '<button type="submit" class="btn-tier is-sm is-primary">保存</button><span class="vw-note">该账号所有设备将被登出</span></form>' +
+                    access + '<div class="vw-grant">' + grant + '</div></article>';
+            }).join('') || '<div class="vw-group vw-empty">还没有观看账号，在上方填写用户名和密码创建第一个</div>';
         }
         async function createViewer() {
             var name = document.getElementById('viewerNewName'); var pass = document.getElementById('viewerNewPass');
@@ -1278,14 +1305,17 @@
             name.value = ''; pass.value = ''; showToast('已创建'); loadViewers();
         }
         async function toggleViewer(id, enabled) {
-            try { await viewerApi('POST', '/api/viewers', { id: id, enabled: enabled }); } catch (e) { return; }
+            try { await viewerApi('POST', '/api/viewers', { id: id, enabled: enabled }); } catch (e) { loadViewers(); return; }
             loadViewers();
         }
-        async function resetViewerPassword(id) {
-            var pw = prompt('新密码（至少 6 位），该账号所有设备将被登出：');
-            if (!pw) return;
-            try { await viewerApi('POST', '/api/viewers', { id: id, password: pw }); } catch (e) { return; }
-            showToast('密码已修改');
+        function toggleViewerPw(id, btn) {
+            var f = document.getElementById('vwpw-' + id);
+            f.hidden = !f.hidden; btn.setAttribute('aria-expanded', String(!f.hidden));
+            if (!f.hidden) f.querySelector('input').focus();
+        }
+        async function resetViewerPassword(id, form) {
+            try { await viewerApi('POST', '/api/viewers', { id: id, password: form.querySelector('input').value }); } catch (e) { return; }
+            form.reset(); form.hidden = true; showToast('密码已修改');
         }
         async function deleteViewer(id) {
             if (!await uiConfirm('删除该账号及其全部观看记录？不可恢复。', { danger: true })) return;
@@ -1315,21 +1345,22 @@
             showToast('已保存'); loadViewers();
         }
         async function editViewerLibraries(id, prefix, btn) {
-            var row = document.querySelector('.viewer-libs[data-for="' + id + '|' + prefix + '"]');
-            if (!row) return;
-            if (row.style.display !== 'none') { row.style.display = 'none'; return; }
-            var cell = row.firstElementChild;
-            cell.innerHTML = '<span class="cell-loading">读取媒体库...</span>'; row.style.display = '';
+            var box = document.querySelector('.vw-libs[data-for="' + id + '|' + prefix + '"]');
+            if (!box) return;
+            var show = function (on) { box.hidden = !on; btn.setAttribute('aria-expanded', String(on)); };
+            if (!box.hidden) { show(false); return; }
+            box.innerHTML = '<span class="vw-note">读取媒体库...</span>'; show(true);
             var data;
-            try { data = await viewerApi('GET', '/api/viewers/libraries?prefix=' + encodeURIComponent(prefix)); } catch (e) { row.style.display = 'none'; return; }
+            try { data = await viewerApi('GET', '/api/viewers/libraries?prefix=' + encodeURIComponent(prefix)); } catch (e) { show(false); return; }
             var cur = viewerAccess(id, prefix);
             var hidden = cur ? cur.hidden_libraries : [];
-            cell.innerHTML = '<div style="color:var(--text-sec); font-size:var(--text-sm); margin-bottom:6px">勾选 = 在该账号的首页隐藏（搜索、继续观看不受影响）</div><div class="flex-wrap-tight">' +
+            if (!data.libraries.length) { box.innerHTML = '<span class="vw-note">该节点没有媒体库</span>'; return; }
+            box.innerHTML = '<p class="vw-note">勾选 = 在该账号的首页隐藏（搜索、继续观看不受影响）</p><div class="vw-lib-list">' +
                 data.libraries.map(function (l) {
-                    return '<label style="display:inline-flex; gap:6px; align-items:center"><input type="checkbox" value="' + vEsc(l.id) + '"' + (hidden.indexOf(l.id) >= 0 ? ' checked' : '') + '>' + vEsc(l.name) + '</label>';
-                }).join('') + '</div><button type="button" class="btn-tier is-sm is-primary" style="margin-top:8px">保存</button>';
-            cell.querySelector('button').onclick = function () {
-                var ids = Array.prototype.map.call(cell.querySelectorAll('input:checked'), function (c) { return c.value; });
+                    return '<label class="vw-lib"><input type="checkbox" value="' + vEsc(l.id) + '"' + (hidden.indexOf(l.id) >= 0 ? ' checked' : '') + '>' + vEsc(l.name) + '</label>';
+                }).join('') + '</div><button type="button" class="btn-tier is-sm is-primary">保存</button>';
+            box.querySelector('button').onclick = function () {
+                var ids = Array.prototype.map.call(box.querySelectorAll('input:checked'), function (c) { return c.value; });
                 grantViewer(id, prefix, cur ? cur.quota : 1, ids);
             };
         }
