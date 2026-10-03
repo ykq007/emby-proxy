@@ -47,8 +47,9 @@ export async function recordPlayback(env, s, kind, body, fetchItem, now = Date.n
     await upsert(env, s, itemId, f);
 }
 
-// flags: { played?, favorite?, position? }（来自 PlayedItems / FavoriteItems / UserData 接口）
+// flags: { played?, favorite?, position?, hideResume? }（来自 PlayedItems / FavoriteItems / UserData / HideFromResume 接口）
 export async function setUserData(env, s, itemId, flags, fetchItem, now = Date.now()) {
+    if (flags.hideResume) await hideFromResume(env, s, itemId);
     const fields = {};
     if (flags.played !== undefined) {
         fields.played = flags.played ? 1 : 0;
@@ -57,11 +58,22 @@ export async function setUserData(env, s, itemId, flags, fetchItem, now = Date.n
     }
     if (flags.favorite !== undefined) fields.is_favorite = flags.favorite ? 1 : 0;
     if (flags.position !== undefined) fields.position_ticks = Math.max(0, Number(flags.position) || 0);
-    if (!Object.keys(fields).length) return null;
+    if (!Object.keys(fields).length) return (await loadRows(env, s, [String(itemId)])).get(String(itemId)) || null;
     const f = await withMeta(env, s, itemId, fetchItem, fields);
     delete f.runtime;
     await upsert(env, s, itemId, f);
     return (await loadRows(env, s, [String(itemId)])).get(String(itemId));
+}
+
+// Continue Watching 每部剧只显示一集：移除剧集时连同同剧其它未看完的进度一起清掉，
+// 否则较早的一集会立刻顶上来，看起来像没删掉。
+async function hideFromResume(env, s, itemId) {
+    const row = await dbFirst(env, `SELECT series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
+        s.viewerId, s.prefix, String(itemId));
+    if (!row) return;
+    await dbRun(env,
+        `UPDATE watch_state SET position_ticks = 0 WHERE viewer_id = ? AND prefix = ? AND played = 0 AND (item_id = ? OR (? != '' AND series_id = ?))`,
+        s.viewerId, s.prefix, String(itemId), row.series_id || '', row.series_id || '');
 }
 
 export async function loadRows(env, s, ids) {

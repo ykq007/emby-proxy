@@ -21,6 +21,9 @@ const SESSION_PLAYING = re('Sessions\\/Playing(?:\\/(Progress|Stopped))?');
 const PLAYED_ITEM = re('Users\\/[^/]+\\/PlayedItems\\/([^/]+)');
 const FAVORITE_ITEM = re('Users\\/[^/]+\\/FavoriteItems\\/([^/]+)');
 const ITEM_USERDATA = re('Users\\/[^/]+\\/Items\\/([^/]+)\\/UserData');
+const HIDE_FROM_RESUME = re('Users\\/[^/]+\\/Items\\/([^/]+)\\/HideFromResume');
+// Emby 的每个 DELETE 接口都有等价的 `POST …/Delete`（官方 Web 端「标记未播放」「取消收藏」走的就是它）。
+const POST_DELETE = /^(.+)\/Delete$/i;
 const RESUME = re('(?:Users\\/[^/]+\\/)?Items\\/Resume');
 const NEXT_UP = re('Shows\\/NextUp');
 const ITEMS_QUERY = re('(?:Users\\/[^/]+\\/)?Items');
@@ -30,7 +33,7 @@ const VIEWS = re('(?:Users\\/[^/]+\\/Views|Library\\/MediaFolders|Library\\/Virt
 const ROOT_ITEMS = re('Users\\/[^/]+\\/Items');
 // 共享的上游账号不能被 viewer 改动/删除内容（仍建议给节点配非管理员上游账号）。
 const DENIED = [
-    [/^DELETE$/, re('Items\\/.+')],
+    [/^DELETE$/, re('Items(?:\\/.*)?')],
     [/^(POST|DELETE)$/, re('Users\\/(?:New|[^/]+\\/Policy|[^/]+\\/EasyPassword|[^/]+)')],
     [/./, re('System\\/(?:Restart|Shutdown)')],
     [/^(POST|DELETE)$/, re('(?:Plugins|Packages)(?:\\/.*)?')],
@@ -78,7 +81,11 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         const ok = await changeOwnPassword(env, s, b.CurrentPw ?? b.CurrentPassword, b.NewPw ?? b.NewPassword);
         return ok ? new Response(null, { status: 204 }) : unauthorized();
     }
-    if (DENIED.some(([m, p]) => m.test(request.method) && p.test(path))) {
+    // `POST …/Delete` 一律按 `DELETE …` 判定（网关与本地观看状态），转发给上游的仍是原请求。
+    const pd = request.method === 'POST' ? POST_DELETE.exec(path) : null;
+    const m = pd ? 'DELETE' : request.method;
+    const p = pd ? pd[1] : path;
+    if (DENIED.some(([dm, dp]) => dm.test(m) && dp.test(p))) {
         return Response.json({ message: 'Forbidden for viewer accounts' }, { status: 403 });
     }
     // 该令牌所属设备的上游会话；缺失（老令牌 / 会话被清）时按当前请求的设备身份补登。
@@ -120,7 +127,6 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     }
     const fetchItem = (id) => upJson(`/Users/${up.userId}/Items/${encodeURIComponent(id)}`);
     const v = { env, ctx, s, token, url, path, method: request.method, get up() { return up; } };
-    const m = request.method;
     let mm;
 
     if ((mm = PLAYBACK_INFO.exec(path))) {
@@ -142,9 +148,15 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         return r;
     }
 
-    if ((m === 'POST' || m === 'DELETE') && ((mm = PLAYED_ITEM.exec(path)) || (mm = FAVORITE_ITEM.exec(path)))) {
-        const flags = PLAYED_ITEM.test(path) ? { played: m === 'POST' } : { favorite: m === 'POST' };
+    if ((m === 'POST' || m === 'DELETE') && ((mm = PLAYED_ITEM.exec(p)) || (mm = FAVORITE_ITEM.exec(p)))) {
+        const flags = PLAYED_ITEM.test(p) ? { played: m === 'POST' } : { favorite: m === 'POST' };
         return userDataWrite(v, await send(request), mm[1], flags, fetchItem);
+    }
+
+    // 「从继续观看中移除」：清掉本地进度（Hide=false 无本地操作）。
+    if (m === 'POST' && (mm = HIDE_FROM_RESUME.exec(path))) {
+        const hide = (url.searchParams.get('Hide') ?? 'true').toLowerCase() !== 'false';
+        return userDataWrite(v, await send(request), mm[1], hide ? { hideResume: true } : {}, fetchItem);
     }
 
     if (m === 'POST' && (mm = ITEM_USERDATA.exec(path))) {

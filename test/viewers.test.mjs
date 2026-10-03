@@ -55,7 +55,8 @@ function fakeUpstream(req) {
     if (/^\/Items\/\w+\/PlaybackInfo$/.test(p)) return json({ MediaSources: [{ DirectStreamUrl: `/Videos/1/stream?api_key=${tok}` }] });
     if (/^\/Videos\/\w+\/master\.m3u8$/.test(p)) return new Response(`#EXTM3U\nseg0.ts?api_key=${tok}\n`, { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
     if (/^\/Sessions\/Playing/.test(p)) return new Response(null, { status: 204 });
-    if ((m = /^\/Users\/U1\/(PlayedItems|FavoriteItems)\/(\w+)$/.exec(p))) return json({ Played: true, IsFavorite: true, PlaybackPositionTicks: 0 });
+    if ((m = /^\/Users\/U1\/(PlayedItems|FavoriteItems)\/(\w+)(?:\/Delete)?$/.exec(p))) return json({ Played: true, IsFavorite: true, PlaybackPositionTicks: 0 });
+    if (/^\/Users\/U1\/Items\/\w+\/HideFromResume$/.test(p)) return json({ Played: true, IsFavorite: true, PlaybackPositionTicks: 0 });
     if (p === '/Shows/ser/Episodes') return json({ Items: ['e1', 'e2', 'e3'].map((Id, i) => ({ Id, ParentIndexNumber: 1, IndexNumber: i + 1, UserData: {} })) });
     return json({ path: p });
 }
@@ -166,6 +167,44 @@ test('viewers cannot delete items or edit the shared account', async () => {
     const { token } = await makeViewer('alice');
     assert.equal((await call('/emby/Items/m1', { method: 'DELETE', token })).status, 403);
     assert.equal((await call('/emby/Users/U1/Policy', { method: 'POST', token, body: {} })).status, 403);
+    assert.equal((await call('/emby/Items/m1/Delete', { method: 'POST', token })).status, 403, 'POST …/Delete form');
+    assert.equal((await call('/emby/Items?Ids=m1', { method: 'DELETE', token })).status, 403, 'bulk delete');
+    assert.equal((await call('/emby/Items/Delete?Ids=m1', { method: 'POST', token })).status, 403, 'bulk POST delete');
+    assert.equal((await call('/emby/Users/U1/Delete', { method: 'POST', token })).status, 403, 'delete shared account');
+});
+
+test('mark unplayed / unfavorite via DELETE or the POST …/Delete form clears local watch state', async () => {
+    const a = await makeViewer('alice');
+    const state = async () => (await (await call('/emby/Users/U1/Items', { token: a.token })).json()).Items.map(i => [i.Id, i.UserData.Played, i.UserData.IsFavorite]);
+    await call('/emby/Users/U1/PlayedItems/m1', { method: 'POST', token: a.token });
+    await call('/emby/Users/U1/FavoriteItems/m2', { method: 'POST', token: a.token });
+    assert.deepEqual(await state(), [['m1', true, false], ['m2', false, true]]);
+
+    const r = await call('/emby/Users/U1/PlayedItems/m1/Delete', { method: 'POST', token: a.token });
+    assert.equal((await r.json()).Played, false);
+    await call('/emby/Users/U1/FavoriteItems/m2/Delete', { method: 'POST', token: a.token });
+    assert.deepEqual(await state(), [['m1', false, false], ['m2', false, false]]);
+
+    await call('/emby/Users/U1/PlayedItems/m1', { method: 'POST', token: a.token });
+    await call('/emby/Users/U1/PlayedItems/m1', { method: 'DELETE', token: a.token });
+    assert.deepEqual(await state(), [['m1', false, false], ['m2', false, false]]);
+});
+
+test('HideFromResume removes the item (and its series) from Continue Watching', async () => {
+    const a = await makeViewer('alice');
+    for (const [ItemId, PositionTicks] of [['e1', 300], ['e2', 400], ['m1', 100], ['m2', 200]]) {
+        await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId, PositionTicks } });
+    }
+    const resume = async () => (await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json()).Items.map(i => i.Id).sort();
+    assert.deepEqual(await resume(), ['e2', 'm1', 'm2']);
+
+    const r = await call('/emby/Users/U1/Items/m1/HideFromResume?Hide=true', { method: 'POST', token: a.token });
+    assert.equal((await r.json()).PlaybackPositionTicks, 0);
+    await call('/emby/Users/U1/Items/e2/HideFromResume?Hide=true', { method: 'POST', token: a.token });
+    assert.deepEqual(await resume(), ['m2'], 'e1 must not resurface after hiding e2');
+
+    await call('/emby/Users/U1/Items/m2/HideFromResume?Hide=false', { method: 'POST', token: a.token });
+    assert.deepEqual(await resume(), ['m2'], 'Hide=false leaves progress alone');
 });
 
 test('concurrency: viewer quota and node cap → 429; same device refreshes; stop releases', async () => {
