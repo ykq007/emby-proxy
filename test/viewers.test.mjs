@@ -86,9 +86,9 @@ async function admin(method, path, body) {
 }
 
 // 真实客户端一个令牌对应一台设备：不指定 device 时沿用该令牌登录时的设备。
-async function call(path, { method = 'GET', token, body, device, country } = {}) {
+async function call(path, { method = 'GET', token, body, device, country, ua = 'TestClient' } = {}) {
     device = device || tokenDevice.get(token) || 'dev1';
-    const headers = { 'User-Agent': 'TestClient', 'X-Emby-Authorization': `MediaBrowser Client="T", Device="D", DeviceId="${device}", Version="1"` };
+    const headers = { 'User-Agent': ua, 'X-Emby-Authorization': `MediaBrowser Client="T", Device="D", DeviceId="${device}", Version="1"` };
     if (country) headers['cf-ipcountry'] = country;
     if (token) headers['X-Emby-Token'] = token;
     if (body) headers['content-type'] = 'application/json';
@@ -451,4 +451,20 @@ test('viewer logout signs that device out upstream too', async () => {
     assert.deepEqual(logouts, ['dev-alice']);
     assert.equal(env.DB.db.prepare(`SELECT COUNT(*) AS n FROM viewer_device_sessions`).get().n, 0);
     assert.equal((await call('/emby/Users/U1/Items', { token: a.token })).status, 401);
+});
+
+test('viewers cannot use a browser: login and token requests from a browser UA get 403 and never reach upstream', async () => {
+    const { token } = await makeViewer('alice');
+    const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0';
+    const before = upstreamLogins; seen = [];
+    const login = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'secret1' }, ua: BROWSER });
+    assert.equal(login.status, 403);
+    assert.match((await login.json()).message, /use an Emby app/);
+    const wrong = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'nope' }, ua: BROWSER });
+    assert.equal(wrong.status, 401, 'a wrong password still says 401, so a browser cannot probe viewer names');
+    const views = await call('/emby/Users/U1/Views', { token, ua: BROWSER });
+    assert.equal(views.status, 403);
+    assert.equal(upstreamLogins, before);
+    assert.equal(seen.length, 0, 'nothing was sent upstream');
+    assert.equal((await call('/emby/Users/U1/Views', { token })).status, 200, 'the same token still works from an app');
 });

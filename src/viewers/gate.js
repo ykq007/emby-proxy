@@ -5,7 +5,10 @@
 // viewer 登录后拿到的 User.Id 就是上游账号的 Id，所以 /Users/{id}/… 路径无需改写，身份只看令牌。
 // 每个 viewer 设备各自持有一个上游会话（以该设备自己的身份登录），请求除令牌外原样转发，
 // 上游看到的设备与客户端直连时一致。
+// viewer 不许用浏览器（UA 以 Mozilla/ 开头）：登录和带 ev_ 令牌的请求一律 403，
+// 浏览器 UA 因此不会经 viewer 登录 / 转发到达上游。
 import { dbFirst } from '../db/helpers.js';
+import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
 import { clientIdentity, identityHeaders, getDeviceSession, loginDevice, dropDeviceSession } from './upstream.js';
@@ -40,6 +43,7 @@ const DENIED = [
 ];
 
 const unauthorized = () => Response.json({ message: 'Unauthorized' }, { status: 401 });
+const browserBlocked = () => Response.json({ message: BROWSER_BLOCKED_MESSAGE }, { status: 403 });
 
 export function extractToken(request, url) {
     const h = request.headers;
@@ -74,6 +78,7 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     if (request.method === 'POST' && LOGIN.test(path)) return viewerLogin(request, env, opts);
     const token = extractToken(request, url);
     if (!token || !token.startsWith(TOKEN_PREFIX)) return null;
+    if (isBrowserUa(request.headers.get('User-Agent'))) return browserBlocked();
     const s = await resolveViewer(env, prefix, token);
     if (!s) return unauthorized();
     if (request.method === 'POST' && PASSWORD.test(path)) {
@@ -284,6 +289,7 @@ async function viewerLogin(request, env, opts) {
             { table: 'auth_rl', minuteLimit: 12, hourlyLimit: 100, banMs: 3600000, reason: 'viewer-bruteforce' }) : null;
         return limited || unauthorized();
     }
+    if (isBrowserUa(request.headers.get('User-Agent'))) return browserBlocked();
     // 以这台设备自己的身份登录上游：上游看到的是这台真实设备。
     const ident = clientIdentity(request, opts.url);
     if (!ident.deviceId) ident.deviceId = 'ev-' + randomHex(8);

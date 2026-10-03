@@ -6,6 +6,7 @@ import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty } from './http.js';
+import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { playbackInfo, videoStream, namespaced, playing, byPlaySession } from './playback.js';
 
 const VERSION = '4.8.0.0';
@@ -229,6 +230,8 @@ export async function handleAggRequest(request, env, ctx) {
     const token = extractToken(request, url);
     const s = await resolveToken(env, token);
     if (!s) return unauthorized();
+    // viewer 不许用浏览器观看（与生产 viewer 网关一致）。
+    if (isBrowserUa(request.headers.get('User-Agent'))) return json({ message: BROWSER_BLOCKED_MESSAGE }, 403);
 
     if (R.sysInfo.test(path)) return json({ ...publicInfo(env, url, sid), HasPendingRestart: false, IsShuttingDown: false, CanSelfRestart: false, CanSelfUpdate: false, HasUpdateAvailable: false, SupportsLibraryMonitor: false, WebSocketPortNumber: 0 });
     if (R.endpoint.test(path)) return json({ IsLocal: false, IsInNetwork: false });

@@ -22,6 +22,10 @@ export function parseCustomHeadersForProbe(raw) {
 // 部分上游 WAF 对它直接 403。健康探测、媒体计数登录、viewer 上游登录共用这一个。
 export const DEFAULT_EMBY_UA = 'Emby/4.8 (Forward)';
 
+// 浏览器 UA（Emby Web 等）。viewer 不许用浏览器观看，见 viewers/gate.js 与 aggregate/api.js。
+export const isBrowserUa = (ua) => /^\s*Mozilla\//i.test(String(ua || ''));
+export const BROWSER_BLOCKED_MESSAGE = 'Browsers are not allowed for viewer accounts. Please use an Emby app.';
+
 export function parseCustomHeaderEmbyToken(customHeadersRaw) {
     if (!customHeadersRaw) return null;
     const raw = String(customHeadersRaw);

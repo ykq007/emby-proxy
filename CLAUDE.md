@@ -36,6 +36,14 @@ npx wrangler d1 execute emby-proxy-prod-db --remote -c wrangler.prod.toml --comm
   a test that checks browser UAs are rejected or skipped.
 - Never copy IPs or other visitor data from `visitor_logs` into commits. UA strings only.
 
+## Viewers may not use a browser
+
+Viewer logins and viewer-token requests from a browser User-Agent (`Mozilla/...`) get 403 in both
+Workers (`isBrowserUa` in `src/emby/headers.js`, checked in `src/viewers/gate.js` and
+`src/aggregate/`). Keep it that way: it is what guarantees a browser UA never reaches a node through
+a viewer login or stream. A wrong password still answers 401, so the check can't be used to probe
+viewer names.
+
 ## Checks
 
 `npm run verify` (build, lint, UI snapshot check, tests) must pass before you push.

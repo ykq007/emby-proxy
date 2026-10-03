@@ -5,6 +5,7 @@ import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { verifyPassword, sha256Hex, randomHex } from '../viewers/store.js';
 import { memberRoutes } from './upstream.js';
+import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 
 export const AGG_TOKEN_PREFIX = 'ea_';
 const TTL_MS = 60000;
@@ -58,6 +59,7 @@ export async function login(env, request, body, ident) {
             { table: 'agg_auth_rl', minuteLimit: 12, hourlyLimit: 100, banMs: 3600000, reason: 'agg-viewer-bruteforce' }) : null;
         return { response: limited || null };
     }
+    if (isBrowserUa(request.headers.get('User-Agent'))) return { response: Response.json({ message: BROWSER_BLOCKED_MESSAGE }, { status: 403 }) };
     const scope = await viewerScope(env, row.id);
     if (!scope.prefixes.length) return { response: null };
     const token = AGG_TOKEN_PREFIX + randomHex(16);

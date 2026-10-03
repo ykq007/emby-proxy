@@ -120,9 +120,9 @@ afterEach(() => restoreFetch());
 const rows = (sql, ...b) => env.DB.db.prepare(sql).all(...b);
 const syncAll = async (now = Date.now(), opts = {}) => { let s; for (let i = 0; i < 10; i++) { s = await runSync(env, now, { maxRequests: 50, ...opts }); if (!s.stopped) break; } return s; };
 
-async function call(path, { method = 'GET', token, body, device = 'dev1', range, bare = false } = {}) {
+async function call(path, { method = 'GET', token, body, device = 'dev1', range, bare = false, ua = LOG_UA } = {}) {
     // bare：像播放器取流那样只带 URL 里的令牌，不带 Emby 授权头。
-    const headers = bare ? { 'User-Agent': LOG_UA } : { 'User-Agent': LOG_UA, 'X-Emby-Authorization': `MediaBrowser Client="Hills", Device="Pixel", DeviceId="${device}", Version="1.9.0"${token ? `, Token="${token}"` : ''}` };
+    const headers = bare ? { 'User-Agent': ua } : { 'User-Agent': ua, 'X-Emby-Authorization': `MediaBrowser Client="Hills", Device="Pixel", DeviceId="${device}", Version="1.9.0"${token ? `, Token="${token}"` : ''}` };
     if (body) headers['content-type'] = 'application/json';
     if (range) headers['Range'] = range;
     const r = await worker.fetch(new Request(ORIGIN + path, { method, headers, body: body ? JSON.stringify(body) : undefined }), env, { waitUntil() { } });
@@ -424,4 +424,20 @@ test('playback reports reach the node playing the stream with real ids; Stopped 
     calls = [];
     await call(`/emby/Videos/ActiveEncodings?DeviceId=dev1&PlaySessionId=PS-a.example&api_key=${token}`, { method: 'DELETE', token });
     assert.deepEqual(calls.map(c => [c.host, c.method, c.path]), [['a.example', 'DELETE', '/Videos/ActiveEncodings']]);
+});
+
+test('viewers cannot use a browser on the aggregate server', async () => {
+    await syncAll();
+    const BROWSER = 'Mozilla/5.0 (Macintosh) Safari/605.1.15';
+    const { token, vid } = await (async () => { const a = await viewer('alice', [['nodeA'], ['nodeB']]); return { ...a, vid: rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid }; })();
+    calls = [];
+    const login = await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'secret1' }, ua: BROWSER });
+    assert.equal(login.status, 403);
+    assert.match(login.body.message, /use an Emby app/);
+    assert.equal((await call('/emby/Users/AuthenticateByName', { method: 'POST', body: { Username: 'alice', Pw: 'bad' }, ua: BROWSER })).status, 401);
+    assert.equal((await call('/emby/Users/x/Views', { token, ua: BROWSER })).status, 403);
+    assert.equal((await call(`/emby/Items/${vid}/PlaybackInfo`, { method: 'POST', token, body: {}, ua: BROWSER })).status, 403);
+    assert.equal((await call(`/Videos/${vid}/stream.mkv?api_key=${token}`, { bare: true, ua: BROWSER })).status, 403);
+    assert.equal(calls.length, 0, 'nothing reached a node');
+    assert.equal(rows(`SELECT * FROM playback_slots`).length, 0);
 });
