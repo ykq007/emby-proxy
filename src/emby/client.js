@@ -1,7 +1,8 @@
-import { buildEmbyClientHeaders, buildEmbyLoginHeaders, parseCustomHeadersForProbe } from './headers.js';
+import { buildEmbyClientHeaders, buildEmbyLoginHeaders, parseCustomHeadersForProbe, DEFAULT_EMBY_UA } from './headers.js';
 import { mapItemCounts } from './media-counts.js';
 
-export const EMBY_PROBE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// 健康探测的 UA：不用浏览器 UA；节点自定义请求头里的 User-Agent 仍会覆盖它。
+export const EMBY_PROBE_UA = DEFAULT_EMBY_UA;
 
 export function normalizeEmbyBase(targetBase) {
     return targetBase ? String(targetBase).replace(/\/+$/, '') : '';

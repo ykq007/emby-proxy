@@ -723,3 +723,13 @@ test('getRecentUa: newest non-browser UA from the node logs; browser UAs and oth
 test('DEFAULT_EMBY_UA is not a browser UA', () => {
     assert.ok(!/^Mozilla/i.test(DEFAULT_EMBY_UA));
 });
+
+test('probeEmbyNode: never sends a browser UA; a node custom User-Agent still wins', async () => {
+    const uas = [];
+    const fetchImpl = async (url, init) => { uas.push(init.headers['User-Agent']); return new Response('{}', { status: 200 }); };
+    await probeEmbyNode('https://emby.example.com', '', { fetchImpl });
+    assert.equal(uas[0], DEFAULT_EMBY_UA);
+    assert.ok(!/^Mozilla/i.test(uas[0]));
+    await probeEmbyNode('https://emby.example.com', 'User-Agent: Hills/1.9.0 (android; 17)', { fetchImpl });
+    assert.equal(uas[1], 'Hills/1.9.0 (android; 17)');
+});

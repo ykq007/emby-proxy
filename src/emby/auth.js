@@ -8,8 +8,8 @@ import { authenticateByNameFromEmby } from './client.js';
 import { cacheEmbyAuthToken } from '../routing/route.js';
 import { kvGet, EMBY_SHARED_USERNAME_KEY, EMBY_SHARED_PASSWORD_ENC_KEY } from '../db/kv.js';
 
-// 兜底 UA：节点 visitor_logs 里没有非浏览器 UA 时使用（媒体计数登录、viewer 上游登录共用）。
-export const DEFAULT_EMBY_UA = 'Emby/4.8 (Forward)';
+// 兜底 UA：节点 visitor_logs 里没有非浏览器 UA 时使用（定义在 headers.js）。
+export { DEFAULT_EMBY_UA } from './headers.js';
 
 // 取该节点最近一条非浏览器的真实 UA（仅从 visitor_logs）。无有效 UA 返回 null。
 export async function getRecentUa(env, prefix) {

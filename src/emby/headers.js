@@ -18,8 +18,9 @@ export function parseCustomHeadersForProbe(raw) {
     return out;
 }
 
-// 与 emby-js (pototazhang/emby-js) 上游一致：使用真实浏览器 UA，避免被 WAF/CF 拦截。
-const EMBY_PROBE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// 原生客户端风格的兜底 UA：发往 Emby 节点的请求一律不用浏览器 UA（Mozilla/…，即 Emby Web 的 UA），
+// 部分上游 WAF 对它直接 403。健康探测、媒体计数登录、viewer 上游登录共用这一个。
+export const DEFAULT_EMBY_UA = 'Emby/4.8 (Forward)';
 
 export function parseCustomHeaderEmbyToken(customHeadersRaw) {
     if (!customHeadersRaw) return null;
