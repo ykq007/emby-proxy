@@ -23,7 +23,7 @@ async function resolveCountsForRoute(env, route, now, opts) {
     const base = probeTargetFor(route.target);
     if (!base) return { skip: true };
 
-    // 优先用该节点真实访客 UA；无流量节点回退到通用桌面浏览器 UA，保证也能拉计数。
+    // 优先用该节点真实访客的非浏览器 UA；没有时回退到 DEFAULT_EMBY_UA，保证也能拉计数。
     const ua = (await getRecentUa(env, route.prefix)) || DEFAULT_EMBY_UA;
 
     let auth = await getEmbyToken(env, route, base, { ua, now });

@@ -704,3 +704,22 @@ test('HARVEST_MEM: is a Map', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.skip('persistHarvestedToken: skipped — requires D1 env.DB (prepare/bind/run chain) which is a Cloudflare-specific runtime API not available in Node', () => {});
+
+// ── getRecentUa / DEFAULT_EMBY_UA ─────────────────────────────────────────
+
+import { getRecentUa, DEFAULT_EMBY_UA } from '../src/emby/auth.js';
+import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
+
+test('getRecentUa: newest non-browser UA from the node logs; browser UAs and other nodes skipped', async () => {
+    const DB = createD1Sqlite();
+    DB.db.exec(`CREATE TABLE visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, ua TEXT)`);
+    DB.db.exec(`INSERT INTO visitor_logs (prefix, ua) VALUES
+        ('n1', 'Hills/1.9.0 (android; 17)'), ('n1', 'Mozilla/5.0 Chrome'), ('n1', 'Unknown'), ('n2', 'Infuse-Direct/8.0')`);
+    assert.equal(await getRecentUa({ DB }, 'n1'), 'Hills/1.9.0 (android; 17)');
+    DB.db.exec(`DELETE FROM visitor_logs WHERE ua LIKE 'Hills%'`);
+    assert.equal(await getRecentUa({ DB }, 'n1'), null, 'browser-only logs yield no UA');
+});
+
+test('DEFAULT_EMBY_UA is not a browser UA', () => {
+    assert.ok(!/^Mozilla/i.test(DEFAULT_EMBY_UA));
+});

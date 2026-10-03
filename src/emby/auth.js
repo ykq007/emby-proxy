@@ -1,5 +1,6 @@
 // 实时媒体计数的鉴权链：Emby 用户名/密码 → AuthenticateByName → 缓存 AccessToken。
-// UA 优先取该节点 visitor_logs 中的真实 UA；无流量节点回退到通用浏览器 UA（DEFAULT_EMBY_UA）。
+// UA 优先取该节点 visitor_logs 中最近的非浏览器真实 UA；没有时回退到原生客户端风格的 DEFAULT_EMBY_UA。
+// 不用浏览器 UA（Mozilla/…，即 Emby Web 的 UA）：部分上游 WAF 对它直接 403。
 import { dbFirst } from '../db/helpers.js';
 import { decryptSecret, encryptToken, decryptToken } from './tokens.js';
 import { parseCustomHeaderEmbyToken } from './headers.js';
@@ -7,17 +8,16 @@ import { authenticateByNameFromEmby } from './client.js';
 import { cacheEmbyAuthToken } from '../routing/route.js';
 import { kvGet, EMBY_SHARED_USERNAME_KEY, EMBY_SHARED_PASSWORD_ENC_KEY } from '../db/kv.js';
 
-// 兜底 UA：节点从未有真实访客流量时（visitor_logs 无 UA），
-// 用一个常见的桌面浏览器 UA 仍可拉取媒体计数（Emby Web 客户端本就发浏览器 UA）。
-export const DEFAULT_EMBY_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+// 兜底 UA：节点 visitor_logs 里没有非浏览器 UA 时使用（媒体计数登录、viewer 上游登录共用）。
+export const DEFAULT_EMBY_UA = 'Emby/4.8 (Forward)';
 
-// 取该节点最近一条真实 UA（仅从 visitor_logs）。无有效 UA 返回 null。
+// 取该节点最近一条非浏览器的真实 UA（仅从 visitor_logs）。无有效 UA 返回 null。
 export async function getRecentUa(env, prefix) {
     try {
         const row = await dbFirst(
             env,
             `SELECT ua FROM visitor_logs
-              WHERE prefix = ? AND ua IS NOT NULL AND ua != '' AND ua != 'Unknown'
+              WHERE prefix = ? AND ua IS NOT NULL AND ua != '' AND ua != 'Unknown' AND ua NOT LIKE 'Mozilla%'
               ORDER BY id DESC LIMIT 1`,
             prefix
         );

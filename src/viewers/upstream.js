@@ -5,11 +5,10 @@
 // 会话 { token, userId, serverId, ident } 加密存 viewer_device_sessions，isolate 内再缓存一层。
 import { dbFirst, dbRun } from '../db/helpers.js';
 import { encryptToken, decryptToken } from '../emby/tokens.js';
-import { resolveCreds } from '../emby/auth.js';
+import { resolveCreds, getRecentUa, DEFAULT_EMBY_UA } from '../emby/auth.js';
 import { fetchEmbyJsonWithFallback } from '../emby/client.js';
 import { parseCustomHeadersForProbe } from '../emby/headers.js';
 
-const FALLBACK_UA = 'Emby/4.8 (Forward)';
 const MEM = new Map(); // `${prefix}\n${deviceId}` -> session
 
 // 从请求里取客户端身份：X-Emby-Authorization / Authorization 头、URL 里的同名参数、X-Emby-* 头。
@@ -104,12 +103,7 @@ async function loginUpstream(env, prefix, ident) {
     if (!creds || !creds.username) return { error: '节点没有 Emby 账号：请在「部署节点」编辑该节点，填写「媒体计数账号」的用户名/密码，或设置全局共享账号' };
     const who = `${creds.source === 'shared' ? '全局共享账号' : '节点账号'}「${creds.username}」`;
     // UA：客户端自己的；没有（管理端校验）时取该节点最近的非浏览器真实 UA——部分 WAF 对浏览器 UA 直接 403。
-    let ua = ident.ua;
-    if (!ua) {
-        const recent = await dbFirst(env,
-            `SELECT ua FROM visitor_logs WHERE prefix = ? AND ua NOT IN ('', 'Unknown') AND ua NOT LIKE 'Mozilla%' ORDER BY id DESC LIMIT 1`, prefix);
-        ua = (recent && recent.ua) || FALLBACK_UA;
-    }
+    const ua = ident.ua || (await getRecentUa(env, prefix)) || DEFAULT_EMBY_UA;
     const full = { ...ident, ua };
     // 节点自定义请求头与反代流量一致地覆盖在最后。
     const headers = { ...identityHeaders(full), 'Content-Type': 'application/json', ...parseCustomHeadersForProbe(route.custom_headers) };
