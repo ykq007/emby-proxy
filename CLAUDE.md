@@ -3,9 +3,11 @@
 This repo builds two Cloudflare Workers. Every rule below applies to **both**:
 
 - **emby-proxy**: the production proxy (`src/index.js`; owner's prod Worker `emby`, D1 `emby-proxy-prod-db`).
-- **emby-aggregate**: the aggregated "all nodes" Emby front (`src/aggregate/`, its own wrangler config).
-  It shares the prod D1 database, and must never run prod's `ensureSchema` or write to prod tables
-  other than `playback_slots`.
+- **emby-aggregate**: the aggregated "all nodes" Emby front (`src/aggregate/`, entry `src/aggregate/index.js`,
+  config template `wrangler.aggregate.example.toml`, `npm run build:agg` / `deploy:agg`).
+  It shares the prod D1 database but only creates and writes `agg_*` tables (`src/aggregate/schema.js`).
+  It must never run prod's `ensureSchema`. The only prod tables it may write are `ip_bans` (shared
+  login-bruteforce bans) and, once playback lands, `playback_slots` (shared concurrency limits).
 
 Domain vocabulary lives in `CONTEXT.md`; deploy steps live in `DEPLOY.md`.
 

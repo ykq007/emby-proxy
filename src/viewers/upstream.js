@@ -96,7 +96,7 @@ export async function withTempSession(env, prefix, fn) {
     }
 }
 
-async function loginUpstream(env, prefix, ident) {
+export async function loginUpstream(env, prefix, ident) {
     const route = await dbFirst(env, `SELECT prefix, target, custom_headers, emby_username, emby_password_enc FROM routes WHERE prefix = ?`, prefix);
     if (!route) return { error: '节点不存在' };
     const creds = await resolveCreds(env, route);

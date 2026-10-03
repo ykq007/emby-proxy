@@ -1,0 +1,27 @@
+# emby-aggregate：把多个 Emby 节点合并成一台虚拟 Emby 服务器的独立 Worker。
+# 用法：复制为 wrangler.aggregate.prod.toml（已 gitignore），填入生产 D1 的 database_id，
+# 然后 `npm run deploy:agg`。它与生产 Worker 共用同一个 D1，但只建 / 写 agg_ 表。
+#
+# 必须与生产 Worker 使用同一个 ADMIN_TOKEN（节点凭据用它派生的密钥加密）：
+#   npx wrangler secret put ADMIN_TOKEN -c wrangler.aggregate.prod.toml
+name = "emby-aggregate"
+main = "aggregate.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+keep_vars = true
+no_bundle = true
+
+[triggers]
+# 目录同步：每次最多 AGG_SYNC_REQUESTS 个上游请求，每天最多 AGG_DAILY_WRITE_BUDGET 行 D1 写入。
+crons = ["*/10 * * * *"]
+
+[vars]
+AGG_SERVER_NAME = "Emby Aggregate"
+# AGG_NODES = "node1,node2"        # 留空 = 所有开启了 viewers 的节点
+# AGG_DAILY_WRITE_BUDGET = "30000"
+# AGG_SYNC_REQUESTS = "20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "emby-proxy-prod-db"
+database_id = "<prod database_id from wrangler.prod.toml>"

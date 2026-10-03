@@ -58,3 +58,20 @@ Cloudflare cron 不可靠时(账号级 cron 派发问题),用外部 cron-job.org
 
 - `GET /api/_probe_now`   每 1 分钟
 - `GET /api/_counts_now`  每天一次(UTC 00:05 推荐)
+
+## 聚合 Worker（emby-aggregate）
+
+把所有开启了 viewers 的节点合并成一台虚拟 Emby 服务器（目前只能浏览，播放在下一阶段）。
+它是独立的 Worker，与生产 `emby` 共用 D1，但只建 / 写 `agg_*` 表，不影响生产。
+
+一次性准备：
+
+```bash
+cp wrangler.aggregate.example.toml wrangler.aggregate.prod.toml   # 已 gitignore
+# 编辑 wrangler.aggregate.prod.toml：database_id 填 wrangler.prod.toml 里生产 D1 的 database_id
+npx wrangler secret put ADMIN_TOKEN -c wrangler.aggregate.prod.toml  # 必须与生产 Worker 相同
+```
+
+部署：`npm run deploy:agg`。部署后每 10 分钟同步一次目录；首次全量受每日写入预算
+（`AGG_DAILY_WRITE_BUDGET`，默认 30000 行）限制，节点多时可能要一两天才同步完。
+viewer 在 Emby 客户端里添加服务器地址 `https://emby-aggregate.<子域>.workers.dev`，用自己的 viewer 账号登录。
