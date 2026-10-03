@@ -153,10 +153,10 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         return userDataWrite(v, await send(request), mm[1], flags, fetchItem);
     }
 
-    // 「从继续观看中移除」：清掉本地进度（Hide=false 无本地操作）。
+    // 「从继续观看中移除」/ Hide=false 恢复：只改本地隐藏标记，进度保留。
     if (m === 'POST' && (mm = HIDE_FROM_RESUME.exec(path))) {
         const hide = (url.searchParams.get('Hide') ?? 'true').toLowerCase() !== 'false';
-        return userDataWrite(v, await send(request), mm[1], hide ? { hideResume: true } : {}, fetchItem);
+        return userDataWrite(v, await send(request), mm[1], { resumeHidden: hide }, fetchItem);
     }
 
     if (m === 'POST' && (mm = ITEM_USERDATA.exec(path))) {

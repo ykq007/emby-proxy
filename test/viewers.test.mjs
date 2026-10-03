@@ -181,7 +181,9 @@ test('mark unplayed / unfavorite via DELETE or the POST …/Delete form clears l
     assert.deepEqual(await state(), [['m1', true, false], ['m2', false, true]]);
 
     const r = await call('/emby/Users/U1/PlayedItems/m1/Delete', { method: 'POST', token: a.token });
-    assert.equal((await r.json()).Played, false);
+    const ud = await r.json();
+    assert.equal(ud.Played, false);
+    assert.equal(ud.LastPlayedDate, undefined, 'Emby clears LastPlayedDate on mark unplayed');
     await call('/emby/Users/U1/FavoriteItems/m2/Delete', { method: 'POST', token: a.token });
     assert.deepEqual(await state(), [['m1', false, false], ['m2', false, false]]);
 
@@ -190,21 +192,30 @@ test('mark unplayed / unfavorite via DELETE or the POST …/Delete form clears l
     assert.deepEqual(await state(), [['m1', false, false], ['m2', false, false]]);
 });
 
-test('HideFromResume removes the item (and its series) from Continue Watching', async () => {
+test('HideFromResume hides like Emby: progress kept, whole series hidden, replay or Hide=false brings it back', async () => {
     const a = await makeViewer('alice');
-    for (const [ItemId, PositionTicks] of [['e1', 300], ['e2', 400], ['m1', 100], ['m2', 200]]) {
-        await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId, PositionTicks } });
-    }
+    const progress = (ItemId, PositionTicks) => call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId, PositionTicks } });
+    const hide = (id, h = true) => call(`/emby/Users/U1/Items/${id}/HideFromResume?Hide=${h}`, { method: 'POST', token: a.token });
+    for (const [id, pos] of [['e1', 300], ['e2', 400], ['m1', 100], ['m2', 200]]) await progress(id, pos);
     const resume = async () => (await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json()).Items.map(i => i.Id).sort();
     assert.deepEqual(await resume(), ['e2', 'm1', 'm2']);
 
-    const r = await call('/emby/Users/U1/Items/m1/HideFromResume?Hide=true', { method: 'POST', token: a.token });
-    assert.equal((await r.json()).PlaybackPositionTicks, 0);
-    await call('/emby/Users/U1/Items/e2/HideFromResume?Hide=true', { method: 'POST', token: a.token });
-    assert.deepEqual(await resume(), ['m2'], 'e1 must not resurface after hiding e2');
+    const r = await hide('m1');
+    assert.equal((await r.json()).PlaybackPositionTicks, 100, 'position kept');
+    const nextUp = async () => (await (await call('/emby/Shows/NextUp', { token: a.token })).json()).Items.map(i => i.Id);
+    assert.deepEqual(await nextUp(), ['e2']);
+    await hide('e1');
+    assert.deepEqual(await resume(), ['m2'], 'hiding any episode hides the series');
+    assert.deepEqual(await nextUp(), [], 'and drops it from Next Up');
+    const m1 = await (await call('/emby/Users/U1/Items/m1', { token: a.token })).json();
+    assert.equal(m1.UserData.PlaybackPositionTicks, 100, 'still resumable from where it stopped');
 
-    await call('/emby/Users/U1/Items/m2/HideFromResume?Hide=false', { method: 'POST', token: a.token });
-    assert.deepEqual(await resume(), ['m2'], 'Hide=false leaves progress alone');
+    await hide('m1', false);
+    assert.deepEqual(await resume(), ['m1', 'm2'], 'Hide=false restores');
+    await call('/emby/Sessions/Playing', { method: 'POST', token: a.token, body: { ItemId: 'e3', PositionTicks: 0 } });
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a.token, body: { ItemId: 'e3', PositionTicks: 500 } });
+    assert.deepEqual(await resume(), ['e3', 'm1', 'm2'], 'playing the series again brings it back');
+    assert.deepEqual(await nextUp(), ['e3']);
 });
 
 test('concurrency: viewer quota and node cap → 429; same device refreshes; stop releases', async () => {
@@ -291,6 +302,12 @@ test('progress feeds Continue Watching (one per series) and 90% stop marks playe
     assert.deepEqual(next.Items.map(i => i.Id), ['e3']);
     const resume2 = await (await call('/emby/Users/U1/Items/Resume', { token: a.token })).json();
     assert.deepEqual(resume2.Items.map(i => i.Id).sort(), ['e1', 'm1'], 'e2 finished; series falls back to e1 still in progress');
+    const next2 = await (await call('/emby/Shows/NextUp', { token: a.token })).json();
+    assert.deepEqual(next2.Items.map(i => i.Id), ['e3'], 'e2 is the most recent play');
+
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'e1', PositionTicks: 350 } });
+    const next3 = await (await call('/emby/Shows/NextUp', { token: a.token })).json();
+    assert.deepEqual(next3.Items.map(i => i.Id), ['e1'], 'going back to e1 makes it Next Up, like Emby');
 });
 
 test('Continue Watching still works behind a country allowlist (proxy-built requests keep cf-ipcountry)', async () => {

@@ -45,16 +45,17 @@ export async function recordPlayback(env, s, kind, body, fetchItem, now = Date.n
     }
     delete f.runtime;
     await upsert(env, s, itemId, f);
+    if (kind !== 'progress') await setResumeHidden(env, s, itemId, false);
 }
 
-// flags: { played?, favorite?, position?, hideResume? }（来自 PlayedItems / FavoriteItems / UserData / HideFromResume 接口）
+// flags: { played?, favorite?, position?, resumeHidden? }（来自 PlayedItems / FavoriteItems / UserData / HideFromResume 接口）
 export async function setUserData(env, s, itemId, flags, fetchItem, now = Date.now()) {
-    if (flags.hideResume) await hideFromResume(env, s, itemId);
+    if (flags.resumeHidden !== undefined) await setResumeHidden(env, s, itemId, flags.resumeHidden);
     const fields = {};
     if (flags.played !== undefined) {
         fields.played = flags.played ? 1 : 0;
         fields.position_ticks = 0;
-        if (flags.played) fields.last_played = now;
+        fields.last_played = flags.played ? now : 0; // Emby 标记未播放时同时清掉 LastPlayedDate
     }
     if (flags.favorite !== undefined) fields.is_favorite = flags.favorite ? 1 : 0;
     if (flags.position !== undefined) fields.position_ticks = Math.max(0, Number(flags.position) || 0);
@@ -65,15 +66,16 @@ export async function setUserData(env, s, itemId, flags, fetchItem, now = Date.n
     return (await loadRows(env, s, [String(itemId)])).get(String(itemId));
 }
 
-// Continue Watching 每部剧只显示一集：移除剧集时连同同剧其它未看完的进度一起清掉，
-// 否则较早的一集会立刻顶上来，看起来像没删掉。
-async function hideFromResume(env, s, itemId) {
+// 「从继续观看中移除」与 Emby 一致：只隐藏，进度保留；剧集按整部剧隐藏（隐藏任一集，整部剧都不再出现）。
+// 该剧任一集 / 该电影再次播放时取消隐藏（见 recordPlayback）。
+async function setResumeHidden(env, s, itemId, hidden) {
     const row = await dbFirst(env, `SELECT series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
         s.viewerId, s.prefix, String(itemId));
     if (!row) return;
+    const sid = row.series_id || '';
     await dbRun(env,
-        `UPDATE watch_state SET position_ticks = 0 WHERE viewer_id = ? AND prefix = ? AND played = 0 AND (item_id = ? OR (? != '' AND series_id = ?))`,
-        s.viewerId, s.prefix, String(itemId), row.series_id || '', row.series_id || '');
+        `UPDATE watch_state SET resume_hidden = ? WHERE viewer_id = ? AND prefix = ? AND (item_id = ? OR (? != '' AND series_id = ?))`,
+        hidden ? 1 : 0, s.viewerId, s.prefix, String(itemId), sid, sid);
 }
 
 export async function loadRows(env, s, ids) {
@@ -149,10 +151,10 @@ export async function localFilterIds(env, s, params) {
     return ids;
 }
 
-// Continue Watching：本地 进度>0 且未看完，每部剧只取最近一集。
+// Continue Watching：本地 进度>0、未看完且未被隐藏，每部剧只取最近一集。
 export async function resumeIds(env, s, params) {
     const r = await dbAll(env,
-        `SELECT item_id, series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND position_ticks > 0 AND played = 0
+        `SELECT item_id, series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND position_ticks > 0 AND played = 0 AND resume_hidden = 0
           ORDER BY last_played DESC, rowid DESC LIMIT 500`,
         s.viewerId, s.prefix);
     const seen = new Set(); const ids = [];
@@ -172,14 +174,19 @@ export async function resumeIds(env, s, params) {
 const MAX_NEXTUP_SERIES = 12;
 export async function buildNextUp(env, s, params, fetchEpisodes) {
     const r = await dbAll(env,
-        `SELECT item_id, series_id, parent_index, index_number, position_ticks, played, last_played FROM watch_state
+        `SELECT item_id, series_id, parent_index, index_number, position_ticks, played, last_played, resume_hidden FROM watch_state
           WHERE viewer_id = ? AND prefix = ? AND item_type = 'Episode' AND series_id != '' AND (played = 1 OR position_ticks > 0)`,
         s.viewerId, s.prefix);
+    // 与 Emby 一致：从继续观看中移除的剧，Next Up 里也不再出现，直到再次播放。
+    const hidden = new Set((r.results || []).filter(x => x.resume_hidden).map(x => x.series_id));
     const bySeries = new Map();
     for (const row of r.results || []) {
+        if (hidden.has(row.series_id)) continue;
         const cur = bySeries.get(row.series_id);
-        const later = !cur || row.parent_index > cur.last.parent_index ||
-            (row.parent_index === cur.last.parent_index && row.index_number > cur.last.index_number);
+        // 与 Emby 一致：以最近播放的一集为准（回看较早的一集时 Next Up 跟着回去），同一时刻按集序。
+        const at = Number(row.last_played) || 0, curAt = cur ? Number(cur.last.last_played) || 0 : 0;
+        const later = !cur || at > curAt || (at === curAt && (row.parent_index > cur.last.parent_index ||
+            (row.parent_index === cur.last.parent_index && row.index_number > cur.last.index_number)));
         const played = new Set(cur ? cur.played : []);
         if (row.played) played.add(String(row.item_id));
         bySeries.set(row.series_id, {
