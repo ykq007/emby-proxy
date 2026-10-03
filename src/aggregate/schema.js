@@ -5,7 +5,7 @@
 // 例外：登录爆破封禁写 ip_bans（两个 Worker 共享封禁是有意的）。
 import { dbFirst, dbRun } from '../db/helpers.js';
 
-export const AGG_SCHEMA_VERSION = 1;
+export const AGG_SCHEMA_VERSION = 2;
 let ready = false;
 
 export function __resetAggSchemaForTest() { ready = false; }
@@ -46,6 +46,9 @@ export async function ensureAggSchema(env) {
         // 聚合端签发给 viewer 的令牌（ea_ 前缀），只存 SHA-256；pw_fp = 签发时密码哈希的指纹。
         `CREATE TABLE IF NOT EXISTS agg_tokens (token_hash TEXT PRIMARY KEY, viewer_id TEXT NOT NULL, device_id TEXT DEFAULT '', pw_fp TEXT NOT NULL, created_at INTEGER DEFAULT 0)`,
         `CREATE INDEX IF NOT EXISTS idx_agg_tokens_viewer ON agg_tokens(viewer_id)`,
+        // v2 播放：每个 (节点, viewer 设备) 一个上游会话；PlaySessionId → 节点与真实条目（流 / 进度上报找回节点用）。
+        `CREATE TABLE IF NOT EXISTS agg_device_sessions (prefix TEXT NOT NULL, device_id TEXT NOT NULL, blob TEXT NOT NULL, PRIMARY KEY(prefix, device_id))`,
+        `CREATE TABLE IF NOT EXISTS agg_play_sessions (play_session_id TEXT PRIMARY KEY, prefix TEXT NOT NULL, item_id TEXT NOT NULL, vid INTEGER NOT NULL, created_at INTEGER NOT NULL)`,
         `CREATE TABLE IF NOT EXISTS agg_auth_rl (ip TEXT NOT NULL, win INTEGER NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY(ip, win))`,
     ];
     for (const sql of stmts) await env.DB.exec(sql.replace(/\s+/g, ' '));

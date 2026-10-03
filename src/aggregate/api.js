@@ -1,19 +1,14 @@
-// 聚合 Worker 对客户端呈现为一台 Emby 服务器。阶段 1：只浏览（媒体库、搜索、详情、图片），
-// 全部由 D1 目录作答；详情页从该作品的一个副本节点实时补全。播放在阶段 2。
+// 聚合 Worker 对客户端呈现为一台 Emby 服务器。浏览（媒体库、搜索、详情、图片）由 D1 目录作答，
+// 详情页从该作品的一个副本节点实时补全；播放（电影）见 playback.js。剧集的季 / 集在阶段 3。
 import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
+import { CORS, json, empty } from './http.js';
+import { playbackInfo, videoStream, namespaced, playing, byPlaySession } from './playback.js';
 
 const VERSION = '4.8.0.0';
-const CORS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': '*',
-};
-const json = (data, status = 200) => Response.json(data, { status, headers: CORS });
-const empty = (status = 204) => new Response(null, { status, headers: CORS });
 const unauthorized = () => json({ message: 'Unauthorized' }, 401);
 const LIBS = [
     { id: LIB_MOVIES, name: 'Movies', collectionType: 'movies', type: 'Movie' },
@@ -65,7 +60,7 @@ function itemDto(row, sid, tags) {
         ImageTags: primary, BackdropImageTags: Backdrop ? [Backdrop] : [],
         UserData: userData(row.vid),
     };
-    if (row.type === 'Movie') dto.MediaType = 'Video';
+    if (row.type === 'Movie') { dto.MediaType = 'Video'; dto.PlayAccess = 'Full'; dto.LocationType = 'FileSystem'; }
     return dto;
 }
 
@@ -177,7 +172,11 @@ const R = {
     logout: re('Sessions\\/Logout'),
     capabilities: re('Sessions\\/Capabilities(?:\\/Full)?'),
     sessions: re('Sessions'),
-    playing: re('Sessions\\/Playing(?:\\/\\w+)?'),
+    playing: re('Sessions\\/Playing(?:\\/(Progress|Stopped))?'),
+    playPing: re('Sessions\\/Playing\\/Ping'),
+    activeEncodings: re('Videos\\/ActiveEncodings'),
+    stream: new RegExp(E + 'Videos\\/(\\d+)\\/(.+)$', 'i'),
+    ns: /^\/n\/([^/]+)(\/.*)$/,
     displayPrefs: re('DisplayPreferences\\/[^/]+'),
     user: re('Users\\/([^/]+)'),
     views: re('(?:Users\\/[^/]+\\/Views|Library\\/MediaFolders|Library\\/VirtualFolders)'),
@@ -187,7 +186,7 @@ const R = {
     seasons: re('Shows\\/[^/]+\\/(?:Seasons|Episodes)'),
     item: re('(?:Users\\/[^/]+\\/)?Items\\/(\\d+)'),
     items: re('(?:Users\\/[^/]+\\/)?Items'),
-    playbackInfo: re('Items\\/[^/]+\\/PlaybackInfo'),
+    playbackInfo: re('Items\\/(\\d+)\\/PlaybackInfo'),
     counts: re('Items\\/Counts'),
     genres: re('(?:Genres|Studios|Persons|Artists|Years)'),
     userData: re('Users\\/[^/]+\\/(?:PlayedItems|FavoriteItems)\\/[^/]+(?:\\/Delete)?'),
@@ -234,7 +233,16 @@ export async function handleAggRequest(request, env, ctx) {
     if (R.sysInfo.test(path)) return json({ ...publicInfo(env, url, sid), HasPendingRestart: false, IsShuttingDown: false, CanSelfRestart: false, CanSelfUpdate: false, HasUpdateAvailable: false, SupportsLibraryMonitor: false, WebSocketPortNumber: 0 });
     if (R.endpoint.test(path)) return json({ IsLocal: false, IsInNetwork: false });
     if (method === 'POST' && R.logout.test(path)) { await revokeToken(env, s.token); return empty(); }
-    if (method === 'POST' && (R.capabilities.test(path) || R.playing.test(path))) return empty();
+    if (method === 'POST' && R.capabilities.test(path)) return empty();
+
+    // ── 播放 ──────────────────────────────────────────────
+    if ((m = R.ns.exec(path))) return namespaced(env, request, url, s, decodeURIComponent(m[1]), m[2]);
+    if ((m = R.playbackInfo.exec(path)) && (method === 'GET' || method === 'POST')) return playbackInfo(env, request, url, s, m[1]);
+    if (method === 'POST' && R.playPing.test(path)) return byPlaySession(env, request, url, s, '/Sessions/Playing/Ping');
+    if (method === 'POST' && (m = R.playing.exec(path))) return playing(env, request, url, s, (m[1] || 'playing').toLowerCase());
+    if (method === 'DELETE' && R.activeEncodings.test(path)) return byPlaySession(env, request, url, s, '/Videos/ActiveEncodings');
+    if ((method === 'GET' || method === 'HEAD') && (m = R.stream.exec(path))) return videoStream(env, request, url, s, m[1], m[2]);
+
     if (method === 'GET' && R.sessions.test(path)) return json([]);
     if (R.displayPrefs.test(path)) {
         return method === 'GET' ? json({ Id: path.split('/').pop(), SortBy: 'SortName', SortOrder: 'Ascending', RememberIndexing: false, RememberSorting: false, CustomPrefs: {}, Client: url.searchParams.get('client') || 'emby' }) : empty();
@@ -257,7 +265,6 @@ export async function handleAggRequest(request, env, ctx) {
         return json((await withTags(env, s, items)).map(({ row, tags }) => itemDto(row, sid, tags)));
     }
     if (R.resume.test(path) || R.nextUp.test(path) || R.seasons.test(path) || R.genres.test(path)) return json({ Items: [], TotalRecordCount: 0 });
-    if (R.playbackInfo.test(path)) return json({ message: 'Playback through the aggregate server is not available yet' }, 501);
     if (R.counts.test(path)) {
         const [mv, sr] = await Promise.all(['Movie', 'Series'].map(t => queryItems(env, s.scope, { types: [t], limit: 1 })));
         return json({ MovieCount: mv.total, SeriesCount: sr.total, EpisodeCount: 0, ItemCount: mv.total + sr.total });

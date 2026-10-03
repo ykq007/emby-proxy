@@ -30,16 +30,17 @@ const pwFingerprint = async (hash) => (await sha256Hex('agg:' + hash)).slice(0, 
 export async function viewerScope(env, viewerId) {
     const members = await memberRoutes(env);
     const memberSet = new Set(members.map(r => r.prefix));
-    const rows = (await dbAll(env, `SELECT prefix, hidden_libraries FROM viewer_access WHERE viewer_id = ?`, viewerId)).results || [];
-    const hidden = new Map(); const prefixes = [];
+    const rows = (await dbAll(env, `SELECT prefix, quota, hidden_libraries FROM viewer_access WHERE viewer_id = ?`, viewerId)).results || [];
+    const hidden = new Map(); const prefixes = []; const quota = new Map();
     for (const r of rows) {
         if (!memberSet.has(r.prefix)) continue;
         prefixes.push(r.prefix);
+        quota.set(r.prefix, Number(r.quota) || 0);
         let h = [];
         try { h = JSON.parse(r.hidden_libraries || '[]'); } catch (e) { }
         if (Array.isArray(h) && h.length) hidden.set(r.prefix, new Set(h.map(String)));
     }
-    return { prefixes, hidden, all: prefixes.length === memberSet.size && hidden.size === 0 };
+    return { prefixes, hidden, quota, all: prefixes.length === memberSet.size && hidden.size === 0 };
 }
 
 export async function login(env, request, body, ident) {

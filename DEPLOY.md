@@ -61,7 +61,9 @@ Cloudflare cron 不可靠时(账号级 cron 派发问题),用外部 cron-job.org
 
 ## 聚合 Worker（emby-aggregate）
 
-把所有开启了 viewers 的节点合并成一台虚拟 Emby 服务器（目前只能浏览，播放在下一阶段）。
+把所有开启了 viewers 的节点合并成一台虚拟 Emby 服务器：浏览合并后的媒体库，电影可播放
+（每个有副本的节点在客户端里是一个版本：Source 1 / Source 2…，默认挑健康且有空闲并发槽位的节点）。
+剧集目前只能浏览，季 / 集在下一阶段。
 它是独立的 Worker，与生产 `emby` 共用 D1，但只建 / 写 `agg_*` 表，不影响生产。
 
 一次性准备：

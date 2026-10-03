@@ -145,8 +145,9 @@ export async function removeSources(env, prefix, itemIds) {
 export async function forgetPrefix(env, prefix) {
     const ids = ((await dbAll(env, `SELECT item_id FROM agg_sources WHERE prefix = ?`, prefix)).results || []).map(r => r.item_id);
     const cost = await removeSources(env, prefix, ids);
-    await dbRun(env, `DELETE FROM agg_sync WHERE prefix = ?`, prefix);
-    await dbRun(env, `DELETE FROM agg_sessions WHERE prefix = ?`, prefix);
+    for (const t of ['agg_sync', 'agg_sessions', 'agg_device_sessions', 'agg_play_sessions']) {
+        await dbRun(env, `DELETE FROM ${t} WHERE prefix = ?`, prefix);
+    }
     return cost;
 }
 

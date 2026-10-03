@@ -7,7 +7,7 @@ This repo builds two Cloudflare Workers. Every rule below applies to **both**:
   config template `wrangler.aggregate.example.toml`, `npm run build:agg` / `deploy:agg`).
   It shares the prod D1 database but only creates and writes `agg_*` tables (`src/aggregate/schema.js`).
   It must never run prod's `ensureSchema`. The only prod tables it may write are `ip_bans` (shared
-  login-bruteforce bans) and, once playback lands, `playback_slots` (shared concurrency limits).
+  login-bruteforce bans) and `playback_slots` (concurrency limits shared with the prod viewer gate).
 
 Domain vocabulary lives in `CONTEXT.md`; deploy steps live in `DEPLOY.md`.
 

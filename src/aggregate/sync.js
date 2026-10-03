@@ -14,6 +14,7 @@ export const PAGE = 200;
 const ID_PAGE = 1000;
 const SINCE_SLACK_MS = 10 * 60 * 1000;   // 节点与本地时钟偏差的余量
 const RECONCILE_EVERY_MS = 24 * 3600 * 1000;
+const PLAY_SESSION_TTL_MS = 2 * 24 * 3600 * 1000;
 const DEFAULT_DAILY_WRITES = 30000;
 const DEFAULT_TICK_REQUESTS = 20;
 const LIB_TYPES = new Set(['movies', 'tvshows', 'mixed', '']);
@@ -47,6 +48,7 @@ export async function runSync(env, now = Date.now(), opts = {}) {
     const memberSet = new Set(members.map(r => r.prefix));
     const summary = { nodes: {}, writes: 0, requests: 0, stopped: '' };
 
+    await dbRun(env, `DELETE FROM agg_play_sessions WHERE created_at < ?`, now - PLAY_SESSION_TTL_MS);
     const synced = ((await dbAll(env, `SELECT prefix, updated_at FROM agg_sync`)).results || []);
     for (const r of synced) if (!memberSet.has(r.prefix)) summary.writes += await forgetPrefix(env, r.prefix);
 

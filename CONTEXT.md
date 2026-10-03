@@ -75,3 +75,11 @@ _Avoid_: Allowance, seat, slot count
 **Playback slot**:
 One viewer stream on one device counted against the viewer quota and node concurrency limit; taken at PlaybackInfo, released on stop or after 3 minutes without a heartbeat.
 _Avoid_: Session, lease, stream count
+
+**Aggregate server**:
+The separate `emby-aggregate` Worker that presents every viewer-enabled Emby node as one virtual Emby server, with titles merged across nodes.
+_Avoid_: Meta server, merged node, all-in-one
+
+**Title copy**:
+One Emby node's copy of a merged title (`agg_sources`); a title with copies on several nodes is offered as one version per node at playback.
+_Avoid_: Mirror, replica, duplicate
