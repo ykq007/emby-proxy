@@ -639,3 +639,15 @@ test('batched merge: a page of 250 titles takes a handful of D1 round trips; dup
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE prefix = 'nodeA' AND lib_id = 'L1'`)[0].n, 254);
     assert.equal(new Set(rows(`SELECT vid FROM agg_items`).map(r => r.vid)).size, rows(`SELECT vid FROM agg_items`).length);
 });
+
+test('a D1 error while merging stops only that node for this run; its cursor stays and the next run finishes', async () => {
+    const batch = env.DB.batch.bind(env.DB); let failed = false;
+    env.DB.batch = async (stmts) => { if (!failed) { failed = true; throw new Error('D1_ERROR: Network connection lost.'); } return batch(stmts); };
+    const s1 = await runSync(env, Date.now(), { maxRequests: 50 });
+    env.DB.batch = batch;
+    assert.match(s1.nodes.nodeA.error, /Network connection lost/);
+    assert.ok(s1.nodes.nodeB && !s1.nodes.nodeB.error, 'the other node still synced in the same run');
+    assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_items i WHERE NOT EXISTS (SELECT 1 FROM agg_sources s WHERE s.vid = i.vid)`)[0].n, 0, 'no title without a copy');
+    await syncAll();
+    assert.equal(rows(`SELECT * FROM agg_items`).length, 5);
+});

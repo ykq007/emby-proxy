@@ -63,7 +63,7 @@ export function sourceSig(libId, it) {
 const COLS = ['type', 'name', 'sort_name', 'name_key', 'year', 'premiere', 'date_added', 'rating',
     'official_rating', 'runtime_ticks', 'genres', 'tmdb', 'imdb', 'tvdb'];
 const META_COLS = COLS.filter(c => c !== 'type');
-const BATCH_STMTS = 100; // 每个 D1 batch 的语句数上限（分块提交，一页约 2–4 个 batch）
+const BATCH_STMTS = 100; // 每个 D1 batch 的语句数上限（分块提交，一页约 2–4 个 batch）；一个条目的语句不拆到两个 batch
 
 // 同类型作品里找可合并的那条（规则同以往的逐条 SQL）：有外部 ID 的条目只按外部 ID 合并，
 // 绝不按片名合并（同名同年的不同作品很常见）；Tmdb 命中优先于 Imdb，再优先于 Tvdb。
@@ -111,14 +111,15 @@ export async function mergePage(env, prefix, libId, items) {
         ? Number((await dbFirst(env, `SELECT COALESCE(MAX(vid), ${FIRST_VID - 1}) + 1 AS v FROM agg_items`)).v)
         : 0;
 
-    const stmts = []; const ownerUpdates = new Set(); let cost = 0;
+    const units = []; let cost = 0;
     for (const w of work) {
         const { it, f } = w;
+        const stmts = []; let ownerUpdate = -1;
         let vid;
         if (w.existing) {
             vid = w.existing.vid;
             // 已收录的副本元数据变了：只有它是该作品的「主副本」时才改作品元数据（是否改到看 changes）。
-            ownerUpdates.add(stmts.length);
+            ownerUpdate = stmts.length;
             stmts.push(dbStmt(env,
                 `UPDATE agg_items SET ${META_COLS.map(c => `${c} = ?`).join(', ')} WHERE vid = ? AND owner_prefix = ? AND owner_item = ?`,
                 ...META_COLS.map(c => f[c]), vid, prefix, String(it.Id)));
@@ -147,11 +148,28 @@ export async function mergePage(env, prefix, libId, items) {
              ON CONFLICT(prefix, item_id) DO UPDATE SET lib_id = excluded.lib_id, image_tags = excluded.image_tags, sig = excluded.sig`,
             prefix, String(it.Id), vid, String(libId), JSON.stringify(imageTags(it)), w.sig));
         cost += COST_SOURCE;
+        units.push({ stmts, ownerUpdate });
     }
-    for (let i = 0; i < stmts.length; i += BATCH_STMTS) {
-        const res = await dbBatch(env, stmts.slice(i, i + BATCH_STMTS));
-        res.forEach((r, j) => { if (ownerUpdates.has(i + j) && r && r.meta && r.meta.changes) cost += COST_ITEM_UPDATE; });
+    // 一个条目的作品行与副本行在同一个 batch（同一事务）里：中途失败不会留下没有副本的作品。
+    let chunk = [];
+    const flush = async () => {
+        if (!chunk.length) return;
+        const all = chunk.flatMap(u => u.stmts);
+        const res = await dbBatch(env, all);
+        let at = 0;
+        for (const u of chunk) {
+            const r = u.ownerUpdate >= 0 ? res[at + u.ownerUpdate] : null;
+            if (r && r.meta && r.meta.changes) cost += COST_ITEM_UPDATE;
+            at += u.stmts.length;
+        }
+        chunk = [];
+    };
+    let n = 0;
+    for (const u of units) {
+        if (n + u.stmts.length > BATCH_STMTS) { await flush(); n = 0; }
+        chunk.push(u); n += u.stmts.length;
     }
+    await flush();
     return { cost, merged: work.length };
 }
 

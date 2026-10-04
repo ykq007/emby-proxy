@@ -137,7 +137,9 @@ async function syncNode(env, route, now, budget) {
         const items = (r.data && r.data.Items) || [];
         const total = Number(r.data && r.data.TotalRecordCount) || 0;
         // 整页一起合并（几次 D1 往返）；写入预算按页扣，最后一页可能略超。
-        const res = await mergePage(env, route.prefix, lib.id, items);
+        let res;
+        // D1 偶发的网络错误只让这个节点这一轮停下（游标停在这一页之前），其它节点照常同步。
+        try { res = await mergePage(env, route.prefix, lib.id, items); } catch (e) { return fail('D1: ' + (e && e.message || e)); }
         budget.writes -= res.cost;
         out.merged += res.merged;
         st.start += items.length;
