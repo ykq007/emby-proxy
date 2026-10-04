@@ -11,6 +11,7 @@ import { __resetAggUpstreamForTest } from '../src/aggregate/upstream.js';
 import { __resetAggAuthForTest } from '../src/aggregate/auth.js';
 import { __resetPlaybackForTest, PROGRESS_WRITE_MS } from '../src/aggregate/playback.js';
 import { __resetSeriesForTest, CACHE_MS } from '../src/aggregate/series.js';
+import { __resetLiveForTest } from '../src/aggregate/api.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
 import { runSync } from '../src/aggregate/sync.js';
 import worker from '../src/aggregate/index.js';
@@ -115,7 +116,7 @@ function fakeEmby(req) {
 }
 
 beforeEach(async () => {
-    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); UPSTREAM_CB.clear(); clearResolveCache();
+    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); __resetLiveForTest(); UPSTREAM_CB.clear(); clearResolveCache();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret', AGG_PAGE_DELAY_MS: '0' };
     await ensureSchema(env);
     await ensureAggSchema(env);

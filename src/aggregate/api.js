@@ -181,12 +181,20 @@ async function userDataWrite(env, s, id, flags) {
     return json(applyUserData(userData(id), row));
 }
 
-// 副本在节点上的实时详情（同步账号取）；取不到返回 null。
+// 副本在节点上的实时详情（同步账号取）；取不到返回 null。成功的结果在本 isolate 记 5 分钟：
+// 慢节点这次没赶上版本列表，下次打开就有了。
+const LIVE = new Map(); const LIVE_MS = 5 * 60 * 1000; const LIVE_MAX = 500;
 async function liveItem(env, src) {
+    const k = src.prefix + '|' + src.item_id;
+    const hit = LIVE.get(k);
+    if (hit && Date.now() - hit.at < LIVE_MS) return hit.data;
     const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
     const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000 }) : null;
-    return (live && live.data) || null;
+    const data = (live && live.data) || null;
+    if (data) { LIVE.set(k, { at: Date.now(), data }); if (LIVE.size > LIVE_MAX) LIVE.delete(LIVE.keys().next().value); }
+    return data;
 }
+export function __resetLiveForTest() { LIVE.clear(); }
 
 // 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同一「Source N」编号），并发取各节点的实时详情。
 // 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
