@@ -80,7 +80,8 @@ export async function resolveToken(env, token, now = Date.now()) {
     let s = null;
     if (row && row.pw_fp === await pwFingerprint(row.password)) {
         const scope = await viewerScope(env, row.viewer_id);
-        if (scope.prefixes.length) s = { viewerId: row.viewer_id, username: row.username, deviceId: row.device_id || '', token, scope };
+        // scope.deviceId：浏览（详情 / 剧集列表 / 图片）用该设备自己在节点上的会话，见 upstream.js 的 browseSession。
+        if (scope.prefixes.length) s = { viewerId: row.viewer_id, username: row.username, deviceId: row.device_id || '', token, scope: { ...scope, deviceId: row.device_id || '' } };
     }
     if (s) RESOLVE_MEM.set(token, { at: now, s });
     return s;

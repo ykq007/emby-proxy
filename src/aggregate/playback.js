@@ -32,12 +32,38 @@ const PLAY_MEM = new Map(); // PlaySessionId -> { prefix, item_id, vid }
 const PI_BODY = new Map(); // `${viewerId}|${device}` -> 该设备最近一次 PlaybackInfo 的 POST 体（DeviceProfile）
 const LAZY = new Map(); // `${viewerId}|${device}|${prefix}|${itemId}|${msid}` -> { at, path }：附加版本向节点要来的直连地址
 const LAZY_MS = 6 * 60 * 60 * 1000;
+// `${viewerId}|${device}|${prefix}|${itemId}` -> { msid, psid }：该设备在这个节点上播这份副本时，节点自己给的媒体源 Id
+// 与 PlaySessionId。客户端回报进度时带的是菜单里的 Id（可能没有节点媒体源 Id）或别的节点的 PlaySessionId，发给节点前换成这两个。
+const COPY_PLAY = new Map();
+// `${viewerId}|${device}` -> { path, query, body, at }：客户端最近一次 Sessions/Capabilities。
+// 和用代理时一样：设备在某个节点上开始播放前，把能力报告先发给那个节点一次（CAPS_SENT 记已发）。
+const CAPS = new Map(); const CAPS_SENT = new Set();
+export function rememberCapabilities(s, request, url, path, body) {
+    const q = new URLSearchParams();
+    for (const [k, v] of url.searchParams) if (!/^(api_?key|x-emby-|x-mediabrowser-)/i.test(k)) q.append(k, v);
+    CAPS.set(`${s.viewerId}|${deviceOf(s, request, url)}`, { path, query: q.toString(), body, at: Date.now() });
+    if (CAPS.size > 500) CAPS.delete(CAPS.keys().next().value);
+}
+async function sendCapabilities(s, device, route, sess) {
+    const caps = CAPS.get(`${s.viewerId}|${device}`);
+    const k = `${s.viewerId}|${device}|${route.prefix}|${caps && caps.at}`;
+    if (!caps || CAPS_SENT.has(k)) return;
+    CAPS_SENT.add(k); if (CAPS_SENT.size > 2000) CAPS_SENT.delete(CAPS_SENT.values().next().value);
+    const r = await nodeFetch(route, sess, caps.path + (caps.query ? '?' + caps.query : ''),
+        { method: 'POST', body: caps.body || undefined, headers: caps.body ? { 'Content-Type': 'application/json' } : {} });
+    r?.body?.cancel().catch(() => {});
+}
+const copyKey = (s, device, prefix, itemId) => `${s.viewerId}|${device}|${prefix}|${itemId}`;
+function rememberCopy(s, device, prefix, itemId, msid, psid) {
+    COPY_PLAY.set(copyKey(s, device, prefix, itemId), { msid: msid ? String(msid) : '', psid: psid ? String(psid) : '' });
+    if (COPY_PLAY.size > 1000) COPY_PLAY.delete(COPY_PLAY.keys().next().value);
+}
 // 进度上报（客户端约每 10 秒一次）每个 viewer 每个条目最多每分钟写一次 D1；开始 / 停止总是写。
 export const PROGRESS_WRITE_MS = 60000;
 const PROGRESS_MEM = new Map(); // `${viewerId}|${vid}` -> 上次写入时间
 let healthMem = null;
 
-export function __resetPlaybackForTest() { PLAY_MEM.clear(); PI_BODY.clear(); LAZY.clear(); PROGRESS_MEM.clear(); __resetSlotsForTest(); healthMem = null; }
+export function __resetPlaybackForTest() { PLAY_MEM.clear(); PI_BODY.clear(); LAZY.clear(); COPY_PLAY.clear(); CAPS.clear(); CAPS_SENT.clear(); PROGRESS_MEM.clear(); __resetSlotsForTest(); healthMem = null; }
 
 // 聚合端的观看状态（watch.js 共用，写 agg_watch_state，不写生产 watch_state）。
 export const watchSession = (s) => ({ viewerId: s.viewerId, prefix: 'agg', table: 'agg_watch_state' });
@@ -127,7 +153,7 @@ async function withSession(env, route, s, request, url, send) {
     let r = await send(sess);
     if (r && r.status === 401) {
         r.body?.cancel().catch(() => {});
-        sess = await deviceSession(env, route, sess.ident || ident, true);
+        sess = await deviceSession(env, route, sess.ident || ident, true, null, sess.token);
         if (sess.error) return { error: sess.error };
         r = await send(sess);
     }
@@ -205,7 +231,8 @@ function finish(r, upToken, token, path, prefix = '') {
 }
 
 async function askPlaybackInfo(env, c, s, request, url, body, msid, method = request.method) {
-    const res = await withSession(env, c.route, s, request, url, (sess) => {
+    const res = await withSession(env, c.route, s, request, url, async (sess) => {
+        await sendCapabilities(s, deviceOf(s, request, url), c.route, sess);
         const q = upstreamQuery(url, sess.token, ['UserId', 'MediaSourceId']);
         q.set('UserId', sess.userId);
         if (msid) q.set('MediaSourceId', msid);
@@ -278,6 +305,7 @@ export async function playbackInfo(env, request, url, s, vid) {
     const label = sources.length > 1;
     const out = { ...primary.data, MediaSources: [] };
     for (const r of results) {
+        rememberCopy(s, device, r.c.src.prefix, r.c.src.item_id, (r.data.MediaSources[0] || {}).Id, r.data.PlaySessionId);
         for (const ms of r.data.MediaSources) out.MediaSources.push(rewriteSource(ms, r.c, vid, label));
         await rememberPlay(env, r.data.PlaySessionId, r.c.src.prefix, r.c.src.item_id, vid);
     }
@@ -290,6 +318,7 @@ export async function playbackInfo(env, request, url, s, vid) {
 // 第一次取流时才向这一个节点要 PlaybackInfo（用该设备最近的 DeviceProfile），之后照它给的 DirectStreamUrl 取流：
 // 有的节点（如 sntp）要 PlaySessionId 等参数，自己拼的地址会 400。ponytail: 直连地址只记在本 isolate。
 export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
+    if (msid === '_') msid = '';
     if (!['GET', 'HEAD'].includes(request.method) || !s.scope.prefixes.includes(prefix)) return json({ message: 'Forbidden' }, 403);
     const route = (await memberRoutes(env)).find(r => r.prefix === prefix);
     if (!route) return json({ message: 'Not found' }, 404);
@@ -306,6 +335,7 @@ export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
         if (got.error) return json({ message: got.error }, 503);
         const ms = (msid && got.data.MediaSources.find(m => String(m.Id) === String(msid))) || got.data.MediaSources[0];
         if (!ms.DirectStreamUrl) return json({ message: 'This version cannot be played directly' }, 415);
+        rememberCopy(s, device, prefix, itemId, ms.Id, got.data.PlaySessionId);
         path = nsUrl(prefix, ms.DirectStreamUrl).replace(/^\/n\/[^/]+/, '');
         LAZY.set(k, { at: Date.now(), path });
         if (LAZY.size > 500) LAZY.delete(LAZY.keys().next().value);
@@ -327,7 +357,11 @@ export async function videoStream(env, request, url, s, vid, rest) {
     if (!msidRaw && pathMsid) msidRaw = decodeURIComponent(segs[0]);
     const c = await resolveCopy(env, s, vid, msidRaw, param(url, 'PlaySessionId'));
     if (!c) return json({ message: 'Not found' }, 404);
-    if (pathMsid && c.msid) segs[0] = encodeURIComponent(c.msid);
+    if (pathMsid) {
+        const known = COPY_PLAY.get(copyKey(s, deviceOf(s, request, url), c.src.prefix, c.src.item_id));
+        const m = c.msid || (known && known.msid);
+        if (m) segs[0] = encodeURIComponent(m);
+    }
     // 客户端自己拼的整文件直连（/stream、/original）：这个节点没为这份副本发过 PlaySessionId，就照 lazyStream
     // 先向它要 PlaybackInfo，用它自己的直连地址（有的节点不认自己拼的地址）。所有节点同一规则。
     if (segs.length === 1 && /^(stream|original)(\.\w+)?$/i.test(segs[0])) {
@@ -373,10 +407,20 @@ export async function playing(env, request, url, s, kind) {
     const c = await resolveCopy(env, s, vid, body.MediaSourceId ?? body.mediaSourceId, body.PlaySessionId ?? body.playSessionId);
     if (!c) return empty();
     await recordWatch(env, s, kind, { ItemId: vid, PositionTicks: body.PositionTicks ?? body.positionTicks });
-    body.ItemId = c.src.item_id;
-    if (c.msid) body.MediaSourceId = c.msid;
-    delete body.NowPlayingQueue; delete body.PlaylistItemId; // 里面是 vid，节点不认识
     const device = deviceOf(s, request, url);
+    body.ItemId = c.src.item_id;
+    // 发给节点的只能是它自己的媒体源 Id 与 PlaySessionId（和客户端直连该节点时一样）。
+    const known = COPY_PLAY.get(copyKey(s, device, c.src.prefix, c.src.item_id));
+    const msid = c.msid || (known && known.msid) || '';
+    delete body.mediaSourceId;
+    if (msid) body.MediaSourceId = msid; else delete body.MediaSourceId;
+    const psid = body.PlaySessionId ?? body.playSessionId;
+    const own = psid ? await lookupPlay(env, psid) : null;
+    if (!(own && own.prefix === c.src.prefix)) {
+        delete body.playSessionId;
+        if (known && known.psid) body.PlaySessionId = known.psid; else delete body.PlaySessionId;
+    }
+    delete body.NowPlayingQueue; delete body.PlaylistItemId; // 里面是 vid，节点不认识
     const slot = slotOf(s, c.src.prefix);
     await (kind === 'stopped' ? releaseSlot(env, slot, device) : heartbeatSlot(env, slot, device));
     const path = '/Sessions/Playing' + (kind === 'playing' ? '' : kind === 'progress' ? '/Progress' : '/Stopped');

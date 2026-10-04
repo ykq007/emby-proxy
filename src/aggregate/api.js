@@ -5,11 +5,11 @@
 import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
-import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
+import { memberRoutes, nodeJson, nodeRaw, browseSession, nodeFetch } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, lazyStream, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, nsUrl, MAX_VERSIONS } from './playback.js';
+import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
 import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
@@ -176,57 +176,75 @@ async function itemsResponse(env, s, sid, searchParams) {
 }
 
 // 观看状态写（PlayedItems / FavoriteItems / UserData / HideFromResume）：只写本地。
-async function userDataWrite(env, s, id, flags) {
+// 观看状态写：本地为准；同时照代理那样转给一个节点（后台，不等结果）——该片的副本里，该设备已有会话的第一个节点。
+// 不为此登录；设备在这些节点都没有会话就不转。build(sess, 节点条目 Id) → { path, method, body }。
+async function userDataWrite(env, ctx, s, id, flags, build) {
     const row = await setUserData(env, watchSession(s), id, flags, (x) => watchMeta(env, s.scope, x));
+    if (build) {
+        const p = (async () => {
+            for (const c of await rank(env, await copiesOf(env, s.scope, id))) {
+                const sess = await browseSession(env, c.route, s.deviceId);
+                if (!sess) continue;
+                const { path, method, body } = build(sess, encodeURIComponent(c.src.item_id));
+                const r = await nodeFetch(c.route, sess, path, { method, body, headers: body ? { 'Content-Type': 'application/json' } : {} });
+                r?.body?.cancel().catch(() => {});
+                return;
+            }
+        })().catch(e => console.log('agg user data forward failed:', e && e.message || e));
+        if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+    }
     return json(applyUserData(userData(id), row));
 }
 
-// 副本在节点上的实时详情（同步账号取）；取不到返回 null。成功的结果在本 isolate 记 5 分钟：
-// 慢节点这次没赶上版本列表，下次打开就有了。
+// 副本在节点上的实时详情：用该设备在节点上已有的会话（和用代理浏览时一样），没有才用同步会话；取不到返回 null。
+// 成功的结果在本 isolate 记 5 分钟。
 const LIVE = new Map(); const LIVE_MS = 5 * 60 * 1000; const LIVE_MAX = 500;
-async function liveItem(env, src) {
+async function liveItem(env, src, deviceId = '') {
     const k = src.prefix + '|' + src.item_id;
     const hit = LIVE.get(k);
     if (hit && Date.now() - hit.at < LIVE_MS) return hit.data;
     const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
-    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000 }) : null;
+    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000, deviceId }) : null;
     const data = (live && live.data) || null;
     if (data) { LIVE.set(k, { at: Date.now(), data }); if (LIVE.size > LIVE_MAX) LIVE.delete(LIVE.keys().next().value); }
     return data;
 }
 export function __resetLiveForTest() { LIVE.clear(); }
 
-// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同样以节点名区分；该设备起不了播的满节点不列），并发取各节点的实时详情。
-// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。每个节点最多等 ALT_WAIT_MS，慢节点这次不列
-// （仍在后台取完进缓存，下次就有）；一个都没赶上时才等到有结果为止。
-const ALT_WAIT_MS = 2500;
-async function liveVersions(env, ctx, ranked) {
-    ranked = ranked.slice(0, MAX_VERSIONS);
-    const ps = ranked.map(c => liveItem(env, c.src).catch(() => null));
-    if (ctx && ctx.waitUntil) for (const p of ps) ctx.waitUntil(p);
-    const late = () => new Promise(r => setTimeout(() => r(null), ALT_WAIT_MS));
-    let got = await Promise.all(ps.map(p => Promise.race([p, late()])));
-    if (!got.some(Boolean)) got = await Promise.all(ps);
-    return ranked.map((c, i) => ({ c, d: got[i] })).filter(x => x.d);
+const baseName = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
+
+// 版本菜单（详情与 PlaybackInfo 共用）：每个该设备能起播的节点一项，按排序，最多 MAX_VERSIONS 项。
+// 只向第一个节点要实时详情（和用代理打开一部片一样只打扰一个节点）；其它节点不问，只列目录里的节点名，
+// Id 是 `<前缀>~`（不知道它的媒体源 Id）：选了它，播放时才向那一个节点要 PlaybackInfo，由节点自己挑文件。
+function stubSource(c, id, extra = {}) {
+    return {
+        Protocol: 'File', Id: encodeMsid(c.src.prefix, ''), Type: 'Default', Name: c.name, IsRemote: false,
+        SupportsTranscoding: false, SupportsDirectStream: true, SupportsDirectPlay: true, IsInfiniteStream: false,
+        RequiresOpening: false, RequiresClosing: false, SupportsProbing: true, MediaStreams: [], Formats: [],
+        RequiredHttpHeaders: {}, ItemId: String(id), ...extra,
+    };
 }
 
 // 详情：第一个版本节点的实时详情做底，目录字段覆盖。真 Emby 详情的字段（Etag、Path、人物 / 工作室的 Id、Chapters…）
 // 一个不少：SenPlayer 这类严格解析的客户端缺一个就报「媒体库中不存在」。
 // 不外传的：节点上的目录路径（Path 只留文件名）、父级 Id 与父级图片标签（客户端拿着它们来取图会取错）、人物图。
-// 媒体源 Id 带节点前缀：客户端选了哪个版本，PlaybackInfo 就先去那个节点。
-function withLive(versions, dto, id) {
-    const d = versions[0].d;
+async function detailWithMenu(env, s, dto, id, ranked, playable) {
+    const first = ranked[0];
+    const d = first ? await liveItem(env, first.src, s.deviceId) : null;
+    if (!d) return { ...dto, CanDelete: false, CanDownload: false };
     const out = {};
     for (const [k, v] of Object.entries(d)) if (!/^Parent\w*(ItemId|ImageTags?)$/.test(k)) out[k] = v;
     for (const [k, v] of Object.entries(dto)) if (v !== undefined) out[k] = v;
-    const base = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
-    out.Path = d.FileName || base(d.Path);
+    out.Path = d.FileName || baseName(d.Path);
     if (Array.isArray(d.People)) out.People = d.People.map(({ PrimaryImageTag, ...p }) => p);
-    if (Array.isArray(d.MediaSources)) {
-        out.MediaSources = versions.flatMap(({ c, d: v }) => (v.MediaSources || []).slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
-            ...ms, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id), Path: base(ms.Path),
-            ...(versions.length > 1 ? { Name: [c.name, ms.Name].filter(Boolean).join(' · ') } : {}),
-        })));
+    if (playable && Array.isArray(d.MediaSources)) {
+        const menu = ranked.slice(0, MAX_VERSIONS);
+        const label = menu.length > 1;
+        const real = d.MediaSources.slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
+            ...ms, Id: encodeMsid(first.src.prefix, ms.Id), ItemId: String(id), Path: baseName(ms.Path),
+            ...(label ? { Name: [first.name, ms.Name].filter(Boolean).join(' · ') } : {}),
+        }));
+        out.MediaSources = [...real, ...menu.slice(1).map(c => stubSource(c, id, { RunTimeTicks: dto.RunTimeTicks }))];
     }
     out.CanDelete = false; out.CanDownload = false;
     return out;
@@ -238,41 +256,35 @@ async function itemDetail(env, ctx, request, url, s, sid, vid) {
     const sources = await visibleSources(env, s.scope, vid);
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
-    const versions = await liveVersions(env, ctx, row.type === 'Movie' ? await playableRanked(env, s, request, url, sources) : await rank(env, sources.slice(0, 1)));
-    return versions.length ? withLive(versions, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
+    const movie = row.type === 'Movie';
+    return detailWithMenu(env, s, dto, vid, movie ? await playableRanked(env, s, request, url, sources) : await rank(env, sources.slice(0, 1)), movie);
 }
 
-// 推出的集 Id 的详情：合并结果 + 各节点副本的实时详情。
+// 推出的集 Id 的详情：合并结果 + 第一个版本节点的实时详情。
 async function episodeDetail(env, ctx, request, url, s, sid, id) {
     const dto = await derivedDto(env, s.scope, id, sid);
     if (!dto || dto.Type !== 'Episode') return dto;
-    const versions = await liveVersions(env, ctx, await playableRanked(env, s, request, url, await copiesOf(env, s.scope, id)));
-    return versions.length ? withLive(versions, dto, id) : dto;
+    const out = await detailWithMenu(env, s, dto, id, await playableRanked(env, s, request, url, await copiesOf(env, s.scope, id)), true);
+    return out.MediaSources ? out : dto;
 }
 
-// PlaybackInfo 的媒体源里也列出版本菜单的其它节点：Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找；
-// 找不到就播第一个。其它节点这时不问 PlaybackInfo（用详情的缓存数据），只给直连地址（/n/…/ea-play/…）：
-// 真播它时才向那一个节点要 PlaybackInfo（见 playback.js 的 lazyStream），不能转码。
+// PlaybackInfo 的媒体源：问过的那个节点（真实数据）在前，版本菜单里的其它节点跟在后面，Id 与菜单相同：
+// Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找，找不到就播第一个。
+// 其它节点这时不问，只给直连地址（/n/…/ea-play/…）：真播它时才向那一个节点要 PlaybackInfo（见 playback.js 的 lazyStream），不能转码。
 async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     const r = await playbackInfo(env, request, url, s, id);
     if (!r.ok) return r;
     const data = await r.json();
-    if (!Array.isArray(data.MediaSources)) return json(data);
-    const have = new Set(data.MediaSources.map(m => String(m.Id).split('~')[0]));
+    if (!Array.isArray(data.MediaSources) || !data.MediaSources.length) return json(data);
+    const asked = String(data.MediaSources[0].Id).split('~')[0];
     const copies = decodeId(id) ? await copiesOf(env, s.scope, id) : await visibleSources(env, s.scope, id);
     if (copies.length > 1) {
-        for (const { c, d } of await liveVersions(env, ctx, await playableRanked(env, s, request, url, copies))) {
-            const ms = (d.MediaSources || [])[0];
-            if (!ms || c.bad || have.has(c.src.prefix)) continue;
-            const { DirectStreamUrl, TranscodingUrl, TranscodingSubProtocol, TranscodingContainer, Path, ...rest } = ms;
-
-            data.MediaSources.push({
-                ...rest, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id),
-                Name: [c.name, ms.Name].filter(Boolean).join(' · '),
-                SupportsTranscoding: false,
-                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/${encodeURIComponent(ms.Id)}/stream.${ms.Container || 'mkv'}?api_key=${s.token}`,
-                MediaStreams: (ms.MediaStreams || []).map(st => (st.DeliveryUrl ? { ...st, DeliveryUrl: nsUrl(c.src.prefix, st.DeliveryUrl) } : st)),
-            });
+        for (const c of (await playableRanked(env, s, request, url, copies)).slice(0, MAX_VERSIONS)) {
+            if (c.bad || c.src.prefix === asked) continue;
+            data.MediaSources.push(stubSource(c, id, {
+                RunTimeTicks: data.MediaSources[0].RunTimeTicks,
+                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/_/stream?api_key=${s.token}`,
+            }));
         }
     }
     return json(data);
@@ -294,7 +306,7 @@ async function image(env, ctx, request, s, vid, type, index, url) {
         const v = url.searchParams.get(k); if (v) q.set(k, v);
     }
     q.set('tag', src.image_tags[type]);
-    const r = route && await nodeRaw(env, route, `/Items/${encodeURIComponent(src.item_id)}/Images/${type}${index ? '/' + index : ''}?${q}`);
+    const r = route && await nodeRaw(env, route, `/Items/${encodeURIComponent(src.item_id)}/Images/${type}${index ? '/' + index : ''}?${q}`, s ? s.deviceId : '');
     if (!r) return empty(404);
     const headers = new Headers(CORS);
     headers.set('Content-Type', r.headers.get('content-type') || 'image/jpeg');
@@ -384,7 +396,10 @@ export async function handleAggRequest(request, env, ctx) {
     if (R.sysInfo.test(path)) return json({ ...publicInfo(env, url, sid), HasPendingRestart: false, IsShuttingDown: false, CanSelfRestart: false, CanSelfUpdate: false, HasUpdateAvailable: false, SupportsLibraryMonitor: false, WebSocketPortNumber: 0 });
     if (R.endpoint.test(path)) return json({ IsLocal: false, IsInNetwork: false });
     if (method === 'POST' && R.logout.test(path)) { await revokeToken(env, s.token); return empty(); }
-    if (method === 'POST' && R.capabilities.test(path)) return empty();
+    if (method === 'POST' && R.capabilities.test(path)) {
+        rememberCapabilities(s, request, url, path.replace(/^\/(?:emby|mediabrowser)(?=\/)/i, ''), await request.text().catch(() => ''));
+        return empty();
+    }
 
     // ── 播放 ──────────────────────────────────────────────
     if ((m = R.lazy.exec(path))) return lazyStream(env, request, url, s, decodeURIComponent(m[1]), decodeURIComponent(m[2]), decodeURIComponent(m[3]));
@@ -401,17 +416,22 @@ export async function handleAggRequest(request, env, ctx) {
     }
     if ((method === 'POST' || method === 'DELETE') && (m = R.userData.exec(path))) {
         const on = method === 'POST' && !m[3];
-        return userDataWrite(env, s, m[2], m[1].toLowerCase() === 'playeditems' ? { played: on } : { favorite: on });
+        return userDataWrite(env, ctx, s, m[2], m[1].toLowerCase() === 'playeditems' ? { played: on } : { favorite: on },
+            (sess, item) => ({ path: `/Users/${sess.userId}/${m[1]}/${item}${m[3] || ''}`, method }));
     }
     if (method === 'POST' && (m = R.hideFromResume.exec(path))) {
-        return userDataWrite(env, s, m[1], { resumeHidden: (param(url.searchParams, 'Hide') ?? 'true').toLowerCase() !== 'false' });
+        const hide = (param(url.searchParams, 'Hide') ?? 'true').toLowerCase() !== 'false';
+        return userDataWrite(env, ctx, s, m[1], { resumeHidden: hide },
+            (sess, item) => ({ path: `/Users/${sess.userId}/Items/${item}/HideFromResume?Hide=${hide}`, method: 'POST' }));
     }
     if (method === 'POST' && (m = R.itemUserData.exec(path))) {
         const b = await readBody(request); const flags = {};
         if (b.Played !== undefined) flags.played = !!b.Played;
         if (b.IsFavorite !== undefined) flags.favorite = !!b.IsFavorite;
         if (b.PlaybackPositionTicks !== undefined) flags.position = b.PlaybackPositionTicks;
-        return userDataWrite(env, s, m[1], flags);
+        const { ItemId, Key, ...fwd } = b; // 里面的 Id 是聚合端的
+        return userDataWrite(env, ctx, s, m[1], flags,
+            (sess, item) => ({ path: `/Users/${sess.userId}/Items/${item}/UserData`, method: 'POST', body: JSON.stringify(fwd) }));
     }
     if (method !== 'GET') return json({ message: 'Not supported by the aggregate server' }, 405);
 

@@ -1,11 +1,13 @@
-// 聚合 Worker 访问各节点的上游会话：每节点一个（身份照搬一台真实 viewer 设备，见 syncIdent），存 agg_sessions。
-// 登录复用生产的 loginUpstream（同一套凭据解析 + 日志里的真实非浏览器 UA），
-// 但会话存在自己的表里，不写生产的 viewer_device_sessions。
+// 聚合 Worker 访问各节点的上游会话。
+// - 同步会话：每节点一个（身份照搬一台真实 viewer 设备，见 syncIdent），存 agg_sessions；只用于后台同步与目录。
+// - 设备会话：viewer 设备自己的会话。优先用生产代理里该设备已有的会话（只读 viewer_device_sessions），
+//   节点上同一台设备就只有一个登录，和用代理时一样；没有才自己登录，存 agg_device_sessions（不写生产表）。
+// 登录复用生产的 loginUpstream（同一套凭据解析 + 日志里的真实非浏览器 UA）。
 import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 import { encryptToken, decryptToken } from '../emby/tokens.js';
 import { fetchEmbyJsonWithFallback } from '../emby/client.js';
 import { parseCustomHeadersForProbe, isBrowserUa } from '../emby/headers.js';
-import { loginUpstream, identityHeaders } from '../viewers/upstream.js';
+import { loginUpstream, identityHeaders, getDeviceSession } from '../viewers/upstream.js';
 import { orderUpstreamsByHealth, markUpstreamFailure, markUpstreamSuccess } from '../proxy/circuit-breaker.js';
 
 const MEM = new Map(); // prefix -> session（同步 / 详情 / 图片）
@@ -84,10 +86,20 @@ export async function knownIdent(env, deviceId) {
 // 播放用的设备会话：以客户端设备自己的身份（Client / Device / DeviceId / Version / UA）登录节点，
 // 与生产 viewer 网关一致——上游看到的是真实的那台设备。存 agg_device_sessions。
 // fixIdent：请求里没有客户端身份（取流请求常常只带令牌）时，登录前用它换成该设备的真实身份；换不到就不登录。
-export async function deviceSession(env, route, ident, fresh = false, fixIdent = null) {
+// failedToken：fresh 时刚被节点拒掉的令牌；聚合端表里已有另一份（别的 isolate 刚登录的）就用它，不再登录。
+export async function deviceSession(env, route, ident, fresh = false, fixIdent = null, failedToken = '') {
     const k = route.prefix + '\n' + ident.deviceId;
+    if (fresh && failedToken) {
+        const row = await dbFirst(env, `SELECT blob FROM agg_device_sessions WHERE prefix = ? AND device_id = ?`, route.prefix, ident.deviceId);
+        try {
+            const s = row && JSON.parse(await decryptToken(env, route.prefix, row.blob) || 'null');
+            if (s && s.token && s.userId && s.token !== failedToken) { DEV_MEM.set(k, s); return s; }
+        } catch (e) { }
+    }
     if (!fresh) {
         if (DEV_MEM.has(k)) return DEV_MEM.get(k);
+        const shared = await getDeviceSession(env, route.prefix, ident.deviceId).catch(() => null);
+        if (shared) { DEV_MEM.set(k, shared); return shared; }
         const row = await dbFirst(env, `SELECT blob FROM agg_device_sessions WHERE prefix = ? AND device_id = ?`, route.prefix, ident.deviceId);
         if (row) {
             try {
@@ -135,7 +147,24 @@ function headersFor(route, s) {
 
 // GET 节点 JSON。pathQuery 不带 /emby 前缀，可用 {uid} 占位上游用户 Id。
 // 返回 { data } / { error }。令牌失效时重新登录一次。
+// 浏览用：该设备在这个节点已有的会话（生产代理的或聚合端的），没有返回 null。只读，不为浏览去登录。
+export async function browseSession(env, route, deviceId) {
+    if (!deviceId) return null;
+    try { return await deviceSession(env, route, { deviceId }, false, async () => null).then(x => (x && x.token ? x : null)); } catch (e) { return null; }
+}
+
+// opts.deviceId：用该设备自己的会话发（和用代理浏览时节点看到的一样）；它在这个节点没有会话或被拒时用同步会话。
 export async function nodeJson(env, route, pathQuery, opts = {}) {
+    const dev = await browseSession(env, route, opts.deviceId);
+    if (dev) {
+        const pq = pathQuery.replace('{uid}', encodeURIComponent(dev.userId));
+        for (const base of bases(route)) {
+            const r = await fetchEmbyJsonWithFallback(base, ['/emby' + pq, pq],
+                { headers: headersFor(route, dev), timeoutMs: opts.timeoutMs || 15000, fetchImpl: opts.fetchImpl });
+            if (r && r.data !== undefined) return { data: r.data };
+            if (r && r.unauthorized) break;
+        }
+    }
     let s = await session(env, route);
     for (let attempt = 0; attempt < 2; attempt++) {
         if (s.error) return { error: s.error };
@@ -155,8 +184,8 @@ export async function nodeJson(env, route, pathQuery, opts = {}) {
 }
 
 // 原样取节点的二进制响应（图片）。
-export async function nodeRaw(env, route, pathQuery) {
-    const s = await session(env, route);
+export async function nodeRaw(env, route, pathQuery, deviceId = '') {
+    const s = (await browseSession(env, route, deviceId)) || await session(env, route);
     if (s.error) return null;
     for (const base of bases(route)) {
         try {

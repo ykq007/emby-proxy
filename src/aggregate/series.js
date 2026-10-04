@@ -43,7 +43,7 @@ function remember(map, k, items) {
 
 const INFLIGHT = new Map(); // 同一份节点数据的并发请求共用一次上游请求（一屏缩略图同时到达时）
 
-async function nodeList(env, route, kind, itemId) {
+async function nodeList(env, route, kind, itemId, deviceId = '') {
     const k = `${kind}|${route.prefix}|${itemId}`;
     const hit = MEM.get(k);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.items;
@@ -52,7 +52,7 @@ async function nodeList(env, route, kind, itemId) {
     const path = kind === 'seasons'
         ? `/Shows/${id}/Seasons?UserId={uid}&EnableUserData=false&Fields=PremiereDate,Overview`
         : `/Shows/${id}/Episodes?UserId={uid}&EnableUserData=false&Fields=Overview,PremiereDate,DateCreated&EnableImageTypes=Primary,Thumb&ImageTypeLimit=1`;
-    const p = nodeJson(env, route, path).then((r) => {
+    const p = nodeJson(env, route, path, { deviceId }).then((r) => {
         if (r.error) return null; // 失败不缓存，下次再试
         const items = (r.data && r.data.Items) || [];
         remember(MEM, k, items);
@@ -84,8 +84,8 @@ export async function loadSeries(env, scope, vid, { seasons = true } = {}) {
         const route = routes.get(c.prefix);
         if (!route) return null;
         const [eps, ss] = await Promise.all([
-            nodeList(env, route, 'episodes', c.item_id),
-            seasons ? nodeList(env, route, 'seasons', c.item_id) : null,
+            nodeList(env, route, 'episodes', c.item_id, scope.deviceId),
+            seasons ? nodeList(env, route, 'seasons', c.item_id, scope.deviceId) : null,
         ]);
         return { c, eps: eps || [], ss: ss || [] };
     }));
