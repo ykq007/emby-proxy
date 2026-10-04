@@ -305,6 +305,7 @@ test('progress feeds Continue Watching (one per series) and 90% stop marks playe
     const next2 = await (await call('/emby/Shows/NextUp', { token: a.token })).json();
     assert.deepEqual(next2.Items.map(i => i.Id), ['e3'], 'e2 is the most recent play');
 
+    await new Promise(r => setTimeout(r, 2)); // last_played 是毫秒；同一毫秒内 e1 与 e2 打平
     await call('/emby/Sessions/Playing/Progress', { method: 'POST', token: a.token, body: { ItemId: 'e1', PositionTicks: 350 } });
     const next3 = await (await call('/emby/Shows/NextUp', { token: a.token })).json();
     assert.deepEqual(next3.Items.map(i => i.Id), ['e1'], 'going back to e1 makes it Next Up, like Emby');
