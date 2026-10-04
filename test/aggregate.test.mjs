@@ -90,8 +90,8 @@ function fakeEmby(req) {
     }
     if (p === '/Users/UID/Items/Latest') return json(node.latest || []);
     if ((m = /^\/Users\/UID\/Items\/(\w+)$/.exec(p))) {
-        const it = Object.values(node.items).flat().find(x => x.Id === m[1]);
-        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: [{ Id: 'ms' }] }) : json({}, 404);
+        const it = [...Object.values(node.items).flat(), ...Object.values(node.shows || {}).flatMap(sh => sh.episodes)].find(x => x.Id === m[1]);
+        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: [{ Id: 'ms', Path: '/mnt/x.mkv', Container: 'mkv', DirectStreamUrl: '/Videos/x/stream?api_key=NODETOKEN' }] }) : json({}, 404);
     }
     if ((m = /^\/Items\/(\w+)\/Images\/Primary$/.exec(p))) return new Response(`IMG-${host}-${m[1]}-${q.get('tag')}`, { headers: { 'content-type': 'image/jpeg' } });
     if ((m = /^\/Items\/(\w+)\/PlaybackInfo$/.exec(p))) {
@@ -303,7 +303,8 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.equal(d.body.Id, String(vid));
     assert.equal(d.body.Overview, 'From a.example', 'nodeA sorts first');
     assert.deepEqual(d.body.People, [{ Name: 'Actor', Type: 'Actor' }]);
-    assert.equal(d.body.MediaSources, undefined);
+    // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
+    assert.deepEqual(d.body.MediaSources, [{ Id: String(vid), ItemId: String(vid), Container: 'mkv' }]);
     const bob = await viewer('bob', [['nodeB']]);
     assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body.Overview, 'From b.example');
 });
@@ -513,6 +514,7 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     // 详情与图片：推出的 Id 也能直接取。
     const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
     assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
+    assert.deepEqual(d.MediaSources, [{ Id: E(3, 1), ItemId: E(3, 1), Container: 'mkv' }]);
     assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
     // 一屏缩略图同时到达：共用一次上游请求。
     __resetSeriesForTest(); calls = [];

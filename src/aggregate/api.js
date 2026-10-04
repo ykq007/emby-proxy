@@ -181,25 +181,48 @@ async function userDataWrite(env, s, id, flags) {
     return json(applyUserData(userData(id), row));
 }
 
+// 副本在节点上的实时详情（同步账号取）；取不到返回 null。
+async function liveItem(env, src) {
+    const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
+    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`) : null;
+    return (live && live.data) || null;
+}
+
+// 详情里的媒体源：真 Emby 单条详情总带 MediaSources，SenPlayer 没有它就报「媒体库中不存在」。
+// Id 用作品自己的 Id（不带节点前缀），PlaybackInfo 照常挑节点、给其它版本；路径与节点流地址去掉。
+function detailSources(list, id) {
+    return (Array.isArray(list) ? list.slice(0, 1) : []).map(({ Path, DirectStreamUrl, TranscodingUrl, ...ms }) =>
+        ({ ...ms, Id: String(id), ItemId: String(id) }));
+}
+
 // 详情：目录行 + 第一个可见副本的实时详情（简介、演职员名、媒体流信息）。
-// 节点专属的 Id（人物、工作室、类型、媒体源）一律去掉，避免客户端拿着它们回来找不到。
+// 节点专属的 Id（人物、工作室、类型）一律去掉，避免客户端拿着它们回来找不到。
 async function itemDetail(env, s, sid, vid) {
     const row = await getItemRow(env, vid);
     if (!row) return null;
     const sources = await visibleSources(env, s.scope, vid);
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
-    const route = (await memberRoutes(env)).find(r => r.prefix === sources[0].prefix);
-    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(sources[0].item_id)}`) : null;
-    const d = live && live.data;
+    const d = await liveItem(env, sources[0]);
     if (d) {
         for (const k of ['Overview', 'Taglines', 'Tags', 'CriticRating', 'EndDate', 'Status', 'AirDays', 'AirTime', 'ProductionLocations', 'MediaStreams', 'Width', 'Height']) {
             if (d[k] !== undefined) dto[k] = d[k];
         }
         if (Array.isArray(d.People)) dto.People = d.People.map(p => ({ Name: p.Name, Role: p.Role, Type: p.Type }));
         if (Array.isArray(d.Studios)) dto.Studios = d.Studios.map(x => ({ Name: x.Name }));
+        if (row.type === 'Movie') dto.MediaSources = detailSources(d.MediaSources, vid);
     }
     dto.CanDelete = false; dto.CanDownload = false;
+    return dto;
+}
+
+// 推出的集 Id 的详情：合并结果 + 第一个副本的媒体源。
+async function episodeDetail(env, s, sid, id) {
+    const dto = await derivedDto(env, s.scope, id, sid);
+    if (!dto || dto.Type !== 'Episode') return dto;
+    const src = (await copiesOf(env, s.scope, id))[0];
+    const d = src && await liveItem(env, src);
+    if (d) { dto.MediaStreams = d.MediaStreams; dto.MediaSources = detailSources(d.MediaSources, id); }
     return dto;
 }
 
@@ -380,7 +403,7 @@ export async function handleAggRequest(request, env, ctx) {
     if ((m = R.item.exec(path))) {
         const lib = LIBS.find(l => l.id === m[1]);
         if (lib) return json(libDto(lib, sid));
-        const dto = decodeId(m[1]) ? await derivedDto(env, s.scope, m[1], sid) : await itemDetail(env, s, sid, m[1]);
+        const dto = decodeId(m[1]) ? await episodeDetail(env, s, sid, m[1]) : await itemDetail(env, s, sid, m[1]);
         return dto ? withWatch(env, s, dto) : json({ message: 'Not found' }, 404);
     }
     if (R.items.test(path)) return itemsResponse(env, s, sid, url.searchParams);
