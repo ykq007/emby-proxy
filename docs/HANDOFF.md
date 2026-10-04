@@ -34,3 +34,5 @@ account is over the free plan's cron limit (5 per account; production `emby` use
 - Episodes numbered 1000+ or seasons 999+ are not shown (derived ids, see `series.js`).
 - A series new to a node appears after the next hourly incremental sync.
 - Favorites / played filters list movies and series only, not episodes.
+- A title copy shows in the version menu only after its node has answered once for that title. The title page
+  waits 1.5 s per node; a slower node shows from the next visit (its answer is stored in `agg_media`).

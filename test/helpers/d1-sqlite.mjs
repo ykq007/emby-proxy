@@ -14,6 +14,7 @@ export function createD1Sqlite() {
             async first() { return db.prepare(sql).get(...binds) ?? null; },
             async all() { return { results: db.prepare(sql).all(...binds), success: true }; },
             async run() { const r = db.prepare(sql).run(...binds); return { success: true, meta: { changes: r.changes }, results: [] }; },
+            reads: /^\s*(select|with)\b/i.test(sql),
         };
         return stmt;
     };
@@ -24,7 +25,7 @@ export function createD1Sqlite() {
             db.exec('BEGIN');
             try {
                 const out = [];
-                for (const s of stmts) out.push(await s.run());
+                for (const s of stmts) out.push(s.reads ? await s.all() : await s.run()); // 真 D1 的 batch 给 SELECT 返回行
                 db.exec('COMMIT');
                 return out;
             } catch (e) { db.exec('ROLLBACK'); throw e; }

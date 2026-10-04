@@ -6,11 +6,12 @@ import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw, browseSession, nodeFetch } from './upstream.js';
-import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, loadFullMedia, saveFullMedia, FULL_MEDIA_MS, LIB_MOVIES, LIB_SERIES } from './catalog.js';
+import { queryItems, visibleSources, visibleSourcesMany, getItemRow, realSources, loadFullMedia, saveFullMedia, FULL_MEDIA_MS, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
+import { decodeId, encodeMsid, lazyUrl, parseNodeUrl } from './ids.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
-import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
+import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, MAX_VERSIONS } from './playback.js';
+import { loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
 const VERSION = '4.8.0.0';
@@ -178,7 +179,7 @@ async function itemsResponse(env, s, sid, searchParams) {
 // 观看状态写（PlayedItems / FavoriteItems / UserData / HideFromResume）：只写本地。
 // 观看状态写：本地为准；同时照代理那样转给一个节点（后台，不等结果）——该片的副本里，该设备已有会话的第一个节点。
 // 不为此登录；设备在这些节点都没有会话就不转。build(sess, 节点条目 Id) → { path, method, body }。
-async function userDataWrite(env, ctx, s, id, flags, build) {
+async function userDataWrite(env, ctx, request, s, id, flags, build) {
     const row = await setUserData(env, watchSession(s), id, flags, (x) => watchMeta(env, s.scope, x));
     if (build) {
         const p = (async () => {
@@ -186,7 +187,7 @@ async function userDataWrite(env, ctx, s, id, flags, build) {
                 const sess = await browseSession(env, c.route, s.deviceId);
                 if (!sess) continue;
                 const { path, method, body } = build(sess, encodeURIComponent(c.src.item_id));
-                const r = await nodeFetch(c.route, sess, path, { method, body, headers: body ? { 'Content-Type': 'application/json' } : {} });
+                const r = await nodeFetch(env, c.route, sess, path, { request, token: s.token, method, body, headers: body ? { 'Content-Type': 'application/json' } : {} });
                 r?.body?.cancel().catch(() => {});
                 return;
             }
@@ -214,56 +215,28 @@ export function __resetLiveForTest() { LIVE.clear(); }
 const baseName = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
 
 // 版本菜单（详情与 PlaybackInfo 共用）：每份副本的每个文件一项（同一节点的多个文件、多份副本都列），按节点排序，
-// 最多 MAX_VERSIONS 项；该设备起不了播的满节点不列。只向第一份副本的节点要实时详情；其它副本用存下的文件摘要
-// （c.src.media：目录同步 / 剧集列表带回，或电影第一次打开时补的）。版本 Id = `<前缀>~<该文件的媒体源 Id>`；
-// 还没有摘要的副本列一项 `<前缀>~`，播放时由节点自己挑文件。
+// 最多 MAX_VERSIONS 项；该设备起不了播的满节点不列。每一项都是节点原样的媒体源（c.src.sources：第一份副本的实时详情、
+// agg_media 里存的、剧集列表带回的），只改 Id / ItemId / 名字；还没问到媒体源的副本这次不列，绝不拿摘要拼一个。
+// 版本 Id = `<前缀>~<该文件的媒体源 Id>`。
 function menuEntries(ranked, firstList) {
     const out = [];
     ranked.forEach((c, i) => {
-        const list = i === 0 && firstList ? firstList : (c.src.media || []);
-        for (const m of (list.length ? list : [null])) out.push({ c, m });
+        for (const ms of (i === 0 && firstList ? firstList : (c.src.sources || []))) out.push({ c, ms });
     });
     return out.slice(0, MAX_VERSIONS);
 }
-const versionName = (e, ms, label) => (label ? [e.c.name, ms && ms.Name].filter(Boolean).join(' · ') : (ms && ms.Name) || e.c.name);
+const versionName = (e, label) => (label ? [e.c.name, e.ms.Name].filter(Boolean).join(' · ') : e.ms.Name || e.c.name);
+// 节点的媒体源 → 菜单里的版本：节点上的目录路径只留文件名。
+const versionSource = (e, id, label) =>
+    ({ ...e.ms, Id: encodeMsid(e.c.src.prefix, e.ms.Id), ItemId: String(id), Path: baseName(e.ms.Path), ...(label ? { Name: versionName(e, true) } : {}) });
 
-// 菜单项里没问过节点的文件（只有摘要）：补齐真 Emby 媒体源 / 媒体流总会有的字段（中性默认值）。
-// Hills 解析 PlaybackInfo 很严格：列表里任何一项缺字段，整份都读不了，连第一个版本也播不了。
-function fullStream(st, i) {
-    const video = st.Type === 'Video';
-    const res = (h) => (h >= 2000 ? '4K' : h ? `${h}p` : '');
-    return {
-        Index: i, IsExternal: false, IsTextSubtitleStream: false, SupportsExternalStream: false, IsDefault: false,
-        IsForced: false, IsHearingImpaired: false, IsInterlaced: false, Protocol: 'File', AttachmentSize: 0, TimeBase: '1/1000',
-        ...(video ? { ExtendedVideoType: 'None', ExtendedVideoSubType: 'None', ExtendedVideoSubTypeDescription: 'None', VideoRange: 'SDR' } : {}),
-        DisplayTitle: video ? [res(st.Height), String(st.Codec || '').toUpperCase()].filter(Boolean).join(' ') : String(st.Codec || '').toUpperCase(),
-        ...st,
-    };
-}
-function stubSource(e, id, label, extra = {}) {
-    const c = e.c; const m = e.m || {};
-    const streams = (m.MediaStreams || []).map((st, i) => fullStream(st, st.Index ?? i));
-    const audio = streams.find(x => x.Type === 'Audio' && x.IsDefault) || streams.find(x => x.Type === 'Audio');
-    return {
-        Protocol: 'File', Id: encodeMsid(c.src.prefix, m.Id || ''), Type: 'Default', IsRemote: false,
-        ...(m.Container ? { Container: m.Container } : {}), ...(m.Size ? { Size: m.Size } : {}), ...(m.Bitrate ? { Bitrate: m.Bitrate } : {}),
-        Name: versionName(e, m, label), HasMixedProtocols: false,
-        SupportsTranscoding: false, SupportsDirectStream: true, SupportsDirectPlay: true, IsInfiniteStream: false,
-        RequiresOpening: false, RequiresClosing: false, RequiresLooping: false, SupportsProbing: true,
-        MediaStreams: streams, Formats: [], RequiredHttpHeaders: {}, AddApiKeyToDirectStreamUrl: false, ReadAtNativeFramerate: false,
-        DefaultAudioStreamIndex: audio ? audio.Index : 0,
-        ItemId: String(id), RunTimeTicks: m.RunTimeTicks || 0,
-        ...Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== null)),
-    };
-}
-
-// 菜单里各副本的全部文件（c.src.media）：先用 agg_media 里存的；没有的（或存得太久的）向节点问一次详情
+// 菜单里各副本的全部文件：先用 agg_media 里存的；没有的（或存得太久的）向节点问一次详情
 // （各等至多 MEDIA_WAIT_MS），存下来，这份副本以后不再问。迟到的答复也在后台存下。first：第一份副本已取到的详情。
-// 节点的列表接口只给默认文件，所以同步 / 剧集列表带回的摘要只当没问到之前的占位。
+// 节点的列表接口只给默认文件，所以剧集列表带回的媒体源只当没问到详情之前的那一个。
 const MEDIA_WAIT_MS = 1500;
 async function useFullMedia(env, copies) {
     const stored = await loadFullMedia(env, copies.map(c => c.src));
-    for (const c of copies) { const h = stored.get(c.src.prefix + '|' + c.src.item_id); if (h) c.src.media = h.media; }
+    for (const c of copies) { const h = stored.get(c.src.prefix + '|' + c.src.item_id); if (h && h.sources.length) c.src.sources = h.sources; }
     return stored;
 }
 async function fillMedia(env, ctx, s, copies, first) {
@@ -274,8 +247,8 @@ async function fillMedia(env, ctx, s, copies, first) {
         const h = stored.get(c.src.prefix + '|' + c.src.item_id);
         if (h && now - h.at < FULL_MEDIA_MS) return null;
         const p = (i === 0 && first ? Promise.resolve(first) : liveItem(env, c.src, s.deviceId)).then(async (d) => {
-            const media = d ? mediaList(d) : [];
-            if (media.length) { c.src.media = media; await saveFullMedia(env, c.src.prefix, c.src.item_id, media); }
+            const sources = realSources(d);
+            if (sources.length) { c.src.sources = sources; await saveFullMedia(env, c.src.prefix, c.src.item_id, sources); }
         }).catch(() => {});
         if (ctx && ctx.waitUntil) ctx.waitUntil(p);
         return h ? null : Promise.race([p, late()]); // 有旧的就先用旧的，后台更新
@@ -296,16 +269,9 @@ async function detailWithMenu(env, ctx, s, dto, id, ranked, playable) {
     out.Path = d.FileName || baseName(d.Path);
     if (Array.isArray(d.People)) out.People = d.People.map(({ PrimaryImageTag, ...p }) => p);
     if (playable && Array.isArray(d.MediaSources)) {
-        const live = d.MediaSources;
-        const entries = menuEntries(ranked, live.map(ms => ({ Id: ms.Id, live: ms })));
+        const entries = menuEntries(ranked, realSources(d));
         const label = entries.length > 1;
-        out.MediaSources = entries.map((e) => {
-            if (e.m && e.m.live) {
-                const { DirectStreamUrl, TranscodingUrl, ...ms } = e.m.live;
-                return { ...ms, Id: encodeMsid(e.c.src.prefix, ms.Id), ItemId: String(id), Path: baseName(ms.Path), ...(label ? { Name: versionName(e, ms, true) } : {}) };
-            }
-            return stubSource(e, id, label, { RunTimeTicks: dto.RunTimeTicks });
-        });
+        out.MediaSources = entries.map(e => versionSource(e, id, label));
     }
     out.CanDelete = false; out.CanDownload = false;
     return out;
@@ -329,31 +295,26 @@ async function episodeDetail(env, ctx, request, url, s, sid, id) {
     return out.MediaSources ? out : dto;
 }
 
-// PlaybackInfo 的媒体源：问过的那个节点（真实数据）在前，版本菜单里的其它文件跟在后面，Id 与菜单相同：
+// PlaybackInfo 的媒体源：问过的那个节点（它这次的回答）在前，版本菜单里的其它文件跟在后面，Id 与菜单相同：
 // Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找，找不到就播第一个。
-// 其它文件这时不问节点，只给直连地址（/n/…/ea-play/<条目>/<媒体源>/…）：真播它时才向那一个节点要 PlaybackInfo
-// （见 playback.js 的 lazyStream），不能转码。
+// 其它文件是各节点原样的媒体源，这时不问节点，只给直连地址（/n/…/ea-play/<条目>/<媒体源>/…）：
+// 真播它时才向那一个节点要 PlaybackInfo（见 playback.js 的 lazyStream），不能转码。
 async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     const r = await playbackInfo(env, request, url, s, id);
     if (!r.ok) return r;
     const data = await r.json();
     if (!Array.isArray(data.MediaSources) || !data.MediaSources.length) return json(data);
     const have = new Set(data.MediaSources.map(m => String(m.Id)));
-    const asked = String(data.MediaSources[0].Id).split('~')[0];
     const copies = decodeId(id) ? await copiesOf(env, s.scope, id) : await visibleSources(env, s.scope, id);
     const ranked = (await playableRanked(env, s, request, url, copies)).filter(c => !c.bad);
     await useFullMedia(env, ranked);
     const entries = menuEntries(ranked);
     if (entries.length > 1) {
         for (const e of entries) {
-            const { c, m } = e;
-            const vid = encodeMsid(c.src.prefix, (m && m.Id) || '');
-            if (have.has(vid) || (!m && c.src.prefix === asked)) continue;
-            have.add(vid);
-            data.MediaSources.push(stubSource(e, id, true, {
-                RunTimeTicks: data.MediaSources[0].RunTimeTicks,
-                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/${m && m.Id ? encodeURIComponent(m.Id) : '_'}/stream?api_key=${s.token}`,
-            }));
+            const { Path, ...v } = versionSource(e, id, true); // 与问过的那个节点的版本一样，不带 Path
+            if (have.has(v.Id)) continue;
+            have.add(v.Id);
+            data.MediaSources.push({ ...v, SupportsTranscoding: false, SupportsDirectStream: true, DirectStreamUrl: lazyUrl(e.c.src.prefix, e.c.src.item_id, e.ms.Id, s.token) });
         }
     }
     return json(data);
@@ -403,8 +364,6 @@ const R = {
     playPing: re('Sessions\\/Playing\\/Ping'),
     activeEncodings: re('Videos\\/ActiveEncodings'),
     stream: new RegExp(E + 'Videos\\/(\\d+)\\/(.+)$', 'i'),
-    lazy: new RegExp(E + 'n\\/([^/]+)\\/ea-play\\/([^/]+)\\/([^/]+)\\/[^/]+$', 'i'),
-    ns: new RegExp(E + 'n\\/([^/]+)(\\/.*)$', 'i'), // 客户端常在节点流地址前加 /emby（如 Hills）
     displayPrefs: re('DisplayPreferences\\/[^/]+'),
     user: re('Users\\/([^/]+)'),
     views: re('(?:Users\\/[^/]+\\/Views|Library\\/MediaFolders|Library\\/VirtualFolders)'),
@@ -471,8 +430,8 @@ export async function handleAggRequest(request, env, ctx) {
     }
 
     // ── 播放 ──────────────────────────────────────────────
-    if ((m = R.lazy.exec(path))) return lazyStream(env, request, url, s, decodeURIComponent(m[1]), decodeURIComponent(m[2]), decodeURIComponent(m[3]));
-    if ((m = R.ns.exec(path))) return namespaced(env, request, url, s, decodeURIComponent(m[1]), m[2]);
+    const node = parseNodeUrl(path);
+    if (node) return node.lazy ? lazyStream(env, request, url, s, node.prefix, node.lazy.itemId, node.lazy.msid) : namespaced(env, request, url, s, node.prefix, node.rest);
     if ((m = R.playbackInfo.exec(path)) && (method === 'GET' || method === 'POST')) return playbackInfoWithVersions(env, ctx, request, url, s, m[1]);
     if (method === 'POST' && R.playPing.test(path)) return byPlaySession(env, request, url, s, '/Sessions/Playing/Ping');
     if (method === 'POST' && (m = R.playing.exec(path))) return playing(env, request, url, s, (m[1] || 'playing').toLowerCase());
@@ -485,12 +444,12 @@ export async function handleAggRequest(request, env, ctx) {
     }
     if ((method === 'POST' || method === 'DELETE') && (m = R.userData.exec(path))) {
         const on = method === 'POST' && !m[3];
-        return userDataWrite(env, ctx, s, m[2], m[1].toLowerCase() === 'playeditems' ? { played: on } : { favorite: on },
+        return userDataWrite(env, ctx, request, s, m[2], m[1].toLowerCase() === 'playeditems' ? { played: on } : { favorite: on },
             (sess, item) => ({ path: `/Users/${sess.userId}/${m[1]}/${item}${m[3] || ''}`, method }));
     }
     if (method === 'POST' && (m = R.hideFromResume.exec(path))) {
         const hide = (param(url.searchParams, 'Hide') ?? 'true').toLowerCase() !== 'false';
-        return userDataWrite(env, ctx, s, m[1], { resumeHidden: hide },
+        return userDataWrite(env, ctx, request, s, m[1], { resumeHidden: hide },
             (sess, item) => ({ path: `/Users/${sess.userId}/Items/${item}/HideFromResume?Hide=${hide}`, method: 'POST' }));
     }
     if (method === 'POST' && (m = R.itemUserData.exec(path))) {
@@ -499,7 +458,7 @@ export async function handleAggRequest(request, env, ctx) {
         if (b.IsFavorite !== undefined) flags.favorite = !!b.IsFavorite;
         if (b.PlaybackPositionTicks !== undefined) flags.position = b.PlaybackPositionTicks;
         const { ItemId, Key, ...fwd } = b; // 里面的 Id 是聚合端的
-        return userDataWrite(env, ctx, s, m[1], flags,
+        return userDataWrite(env, ctx, request, s, m[1], flags,
             (sess, item) => ({ path: `/Users/${sess.userId}/Items/${item}/UserData`, method: 'POST', body: JSON.stringify(fwd) }));
     }
     if (method !== 'GET') return json({ message: 'Not supported by the aggregate server' }, 405);

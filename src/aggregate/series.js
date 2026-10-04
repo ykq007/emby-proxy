@@ -1,17 +1,13 @@
 // 阶段 3：剧集的季 / 集。目录（D1）只存到「剧集」一级；季和集在用到时从每个有副本的节点实时取，
 // 按季号 / 集号合并（A 有 S1–S3、B 有 S4 → viewer 看到 S1–S4），一行不写 D1。
-// Id 由编号推出，不存表（vid 从 1001 起，推出的 Id 都 ≥ 1e9，与目录 vid 不重叠）：
-//   集 = vid * 1e6 + 季 * 1000 + 集号（季 0–998，集 0–999；超出范围的集不收录）
-//   季 = vid * 1e6 + 999000 + 季
+// 季 / 集的 Id 由编号推出，不存表（规则见 ids.js）。
 // 节点数据按 (节点, 节点上的剧集 Id) 在 isolate 内存里缓存 CACHE_MS；每部剧最多取 MAX_COPIES 个节点，
 // 守住每次请求的外部子请求上限（Workers Paid 1000；免费版 50，用免费版时把 MAX_COPIES 调回 3）。
 import { dbAll } from '../db/helpers.js';
 import { memberRoutes, nodeJson } from './upstream.js';
-import { visibleSources, getItemRow, mediaList } from './catalog.js';
+import { visibleSources, getItemRow, mediaList, realSources } from './catalog.js';
+import { decodeId, seasonId, episodeId, okSeason, okEpisode } from './ids.js';
 
-const M = 1e6;
-const SEASON_BASE = 999000;
-const DERIVED_MIN = 1e9;
 export const CACHE_MS = 5 * 60 * 1000;
 export const LATEST_CACHE_MS = 10 * 60 * 1000;
 export const MAX_COPIES = 20;
@@ -23,17 +19,6 @@ const LATEST = new Map(); // prefix -> { at, items }
 
 export function __resetSeriesForTest() { MEM.clear(); LATEST.clear(); INFLIGHT.clear(); }
 
-export function decodeId(id) {
-    const n = Number(id);
-    if (!/^\d+$/.test(String(id)) || !Number.isSafeInteger(n) || n < DERIVED_MIN) return null;
-    const vid = Math.floor(n / M), r = n % M;
-    if (r >= SEASON_BASE) return { vid, season: r - SEASON_BASE };
-    return { vid, season: Math.floor(r / 1000), episode: r % 1000 };
-}
-export const seasonId = (vid, s) => String(Number(vid) * M + SEASON_BASE + s);
-export const episodeId = (vid, s, e) => String(Number(vid) * M + s * 1000 + e);
-const okSeason = (s) => Number.isInteger(s) && s >= 0 && s < 999;
-const okEpisode = (e) => Number.isInteger(e) && e >= 0 && e < 1000;
 const num = (v) => (v === null || v === undefined || v === '' ? NaN : Number(v));
 
 function remember(map, k, items) {
@@ -68,7 +53,7 @@ function addCopy(map, key, it, prefix, itemId) {
     let e = map.get(key);
     if (!e) { e = { item: it, copies: [] }; map.set(key, e); }
     if (!e.copies.length && itemId) e.item = it; // 由单集推出的占位季，换成节点上真实的季
-    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it), media: mediaList(it) });
+    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it), media: mediaList(it), sources: realSources(it) });
     return e;
 }
 

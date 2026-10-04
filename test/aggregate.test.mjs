@@ -15,6 +15,8 @@ import { __resetSeriesForTest, CACHE_MS } from '../src/aggregate/series.js';
 import { __resetLiveForTest } from '../src/aggregate/api.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
 import { runSync } from '../src/aggregate/sync.js';
+import { __resetConfigCache } from '../src/proxy/config-cache.js';
+import { decodeId, seasonId, episodeId, encodeMsid, decodeMsid, nodeUrl, lazyUrl, parseNodeUrl } from '../src/aggregate/ids.js';
 import worker from '../src/aggregate/index.js';
 import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 
@@ -65,16 +67,21 @@ const listed = (it) => (it.MediaSources ? { ...it, MediaSources: it.MediaSources
 function fakeEmby(req, body) {
     const u = new URL(req.url);
     const host = u.host; const node = nodes[host];
+    if (host === 'cdn.example') { // 节点 3xx 去的外部存储
+        calls.push({ host, path: u.pathname, query: Object.fromEntries(u.searchParams), auth: req.headers.get('X-Emby-Authorization'), token: req.headers.get('X-Emby-Token') });
+        return new Response(`CDN-${u.pathname}`, { headers: { 'content-type': 'video/x-matroska' } });
+    }
     if (node.down) throw new TypeError('network down');
     const p = u.pathname.replace(/^\/emby/, '');
     const q = u.searchParams;
-    calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range'), body });
+    calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range'), key: req.headers.get('X-Node-Key'), body });
     const json = (d, status = 200) => Response.json(d, { status });
     if (p === '/Users/AuthenticateByName') {
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
         return json({ AccessToken: `TOK-${host}-${devOf(req, u)}`, User: { Id: 'UID' }, ServerId: 'S-' + host });
     }
-    const tok = req.headers.get('X-Emby-Token') || q.get('api_key') || '';
+    // 真 Emby 也认授权头里的 Token=（客户端多半这样带，聚合端照原样转发）。
+    const tok = req.headers.get('X-Emby-Token') || q.get('api_key') || (/Token="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || '') || [])[1] || '';
     if (!tok.startsWith(`TOK-${host}-`) || node.revoked?.has(tok)) return json({}, 401);
     if (devOf(req, u) && tok !== `TOK-${host}-${devOf(req, u)}`) return json({ ErrorCode: 'invalid_token' }, 401);
     if (p === '/Users/UID/Views') return json({ Items: node.libs.map(l => ({ ...l, Type: 'CollectionFolder' })) });
@@ -96,7 +103,7 @@ function fakeEmby(req, body) {
     if (p === '/Users/UID/Items/Latest') return json(node.latest || []);
     if ((m = /^\/Users\/UID\/Items\/(\w+)$/.exec(p))) {
         const it = [...Object.values(node.items).flat(), ...Object.values(node.shows || {}).flatMap(sh => sh.episodes)].find(x => x.Id === m[1]);
-        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: it.MediaSources || [{ Id: 'ms', Path: '/mnt/x.mkv', Container: 'mkv', DirectStreamUrl: '/Videos/x/stream?api_key=NODETOKEN' }] }) : json({}, 404);
+        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: it.MediaSources || [{ Id: `ms-${it.Id}`, Path: '/mnt/x.mkv', Container: 'mkv', DirectStreamUrl: '/Videos/x/stream?api_key=NODETOKEN' }] }) : json({}, 404);
     }
     if ((m = /^\/Items\/(\w+)\/Images\/Primary$/.exec(p))) return new Response(`IMG-${host}-${m[1]}-${q.get('tag')}`, { headers: { 'content-type': 'image/jpeg' } });
     if ((m = /^\/Items\/(\w+)\/PlaybackInfo$/.exec(p))) {
@@ -105,13 +112,15 @@ function fakeEmby(req, body) {
             PlaySessionId: `PS-${host}`,
             MediaSources: [{
                 Id: ms, ItemId: id, Name: '1080p', Path: `/mnt/media/${id}.mkv`, Container: 'mkv',
-                DirectStreamUrl: `/videos/${id}/stream.mkv?Static=true&MediaSourceId=${ms}&api_key=${tok}`,
+                DirectStreamUrl: `${node.absUrls ? 'https://' + host + '/emby' : ''}/videos/${id}/stream.mkv?Static=true&MediaSourceId=${ms}&api_key=${tok}`,
                 TranscodingUrl: `/emby/videos/${id}/master.m3u8?MediaSourceId=${ms}&PlaySessionId=PS-${host}&api_key=${tok}`,
                 MediaStreams: [{ Type: 'Subtitle', Index: 2, DeliveryUrl: `/Videos/${id}/${ms}/Subtitles/2/Stream.srt?api_key=${tok}` }],
             }],
         });
     }
     if ((m = /^\/videos\/(\w+)\/(.+)$/i.exec(p))) {
+        if (m[2].startsWith('rel')) return new Response(null, { status: 302, headers: { Location: `/emby/videos/${m[1]}/stream.mkv?api_key=${tok}` } });
+        if (m[2].startsWith('cdn')) return new Response(null, { status: 302, headers: { Location: `https://cdn.example/f/${m[1]}?sig=1` } });
         if (m[2].endsWith('.m3u8')) return new Response(`#EXTM3U\nmain.m3u8?MediaSourceId=${q.get('MediaSourceId')}&PlaySessionId=PS-${host}&api_key=${tok}\n`, { headers: { 'content-type': 'application/vnd.apple.mpegurl' } });
         return new Response(`VIDEO-${host}-${m[1]}-${m[2]}`, { status: req.headers.get('Range') ? 206 : 200, headers: { 'content-type': 'video/x-matroska' } });
     }
@@ -120,7 +129,7 @@ function fakeEmby(req, body) {
 }
 
 beforeEach(async () => {
-    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); __resetLiveForTest(); __resetUpstreamMemForTest(); UPSTREAM_CB.clear(); clearResolveCache();
+    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); __resetLiveForTest(); __resetUpstreamMemForTest(); UPSTREAM_CB.clear(); clearResolveCache(); __resetConfigCache();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret', AGG_PAGE_DELAY_MS: '0' };
     await ensureSchema(env);
     await ensureAggSchema(env);
@@ -157,7 +166,7 @@ async function call(path, { method = 'GET', token, body, device = 'dev1', range,
     const later = []; // ctx.waitUntil 的后台任务：等它们做完再断言（真实运行时也会做完）
     const r = await worker.fetch(new Request(ORIGIN + path, { method, headers, body: body ? JSON.stringify(body) : undefined }), env, { waitUntil(p) { later.push(p); } });
     const ct = r.headers.get('content-type') || '';
-    const out = { status: r.status, body: /json/.test(ct) ? await r.json() : await r.text() };
+    const out = { status: r.status, location: r.headers.get('Location'), body: /json/.test(ct) ? await r.json() : await r.text() };
     await Promise.allSettled(later);
     return out;
 }
@@ -357,8 +366,8 @@ test('item detail comes from the first visible copy with node-specific ids strip
     // 版本菜单来自详情：每个文件一项，Id 是 `<前缀>~<媒体源 Id>`。
     // nodeB 的文件摘要同步时没有：第一次打开问它一次并存下，以后不再问（和用代理一样，不每次都打扰）。
     const menu = d.body.MediaSources;
-    assert.deepEqual(menu[0], { Id: 'nodeA~ms', ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: '节点A' });
-    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~ms', 'nodeB', 'mkv', String(vid)]);
+    assert.deepEqual(menu[0], { Id: 'nodeA~ms-a1', ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: '节点A' });
+    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~ms-b1', 'nodeB', 'mkv', String(vid)]);
     assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1);
     assert.equal(JSON.parse(rows(`SELECT media FROM agg_media WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media)[0].Container, 'mkv');
     __resetLiveForTest(); calls = [];
@@ -368,7 +377,7 @@ test('item detail comes from the first visible copy with node-specific ids strip
     const bob = await viewer('bob', [['nodeB']]);
     const b = (await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body;
     assert.equal(b.Overview, 'From b.example');
-    assert.deepEqual(b.MediaSources.map(m => [m.Id, m.Name]), [['nodeB~ms', undefined]], 'one version: no label');
+    assert.deepEqual(b.MediaSources.map(m => [m.Id, m.Name]), [['nodeB~ms-b1', undefined]], 'one version: no label');
 });
 
 test('version menu hides nodes that are full for this device; when every node is full it still lists them', async () => {
@@ -379,9 +388,9 @@ test('version menu hides nodes that are full for this device; when every node is
     const busy = (prefix) => env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', ?, 'tv', 'x', ?)`).run(prefix, Date.now());
     const menu = async () => (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources.map(m => m.Id);
     busy('nodeA');
-    assert.deepEqual(await menu(), ['nodeB~ms'], 'nodeA is full: not offered');
+    assert.deepEqual(await menu(), ['nodeB~ms-b1'], 'nodeA is full: not offered');
     busy('nodeB');
-    assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~ms'], 'all full: list stays, play answers 429');
+    assert.deepEqual(await menu(), ['nodeA~ms-a1', 'nodeB~ms-b1'], 'all full: list stays, play answers 429');
 });
 
 test('the menu lists every file of each copy: lists give only the default file, so each copy is asked once for its detail, then never again', async () => {
@@ -396,24 +405,18 @@ test('the menu lists every file of each copy: lists give only the default file, 
     calls = [];
     const ms = (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources;
     assert.deepEqual(ms.slice(1).map(m => [m.Id, m.Name, m.Size]), [['nodeB~x4k', 'nodeB · 2160p', 2e9], ['nodeB~xhd', 'nodeB · 1080p', 9e8]]);
-    assert.deepEqual(ms[1].MediaStreams.map(x => [x.Type, x.Codec, x.Height]), [['Video', 'hevc', 2160], ['Audio', 'aac', undefined]]);
-    // 只有摘要的版本也要有真 Emby 媒体源 / 媒体流总有的字段：Hills 遇到缺字段的一项，整份 PlaybackInfo 都读不了。
+    // 每个版本都是节点原样的媒体源，只改 Id / 名字 / ItemId（绝不拿摘要拼：Hills 遇到缺字段的一项，整份 PlaybackInfo 都读不了）。
+    // 节点上的路径不外泄（媒体流的 Path 去掉）。
+    const own = ({ Id, Name, ItemId, Path, ...rest }) => rest;
+    const real = files(2160).map(f => ({ ...own(f), MediaStreams: f.MediaStreams.map(({ Path, ...st }) => st) }));
+    assert.deepEqual(ms.slice(1).map(own), real);
     const r = await pbi(vid, token);
-    const stub = r.body.MediaSources.find(m => m.Id === 'nodeB~x4k');
-    for (const k of ['Protocol', 'Id', 'Type', 'Container', 'Size', 'Name', 'IsRemote', 'HasMixedProtocols', 'RunTimeTicks', 'SupportsTranscoding',
-        'SupportsDirectStream', 'SupportsDirectPlay', 'IsInfiniteStream', 'RequiresOpening', 'RequiresClosing', 'RequiresLooping', 'SupportsProbing',
-        'MediaStreams', 'Formats', 'Bitrate', 'RequiredHttpHeaders', 'AddApiKeyToDirectStreamUrl', 'ReadAtNativeFramerate', 'DefaultAudioStreamIndex', 'ItemId', 'DirectStreamUrl']) {
-        assert.ok(k in stub, 'source field ' + k);
-    }
-    for (const st of stub.MediaStreams) {
-        for (const k of ['Index', 'Type', 'Codec', 'IsExternal', 'IsTextSubtitleStream', 'SupportsExternalStream', 'IsDefault', 'IsForced', 'IsInterlaced', 'Protocol', 'DisplayTitle']) {
-            assert.ok(k in st, `${st.Type} stream field ${k}`);
-        }
-    }
-    assert.equal(stub.MediaStreams[0].DisplayTitle, '4K HEVC');
-    assert.equal(stub.DefaultAudioStreamIndex, 1);
+    const v = r.body.MediaSources.find(m => m.Id === 'nodeB~x4k');
+    const { DirectStreamUrl, SupportsTranscoding, SupportsDirectStream, ...asListed } = v;
+    assert.deepEqual(own(asListed), real[0], 'PlaybackInfo carries the same real source');
+    assert.equal(DirectStreamUrl, `/n/nodeB/ea-play/b1/x4k/stream?api_key=${token}`);
     env.DB.db.exec(`DELETE FROM playback_slots`);
-    assert.ok(!JSON.stringify(ms).includes('/secret'), 'only the summary is kept');
+    assert.ok(!JSON.stringify(ms).includes('/secret'), 'node paths are not passed on');
     assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1, 'asked once');
     __resetLiveForTest(); calls = [];
     assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources.length, 3);
@@ -474,13 +477,18 @@ const slots = () => rows(`SELECT prefix, device_id FROM playback_slots ORDER BY 
 
 test('PlaybackInfo asks only the best node (versions are offered on the title page), routed through the aggregate server; node tokens and paths never leak', async () => {
     const { token, vid } = await playable();
+    // 版本菜单还没问到 nodeB 的媒体源：不列它（绝不拼一个假的）。打开作品页问到之后才列。
+    assert.deepEqual((await pbi(vid, token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a1']);
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: String(vid), MediaSourceId: 'nodeA~ms-a1', PositionTicks: 0 } });
+    await call(`/emby/Users/x/Items/${vid}`, { token });
+    calls = [];
     const r = await pbi(vid, token);
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const ms = r.body.MediaSources;
     // 第一个是问过的节点；其它节点按版本菜单附在后面（Hills 在这份列表里按 Id 找选中的版本），不问它们的 PlaybackInfo。
-    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~']);
+    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~ms-b1']);
     assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p', 'nodeB'], 'labelled by node name');
-    assert.equal(ms[1].DirectStreamUrl, `/n/nodeB/ea-play/b1/_/stream?api_key=${token}`);
+    assert.equal(ms[1].DirectStreamUrl, `/n/nodeB/ea-play/b1/ms-b1/stream?api_key=${token}`);
     assert.equal(ms[1].SupportsTranscoding, false);
     assert.equal(ms[1].TranscodingUrl, undefined);
     assert.ok(ms.every(m => m.ItemId === String(vid) && m.Path === undefined));
@@ -500,17 +508,20 @@ test('PlaybackInfo asks only the best node (versions are offered on the title pa
     const b = await call(ms[1].DirectStreamUrl, { bare: true, range: 'bytes=0-' });
     assert.equal(b.status, 206, String(b.body));
     const pi = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
-    assert.deepEqual(pi.map(c => [c.host, c.query.MediaSourceId, JSON.parse(c.body).DeviceProfile.Name]), [['b.example', undefined, 'Hills']], 'the node picks its own file');
-    assert.ok(calls.filter(c => c.host === 'b.example').every(c => /Client="Hills"/.test(c.auth || '')), 'the device\'s real identity, never "Emby"');
+    assert.deepEqual(pi.map(c => [c.host, c.query.MediaSourceId, JSON.parse(c.body).DeviceProfile.Name]), [['b.example', 'ms-b1', 'Hills']], 'asks for that file');
+    // 只带令牌的取流照客户端原样转发（和生产代理一样）；登录与聚合端自己发的请求用该设备的真实身份，绝不是 "Emby"。
+    assert.ok(calls.filter(c => c.host === 'b.example' && c.auth).every(c => /Client="Hills"/.test(c.auth)), 'the device\'s real identity, never "Emby"');
+    assert.ok(calls.some(c => c.host === 'b.example' && c.path === '/Users/AuthenticateByName'), 'logs in to nodeB as that device');
+    assert.equal(calls.find(c => /^\/videos\//i.test(c.path)).auth, null, 'the stream goes as the client sent it: token only');
     assert.deepEqual(calls.filter(c => c.path.toLowerCase().startsWith('/videos/')).map(c => [c.host, c.path, c.query.MediaSourceId, c.query.api_key]),
         [['b.example', '/videos/b1/stream.mkv', 'ms-b1', 'TOK-b.example-dev1']], 'the node\'s own direct-stream URL');
     assert.ok(slots().some(x => x.prefix === 'nodeB' && x.device_id === 'dev1'));
     calls = [];
     await call(ms[1].DirectStreamUrl, { bare: true, range: 'bytes=100-' });
     assert.equal(calls.filter(c => c.path.endsWith('/PlaybackInfo')).length, 0, 'remembered');
-    // 进度回报带的是菜单 Id（nodeB~）和 nodeA 的 PlaySessionId：发给 nodeB 前换成 nodeB 自己给的。
+    // 进度回报带的是菜单 Id 和 nodeA 的 PlaySessionId：发给 nodeB 前换成 nodeB 自己给的。
     calls = [];
-    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token, body: { ItemId: String(vid), MediaSourceId: 'nodeB~', PlaySessionId: 'PS-a.example', PositionTicks: 5 } });
+    await call('/emby/Sessions/Playing/Progress', { method: 'POST', token, body: { ItemId: String(vid), MediaSourceId: 'nodeB~ms-b1', PlaySessionId: 'PS-a.example', PositionTicks: 5 } });
     const rep = calls.find(c => c.path === '/Sessions/Playing/Progress');
     assert.equal(rep.host, 'b.example');
     assert.deepEqual([JSON.parse(rep.body).MediaSourceId, JSON.parse(rep.body).PlaySessionId, JSON.parse(rep.body).ItemId], ['ms-b1', 'PS-b.example', 'b1']);
@@ -601,7 +612,7 @@ test('client-built stream URLs are mapped to the real item on the right node, wi
     assert.equal(up.query.MediaSourceId, 'ms-b1');
     assert.equal(up.query.api_key, 'TOK-b.example-dev1', 'viewer token swapped for the device session token');
     assert.equal(up.range, 'bytes=0-99');
-    assert.ok(calls.filter(c => c.host === 'b.example').every(c => /Client="Hills"/.test(c.auth || '')), 'never the default "Emby" identity');
+    assert.ok(calls.filter(c => c.host === 'b.example' && c.auth).every(c => /Client="Hills"/.test(c.auth)), 'never the default "Emby" identity');
 
     // 带着 nodeA 自己发的 PlaySessionId：直接映射到 nodeA，不再问 PlaybackInfo。
     calls = [];
@@ -703,8 +714,8 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     // 详情与图片：推出的 Id 也能直接取。
     const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
     assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
-    assert.deepEqual(d.MediaSources, [{ Id: 'nodeB~ms', ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
-    assert.deepEqual((await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeB~ms'], 'an episode on two nodes offers both');
+    assert.deepEqual(d.MediaSources, [{ Id: 'nodeB~ms-b9e31', ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
+    assert.deepEqual((await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~ms-b9e21'], 'an episode on two nodes offers both');
     assert.equal(d.Id, E(3, 1)); assert.equal(d.SeasonId, S(3));
     assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
     // 一屏缩略图同时到达：共用一次上游请求。
@@ -722,7 +733,8 @@ test('series: an episode on one node plays from that node; one on two nodes play
     assert.deepEqual(only.body.MediaSources.map(m => m.Id), ['nodeB~ms-b9e31']);
     assert.ok(only.body.MediaSources.every(m => m.ItemId === E(3, 1)));
     await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(3, 1), MediaSourceId: 'nodeB~ms-b9e31', PositionTicks: 0 } });
-    assert.deepEqual((await pbi(E(2, 1), token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~'], 'asked nodeA; nodeB offered without asking it');
+    await call(`/emby/Users/x/Items/${E(2, 1)}`, { token }); // 打开这一集：问到 nodeB 的媒体源
+    assert.deepEqual((await pbi(E(2, 1), token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~ms-b9e21'], 'asked nodeA; nodeB offered without asking it');
     await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(2, 1), MediaSourceId: 'nodeA~ms-a9e21', PositionTicks: 0 } });
     const picked = await pbi(E(2, 1), token, '&MediaSourceId=' + encodeURIComponent('nodeB~b9e21'));
     assert.equal(picked.body.MediaSources[0].Id.split('~')[0], 'nodeB');
@@ -917,8 +929,61 @@ test('every version is listed: each file of each copy, a second copy on the same
     const { token, vid } = await playable();
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE vid = ?`, vid)[0].n, 3, 'two copies on nodeA, one on nodeB');
     const d = (await call(`/emby/Users/x/Items/${vid}`, { token })).body;
-    assert.deepEqual(d.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeA~ms', 'nodeB~b-4k', 'nodeB~b-hd'].map((x, i) => (i === 1 ? d.MediaSources[1].Id : x)));
+    assert.deepEqual(d.MediaSources.map(m => m.Id).sort(), ['nodeA~ms-a1', 'nodeA~ms-a1dup', 'nodeB~b-4k', 'nodeB~b-hd']);
     assert.equal(d.MediaSources.length, 4, 'nodeA x2 copies, nodeB x2 files');
     assert.deepEqual(d.MediaSources.slice(2).map(m => m.Name), ['nodeB · 2160p', 'nodeB · 1080p']);
 });
 
+
+test('ids: every aggregate id round-trips to its node id', () => {
+    assert.deepEqual(decodeId(seasonId(1001, 2)), { vid: 1001, season: 2 });
+    assert.deepEqual(decodeId(episodeId(1001, 2, 7)), { vid: 1001, season: 2, episode: 7 });
+    assert.equal(decodeId('1001'), null, 'catalog vids are not derived ids');
+    assert.deepEqual(decodeMsid(encodeMsid('nodeA', 'x~y'), ['nodeA']), { prefix: 'nodeA', id: 'x~y' });
+    assert.equal(decodeMsid(encodeMsid('nodeZ', 'x'), ['nodeA']), null, 'a node the viewer cannot use');
+    assert.equal(nodeUrl('nodeA', '/emby/videos/1/stream?x=1'), '/n/nodeA/videos/1/stream?x=1');
+    assert.equal(nodeUrl('nodeA', 'https://agg.test/n/nodeA/https://a/x'), 'https://agg.test/n/nodeA/https://a/x', 'absolute URLs are left to forward.js');
+    assert.deepEqual(parseNodeUrl('/emby/n/nodeA/videos/1/stream'), { prefix: 'nodeA', rest: '/videos/1/stream' });
+    assert.deepEqual(parseNodeUrl(new URL(lazyUrl('node A', 'i1', '', 'T'), 'https://x').pathname), { prefix: 'node A', lazy: { itemId: 'i1', msid: '' } });
+});
+
+test('the node is reached like through the main proxy: redirects stay inside the aggregate, allowlisted ones go straight, custom headers apply', async () => {
+    await syncAll();
+    const { token } = await viewer('v1', [['nodeA']]);
+    env.DB.db.prepare(`UPDATE routes SET custom_headers = 'X-Node-Key: k1' WHERE prefix = 'nodeA'`).run();
+    __resetAggUpstreamForTest();
+    // 去节点自己路径的 3xx 留在 /n/nodeA 下，令牌换回 viewer 的；节点的自定义请求头照发。
+    calls = [];
+    const rel = await call('/n/nodeA/videos/a1/rel.mkv', { token });
+    assert.equal(rel.status, 302);
+    assert.equal(rel.location, `/n/nodeA/emby/videos/a1/stream.mkv?api_key=${token}`);
+    assert.equal(calls.find(c => c.path === '/videos/a1/rel.mkv').key, 'k1');
+    assert.equal((await call(rel.location, { bare: true })).body, 'VIDEO-a.example-a1-stream.mkv');
+    // 去别的主机的 3xx 经聚合端转发（同生产），附上 viewer 令牌；发往那台主机时不带任何令牌。
+    const cdn = await call(`/n/nodeA/videos/a1/cdn.mkv?api_key=${token}`, { bare: true });
+    assert.equal(cdn.location, `/n/nodeA/${encodeURIComponent('https://cdn.example/f/a1?sig=1')}?api_key=${encodeURIComponent(token)}`);
+    calls = [];
+    const got = await call(cdn.location, { bare: true });
+    assert.equal(got.body, 'CDN-/f/a1');
+    assert.deepEqual(calls.map(c => [c.host, c.query, c.auth, c.token]), [['cdn.example', { sig: '1' }, null, null]], 'no viewer or node token reaches the CDN');
+    assert.equal((await call(cdn.location.replace(/api_key=[^&]+/, 'api_key=bad'), { bare: true })).status, 401, 'still needs a viewer token');
+    // 手动重定向白名单里的主机：3xx 原样给客户端。
+    env.DB.db.prepare(`INSERT OR REPLACE INTO kv_config (k, v) VALUES ('manual_redirect_domains', 'cdn.example')`).run();
+    __resetConfigCache();
+    assert.equal((await call(`/n/nodeA/videos/a1/cdn.mkv?api_key=${token}`, { bare: true })).location, 'https://cdn.example/f/a1?sig=1');
+});
+
+test('a node that gives absolute stream URLs: PlaybackInfo points them through the aggregate, like the main proxy', async () => {
+    await syncAll();
+    const { token } = await viewer('v1', [['nodeA']]);
+    nodes['a.example'].absUrls = true;
+    const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Arrival'`)[0].vid;
+    const r = await pbi(vid, token);
+    const url = r.body.MediaSources[0].DirectStreamUrl;
+    assert.equal(url, `${ORIGIN}/n/nodeA/https://a.example/emby/videos/a3/stream.mkv?Static=true&MediaSourceId=ms-a3&api_key=${token}`);
+    calls = [];
+    const got = await call(url.slice(ORIGIN.length), { bare: true });
+    assert.equal(got.body, 'VIDEO-a.example-a3-stream.mkv');
+    assert.equal(calls[0].query.api_key, 'TOK-a.example-dev1', 'the node gets its own token back');
+    assert.equal((await call(`/n/nodeA/https://a.example/emby/Users/UID/Items?api_key=${token}`, { bare: true })).status, 403, 'only /Videos/ on the node itself');
+});

@@ -5,16 +5,18 @@
 // 例外：登录爆破封禁写 ip_bans（两个 Worker 共享封禁是有意的）。
 import { dbFirst, dbRun } from '../db/helpers.js';
 
-export const AGG_SCHEMA_VERSION = 5;
+export const AGG_SCHEMA_VERSION = 6;
 let ready = false;
 
 export function __resetAggSchemaForTest() { ready = false; }
 
 export async function ensureAggSchema(env) {
     if (ready) return;
+    let old = 0;
     try {
         const row = await dbFirst(env, `SELECT v FROM agg_meta WHERE k = 'schema_version'`);
         if (row && row.v === String(AGG_SCHEMA_VERSION)) { ready = true; return; }
+        old = Number(row && row.v) || 0;
     } catch (e) { /* 表还不存在 */ }
 
     const stmts = [
@@ -61,6 +63,8 @@ export async function ensureAggSchema(env) {
     for (const sql of stmts) await env.DB.exec(sql.replace(/\s+/g, ' '));
     // v4：副本的文件摘要（版本菜单显示大小 / 码率 / 分辨率，不用问节点）。老库补列，已有就跳过。
     try { await env.DB.exec(`ALTER TABLE agg_sources ADD COLUMN media TEXT DEFAULT ''`); } catch (e) { }
+    // v6：agg_media 改存节点原样的媒体源；v5 及以前存的是摘要，清掉，打开作品时重新问。
+    if (old && old < 6) await env.DB.exec(`DELETE FROM agg_media`);
     await dbRun(env, `INSERT OR REPLACE INTO agg_meta (k, v) VALUES ('schema_version', ?)`, String(AGG_SCHEMA_VERSION));
     ready = true;
 }
