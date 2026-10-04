@@ -221,11 +221,22 @@ export async function playbackInfo(env, request, url, s, vid) {
     const now = Date.now();
     const sources = await copiesOf(env, s.scope, vid);
     if (!sources.length) return json({ message: 'Not found' }, 404);
-    const want = decodeMsid(param(url, 'MediaSourceId'), s.scope.prefixes);
+    const body = request.method === 'POST' ? await request.text() : undefined;
+    let bodyJson = null;
+    try { bodyJson = body ? JSON.parse(body) : null; } catch (e) { }
+    // 选中的版本可能在查询串里（SenPlayer），也可能在 POST 体里（Hills 等）。
+    const picked = param(url, 'MediaSourceId') || (bodyJson && (bodyJson.MediaSourceId || bodyJson.mediaSourceId)) || '';
+    const want = decodeMsid(picked, s.scope.prefixes);
     let ranked = await rank(env, sources, now);
     // 选了版本：先试那个节点；它满了或答不上来，再按原顺序试其它节点（不让客户端直接报错）。
     if (want) ranked = [...ranked.filter(c => c.src.prefix === want.prefix), ...ranked.filter(c => c.src.prefix !== want.prefix)];
-    const body = request.method === 'POST' ? await request.text() : undefined;
+    // 发给节点的 POST 体：MediaSourceId 换成该节点自己的 Id（不是选中的节点就去掉）。
+    const bodyFor = (msid) => {
+        if (!bodyJson || typeof bodyJson !== 'object') return body;
+        const b = { ...bodyJson }; delete b.mediaSourceId; delete b.MediaSourceId;
+        if (msid) b.MediaSourceId = msid;
+        return JSON.stringify(b);
+    };
     const device = deviceOf(s, request, url);
 
     // 主节点：第一个占得到槽位且答得上来的。
@@ -233,11 +244,13 @@ export async function playbackInfo(env, request, url, s, vid) {
     for (const c of ranked) {
         const slot = slotOf(s, c.src.prefix);
         if (await acquireSlot(env, slot, device, c.src.item_id)) { full++; continue; }
-        const res = await askPlaybackInfo(env, c, s, request, url, body, want && c.src.prefix === want.prefix ? want.id : null);
+        const msid = want && c.src.prefix === want.prefix ? want.id : null;
+        const res = await askPlaybackInfo(env, c, s, request, url, bodyFor(msid), msid);
         if (res.data) { primary = { c, ...res }; break; }
         lastError = res.error;
         await releaseSlot(env, slot, device);
     }
+    if (want && primary && primary.c.src.prefix !== want.prefix) console.log(`picked ${want.prefix} unavailable, playing from ${primary.c.src.prefix}`);
     if (!primary) {
         return full && !lastError
             ? json({ message: 'Concurrent playback limit reached' }, 429)

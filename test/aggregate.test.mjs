@@ -58,13 +58,13 @@ function fixtures() {
 const devOf = (req, u) => (/DeviceId="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || '') || [])[1] || u.searchParams.get('DeviceId') || '';
 
 // 假 Emby 节点。令牌绑定登录设备（TOK-<host>-<DeviceId>），换设备用就 401——验证设备身份前后一致。
-function fakeEmby(req) {
+function fakeEmby(req, body) {
     const u = new URL(req.url);
     const host = u.host; const node = nodes[host];
     if (node.down) throw new TypeError('network down');
     const p = u.pathname.replace(/^\/emby/, '');
     const q = u.searchParams;
-    calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range') });
+    calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range'), body });
     const json = (d, status = 200) => Response.json(d, { status });
     if (p === '/Users/AuthenticateByName') {
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
@@ -134,7 +134,10 @@ beforeEach(async () => {
     await dev('nodeA', REAL_DEV);
     nodes = fixtures(); calls = [];
     const orig = globalThis.fetch;
-    globalThis.fetch = async (input, init) => fakeEmby(input instanceof Request ? input : new Request(input, init));
+    globalThis.fetch = async (input, init) => {
+        const req = input instanceof Request ? input : new Request(input, init);
+        return fakeEmby(req, req.method === 'POST' ? await req.clone().text() : undefined);
+    };
     restoreFetch = () => { globalThis.fetch = orig; };
 });
 afterEach(() => restoreFetch());
@@ -449,6 +452,13 @@ test('picking a version pins PlaybackInfo to that node', async () => {
     const asked = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
     assert.deepEqual(asked.map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'ms-b1']]);
     assert.deepEqual(slots(), [{ prefix: 'nodeB', device_id: 'dev1' }]);
+    // Hills 把选中的版本放在 POST 体里：一样先去那个节点，体里的 Id 换成节点自己的。
+    env.DB.db.exec(`DELETE FROM playback_slots`); calls = [];
+    const inBody = await call(`/emby/Items/${vid}/PlaybackInfo?UserId=x`, { method: 'POST', token, body: { DeviceProfile: { Name: 'Hills' }, MediaSourceId: 'nodeB~ms-b1' } });
+    assert.deepEqual(inBody.body.MediaSources.map(m => m.Id), ['nodeB~ms-b1']);
+    const sent = calls.find(c => c.path.endsWith('/PlaybackInfo'));
+    assert.equal(sent.host, 'b.example');
+    assert.equal(JSON.parse(sent.body).MediaSourceId, 'ms-b1', "the node gets its own id, not the aggregate's");
     // 选中的节点满了：退到其它节点，不报错；不把 nodeB 的媒体源 Id 发给 nodeA。
     env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
     env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', 'nodeB', 'tv', 'x', ?)`).run(Date.now());
