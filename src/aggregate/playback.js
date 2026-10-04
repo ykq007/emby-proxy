@@ -93,6 +93,16 @@ async function slotFree(env, slot, device, now) {
     return !((slot.quota > 0 && Number(row?.mine) >= slot.quota) || (cap > 0 && Number(row?.total) >= cap));
 }
 
+// 版本菜单用：排好序的副本里，该设备能起播的节点（与 PlaybackInfo 同一口径：节点上限 + viewer 配额）。
+// 全满时照列，起播时再答 429，免得作品看起来没有可播的版本。
+export async function playableRanked(env, s, request, url, copies, now = Date.now()) {
+    const ranked = await rank(env, copies, now);
+    const device = deviceOf(s, request, url);
+    const ok = await Promise.all(ranked.map(c => slotFree(env, slotOf(s, c.src.prefix), device, now)));
+    const free = ranked.filter((c, i) => ok[i]);
+    return free.length ? free : ranked;
+}
+
 // 用该 viewer 设备在节点上的会话发请求；上游 401 → 以同一设备身份重登一次再发。
 async function withSession(env, route, s, request, url, send) {
     const ident = { ...clientIdentity(request, url), deviceId: deviceOf(s, request, url) };

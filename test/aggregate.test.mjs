@@ -315,6 +315,19 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.deepEqual(b.MediaSources.map(m => [m.Id, m.Name]), [['nodeB~ms', undefined]], 'one version: no label');
 });
 
+test('version menu hides nodes that are full for this device; when every node is full it still lists them', async () => {
+    await syncAll();
+    const { token } = await viewer('alice', [['nodeA'], ['nodeB']]);
+    const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid;
+    env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
+    const busy = (prefix) => env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', ?, 'tv', 'x', ?)`).run(prefix, Date.now());
+    const menu = async () => (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources.map(m => m.Id);
+    busy('nodeA');
+    assert.deepEqual(await menu(), ['nodeB~ms'], 'nodeA is full: not offered');
+    busy('nodeB');
+    assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~ms'], 'all full: list stays, play answers 429');
+});
+
 test('images are fetched from a copy that has them, matching the requested tag', async () => {
     await syncAll();
     const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid;

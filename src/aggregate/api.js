@@ -9,7 +9,7 @@ import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, encodeMsid, MAX_VERSIONS } from './playback.js';
+import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
 import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
@@ -196,11 +196,11 @@ async function liveItem(env, src) {
 }
 export function __resetLiveForTest() { LIVE.clear(); }
 
-// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同样以节点名区分），并发取各节点的实时详情。
+// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同样以节点名区分；该设备起不了播的满节点不列），并发取各节点的实时详情。
 // 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
 const ALT_WAIT_MS = 2500;
-async function liveVersions(env, ctx, copies) {
-    const ranked = (await rank(env, copies)).slice(0, MAX_VERSIONS);
+async function liveVersions(env, ctx, ranked) {
+    ranked = ranked.slice(0, MAX_VERSIONS);
     const late = () => new Promise(r => setTimeout(() => r(null), ALT_WAIT_MS));
     const got = await Promise.all(ranked.map((c, i) => {
         if (!i) return liveItem(env, c.src);
@@ -233,21 +233,21 @@ function withLive(versions, dto, id) {
     return out;
 }
 
-async function itemDetail(env, ctx, s, sid, vid) {
+async function itemDetail(env, ctx, request, url, s, sid, vid) {
     const row = await getItemRow(env, vid);
     if (!row) return null;
     const sources = await visibleSources(env, s.scope, vid);
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
-    const versions = await liveVersions(env, ctx, row.type === 'Movie' ? sources : sources.slice(0, 1));
+    const versions = await liveVersions(env, ctx, row.type === 'Movie' ? await playableRanked(env, s, request, url, sources) : await rank(env, sources.slice(0, 1)));
     return versions.length ? withLive(versions, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
 }
 
 // 推出的集 Id 的详情：合并结果 + 各节点副本的实时详情。
-async function episodeDetail(env, ctx, s, sid, id) {
+async function episodeDetail(env, ctx, request, url, s, sid, id) {
     const dto = await derivedDto(env, s.scope, id, sid);
     if (!dto || dto.Type !== 'Episode') return dto;
-    const versions = await liveVersions(env, ctx, await copiesOf(env, s.scope, id));
+    const versions = await liveVersions(env, ctx, await playableRanked(env, s, request, url, await copiesOf(env, s.scope, id)));
     return versions.length ? withLive(versions, dto, id) : dto;
 }
 
@@ -428,7 +428,7 @@ export async function handleAggRequest(request, env, ctx) {
     if ((m = R.item.exec(path))) {
         const lib = LIBS.find(l => l.id === m[1]);
         if (lib) return json(libDto(lib, sid));
-        const dto = decodeId(m[1]) ? await episodeDetail(env, ctx, s, sid, m[1]) : await itemDetail(env, ctx, s, sid, m[1]);
+        const dto = decodeId(m[1]) ? await episodeDetail(env, ctx, request, url, s, sid, m[1]) : await itemDetail(env, ctx, request, url, s, sid, m[1]);
         return dto ? withWatch(env, s, dto) : json({ message: 'Not found' }, 404);
     }
     if (R.items.test(path)) return itemsResponse(env, s, sid, url.searchParams);
