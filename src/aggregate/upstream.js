@@ -70,9 +70,21 @@ export async function syncIdent(env, prefix) {
     return null;
 }
 
+// 某 viewer 设备在任一节点登录过的真实身份（Client / Device / Version / UA），没有返回 null。
+export async function knownIdent(env, deviceId) {
+    const res = await dbAll(env, `SELECT prefix, blob FROM agg_device_sessions WHERE device_id = ? LIMIT 5`, deviceId);
+    for (const row of res.results || []) {
+        let id = null;
+        try { id = JSON.parse(await decryptToken(env, row.prefix, row.blob) || 'null')?.ident; } catch (e) { }
+        if (id && id.client && id.ua && !isBrowserUa(id.ua)) return id;
+    }
+    return null;
+}
+
 // 播放用的设备会话：以客户端设备自己的身份（Client / Device / DeviceId / Version / UA）登录节点，
 // 与生产 viewer 网关一致——上游看到的是真实的那台设备。存 agg_device_sessions。
-export async function deviceSession(env, route, ident, fresh = false) {
+// fixIdent：请求里没有客户端身份（取流请求常常只带令牌）时，登录前用它换成该设备的真实身份；换不到就不登录。
+export async function deviceSession(env, route, ident, fresh = false, fixIdent = null) {
     const k = route.prefix + '\n' + ident.deviceId;
     if (!fresh) {
         if (DEV_MEM.has(k)) return DEV_MEM.get(k);
@@ -83,6 +95,11 @@ export async function deviceSession(env, route, ident, fresh = false) {
                 if (s && s.token && s.userId) { DEV_MEM.set(k, s); return s; }
             } catch (e) { }
         }
+    }
+    if (fixIdent) {
+        const fixed = await fixIdent(ident);
+        if (!fixed) return { error: 'no client identity for this device yet' };
+        ident = fixed;
     }
     const s = await loginUpstream(env, route.prefix, ident);
     if (s.error) return s;

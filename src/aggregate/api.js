@@ -9,7 +9,7 @@ import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, nsUrl, MAX_VERSIONS } from './playback.js';
+import { playbackInfo, videoStream, namespaced, lazyStream, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, nsUrl, MAX_VERSIONS } from './playback.js';
 import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
@@ -251,7 +251,8 @@ async function episodeDetail(env, ctx, request, url, s, sid, id) {
 }
 
 // PlaybackInfo 的媒体源里也列出版本菜单的其它节点：Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找；
-// 找不到就播第一个。其它节点不再问 PlaybackInfo（用详情的缓存数据），只给直连地址（经 /n/ 到该节点，取流时再占槽位），不能转码。
+// 找不到就播第一个。其它节点这时不问 PlaybackInfo（用详情的缓存数据），只给直连地址（/n/…/ea-play/…）：
+// 真播它时才向那一个节点要 PlaybackInfo（见 playback.js 的 lazyStream），不能转码。
 async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     const r = await playbackInfo(env, request, url, s, id);
     if (!r.ok) return r;
@@ -264,12 +265,12 @@ async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
             const ms = (d.MediaSources || [])[0];
             if (!ms || c.bad || have.has(c.src.prefix)) continue;
             const { DirectStreamUrl, TranscodingUrl, TranscodingSubProtocol, TranscodingContainer, Path, ...rest } = ms;
-            const q = new URLSearchParams({ Static: 'true', MediaSourceId: String(ms.Id), api_key: s.token });
+
             data.MediaSources.push({
                 ...rest, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id),
                 Name: [c.name, ms.Name].filter(Boolean).join(' · '),
                 SupportsTranscoding: false,
-                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/videos/${encodeURIComponent(c.src.item_id)}/stream.${ms.Container || 'mkv'}?${q}`,
+                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/${encodeURIComponent(ms.Id)}/stream.${ms.Container || 'mkv'}?api_key=${s.token}`,
                 MediaStreams: (ms.MediaStreams || []).map(st => (st.DeliveryUrl ? { ...st, DeliveryUrl: nsUrl(c.src.prefix, st.DeliveryUrl) } : st)),
             });
         }
@@ -321,6 +322,7 @@ const R = {
     playPing: re('Sessions\\/Playing\\/Ping'),
     activeEncodings: re('Videos\\/ActiveEncodings'),
     stream: new RegExp(E + 'Videos\\/(\\d+)\\/(.+)$', 'i'),
+    lazy: new RegExp(E + 'n\\/([^/]+)\\/ea-play\\/([^/]+)\\/([^/]+)\\/[^/]+$', 'i'),
     ns: new RegExp(E + 'n\\/([^/]+)(\\/.*)$', 'i'), // 客户端常在节点流地址前加 /emby（如 Hills）
     displayPrefs: re('DisplayPreferences\\/[^/]+'),
     user: re('Users\\/([^/]+)'),
@@ -385,6 +387,7 @@ export async function handleAggRequest(request, env, ctx) {
     if (method === 'POST' && R.capabilities.test(path)) return empty();
 
     // ── 播放 ──────────────────────────────────────────────
+    if ((m = R.lazy.exec(path))) return lazyStream(env, request, url, s, decodeURIComponent(m[1]), decodeURIComponent(m[2]), decodeURIComponent(m[3]));
     if ((m = R.ns.exec(path))) return namespaced(env, request, url, s, decodeURIComponent(m[1]), m[2]);
     if ((m = R.playbackInfo.exec(path)) && (method === 'GET' || method === 'POST')) return playbackInfoWithVersions(env, ctx, request, url, s, m[1]);
     if (method === 'POST' && R.playPing.test(path)) return byPlaySession(env, request, url, s, '/Sessions/Playing/Ping');

@@ -18,7 +18,7 @@ import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 import { acquireSlot, heartbeatSlot, releaseSlot, holdSlot, __resetSlotsForTest, SLOT_TTL_MS } from '../viewers/limits.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { UPSTREAM_CB } from '../proxy/circuit-breaker.js';
-import { memberRoutes, deviceSession, nodeFetch, bases } from './upstream.js';
+import { memberRoutes, deviceSession, nodeFetch, bases, knownIdent } from './upstream.js';
 import { copiesOf, watchMeta } from './series.js';
 import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
@@ -29,12 +29,15 @@ const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
 const PLAY_MEM = new Map(); // PlaySessionId -> { prefix, item_id, vid }
+const PI_BODY = new Map(); // `${viewerId}|${device}` -> 该设备最近一次 PlaybackInfo 的 POST 体（DeviceProfile）
+const LAZY = new Map(); // `${viewerId}|${device}|${prefix}|${itemId}|${msid}` -> { at, path }：附加版本向节点要来的直连地址
+const LAZY_MS = 6 * 60 * 60 * 1000;
 // 进度上报（客户端约每 10 秒一次）每个 viewer 每个条目最多每分钟写一次 D1；开始 / 停止总是写。
 export const PROGRESS_WRITE_MS = 60000;
 const PROGRESS_MEM = new Map(); // `${viewerId}|${vid}` -> 上次写入时间
 let healthMem = null;
 
-export function __resetPlaybackForTest() { PLAY_MEM.clear(); PROGRESS_MEM.clear(); __resetSlotsForTest(); healthMem = null; }
+export function __resetPlaybackForTest() { PLAY_MEM.clear(); PI_BODY.clear(); LAZY.clear(); PROGRESS_MEM.clear(); __resetSlotsForTest(); healthMem = null; }
 
 // 聚合端的观看状态（watch.js 共用，写 agg_watch_state，不写生产 watch_state）。
 export const watchSession = (s) => ({ viewerId: s.viewerId, prefix: 'agg', table: 'agg_watch_state' });
@@ -105,9 +108,21 @@ export async function playableRanked(env, s, request, url, copies, now = Date.no
 }
 
 // 用该 viewer 设备在节点上的会话发请求；上游 401 → 以同一设备身份重登一次再发。
+// 请求自己带了客户端身份（授权头 / X-Emby-Client）吗？取流请求常常只有令牌。
+function hasClientIdent(request, url) {
+    const h = request.headers;
+    const a = h.get('X-Emby-Authorization') || h.get('Authorization') || url.searchParams.get('X-Emby-Authorization') || '';
+    return /Client=/i.test(a) || !!(h.get('X-Emby-Client') || url.searchParams.get('X-Emby-Client'));
+}
+
 async function withSession(env, route, s, request, url, send) {
     const ident = { ...clientIdentity(request, url), deviceId: deviceOf(s, request, url) };
-    let sess = await deviceSession(env, route, ident);
+    // 只带令牌的请求要在新节点登录时，用该设备在别的节点登录过的真实身份，绝不用默认的 "Emby"。
+    const fix = hasClientIdent(request, url) ? null : async (id) => {
+        const known = await knownIdent(env, id.deviceId);
+        return known ? { ...known, deviceId: id.deviceId } : null;
+    };
+    let sess = await deviceSession(env, route, ident, false, fix);
     if (sess.error) return { error: sess.error };
     let r = await send(sess);
     if (r && r.status === 401) {
@@ -189,14 +204,14 @@ function finish(r, upToken, token, path, prefix = '') {
     return r.text().then(t => new Response(swap(t, upToken, token), { status: r.status, statusText: r.statusText, headers }));
 }
 
-async function askPlaybackInfo(env, c, s, request, url, body, msid) {
+async function askPlaybackInfo(env, c, s, request, url, body, msid, method = request.method) {
     const res = await withSession(env, c.route, s, request, url, (sess) => {
         const q = upstreamQuery(url, sess.token, ['UserId', 'MediaSourceId']);
         q.set('UserId', sess.userId);
         if (msid) q.set('MediaSourceId', msid);
         const headers = body ? { 'Content-Type': request.headers.get('content-type') || 'application/json' } : {};
         return nodeFetch(c.route, sess, `/Items/${encodeURIComponent(c.src.item_id)}/PlaybackInfo?${q}`,
-            { method: request.method, body, headers });
+            { method, body, headers });
     });
     if (res.error) return { error: res.error };
     const r = res.r;
@@ -238,6 +253,7 @@ export async function playbackInfo(env, request, url, s, vid) {
         return JSON.stringify(b);
     };
     const device = deviceOf(s, request, url);
+    if (body) { PI_BODY.set(`${s.viewerId}|${device}`, body); if (PI_BODY.size > 500) PI_BODY.delete(PI_BODY.keys().next().value); }
 
     // 主节点：第一个占得到槽位且答得上来的。
     let primary = null; let full = 0; let lastError = '';
@@ -268,6 +284,39 @@ export async function playbackInfo(env, request, url, s, vid) {
     let text = JSON.stringify(out);
     for (const r of results) text = swap(text, r.sess.token, s.token);
     return new Response(text, { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
+}
+
+// GET|HEAD /n/<前缀>/ea-play/<节点条目 Id>/<节点媒体源 Id>/stream.<容器>：PlaybackInfo 里附加的版本（没问过该节点）。
+// 第一次取流时才向这一个节点要 PlaybackInfo（用该设备最近的 DeviceProfile），之后照它给的 DirectStreamUrl 取流：
+// 有的节点（如 sntp）要 PlaySessionId 等参数，自己拼的地址会 400。ponytail: 直连地址只记在本 isolate。
+export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
+    if (!['GET', 'HEAD'].includes(request.method) || !s.scope.prefixes.includes(prefix)) return json({ message: 'Forbidden' }, 403);
+    const route = (await memberRoutes(env)).find(r => r.prefix === prefix);
+    if (!route) return json({ message: 'Not found' }, 404);
+    const device = deviceOf(s, request, url);
+    const blocked = await holdSlot(env, slotOf(s, prefix), device, itemId, '/stream');
+    if (blocked) return blocked;
+    const k = [s.viewerId, device, prefix, itemId, msid].join('|');
+    const hit = LAZY.get(k);
+    let path = hit && Date.now() - hit.at < LAZY_MS ? hit.path : null;
+    if (!path) {
+        const piUrl = new URL(url); piUrl.search = '?IsPlayback=true';
+        const got = await askPlaybackInfo(env, { route, src: { prefix, item_id: itemId } }, s, request, piUrl,
+            PI_BODY.get(`${s.viewerId}|${device}`) || '{}', msid, 'POST');
+        if (got.error) return json({ message: got.error }, 503);
+        const ms = got.data.MediaSources.find(m => String(m.Id) === String(msid)) || got.data.MediaSources[0];
+        if (!ms.DirectStreamUrl) return json({ message: 'This version cannot be played directly' }, 415);
+        path = nsUrl(prefix, ms.DirectStreamUrl).replace(/^\/n\/[^/]+/, '');
+        LAZY.set(k, { at: Date.now(), path });
+        if (LAZY.size > 500) LAZY.delete(LAZY.keys().next().value);
+    }
+    const res = await withSession(env, route, s, request, url, (sess) => {
+        const u = new URL(path, 'http://node');
+        for (const [key] of [...u.searchParams]) if (TOKEN_PARAM.test(key)) u.searchParams.set(key, sess.token);
+        return nodeFetch(route, sess, u.pathname + u.search, { method: request.method, headers: passHeaders(request) });
+    });
+    if (res.error) return json({ message: res.error }, 503);
+    return finish(res.r, res.sess.token, s.token, path, prefix);
 }
 
 // GET|HEAD /Videos/{vid}/…（客户端自己拼的直连 / 字幕 / HLS 分片）

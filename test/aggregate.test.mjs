@@ -387,7 +387,7 @@ test('PlaybackInfo asks only the best node (versions are offered on the title pa
     // 第一个是问过的节点；其它节点按版本菜单附在后面（Hills 在这份列表里按 Id 找选中的版本），不问它们的 PlaybackInfo。
     assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~ms']);
     assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p', 'nodeB'], 'labelled by node name');
-    assert.equal(ms[1].DirectStreamUrl, `/n/nodeB/videos/b1/stream.mkv?Static=true&MediaSourceId=ms&api_key=${token}`);
+    assert.equal(ms[1].DirectStreamUrl, `/n/nodeB/ea-play/b1/ms/stream.mkv?api_key=${token}`);
     assert.equal(ms[1].SupportsTranscoding, false);
     assert.equal(ms[1].TranscodingUrl, undefined);
     assert.ok(ms.every(m => m.ItemId === String(vid) && m.Path === undefined));
@@ -401,11 +401,20 @@ test('PlaybackInfo asks only the best node (versions are offered on the title pa
     assert.deepEqual(asked.map(c => [c.host, c.query.UserId, c.device]), [['a.example', 'UID', 'dev1']], 'no other node is bothered');
     assert.ok(calls.every(c => c.ua === LOG_UA), 'upstream sees the client device UA, never a browser one');
     assert.deepEqual(slots(), [{ prefix: 'nodeA', device_id: 'dev1' }], 'only the primary node takes a slot');
-    // 选了附加的版本：直连地址经 /n/ 到 nodeB，取流时在 nodeB 占槽位。
+    // 选了附加的版本（播放器只带令牌取流）：这时才向 nodeB 要一次 PlaybackInfo（带该设备的 DeviceProfile），
+    // 照它给的直连地址取流；以该设备的真实身份登录 nodeB，不是默认的 "Emby"。之后的取流不再问 PlaybackInfo。
+    calls = [];
     const b = await call(ms[1].DirectStreamUrl, { bare: true, range: 'bytes=0-' });
     assert.equal(b.status, 206, String(b.body));
-    assert.deepEqual(calls.filter(c => c.path.toLowerCase().startsWith('/videos/')).map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'ms']]);
+    const pi = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
+    assert.deepEqual(pi.map(c => [c.host, c.query.MediaSourceId, JSON.parse(c.body).DeviceProfile.Name]), [['b.example', 'ms', 'Hills']]);
+    assert.ok(calls.filter(c => c.host === 'b.example').every(c => /Client="Hills"/.test(c.auth || '')), 'the device\'s real identity, never "Emby"');
+    assert.deepEqual(calls.filter(c => c.path.toLowerCase().startsWith('/videos/')).map(c => [c.host, c.path, c.query.MediaSourceId, c.query.api_key]),
+        [['b.example', '/videos/b1/stream.mkv', 'ms', 'TOK-b.example-dev1']], 'the node\'s own direct-stream URL');
     assert.ok(slots().some(x => x.prefix === 'nodeB' && x.device_id === 'dev1'));
+    calls = [];
+    await call(ms[1].DirectStreamUrl, { bare: true, range: 'bytes=100-' });
+    assert.equal(calls.filter(c => c.path.endsWith('/PlaybackInfo')).length, 0, 'remembered');
 });
 
 test('PlaybackInfo prefers healthy nodes: failing probes or a dead node move playback to the next copy', async () => {
@@ -446,7 +455,8 @@ test('streams need a slot too: a late play after the PlaybackInfo hold expired, 
     assert.equal(direct.status, 429);
     assert.equal((await call(`/n/nodeA/videos/a1/stream.mkv?api_key=${token}`, { bare: true })).status, 429);
     assert.ok(!calls.some(c => c.path.startsWith('/videos/') || c.path.startsWith('/Videos/')), 'nothing reached nodeA');
-    // nodeB 有空位：流照常，并占下 nodeB 的槽位（不是 pending，直接算在播）。
+    // nodeB 有空位：流照常，并占下 nodeB 的槽位（不是 pending，直接算在播）。真实客户端先取过 PlaybackInfo（满的 nodeA 被跳过，落在 nodeB）。
+    assert.equal((await pbi(vid, token)).body.MediaSources[0].Id, 'nodeB~ms-b1');
     const b = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeB~ms-b1')}&api_key=${token}`, { bare: true, range: 'bytes=0-' });
     assert.equal(b.status, 206);
     assert.deepEqual(slots(), [{ prefix: 'nodeA', device_id: 'tv' }, { prefix: 'nodeB', device_id: 'dev1' }]);
@@ -480,6 +490,8 @@ test('picking a version pins PlaybackInfo to that node', async () => {
 
 test('client-built stream URLs are mapped to the real item on the right node, with Range passed through', async () => {
     const { token, vid } = await playable();
+    // 设备先经 PlaybackInfo 登录过 nodeA；只带令牌去取 nodeB 的流时，以它在 nodeA 的真实身份登录 nodeB。
+    await pbi(vid, token); calls = [];
     const r = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeB~ms-b1')}&api_key=${token}`, { bare: true, range: 'bytes=0-99' });
     assert.equal(r.status, 206);
     assert.equal(r.body, 'VIDEO-b.example-b1-stream.mkv');
@@ -488,9 +500,17 @@ test('client-built stream URLs are mapped to the real item on the right node, wi
     assert.equal(up.query.MediaSourceId, 'ms-b1');
     assert.equal(up.query.api_key, 'TOK-b.example-dev1', 'viewer token swapped for the device session token');
     assert.equal(up.range, 'bytes=0-99');
+    assert.ok(calls.filter(c => c.host === 'b.example').every(c => /Client="Hills"/.test(c.auth || '')), 'never the default "Emby" identity');
 
     const sub = await call(`/Videos/${vid}/${encodeURIComponent('nodeA~ms-a1')}/Subtitles/2/Stream.srt?api_key=${token}`, { bare: true });
     assert.equal(sub.body, 'VIDEO-a.example-a1-ms-a1/Subtitles/2/Stream.srt');
+});
+
+test('a token-only stream from a device that never logged in anywhere is refused, not logged in as "Emby"', async () => {
+    const { token, vid } = await playable();
+    const r = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeB~ms-b1')}&api_key=${token}`, { bare: true });
+    assert.equal(r.status, 503);
+    assert.ok(!calls.some(c => c.path.endsWith('/AuthenticateByName')), 'no login attempted');
 });
 
 test('node-provided transcoding URLs work through /n/, playlists come back with the viewer token; /n/ is locked down', async () => {
