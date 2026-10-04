@@ -9,7 +9,7 @@ import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession } from './playback.js';
+import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, encodeMsid, MAX_VERSIONS } from './playback.js';
 import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
@@ -184,15 +184,24 @@ async function userDataWrite(env, s, id, flags) {
 // 副本在节点上的实时详情（同步账号取）；取不到返回 null。
 async function liveItem(env, src) {
     const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
-    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`) : null;
+    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000 }) : null;
     return (live && live.data) || null;
 }
 
-// 详情：节点实时详情做底，目录字段覆盖。真 Emby 详情的字段（Etag、Path、人物 / 工作室的 Id、Chapters…）
+// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同一「Source N」编号），并发取各节点的实时详情。
+// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。
+async function liveVersions(env, copies) {
+    const ranked = (await rank(env, copies)).slice(0, MAX_VERSIONS);
+    const got = await Promise.all(ranked.map(c => liveItem(env, c.src)));
+    return ranked.map((c, i) => ({ c, d: got[i] })).filter(x => x.d);
+}
+
+// 详情：第一个版本节点的实时详情做底，目录字段覆盖。真 Emby 详情的字段（Etag、Path、人物 / 工作室的 Id、Chapters…）
 // 一个不少：SenPlayer 这类严格解析的客户端缺一个就报「媒体库中不存在」。
 // 不外传的：节点上的目录路径（Path 只留文件名）、父级 Id 与父级图片标签（客户端拿着它们来取图会取错）、人物图。
-// 媒体源 Id 用作品自己的 Id（不带节点前缀），PlaybackInfo 照常挑节点、给其它版本。
-function withLive(d, dto, id) {
+// 媒体源 Id 带节点前缀：客户端选了哪个版本，PlaybackInfo 就先去那个节点。
+function withLive(versions, dto, id) {
+    const d = versions[0].d;
     const out = {};
     for (const [k, v] of Object.entries(d)) if (!/^Parent\w*(ItemId|ImageTags?)$/.test(k)) out[k] = v;
     for (const [k, v] of Object.entries(dto)) if (v !== undefined) out[k] = v;
@@ -200,8 +209,10 @@ function withLive(d, dto, id) {
     out.Path = d.FileName || base(d.Path);
     if (Array.isArray(d.People)) out.People = d.People.map(({ PrimaryImageTag, ...p }) => p);
     if (Array.isArray(d.MediaSources)) {
-        out.MediaSources = d.MediaSources.slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) =>
-            ({ ...ms, Id: String(id), ItemId: String(id), Path: base(ms.Path) }));
+        out.MediaSources = versions.flatMap(({ c, d: v }) => (v.MediaSources || []).slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
+            ...ms, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id), Path: base(ms.Path),
+            ...(versions.length > 1 ? { Name: [ms.Name, `Source ${c.label}`].filter(Boolean).join(' · ') } : {}),
+        })));
     }
     out.CanDelete = false; out.CanDownload = false;
     return out;
@@ -213,17 +224,16 @@ async function itemDetail(env, s, sid, vid) {
     const sources = await visibleSources(env, s.scope, vid);
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
-    const d = await liveItem(env, sources[0]);
-    return d ? withLive(d, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
+    const versions = await liveVersions(env, row.type === 'Movie' ? sources : sources.slice(0, 1));
+    return versions.length ? withLive(versions, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
 }
 
-// 推出的集 Id 的详情：合并结果 + 第一个副本的实时详情。
+// 推出的集 Id 的详情：合并结果 + 各节点副本的实时详情。
 async function episodeDetail(env, s, sid, id) {
     const dto = await derivedDto(env, s.scope, id, sid);
     if (!dto || dto.Type !== 'Episode') return dto;
-    const src = (await copiesOf(env, s.scope, id))[0];
-    const d = src && await liveItem(env, src);
-    return d ? withLive(d, dto, id) : dto;
+    const versions = await liveVersions(env, await copiesOf(env, s.scope, id));
+    return versions.length ? withLive(versions, dto, id) : dto;
 }
 
 // /Items/{vid}/Images/{type}[/{index}]：取有该图的可见副本；客户端带的 tag 优先匹配同一副本，缓存才稳定。

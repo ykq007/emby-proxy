@@ -23,7 +23,7 @@ import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
 const SEP = '~';
-const MAX_VERSIONS = 3;
+export const MAX_VERSIONS = 3;
 const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
@@ -68,7 +68,7 @@ async function failingNodes(env, now) {
 }
 
 // 可见副本 → 候选节点，坏的排后面（不剔除：只有一个副本时仍然要试）。label = 按节点顺序的编号，跨次播放稳定。
-async function rank(env, sources, now) {
+export async function rank(env, sources, now = Date.now()) {
     const routes = new Map((await memberRoutes(env, now)).map(r => [r.prefix, r]));
     const failing = await failingNodes(env, now);
     // 每个节点只留第一份副本（同一节点多个媒体库里的同一部片）：版本要来自不同节点才有意义。
@@ -212,7 +212,8 @@ export async function playbackInfo(env, request, url, s, vid) {
     if (!sources.length) return json({ message: 'Not found' }, 404);
     const want = decodeMsid(param(url, 'MediaSourceId'), s.scope.prefixes);
     let ranked = await rank(env, sources, now);
-    if (want) ranked = ranked.filter(c => c.src.prefix === want.prefix);
+    // 选了版本：先试那个节点；它满了或答不上来，再按原顺序试其它节点（不让客户端直接报错）。
+    if (want) ranked = [...ranked.filter(c => c.src.prefix === want.prefix), ...ranked.filter(c => c.src.prefix !== want.prefix)];
     const body = request.method === 'POST' ? await request.text() : undefined;
     const device = deviceOf(s, request, url);
 
@@ -221,7 +222,7 @@ export async function playbackInfo(env, request, url, s, vid) {
     for (const c of ranked) {
         const slot = slotOf(s, c.src.prefix);
         if (await acquireSlot(env, slot, device, c.src.item_id)) { full++; continue; }
-        const res = await askPlaybackInfo(env, c, s, request, url, body, want ? want.id : null);
+        const res = await askPlaybackInfo(env, c, s, request, url, body, want && c.src.prefix === want.prefix ? want.id : null);
         if (res.data) { primary = { c, ...res }; break; }
         lastError = res.error;
         await releaseSlot(env, slot, device);

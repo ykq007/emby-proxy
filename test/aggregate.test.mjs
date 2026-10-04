@@ -304,10 +304,13 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.equal(d.body.Overview, 'From a.example', 'nodeA sorts first');
     assert.deepEqual(d.body.People, [{ Id: 'person1', Name: 'Actor', Type: 'Actor' }], 'Id kept (strict clients need it), image tag dropped');
     // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
-    assert.deepEqual(d.body.MediaSources, [{ Id: String(vid), ItemId: String(vid), Container: 'mkv', Path: 'x.mkv' }]);
+    // 版本菜单来自详情：每个节点一个版本，Id 带节点前缀，编号与 PlaybackInfo 一致。
+    assert.deepEqual(d.body.MediaSources, ['nodeA', 'nodeB'].map((n, i) => ({ Id: `${n}~ms`, ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: `Source ${i + 1}` })));
     assert.equal(d.body.ParentId, '1');
     const bob = await viewer('bob', [['nodeB']]);
-    assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body.Overview, 'From b.example');
+    const b = (await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body;
+    assert.equal(b.Overview, 'From b.example');
+    assert.deepEqual(b.MediaSources.map(m => [m.Id, m.Name]), [['nodeB~ms', undefined]], 'one version: no label');
 });
 
 test('images are fetched from a copy that has them, matching the requested tag', async () => {
@@ -431,6 +434,14 @@ test('picking a version pins PlaybackInfo to that node', async () => {
     const asked = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
     assert.deepEqual(asked.map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'ms-b1']]);
     assert.deepEqual(slots(), [{ prefix: 'nodeB', device_id: 'dev1' }]);
+    // 选中的节点满了：退到其它节点，不报错；不把 nodeB 的媒体源 Id 发给 nodeA。
+    env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
+    env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', 'nodeB', 'tv', 'x', ?)`).run(Date.now());
+    env.DB.db.exec(`DELETE FROM playback_slots WHERE device_id = 'dev1'`);
+    calls = [];
+    const fb = await pbi(vid, token, '&MediaSourceId=' + encodeURIComponent('nodeB~ms-b1'));
+    assert.deepEqual(fb.body.MediaSources.map(m => m.Id), ['nodeA~ms-a1']);
+    assert.deepEqual(calls.filter(c => c.path.endsWith('/PlaybackInfo')).map(c => [c.host, c.query.MediaSourceId]), [['a.example', undefined]]);
 });
 
 test('client-built stream URLs are mapped to the real item on the right node, with Range passed through', async () => {
@@ -531,7 +542,8 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     // 详情与图片：推出的 Id 也能直接取。
     const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
     assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
-    assert.deepEqual(d.MediaSources, [{ Id: E(3, 1), ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
+    assert.deepEqual(d.MediaSources, [{ Id: 'nodeB~ms', ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
+    assert.deepEqual((await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeB~ms'], 'an episode on two nodes offers both');
     assert.equal(d.Id, E(3, 1)); assert.equal(d.SeasonId, S(3));
     assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
     // 一屏缩略图同时到达：共用一次上游请求。
