@@ -5,7 +5,7 @@
 // 例外：登录爆破封禁写 ip_bans（两个 Worker 共享封禁是有意的）。
 import { dbFirst, dbRun } from '../db/helpers.js';
 
-export const AGG_SCHEMA_VERSION = 3;
+export const AGG_SCHEMA_VERSION = 4;
 let ready = false;
 
 export function __resetAggSchemaForTest() { ready = false; }
@@ -34,7 +34,7 @@ export async function ensureAggSchema(env) {
         // 每个节点上的一份副本。sig = 元数据指纹，未变化时同步不写库。
         `CREATE TABLE IF NOT EXISTS agg_sources (
             prefix TEXT NOT NULL, item_id TEXT NOT NULL, vid INTEGER NOT NULL, lib_id TEXT NOT NULL,
-            image_tags TEXT DEFAULT '{}', sig TEXT DEFAULT '', PRIMARY KEY(prefix, item_id))`,
+            image_tags TEXT DEFAULT '{}', sig TEXT DEFAULT '', media TEXT DEFAULT '', PRIMARY KEY(prefix, item_id))`,
         `CREATE INDEX IF NOT EXISTS idx_agg_sources_vid ON agg_sources(vid)`,
         // 每节点同步游标（见 sync.js）。
         `CREATE TABLE IF NOT EXISTS agg_sync (
@@ -57,6 +57,8 @@ export async function ensureAggSchema(env) {
         `CREATE TABLE IF NOT EXISTS agg_auth_rl (ip TEXT NOT NULL, win INTEGER NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY(ip, win))`,
     ];
     for (const sql of stmts) await env.DB.exec(sql.replace(/\s+/g, ' '));
+    // v4：副本的文件摘要（版本菜单显示大小 / 码率 / 分辨率，不用问节点）。老库补列，已有就跳过。
+    try { await env.DB.exec(`ALTER TABLE agg_sources ADD COLUMN media TEXT DEFAULT ''`); } catch (e) { }
     await dbRun(env, `INSERT OR REPLACE INTO agg_meta (k, v) VALUES ('schema_version', ?)`, String(AGG_SCHEMA_VERSION));
     ready = true;
 }

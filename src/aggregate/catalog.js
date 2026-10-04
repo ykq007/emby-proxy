@@ -53,8 +53,25 @@ export function itemFields(it) {
 }
 
 // 元数据指纹：同步时与 agg_sources.sig 比较，没变就不写。
+// 副本的文件摘要（第一个媒体源）：版本菜单要显示的名字 / 容器 / 大小 / 码率，加主视频与第一条音频。
+// 只留这几项（约 300 字节），不存整份媒体源。没有媒体源返回 null。
+const VIDEO_KEYS = ['Type', 'Codec', 'Profile', 'Width', 'Height', 'BitRate', 'BitDepth', 'VideoRange', 'ExtendedVideoType', 'ExtendedVideoSubType', 'AverageFrameRate', 'Index'];
+const AUDIO_KEYS = ['Type', 'Codec', 'Channels', 'ChannelLayout', 'Language', 'DisplayTitle', 'IsDefault', 'Index'];
+const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k] !== undefined && o[k] !== null).map(k => [k, o[k]]));
+export function mediaSummary(ms) {
+    if (!ms || typeof ms !== 'object') return null;
+    const streams = ms.MediaStreams || [];
+    const video = streams.find(x => x.Type === 'Video');
+    const audio = streams.find(x => x.Type === 'Audio' && x.IsDefault) || streams.find(x => x.Type === 'Audio');
+    return {
+        ...pick(ms, ['Name', 'Container', 'Size', 'Bitrate', 'RunTimeTicks']),
+        MediaStreams: [video && pick(video, VIDEO_KEYS), audio && pick(audio, AUDIO_KEYS)].filter(Boolean),
+    };
+}
+const mediaOf = (it) => mediaSummary((it.MediaSources || [])[0]);
+
 export function sourceSig(libId, it) {
-    const s = JSON.stringify([libId, itemFields(it), imageTags(it)]);
+    const s = JSON.stringify([libId, itemFields(it), imageTags(it), mediaOf(it)]);
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
     return (h >>> 0).toString(16);
@@ -144,9 +161,10 @@ export async function mergePage(env, prefix, libId, items) {
             }
         }
         stmts.push(dbStmt(env,
-            `INSERT INTO agg_sources (prefix, item_id, vid, lib_id, image_tags, sig) VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(prefix, item_id) DO UPDATE SET lib_id = excluded.lib_id, image_tags = excluded.image_tags, sig = excluded.sig`,
-            prefix, String(it.Id), vid, String(libId), JSON.stringify(imageTags(it)), w.sig));
+            `INSERT INTO agg_sources (prefix, item_id, vid, lib_id, image_tags, sig, media) VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(prefix, item_id) DO UPDATE SET lib_id = excluded.lib_id, image_tags = excluded.image_tags, sig = excluded.sig,
+                media = CASE WHEN excluded.media != '' THEN excluded.media ELSE agg_sources.media END`,
+            prefix, String(it.Id), vid, String(libId), JSON.stringify(imageTags(it)), w.sig, mediaOf(it) ? JSON.stringify(mediaOf(it)) : ''));
         cost += COST_SOURCE;
         units.push({ stmts, ownerUpdate });
     }
@@ -263,16 +281,21 @@ export async function visibleSourcesMany(env, scope, vids) {
     const out = new Map(vids.map(v => [Number(v), []]));
     if (!vids.length) return out;
     const rows = (await dbAll(env,
-        `SELECT s.vid, s.prefix, s.item_id, s.lib_id, s.image_tags, COALESCE(r.sort_order, 0) AS ord
+        `SELECT s.vid, s.prefix, s.item_id, s.lib_id, s.image_tags, s.media, COALESCE(r.sort_order, 0) AS ord
            FROM agg_sources s LEFT JOIN routes r ON r.prefix = s.prefix
           WHERE s.vid IN (SELECT value FROM json_each(?)) ORDER BY ord, s.prefix`,
         JSON.stringify(vids.map(Number)))).results || [];
     for (const r of rows) {
         if (!scope.prefixes.includes(r.prefix)) continue;
         if ((scope.hidden.get(r.prefix) || new Set()).has(String(r.lib_id))) continue;
-        out.get(Number(r.vid)).push({ ...r, image_tags: safeJson(r.image_tags, {}) });
+        out.get(Number(r.vid)).push({ ...r, image_tags: safeJson(r.image_tags, {}), media: safeJson(r.media, null) });
     }
     return out;
+}
+
+// 打开电影时向节点补到的文件摘要：存下来，这份副本以后不再问节点。
+export async function saveMedia(env, prefix, itemId, media) {
+    if (media) await dbRun(env, `UPDATE agg_sources SET media = ? WHERE prefix = ? AND item_id = ?`, JSON.stringify(media), prefix, String(itemId));
 }
 
 export async function visibleSources(env, scope, vid) {

@@ -314,11 +314,16 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.equal(d.body.Overview, 'From a.example', 'nodeA sorts first');
     assert.deepEqual(d.body.People, [{ Id: 'person1', Name: 'Actor', Type: 'Actor' }], 'Id kept (strict clients need it), image tag dropped');
     // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
-    // 版本菜单来自详情：每个节点一个版本。只问第一个节点（和用代理打开一部片一样）；其它节点只列名字，Id 是 `<前缀>~`。
+    // 版本菜单来自详情：每个节点一个版本，Id 是 `<前缀>~`（第一个节点给真实媒体源 Id）。
+    // nodeB 的文件摘要同步时没有：第一次打开问它一次并存下，以后不再问（和用代理一样，不每次都打扰）。
     const menu = d.body.MediaSources;
     assert.deepEqual(menu[0], { Id: 'nodeA~ms', ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: '节点A' });
-    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].MediaStreams, menu[1].ItemId], ['nodeB~', 'nodeB', [], String(vid)]);
-    assert.ok(!calls.some(c => c.host === 'b.example' && /^\/Users\/UID\/Items\//.test(c.path)), 'nodeB is not asked');
+    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~', 'nodeB', 'mkv', String(vid)]);
+    assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1);
+    assert.equal(JSON.parse(rows(`SELECT media FROM agg_sources WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media).Container, 'mkv');
+    __resetLiveForTest(); calls = [];
+    assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources[1].Container, 'mkv');
+    assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'never asked again');
     assert.equal(d.body.ParentId, '1');
     const bob = await viewer('bob', [['nodeB']]);
     const b = (await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body;
@@ -337,6 +342,23 @@ test('version menu hides nodes that are full for this device; when every node is
     assert.deepEqual(await menu(), ['nodeB~ms'], 'nodeA is full: not offered');
     busy('nodeB');
     assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~'], 'all full: list stays, play answers 429');
+});
+
+test('version details come from the catalog sync and the episode lists, without asking the nodes', async () => {
+    const file = (name, h) => [{ Id: 'x', Name: name, Container: 'mkv', Size: 2e9, Bitrate: 8e6, MediaStreams: [{ Type: 'Video', Codec: 'hevc', Width: 3840, Height: h, Path: '/secret' }, { Type: 'Audio', Codec: 'aac', IsDefault: true }, { Type: 'Subtitle', Codec: 'srt' }] }];
+    nodes['b.example'].items.M1[0].MediaSources = file('2160p', 2160);
+    nodes['b.example'].shows.b9.episodes[0].MediaSources = file('ep 4k', 1608);
+    await syncAll();
+    const { token } = await viewer('alice', [['nodeA'], ['nodeB']]);
+    const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid;
+    calls = [];
+    const m = (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources[1];
+    assert.deepEqual([m.Name, m.Size, m.Bitrate, m.MediaStreams.map(x => [x.Type, x.Codec, x.Height])], ['nodeB · 2160p', 2e9, 8e6, [['Video', 'hevc', 2160], ['Audio', 'aac', undefined]]]);
+    assert.ok(!JSON.stringify(m).includes('/secret'), 'only the summary is kept');
+    assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'known from the sync: nodeB not asked');
+    const series = rows(`SELECT vid FROM agg_items WHERE name = 'Breaking Bad'`)[0].vid;
+    const e = (await call(`/emby/Users/x/Items/${series * 1e6 + 2 * 1000 + 1}`, { token })).body.MediaSources;
+    assert.deepEqual([e[1].Id, e[1].Name, e[1].MediaStreams[0].Height], ['nodeB~', 'nodeB · ep 4k', 1608]);
 });
 
 test('images are fetched from a copy that has them, matching the requested tag', async () => {

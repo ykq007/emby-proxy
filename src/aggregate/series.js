@@ -7,7 +7,7 @@
 // 守住每次请求的外部子请求上限（Workers Paid 1000；免费版 50，用免费版时把 MAX_COPIES 调回 3）。
 import { dbAll } from '../db/helpers.js';
 import { memberRoutes, nodeJson } from './upstream.js';
-import { visibleSources, getItemRow } from './catalog.js';
+import { visibleSources, getItemRow, mediaSummary } from './catalog.js';
 
 const M = 1e6;
 const SEASON_BASE = 999000;
@@ -51,7 +51,7 @@ async function nodeList(env, route, kind, itemId, deviceId = '') {
     const id = encodeURIComponent(itemId);
     const path = kind === 'seasons'
         ? `/Shows/${id}/Seasons?UserId={uid}&EnableUserData=false&Fields=PremiereDate,Overview`
-        : `/Shows/${id}/Episodes?UserId={uid}&EnableUserData=false&Fields=Overview,PremiereDate,DateCreated&EnableImageTypes=Primary,Thumb&ImageTypeLimit=1`;
+        : `/Shows/${id}/Episodes?UserId={uid}&EnableUserData=false&Fields=Overview,PremiereDate,DateCreated,MediaSources&EnableImageTypes=Primary,Thumb&ImageTypeLimit=1`;
     const p = nodeJson(env, route, path, { deviceId }).then((r) => {
         if (r.error) return null; // 失败不缓存，下次再试
         const items = (r.data && r.data.Items) || [];
@@ -68,7 +68,7 @@ function addCopy(map, key, it, prefix, itemId) {
     let e = map.get(key);
     if (!e) { e = { item: it, copies: [] }; map.set(key, e); }
     if (!e.copies.length && itemId) e.item = it; // 由单集推出的占位季，换成节点上真实的季
-    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it) });
+    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it), media: mediaSummary((it.MediaSources || [])[0]) });
     return e;
 }
 

@@ -23,7 +23,8 @@ export const DEFAULT_TIME_BUDGET_MS = 12000;
 // 同一轮里两次上游请求之间至少间隔这么久，减轻节点负载（env.AGG_PAGE_DELAY_MS 可改，0 = 不停顿）。
 const DEFAULT_PAGE_DELAY_MS = 1000;
 const LIB_TYPES = new Set(['movies', 'tvshows', 'mixed', '']);
-const FIELDS = 'ProviderIds,Genres,PremiereDate,ProductionYear,DateCreated,SortName,CommunityRating,OfficialRating,RunTimeTicks';
+// MediaSources：版本菜单的文件摘要（catalog.js 的 mediaSummary），同一个请求里带回，不另外问节点。
+const FIELDS = 'ProviderIds,Genres,PremiereDate,ProductionYear,DateCreated,SortName,CommunityRating,OfficialRating,RunTimeTicks,MediaSources';
 
 const dayKey = (now) => 'writes:' + new Date(now).toISOString().slice(0, 10);
 
