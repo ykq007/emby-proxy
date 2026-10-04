@@ -1,10 +1,10 @@
-// 聚合 Worker 访问各节点的上游会话：每节点一个（设备 agg-<prefix>），存 agg_sessions。
+// 聚合 Worker 访问各节点的上游会话：每节点一个（身份照搬一台真实 viewer 设备，见 syncIdent），存 agg_sessions。
 // 登录复用生产的 loginUpstream（同一套凭据解析 + 日志里的真实非浏览器 UA），
 // 但会话存在自己的表里，不写生产的 viewer_device_sessions。
 import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 import { encryptToken, decryptToken } from '../emby/tokens.js';
 import { fetchEmbyJsonWithFallback } from '../emby/client.js';
-import { parseCustomHeadersForProbe } from '../emby/headers.js';
+import { parseCustomHeadersForProbe, isBrowserUa } from '../emby/headers.js';
 import { loginUpstream, identityHeaders } from '../viewers/upstream.js';
 import { orderUpstreamsByHealth, markUpstreamFailure, markUpstreamSuccess } from '../proxy/circuit-breaker.js';
 
@@ -31,22 +31,41 @@ export const bases = (route) => String(route.target || '').split(',').map(s => s
 
 async function session(env, route, fresh = false) {
     const prefix = route.prefix;
-    if (!fresh) {
-        if (MEM.has(prefix)) return MEM.get(prefix);
+    let prev = MEM.get(prefix) || null;
+    if (!prev) {
         const row = await dbFirst(env, `SELECT blob FROM agg_sessions WHERE prefix = ?`, prefix);
-        if (row) {
-            try {
-                const s = JSON.parse(await decryptToken(env, prefix, row.blob) || 'null');
-                if (s && s.token && s.userId) { MEM.set(prefix, s); return s; }
-            } catch (e) { }
-        }
+        try { prev = row && JSON.parse(await decryptToken(env, prefix, row.blob) || 'null'); } catch (e) { }
     }
-    const ident = { client: 'Forward', device: 'Forward Aggregate', deviceId: 'agg-' + prefix, version: '1.0.0', ua: '' };
+    if (!fresh && prev && prev.token && prev.userId) { MEM.set(prefix, prev); return prev; }
+    // 重新登录沿用原来的设备，上游不会多出新设备。
+    const ident = (prev && prev.ident && prev.ident.deviceId) ? prev.ident : await syncIdent(env, prefix);
+    if (!ident) return { error: 'no real client identity yet: no viewer device has used any node' };
     const s = await loginUpstream(env, prefix, ident);
     if (s.error) return s;
     MEM.set(prefix, s);
     await dbRun(env, `INSERT OR REPLACE INTO agg_sessions (prefix, blob) VALUES (?, ?)`, prefix, await encryptToken(env, prefix, JSON.stringify(s)));
     return s;
+}
+
+// 同步会话的身份：照搬一台真实 viewer 设备的 Client / Device / Version / UA（该节点的优先），
+// 只换一个同格式的随机 DeviceId，上游看到的是一台普通的同款 App。浏览器 UA 的设备不用。
+export async function syncIdent(env, prefix) {
+    const res = await dbAll(env,
+        `SELECT prefix, blob FROM (SELECT prefix, blob FROM viewer_device_sessions
+          UNION ALL SELECT prefix, blob FROM agg_device_sessions) ORDER BY (prefix = ?) DESC, prefix, blob`, prefix);
+    for (const row of res.results || []) {
+        let id = null;
+        try { id = JSON.parse(await decryptToken(env, row.prefix, row.blob) || 'null')?.ident; } catch (e) { }
+        if (!id || !id.client || !id.deviceId || !id.ua || isBrowserUa(id.ua)) continue;
+        const upper = /[A-F]/.test(id.deviceId) && !/[a-f]/.test(id.deviceId);
+        const deviceId = id.deviceId.replace(/[0-9a-f]/gi, () => {
+            const d = '0123456789abcdef'[crypto.getRandomValues(new Uint8Array(1))[0] & 15];
+            return upper ? d.toUpperCase() : d;
+        });
+        if (deviceId === id.deviceId) continue; // 没有可换的字符：不能与那台真实设备撞号
+        return { client: id.client, device: id.device, deviceId, version: id.version, ua: id.ua };
+    }
+    return null;
 }
 
 // 播放用的设备会话：以客户端设备自己的身份（Client / Device / DeviceId / Version / UA）登录节点，

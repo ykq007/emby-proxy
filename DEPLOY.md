@@ -74,6 +74,8 @@ cp wrangler.aggregate.example.toml wrangler.aggregate.prod.toml   # 已 gitignor
 npx wrangler secret put ADMIN_TOKEN -c wrangler.aggregate.prod.toml  # 必须与生产 Worker 相同
 ```
 
-部署：`npm run deploy:agg`。部署后每 10 分钟同步一次目录；首次全量受每日写入预算
+部署：`npm run deploy:agg`。cron 每 10 分钟跑一次，首轮全量做完后每个节点最多每小时一轮增量。
+同步登录照搬一台真实 viewer 设备的身份（App 名、设备名、版本、UA），所以至少要有一个 viewer 用 App 看过任一节点，否则不同步。
+首次全量受每日写入预算
 （`AGG_DAILY_WRITE_BUDGET`，默认 30000 行）限制，节点多时可能要一两天才同步完。
 viewer 在 Emby 客户端里添加服务器地址 `https://emby-aggregate.<子域>.workers.dev`，用自己的 viewer 账号登录。

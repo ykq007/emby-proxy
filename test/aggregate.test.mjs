@@ -4,7 +4,7 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ensureSchema, __resetSchemaReadyForTest } from '../src/db/schema.js';
-import { encryptSecret } from '../src/emby/tokens.js';
+import { encryptSecret, encryptToken } from '../src/emby/tokens.js';
 import { createViewer, grantAccess, updateViewer, clearResolveCache } from '../src/viewers/store.js';
 import { ensureAggSchema, __resetAggSchemaForTest } from '../src/aggregate/schema.js';
 import { __resetAggUpstreamForTest } from '../src/aggregate/upstream.js';
@@ -17,6 +17,7 @@ import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 
 const ORIGIN = 'https://agg.test';
 const LOG_UA = 'Hills/1.9.0 (android; 17)';
+const REAL_DEV = { client: 'Hills', device: 'Pixel 8', deviceId: '7f3c9a01b2d4e6f8', version: '1.9.0', ua: LOG_UA };
 const DAY = 86400000;
 let env; let restoreFetch; let nodes; let calls;
 
@@ -54,7 +55,7 @@ function fakeEmby(req) {
     if (node.down) throw new TypeError('network down');
     const p = u.pathname.replace(/^\/emby/, '');
     const q = u.searchParams;
-    calls.push({ host, method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range') });
+    calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range') });
     const json = (d, status = 200) => Response.json(d, { status });
     if (p === '/Users/AuthenticateByName') {
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
@@ -110,6 +111,11 @@ beforeEach(async () => {
             .run(prefix, 'https://' + host, pw, order);
         env.DB.db.prepare(`INSERT INTO visitor_logs (prefix, ua) VALUES (?, ?), (?, 'Mozilla/5.0 Chrome')`).run(prefix, LOG_UA, prefix);
     }
+    // 生产 viewer 网关存下的真实设备：同步会话照搬它的身份。nodeB 没有设备（借 nodeA 的），浏览器设备不用。
+    const dev = async (prefix, ident) => env.DB.db.prepare(`INSERT INTO viewer_device_sessions (prefix, device_id, blob) VALUES (?, ?, ?)`)
+        .run(prefix, ident.deviceId, await encryptToken(env, prefix, JSON.stringify({ token: 't', userId: 'UID', ident })));
+    await dev('nodeA', { client: 'Emby Web', device: 'Chrome', deviceId: '0000aaaa', version: '4.8', ua: 'Mozilla/5.0 Chrome' });
+    await dev('nodeA', REAL_DEV);
     nodes = fixtures(); calls = [];
     const orig = globalThis.fetch;
     globalThis.fetch = async (input, init) => fakeEmby(input instanceof Request ? input : new Request(input, init));
@@ -153,19 +159,40 @@ test('sync merges the same title across nodes by provider id, then by name+year;
     assert.equal(rows(`SELECT * FROM agg_sources WHERE item_id = 'a20'`).length, 0);
 });
 
-test('upstream logins use the node log UA, never a browser UA', async () => {
+test('sync logins copy a real viewer device (client, device, version, UA) with a new device id, never a browser', async () => {
     await syncAll();
     const logins = calls.filter(c => c.path === '/Users/AuthenticateByName');
-    assert.equal(logins.length, 2);
-    assert.ok(logins.every(c => c.ua === LOG_UA), JSON.stringify(logins));
+    assert.deepEqual(logins.map(c => c.host).sort(), ['a.example', 'b.example'], 'nodeB borrows nodeA\'s device');
+    for (const c of logins) {
+        assert.equal(c.ua, REAL_DEV.ua);
+        assert.equal(c.auth, `MediaBrowser Client="Hills", Device="Pixel 8", DeviceId="${c.device}", Version="1.9.0"`);
+        assert.match(c.device, /^[0-9a-f]{16}$/);
+        assert.notEqual(c.device, REAL_DEV.deviceId, 'never the real device\'s own id');
+    }
     assert.ok(calls.every(c => !/^Mozilla/.test(c.ua || '')));
+
+    // 令牌失效后重新登录：还是同一台设备。
+    const before = logins.find(c => c.host === 'a.example').device;
+    nodes['a.example'].revoked = new Set([`TOK-a.example-${before}`]);
+    __resetAggUpstreamForTest(); calls = [];
+    env.DB.db.exec(`UPDATE agg_sync SET since = ''`);
+    await syncAll();
+    assert.deepEqual([...new Set(calls.filter(c => c.path === '/Users/AuthenticateByName' && c.host === 'a.example').map(c => c.device))], [before]);
+});
+
+test('no real viewer device anywhere: sync does not log in at all', async () => {
+    env.DB.db.exec(`DELETE FROM viewer_device_sessions`);
+    const s = await runSync(env, Date.now(), { maxRequests: 50 });
+    assert.equal(calls.length, 0);
+    assert.match(s.nodes.nodeA.error, /no real client identity/);
 });
 
 test('incremental sync: second pass asks only for changes and writes nothing when nothing changed', async () => {
     const t0 = Date.parse('2026-02-01T00:00:00Z');
     await syncAll(t0);
     calls = [];
-    const s = await syncAll(t0 + 600000);
+    assert.equal((await syncAll(t0 + 600000)).requests, 0, 'within the hour: nodes are not polled');
+    const s = await syncAll(t0 + 3600000);
     assert.equal(s.writes, 0);
     const pages = calls.filter(c => c.path === '/Users/UID/Items');
     assert.ok(pages.length && pages.every(c => c.query.MinDateLastSaved), 'every page is incremental');
@@ -173,12 +200,12 @@ test('incremental sync: second pass asks only for changes and writes nothing whe
 
     // 强制重新全量：条目都没变，指纹相同，一行不写。
     env.DB.db.exec(`UPDATE agg_sync SET since = ''`);
-    const full = await syncAll(t0 + 700000);
+    const full = await syncAll(t0 + 3600001);
     assert.equal(full.writes, 0);
 
     // 节点上新增一部片：下一轮增量带上它，且并入已有作品（Arrival 的 tmdb）。
-    nodes['b.example'].items.M1.push(mv('b4', 'Arrival', 2016, { Tmdb: '329865' }, '2026-02-01T00:05:00Z'));
-    await syncAll(t0 + 1200000);
+    nodes['b.example'].items.M1.push(mv('b4', 'Arrival', 2016, { Tmdb: '329865' }, '2026-02-01T01:30:00Z'));
+    await syncAll(t0 + 3 * 3600000);
     assert.deepEqual(rows(`SELECT s.prefix FROM agg_sources s JOIN agg_items i USING (vid) WHERE i.name = 'Arrival' ORDER BY s.prefix`).map(r => r.prefix), ['nodeA', 'nodeB']);
 });
 

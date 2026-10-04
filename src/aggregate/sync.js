@@ -1,6 +1,6 @@
 // 目录同步（cron）。每个节点一个游标（agg_sync）：
 //   1. 一轮（pass）= 遍历该节点账号可见的电影 / 剧集媒体库，分页取条目合并进目录；
-//      首轮是全量，之后只取 MinDateLastSaved >= 上一轮开始时间的条目（增量）。
+//      首轮是全量，之后每小时最多一轮，只取 MinDateLastSaved >= 上一轮开始时间的条目（增量）。
 //   2. 每天一次对账（reconcile）：按媒体库比对条目数，不一致时比对 Id 列表，
 //      删掉节点上已不存在的、补上漏掉的。
 // 两道闸：每次 cron 的上游请求数（Workers 子请求上限）和每天的 D1 写入行数（免费额度）。
@@ -14,6 +14,7 @@ export const PAGE = 200;
 const ID_PAGE = 1000;
 const SINCE_SLACK_MS = 10 * 60 * 1000;   // 节点与本地时钟偏差的余量
 const RECONCILE_EVERY_MS = 24 * 3600 * 1000;
+const PASS_EVERY_MS = 3600 * 1000;      // 首轮全量之后，每个节点最多每小时一轮增量
 const PLAY_SESSION_TTL_MS = 2 * 24 * 3600 * 1000;
 const DEFAULT_DAILY_WRITES = 30000;
 const DEFAULT_TICK_REQUESTS = 20;
@@ -99,6 +100,7 @@ async function syncNode(env, route, now, budget) {
     const st = await loadState(env, route.prefix);
     const out = { merged: 0, removed: 0, passDone: false, reconciled: false, error: '' };
     const fail = async (msg) => { st.error = out.error = msg; await saveState(env, st, now); return out; };
+    if (!st.libs.length && st.since && now - (Number(st.updated_at) || 0) < PASS_EVERY_MS) return out;
 
     if (!st.libs.length) {
         if (st.since && now - (Number(st.reconciled_at) || 0) >= RECONCILE_EVERY_MS) {
