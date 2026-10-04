@@ -185,25 +185,51 @@ test('sync merges the same title across nodes by provider id, then by name+year;
     assert.equal(rows(`SELECT * FROM agg_sources WHERE item_id = 'a20'`).length, 0);
 });
 
-test('sync logins copy a real viewer device (client, device, version, UA) with a new device id, never a browser', async () => {
+test('sync uses a real viewer device as it is (its own device id, never a made-up one, never a browser)', async () => {
     await syncAll();
     const logins = calls.filter(c => c.path === '/Users/AuthenticateByName');
     assert.deepEqual(logins.map(c => c.host).sort(), ['a.example', 'b.example'], 'nodeB borrows nodeA\'s device');
     for (const c of logins) {
         assert.equal(c.ua, REAL_DEV.ua);
-        assert.equal(c.auth, `MediaBrowser Client="Hills", Device="Pixel 8", DeviceId="${c.device}", Version="1.9.0"`);
-        assert.match(c.device, /^[0-9a-f]{16}$/);
-        assert.notEqual(c.device, REAL_DEV.deviceId, 'never the real device\'s own id');
+        assert.equal(c.auth, `MediaBrowser Client="Hills", Device="Pixel 8", DeviceId="${REAL_DEV.deviceId}", Version="1.9.0"`);
     }
     assert.ok(calls.every(c => !/^Mozilla/.test(c.ua || '')));
+    assert.ok(calls.filter(c => c.path !== '/Users/AuthenticateByName').every(c => c.device === REAL_DEV.deviceId), 'every sync request is that device');
 
     // 令牌失效后重新登录：还是同一台设备。
-    const before = logins.find(c => c.host === 'a.example').device;
-    nodes['a.example'].revoked = new Set([`TOK-a.example-${before}`]);
+    nodes['a.example'].revoked = new Set([`TOK-a.example-${REAL_DEV.deviceId}`]);
     __resetAggUpstreamForTest(); calls = [];
     env.DB.db.exec(`UPDATE agg_sync SET since = ''`);
     await syncAll();
-    assert.deepEqual([...new Set(calls.filter(c => c.path === '/Users/AuthenticateByName' && c.host === 'a.example').map(c => c.device))], [before]);
+    assert.deepEqual([...new Set(calls.filter(c => c.path === '/Users/AuthenticateByName' && c.host === 'a.example').map(c => c.device))], [REAL_DEV.deviceId]);
+});
+
+test('sync reuses that device\'s existing session (no login); an old made-up sync device is signed out first', async () => {
+    // 生产代理里这台设备在 nodeA 已有可用的会话；聚合端旧版留下的随机设备会话还在。
+    env.DB.db.prepare(`UPDATE viewer_device_sessions SET blob = ? WHERE prefix = 'nodeA' AND device_id = ?`)
+        .run(await encryptToken(env, 'nodeA', JSON.stringify({ token: `TOK-a.example-${REAL_DEV.deviceId}`, userId: 'UID', ident: REAL_DEV })), REAL_DEV.deviceId);
+    await ensureAggSchema(env);
+    env.DB.db.prepare(`INSERT INTO agg_sessions (prefix, blob) VALUES ('nodeA', ?)`)
+        .run(await encryptToken(env, 'nodeA', JSON.stringify({ token: 'TOK-a.example-0badc0de', userId: 'UID', ident: { ...REAL_DEV, deviceId: '0badc0de' } })));
+    await syncAll();
+    assert.ok(!calls.some(c => c.host === 'a.example' && c.path === '/Users/AuthenticateByName'), 'no login on nodeA');
+    assert.deepEqual(calls.filter(c => c.path === '/Sessions/Logout').map(c => [c.host, c.device]), [['a.example', '0badc0de']]);
+    assert.ok(calls.filter(c => c.host === 'a.example' && c.path !== '/Sessions/Logout').every(c => c.device === REAL_DEV.deviceId));
+});
+
+test('AGG_SYNC_VIEWER: the sync only uses that viewer\'s own devices, never another viewer\'s', async () => {
+    const id = await createViewer(env, 'owner', 'secret1');
+    env.AGG_SYNC_VIEWER = 'owner';
+    try {
+        let s = await runSync(env, Date.now(), { maxRequests: 50 });
+        assert.match(s.nodes.nodeA.error, /no real client identity/, 'REAL_DEV is not the owner\'s device');
+        assert.equal(calls.length, 0);
+        env.DB.db.prepare(`INSERT INTO viewer_tokens (token_hash, viewer_id, prefix, device_id, created_at) VALUES ('h', ?, 'nodeA', ?, 0)`).run(id, REAL_DEV.deviceId);
+        __resetAggUpstreamForTest();
+        s = await runSync(env, Date.now(), { maxRequests: 50 });
+        assert.equal(s.nodes.nodeA.error, '');
+        assert.ok(calls.length && calls.every(c => c.device === REAL_DEV.deviceId));
+    } finally { delete env.AGG_SYNC_VIEWER; }
 });
 
 test('no real viewer device anywhere: sync does not log in at all', async () => {

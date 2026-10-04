@@ -1,5 +1,5 @@
 // 聚合 Worker 访问各节点的上游会话。
-// - 同步会话：每节点一个（身份照搬一台真实 viewer 设备，见 syncIdent），存 agg_sessions；只用于后台同步与目录。
+// - 同步会话：每节点用一台真实 viewer 设备自己的会话（真实 DeviceId，不另造设备，见 syncDevice）；用于后台同步与目录。
 // - 设备会话：viewer 设备自己的会话。优先用生产代理里该设备已有的会话（只读 viewer_device_sessions），
 //   节点上同一台设备就只有一个登录，和用代理时一样；没有才自己登录，存 agg_device_sessions（不写生产表）。
 // 登录复用生产的 loginUpstream（同一套凭据解析 + 日志里的真实非浏览器 UA）。
@@ -11,11 +11,12 @@ import { loginUpstream, identityHeaders, getDeviceSession } from '../viewers/ups
 import { orderUpstreamsByHealth, markUpstreamFailure, markUpstreamSuccess } from '../proxy/circuit-breaker.js';
 
 const MEM = new Map(); // prefix -> session（同步 / 详情 / 图片）
+const PICK = new Map(); // prefix -> 同步用的那台真实设备的身份
 const DEV_MEM = new Map(); // `${prefix}\n${deviceId}` -> session（播放：每个 viewer 设备一个）
 const ROUTES_TTL_MS = 60000;
 let routesMem = null; // { at, routes }
 
-export function __resetAggUpstreamForTest() { MEM.clear(); DEV_MEM.clear(); routesMem = null; }
+export function __resetAggUpstreamForTest() { MEM.clear(); DEV_MEM.clear(); PICK.clear(); routesMem = null; }
 
 // 聚合成员节点：开启了 viewers 的节点；env.AGG_NODES（逗号分隔）只取这些，env.AGG_EXCLUDE_NODES 去掉这些。
 // 节点退出成员后，下一轮同步自动清掉它在目录里的副本（sync.js → forgetPrefix）。
@@ -33,41 +34,50 @@ export async function memberRoutes(env, now = Date.now()) {
 
 export const bases = (route) => String(route.target || '').split(',').map(s => s.trim()).filter(Boolean);
 
-async function session(env, route, fresh = false) {
+// 同步用哪台设备：agg_sessions 记着（{ real: true, ident }）。旧版存的是随机 DeviceId 设备的会话：登出、删掉，换一台真实设备。
+async function syncDevice(env, route) {
     const prefix = route.prefix;
-    let prev = MEM.get(prefix) || null;
-    if (!prev) {
-        const row = await dbFirst(env, `SELECT blob FROM agg_sessions WHERE prefix = ?`, prefix);
-        try { prev = row && JSON.parse(await decryptToken(env, prefix, row.blob) || 'null'); } catch (e) { }
+    if (PICK.has(prefix)) return PICK.get(prefix);
+    const row = await dbFirst(env, `SELECT blob FROM agg_sessions WHERE prefix = ?`, prefix);
+    let saved = null;
+    try { saved = row && JSON.parse(await decryptToken(env, prefix, row.blob) || 'null'); } catch (e) { }
+    if (saved && saved.real && saved.ident) { PICK.set(prefix, saved.ident); return saved.ident; }
+    if (saved && saved.token) {
+        const r = await nodeFetch(route, saved, '/Sessions/Logout', { method: 'POST' }).catch(() => null);
+        r?.body?.cancel().catch(() => {});
     }
-    if (!fresh && prev && prev.token && prev.userId) { MEM.set(prefix, prev); return prev; }
-    // 重新登录沿用原来的设备，上游不会多出新设备。
-    const ident = (prev && prev.ident && prev.ident.deviceId) ? prev.ident : await syncIdent(env, prefix);
+    const ident = await syncIdent(env, prefix);
+    if (!ident) return null;
+    await dbRun(env, `INSERT OR REPLACE INTO agg_sessions (prefix, blob) VALUES (?, ?)`, prefix, await encryptToken(env, prefix, JSON.stringify({ real: true, ident })));
+    PICK.set(prefix, ident);
+    return ident;
+}
+
+// 同步 / 目录用的会话：那台真实设备在这个节点的会话。生产代理或聚合端已有就直接用（节点上还是那一个设备、那一个登录）；
+// 没有才以它的真实身份登录一次，和它自己来播放时一样（存 agg_device_sessions，之后播放也共用）。
+async function session(env, route, fresh = false, failedToken = '') {
+    const ident = await syncDevice(env, route);
     if (!ident) return { error: 'no real client identity yet: no viewer device has used any node' };
-    const s = await loginUpstream(env, prefix, ident);
-    if (s.error) return s;
-    MEM.set(prefix, s);
-    await dbRun(env, `INSERT OR REPLACE INTO agg_sessions (prefix, blob) VALUES (?, ?)`, prefix, await encryptToken(env, prefix, JSON.stringify(s)));
+    if (!fresh && MEM.has(route.prefix)) return MEM.get(route.prefix);
+    const s = await deviceSession(env, route, ident, fresh, null, failedToken);
+    if (!s.error) MEM.set(route.prefix, s);
     return s;
 }
 
-// 同步会话的身份：照搬一台真实 viewer 设备的 Client / Device / Version / UA（该节点的优先），
-// 只换一个同格式的随机 DeviceId，上游看到的是一台普通的同款 App。浏览器 UA 的设备不用。
+// 同步用的真实设备：用过节点的 viewer 设备（该节点的优先），身份原样照用，包括它自己的 DeviceId。浏览器 UA 的设备不用。
+// env.AGG_SYNC_VIEWER（viewer 用户名）：只用这个 viewer 的设备（真实设备 Id 会出现在节点上，不能借别人的设备）。
 export async function syncIdent(env, prefix) {
+    const owner = String(env.AGG_SYNC_VIEWER || '').trim();
+    const mine = owner ? `WHERE device_id IN (SELECT t.device_id FROM viewer_tokens t JOIN viewers v ON v.id = t.viewer_id WHERE v.username = ?1
+                                      UNION SELECT t.device_id FROM agg_tokens t JOIN viewers v ON v.id = t.viewer_id WHERE v.username = ?1)` : '';
     const res = await dbAll(env,
-        `SELECT prefix, blob FROM (SELECT prefix, blob FROM viewer_device_sessions
-          UNION ALL SELECT prefix, blob FROM agg_device_sessions) ORDER BY (prefix = ?) DESC, prefix, blob`, prefix);
+        `SELECT prefix, blob FROM (SELECT prefix, device_id, blob FROM viewer_device_sessions
+          UNION ALL SELECT prefix, device_id, blob FROM agg_device_sessions) ${mine} ORDER BY (prefix = ?2) DESC, prefix, blob`, owner, prefix);
     for (const row of res.results || []) {
         let id = null;
         try { id = JSON.parse(await decryptToken(env, row.prefix, row.blob) || 'null')?.ident; } catch (e) { }
         if (!id || !id.client || !id.deviceId || !id.ua || isBrowserUa(id.ua)) continue;
-        const upper = /[A-F]/.test(id.deviceId) && !/[a-f]/.test(id.deviceId);
-        const deviceId = id.deviceId.replace(/[0-9a-f]/gi, () => {
-            const d = '0123456789abcdef'[crypto.getRandomValues(new Uint8Array(1))[0] & 15];
-            return upper ? d.toUpperCase() : d;
-        });
-        if (deviceId === id.deviceId) continue; // 没有可换的字符：不能与那台真实设备撞号
-        return { client: id.client, device: id.device, deviceId, version: id.version, ua: id.ua };
+        return { client: id.client, device: id.device, deviceId: id.deviceId, version: id.version, ua: id.ua };
     }
     return null;
 }
@@ -178,7 +188,7 @@ export async function nodeJson(env, route, pathQuery, opts = {}) {
         }
         if (!unauthorized) return { error: 'upstream unreachable' };
         MEM.delete(route.prefix);
-        s = await session(env, route, true);
+        s = await session(env, route, true, s.token);
     }
     return { error: 'upstream rejected the session' };
 }

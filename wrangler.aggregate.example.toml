@@ -20,6 +20,8 @@ crons = ["*/10 * * * *"]
 AGG_SERVER_NAME = "Emby Aggregate"
 # AGG_NODES = "node1,node2"        # 留空 = 所有开启了 viewers 的节点
 # AGG_EXCLUDE_NODES = "node3"       # 不参与聚合的节点（其副本在下一轮同步时移除）
+# 同步 / 目录用哪个 viewer 的真实设备（设备 Id 原样出现在节点上，所以不借别人的设备）。留空 = 任何用过节点的设备。
+# AGG_SYNC_VIEWER = "owner"
 # AGG_DAILY_WRITE_BUDGET = "30000"  # Workers Paid 可调到 500000
 # AGG_SYNC_REQUESTS = "20"         # Workers Paid 可调到 100
 
