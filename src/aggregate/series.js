@@ -7,7 +7,7 @@
 // 守住每次请求的外部子请求上限（Workers Paid 1000；免费版 50，用免费版时把 MAX_COPIES 调回 3）。
 import { dbAll } from '../db/helpers.js';
 import { memberRoutes, nodeJson } from './upstream.js';
-import { visibleSources, getItemRow, mediaSummary } from './catalog.js';
+import { visibleSources, getItemRow, mediaList } from './catalog.js';
 
 const M = 1e6;
 const SEASON_BASE = 999000;
@@ -68,7 +68,7 @@ function addCopy(map, key, it, prefix, itemId) {
     let e = map.get(key);
     if (!e) { e = { item: it, copies: [] }; map.set(key, e); }
     if (!e.copies.length && itemId) e.item = it; // 由单集推出的占位季，换成节点上真实的季
-    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it), media: mediaSummary((it.MediaSources || [])[0]) });
+    if (itemId) e.copies.push({ prefix, item_id: String(itemId), image_tags: tagsOf(it), media: mediaList(it) });
     return e;
 }
 

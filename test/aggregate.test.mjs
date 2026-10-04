@@ -93,7 +93,7 @@ function fakeEmby(req, body) {
     if (p === '/Users/UID/Items/Latest') return json(node.latest || []);
     if ((m = /^\/Users\/UID\/Items\/(\w+)$/.exec(p))) {
         const it = [...Object.values(node.items).flat(), ...Object.values(node.shows || {}).flatMap(sh => sh.episodes)].find(x => x.Id === m[1]);
-        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: [{ Id: 'ms', Path: '/mnt/x.mkv', Container: 'mkv', DirectStreamUrl: '/Videos/x/stream?api_key=NODETOKEN' }] }) : json({}, 404);
+        return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: it.MediaSources || [{ Id: 'ms', Path: '/mnt/x.mkv', Container: 'mkv', DirectStreamUrl: '/Videos/x/stream?api_key=NODETOKEN' }] }) : json({}, 404);
     }
     if ((m = /^\/Items\/(\w+)\/Images\/Primary$/.exec(p))) return new Response(`IMG-${host}-${m[1]}-${q.get('tag')}`, { headers: { 'content-type': 'image/jpeg' } });
     if ((m = /^\/Items\/(\w+)\/PlaybackInfo$/.exec(p))) {
@@ -314,13 +314,13 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.equal(d.body.Overview, 'From a.example', 'nodeA sorts first');
     assert.deepEqual(d.body.People, [{ Id: 'person1', Name: 'Actor', Type: 'Actor' }], 'Id kept (strict clients need it), image tag dropped');
     // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
-    // 版本菜单来自详情：每个节点一个版本，Id 是 `<前缀>~`（第一个节点给真实媒体源 Id）。
+    // 版本菜单来自详情：每个文件一项，Id 是 `<前缀>~<媒体源 Id>`。
     // nodeB 的文件摘要同步时没有：第一次打开问它一次并存下，以后不再问（和用代理一样，不每次都打扰）。
     const menu = d.body.MediaSources;
     assert.deepEqual(menu[0], { Id: 'nodeA~ms', ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: '节点A' });
-    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~', 'nodeB', 'mkv', String(vid)]);
+    assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~ms', 'nodeB', 'mkv', String(vid)]);
     assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1);
-    assert.equal(JSON.parse(rows(`SELECT media FROM agg_sources WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media).Container, 'mkv');
+    assert.equal(JSON.parse(rows(`SELECT media FROM agg_sources WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media)[0].Container, 'mkv');
     __resetLiveForTest(); calls = [];
     assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources[1].Container, 'mkv');
     assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'never asked again');
@@ -341,7 +341,7 @@ test('version menu hides nodes that are full for this device; when every node is
     busy('nodeA');
     assert.deepEqual(await menu(), ['nodeB~ms'], 'nodeA is full: not offered');
     busy('nodeB');
-    assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~'], 'all full: list stays, play answers 429');
+    assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~ms'], 'all full: list stays, play answers 429');
 });
 
 test('version details come from the catalog sync and the episode lists, without asking the nodes', async () => {
@@ -358,7 +358,7 @@ test('version details come from the catalog sync and the episode lists, without 
     assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'known from the sync: nodeB not asked');
     const series = rows(`SELECT vid FROM agg_items WHERE name = 'Breaking Bad'`)[0].vid;
     const e = (await call(`/emby/Users/x/Items/${series * 1e6 + 2 * 1000 + 1}`, { token })).body.MediaSources;
-    assert.deepEqual([e[1].Id, e[1].Name, e[1].MediaStreams[0].Height], ['nodeB~', 'nodeB · ep 4k', 1608]);
+    assert.deepEqual([e[1].Id, e[1].Name, e[1].MediaStreams[0].Height], ['nodeB~x', 'nodeB · ep 4k', 1608]);
 });
 
 test('images are fetched from a copy that has them, matching the requested tag', async () => {
@@ -833,11 +833,33 @@ test('sync waits between page requests to the same node (AGG_PAGE_DELAY_MS)', as
     for (let i = 1; i < at.length; i++) assert.ok(at[i] - at[i - 1] >= 35, `gap ${at[i] - at[i - 1]} ms`);
 });
 
-test('versions come from different nodes: a second copy of the same film on one node is not offered', async () => {
+test('every version is listed: each file of each copy, a second copy on the same node too', async () => {
     nodes['a.example'].libs.push({ Id: 'L4', CollectionType: 'movies' });
     nodes['a.example'].items.L4 = [mv('a1dup', 'Inception', 2010, { Tmdb: '27205' })];
+    nodes['b.example'].items.M1[0].MediaSources = [
+        { Id: 'b-4k', Name: '2160p', Size: 9e9, Container: 'mkv', MediaStreams: [{ Type: 'Video', Codec: 'hevc', Height: 2160 }] },
+        { Id: 'b-hd', Name: '1080p', Size: 3e9, Container: 'mkv', MediaStreams: [{ Type: 'Video', Codec: 'h264', Height: 1080 }] }];
     const { token, vid } = await playable();
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE vid = ?`, vid)[0].n, 3, 'two copies on nodeA, one on nodeB');
     const d = (await call(`/emby/Users/x/Items/${vid}`, { token })).body;
-    assert.deepEqual(d.MediaSources.map(m => m.Id.split('~')[0]), ['nodeA', 'nodeB']);
+    assert.deepEqual(d.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeA~ms', 'nodeB~b-4k', 'nodeB~b-hd'].map((x, i) => (i === 1 ? d.MediaSources[1].Id : x)));
+    assert.equal(d.MediaSources.length, 4, 'nodeA x2 copies, nodeB x2 files');
+    assert.deepEqual(d.MediaSources.slice(2).map(m => m.Name), ['nodeB · 2160p', 'nodeB · 1080p']);
+});
+
+test('去重: the same file on two nodes is listed once, served by the first node with room; a full node hands over to the other copy of that file', async () => {
+    const file = (Id) => [{ Id, Name: '4k', Size: 5e9, Container: 'mkv', MediaStreams: [{ Type: 'Video', Codec: 'hevc', Height: 1608 }] }];
+    nodes['a.example'].shows.a9.episodes[2].MediaSources = file('xa'); // S2E1
+    nodes['b.example'].shows.b9.episodes[0].MediaSources = file('xb');
+    const { id, token, E } = await seriesSetup();
+    const menu = (await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources;
+    assert.deepEqual(menu.map(m => [m.Id, m.Name]), [['nodeA~xa', '4k']], 'one entry; names only matter when there is a choice');
+    // nodeA 满了：同一文件换 nodeB，并用 nodeB 自己的媒体源 Id。
+    env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
+    env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', 'nodeA', 'tv', 'x', ?)`).run(Date.now());
+    calls = [];
+    const r = await pbi(E(2, 1), token, '&MediaSourceId=' + encodeURIComponent('nodeA~xa'));
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(calls.filter(c => c.path.endsWith('/PlaybackInfo')).map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'xb']]);
+    assert.ok(id);
 });

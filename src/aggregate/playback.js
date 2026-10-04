@@ -20,11 +20,12 @@ import { clientIdentity } from '../viewers/upstream.js';
 import { UPSTREAM_CB } from '../proxy/circuit-breaker.js';
 import { memberRoutes, deviceSession, nodeFetch, bases, knownIdent } from './upstream.js';
 import { copiesOf, watchMeta } from './series.js';
+import { fileKey } from './catalog.js';
 import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
 const SEP = '~';
-export const MAX_VERSIONS = 10; // 详情版本菜单最多列几个节点
+export const MAX_VERSIONS = 20; // 版本菜单最多列几项（每份副本的每个文件一项）
 const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
@@ -98,12 +99,12 @@ async function failingNodes(env, now) {
 }
 
 // 可见副本 → 候选节点，坏的排后面（不剔除：只有一个副本时仍然要试）。label = 按节点顺序的编号，跨次播放稳定。
-export async function rank(env, sources, now = Date.now()) {
+// perNode：每个节点只留第一份副本（起播挑节点时用）；false 时同一节点的多份副本（不同媒体库里的同一部片）都留着（版本菜单用）。
+export async function rank(env, sources, now = Date.now(), { perNode: one = true } = {}) {
     const routes = new Map((await memberRoutes(env, now)).map(r => [r.prefix, r]));
     const failing = await failingNodes(env, now);
-    // 每个节点只留第一份副本（同一节点多个媒体库里的同一部片）：版本要来自不同节点才有意义。
     const seen = new Set();
-    const perNode = sources.filter(src => routes.has(src.prefix) && !seen.has(src.prefix) && seen.add(src.prefix));
+    const perNode = sources.filter(src => routes.has(src.prefix) && (!one || (!seen.has(src.prefix) && seen.add(src.prefix))));
     return perNode.map((src, i) => {
         const route = routes.get(src.prefix);
         const cooling = bases(route).every(u => (UPSTREAM_CB.get(u)?.failUntil || 0) > now);
@@ -126,9 +127,11 @@ async function slotFree(env, slot, device, now) {
 // 版本菜单用：排好序的副本里，该设备能起播的节点（与 PlaybackInfo 同一口径：节点上限 + viewer 配额）。
 // 全满时照列，起播时再答 429，免得作品看起来没有可播的版本。
 export async function playableRanked(env, s, request, url, copies, now = Date.now()) {
-    const ranked = await rank(env, copies, now);
+    const ranked = await rank(env, copies, now, { perNode: false });
     const device = deviceOf(s, request, url);
-    const ok = await Promise.all(ranked.map(c => slotFree(env, slotOf(s, c.src.prefix), device, now)));
+    const byNode = new Map(); // 每个节点只查一次
+    for (const p of new Set(ranked.map(c => c.src.prefix))) byNode.set(p, slotFree(env, slotOf(s, p), device, now));
+    const ok = await Promise.all(ranked.map(c => byNode.get(c.src.prefix)));
     const free = ranked.filter((c, i) => ok[i]);
     return free.length ? free : ranked;
 }
@@ -194,15 +197,23 @@ async function lookupPlay(env, psid) {
 }
 
 // vid + （编码过的 MediaSourceId | PlaySessionId）→ 该 viewer 可用的那份副本。都没有时取排第一的节点。
+// 选中的版本（<前缀>~<媒体源 Id>）→ 那份副本：先找文件摘要里有这个媒体源 Id 的，否则该节点的第一份。
+function pickCopy(ranked, want) {
+    const same = ranked.filter(c => c.src.prefix === want.prefix);
+    return (want.id && same.find(c => (c.src.media || []).some(m => String(m.Id) === String(want.id)))) || same[0] || null;
+}
+
 async function resolveCopy(env, s, vid, msidRaw, psid, now = Date.now()) {
     const want = msidRaw ? decodeMsid(msidRaw, s.scope.prefixes) : null;
-    let prefix = want ? want.prefix : null;
-    if (!prefix && psid) {
+    const ranked = await rank(env, await copiesOf(env, s.scope, vid), now, { perNode: false });
+    let c = want ? pickCopy(ranked, want) : null;
+    if (!want && psid) {
         const p = await lookupPlay(env, psid);
-        if (p && Number(p.vid) === Number(vid)) prefix = p.prefix;
+        if (p && Number(p.vid) === Number(vid)) {
+            c = ranked.find(x => x.src.prefix === p.prefix && String(x.src.item_id) === String(p.item_id)) || ranked.find(x => x.src.prefix === p.prefix);
+        }
     }
-    const ranked = await rank(env, await copiesOf(env, s.scope, vid), now);
-    const c = prefix ? ranked.find(x => x.src.prefix === prefix) : ranked[0];
+    if (!want && !c) c = ranked[0];
     return c ? { ...c, msid: want ? want.id : null } : null;
 }
 
@@ -269,9 +280,22 @@ export async function playbackInfo(env, request, url, s, vid) {
     // 选中的版本可能在查询串里（SenPlayer），也可能在 POST 体里（Hills 等）。
     const picked = param(url, 'MediaSourceId') || (bodyJson && (bodyJson.MediaSourceId || bodyJson.mediaSourceId)) || '';
     const want = decodeMsid(picked, s.scope.prefixes);
-    let ranked = await rank(env, sources, now);
-    // 选了版本：先试那个节点；它满了或答不上来，再按原顺序试其它节点（不让客户端直接报错）。
-    if (want) ranked = [...ranked.filter(c => c.src.prefix === want.prefix), ...ranked.filter(c => c.src.prefix !== want.prefix)];
+    let ranked = await rank(env, sources, now, { perNode: !want });
+    // 选了版本：先试那份副本；它的节点满了或答不上来，再按原顺序试其它节点（每个节点一份，不让客户端直接报错）。
+    const hit = want ? pickCopy(ranked, want) : null;
+    // 每份副本发给节点的媒体源 Id：选中的那份是 want.id；同一文件（去重合并的）在别的节点上的副本是它们自己的 Id。
+    const msidOf = new Map();
+    if (want) {
+        const key = hit && fileKey((hit.src.media || []).find(m => String(m.Id) === String(want.id)));
+        const same = key ? ranked.filter(c => c !== hit && c.src.prefix !== hit.src.prefix).map(c => {
+            const m = (c.src.media || []).find(x => fileKey(x) === key);
+            if (m) msidOf.set(c, String(m.Id));
+            return m ? c : null;
+        }).filter(Boolean) : [];
+        if (hit) msidOf.set(hit, want.id);
+        const seen = new Set();
+        ranked = [hit, ...same, ...ranked].filter(c => c && !seen.has(c.src.prefix) && seen.add(c.src.prefix));
+    }
     // 发给节点的 POST 体：MediaSourceId 换成该节点自己的 Id（不是选中的节点就去掉）。
     const bodyFor = (msid) => {
         if (!bodyJson || typeof bodyJson !== 'object') return body;
@@ -287,13 +311,13 @@ export async function playbackInfo(env, request, url, s, vid) {
     for (const c of ranked) {
         const slot = slotOf(s, c.src.prefix);
         if (await acquireSlot(env, slot, device, c.src.item_id)) { full++; continue; }
-        const msid = want && c.src.prefix === want.prefix ? want.id : null;
+        const msid = msidOf.get(c) || null;
         const res = await askPlaybackInfo(env, c, s, request, url, bodyFor(msid), msid);
         if (res.data) { primary = { c, ...res }; break; }
         lastError = res.error;
         await releaseSlot(env, slot, device);
     }
-    if (want && primary && primary.c.src.prefix !== want.prefix) console.log(`picked ${want.prefix} unavailable, playing from ${primary.c.src.prefix}`);
+    if (want && primary && primary.c !== hit) console.log(`picked ${want.prefix} unavailable, playing from ${primary.c.src.prefix}`);
     if (!primary) {
         return full && !lastError
             ? json({ message: 'Concurrent playback limit reached' }, 429)

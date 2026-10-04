@@ -53,8 +53,8 @@ export function itemFields(it) {
 }
 
 // 元数据指纹：同步时与 agg_sources.sig 比较，没变就不写。
-// 副本的文件摘要（第一个媒体源）：版本菜单要显示的名字 / 容器 / 大小 / 码率，加主视频与第一条音频。
-// 只留这几项（约 300 字节），不存整份媒体源。没有媒体源返回 null。
+// 一个文件（媒体源）的摘要：版本菜单要显示的 Id / 名字 / 容器 / 大小 / 码率，加主视频与默认音频。
+// 只留这几项（约 300 字节），不存整份媒体源。
 const VIDEO_KEYS = ['Type', 'Codec', 'Profile', 'Width', 'Height', 'BitRate', 'BitDepth', 'VideoRange', 'ExtendedVideoType', 'ExtendedVideoSubType', 'AverageFrameRate', 'Index'];
 const AUDIO_KEYS = ['Type', 'Codec', 'Channels', 'ChannelLayout', 'Language', 'DisplayTitle', 'IsDefault', 'Index'];
 const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k] !== undefined && o[k] !== null).map(k => [k, o[k]]));
@@ -64,11 +64,21 @@ export function mediaSummary(ms) {
     const video = streams.find(x => x.Type === 'Video');
     const audio = streams.find(x => x.Type === 'Audio' && x.IsDefault) || streams.find(x => x.Type === 'Audio');
     return {
-        ...pick(ms, ['Name', 'Container', 'Size', 'Bitrate', 'RunTimeTicks']),
+        ...pick(ms, ['Id', 'Name', 'Container', 'Size', 'Bitrate', 'RunTimeTicks']),
         MediaStreams: [video && pick(video, VIDEO_KEYS), audio && pick(audio, AUDIO_KEYS)].filter(Boolean),
     };
 }
-const mediaOf = (it) => mediaSummary((it.MediaSources || [])[0]);
+// 一份副本的全部文件（一个条目可以有多个媒体源，如 4K 与 1080p）。没有返回 []。
+export const mediaList = (it) => (it.MediaSources || []).map(mediaSummary).filter(Boolean);
+// 去重用：两个节点上的同一个文件（大小、容器、视频编码、分辨率都一样）。没有大小就不算，返回 null。
+export function fileKey(m) {
+    if (!m || !m.Size) return null;
+    const v = (m.MediaStreams || []).find(x => x.Type === 'Video') || {};
+    return [m.Size, m.Container || '', v.Codec || '', v.Height || ''].join('|');
+}
+// 存的摘要：数组；v4 早期存的是单个对象。
+export const asMediaList = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : []);
+const mediaOf = (it) => { const l = mediaList(it); return l.length ? l : null; };
 
 export function sourceSig(libId, it) {
     const s = JSON.stringify([libId, itemFields(it), imageTags(it), mediaOf(it)]);
@@ -288,14 +298,14 @@ export async function visibleSourcesMany(env, scope, vids) {
     for (const r of rows) {
         if (!scope.prefixes.includes(r.prefix)) continue;
         if ((scope.hidden.get(r.prefix) || new Set()).has(String(r.lib_id))) continue;
-        out.get(Number(r.vid)).push({ ...r, image_tags: safeJson(r.image_tags, {}), media: safeJson(r.media, null) });
+        out.get(Number(r.vid)).push({ ...r, image_tags: safeJson(r.image_tags, {}), media: asMediaList(safeJson(r.media, null)) });
     }
     return out;
 }
 
 // 打开电影时向节点补到的文件摘要：存下来，这份副本以后不再问节点。
 export async function saveMedia(env, prefix, itemId, media) {
-    if (media) await dbRun(env, `UPDATE agg_sources SET media = ? WHERE prefix = ? AND item_id = ?`, JSON.stringify(media), prefix, String(itemId));
+    if (media && media.length) await dbRun(env, `UPDATE agg_sources SET media = ? WHERE prefix = ? AND item_id = ?`, JSON.stringify(media), prefix, String(itemId));
 }
 
 export async function visibleSources(env, scope, vid) {

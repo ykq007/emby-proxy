@@ -6,7 +6,7 @@ import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw, browseSession, nodeFetch } from './upstream.js';
-import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaSummary, saveMedia, LIB_MOVIES, LIB_SERIES } from './catalog.js';
+import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, saveMedia, fileKey, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
@@ -213,32 +213,51 @@ export function __resetLiveForTest() { LIVE.clear(); }
 
 const baseName = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
 
-// 版本菜单（详情与 PlaybackInfo 共用）：每个该设备能起播的节点一项，按排序，最多 MAX_VERSIONS 项。
-// 只向第一个节点要实时详情；其它节点用存下的文件摘要（c.src.media：目录同步 / 剧集列表带回，或电影第一次打开时补的），
-// Id 是 `<前缀>~`（不知道它的媒体源 Id）：选了它，播放时才向那一个节点要 PlaybackInfo，由节点自己挑文件。
-function stubSource(c, id, extra = {}) {
-    const m = c.src.media || {};
+// 版本菜单（详情与 PlaybackInfo 共用）：每份副本的每个文件一项（同一节点的多个文件、多份副本都列），按节点排序，
+// 最多 MAX_VERSIONS 项；该设备起不了播的满节点不列。只向第一份副本的节点要实时详情；其它副本用存下的文件摘要
+// （c.src.media：目录同步 / 剧集列表带回，或电影第一次打开时补的）。版本 Id = `<前缀>~<该文件的媒体源 Id>`；
+// 还没有摘要的副本列一项 `<前缀>~`，播放时由节点自己挑文件。
+// 去重：几个节点上的同一个文件（fileKey 相同）只列一项，由排在最前、该设备此刻有空位的节点出（ranked 已按健康与
+// 节点顺序排好、满的去掉）；名字里列出这些节点。起播时那个节点满了，PlaybackInfo 先换同一文件的其它节点（playback.js）。
+function menuEntries(ranked, firstList) {
+    const out = []; const byKey = new Map();
+    ranked.forEach((c, i) => {
+        const list = i === 0 && firstList ? firstList : (c.src.media || []);
+        for (const m of (list.length ? list : [null])) {
+            const k = fileKey(m && (m.live || m));
+            if (k && byKey.has(k)) { const g = byKey.get(k); if (!g.nodes.includes(c.name)) g.nodes.push(c.name); continue; }
+            const e = { c, m, nodes: [c.name] };
+            if (k) byKey.set(k, e);
+            out.push(e);
+        }
+    });
+    return out.slice(0, MAX_VERSIONS);
+}
+const versionName = (e, ms, label) => (label ? [e.nodes.join(' / '), ms && ms.Name].filter(Boolean).join(' · ') : (ms && ms.Name) || e.c.name);
+
+function stubSource(e, id, label, extra = {}) {
+    const c = e.c; const m = e.m || {};
     return {
-        Protocol: 'File', Id: encodeMsid(c.src.prefix, ''), Type: 'Default', IsRemote: false,
+        Protocol: 'File', Id: encodeMsid(c.src.prefix, m.Id || ''), Type: 'Default', IsRemote: false,
         ...(m.Container ? { Container: m.Container } : {}), ...(m.Size ? { Size: m.Size } : {}), ...(m.Bitrate ? { Bitrate: m.Bitrate } : {}),
-        Name: [c.name, m.Name].filter(Boolean).join(' · '),
+        Name: versionName(e, m, label),
         SupportsTranscoding: false, SupportsDirectStream: true, SupportsDirectPlay: true, IsInfiniteStream: false,
         RequiresOpening: false, RequiresClosing: false, SupportsProbing: true, MediaStreams: m.MediaStreams || [], Formats: [],
         RequiredHttpHeaders: {}, ItemId: String(id), ...extra,
     };
 }
 
-// 电影菜单里还没有文件摘要的节点：问一次（各等至多 MEDIA_WAIT_MS），存进 agg_sources，这份副本以后不再问。
+// 电影菜单里还没有文件摘要的副本：问一次（各等至多 MEDIA_WAIT_MS），存进 agg_sources，这份副本以后不再问。
 // 迟到的答复也在后台存下。剧集不需要：摘要随剧集列表带回。
 const MEDIA_WAIT_MS = 1500;
-async function fillMedia(env, ctx, s, menu) {
-    const missing = menu.filter(c => !c.src.media);
+async function fillMedia(env, ctx, s, copies) {
+    const missing = copies.filter(c => !(c.src.media || []).length);
     if (!missing.length) return;
     const late = () => new Promise(r => setTimeout(() => r(null), MEDIA_WAIT_MS));
     await Promise.all(missing.map(c => {
         const p = liveItem(env, c.src, s.deviceId).then(async (d) => {
-            const media = d && mediaSummary((d.MediaSources || [])[0]);
-            if (media) { c.src.media = media; await saveMedia(env, c.src.prefix, c.src.item_id, media); }
+            const media = d ? mediaList(d) : [];
+            if (media.length) { c.src.media = media; await saveMedia(env, c.src.prefix, c.src.item_id, media); }
         }).catch(() => {});
         if (ctx && ctx.waitUntil) ctx.waitUntil(p);
         return Promise.race([p, late()]);
@@ -259,13 +278,16 @@ async function detailWithMenu(env, ctx, s, dto, id, ranked, playable, fill = fal
     out.Path = d.FileName || baseName(d.Path);
     if (Array.isArray(d.People)) out.People = d.People.map(({ PrimaryImageTag, ...p }) => p);
     if (playable && Array.isArray(d.MediaSources)) {
-        const menu = ranked.slice(0, MAX_VERSIONS);
-        const label = menu.length > 1;
-        const real = d.MediaSources.slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
-            ...ms, Id: encodeMsid(first.src.prefix, ms.Id), ItemId: String(id), Path: baseName(ms.Path),
-            ...(label ? { Name: [first.name, ms.Name].filter(Boolean).join(' · ') } : {}),
-        }));
-        out.MediaSources = [...real, ...menu.slice(1).map(c => stubSource(c, id, { RunTimeTicks: dto.RunTimeTicks }))];
+        const live = d.MediaSources;
+        const entries = menuEntries(ranked, live.map(ms => ({ Id: ms.Id, live: ms })));
+        const label = entries.length > 1;
+        out.MediaSources = entries.map((e) => {
+            if (e.m && e.m.live) {
+                const { DirectStreamUrl, TranscodingUrl, ...ms } = e.m.live;
+                return { ...ms, Id: encodeMsid(e.c.src.prefix, ms.Id), ItemId: String(id), Path: baseName(ms.Path), ...(label ? { Name: versionName(e, ms, true) } : {}) };
+            }
+            return stubSource(e, id, label, { RunTimeTicks: dto.RunTimeTicks });
+        });
     }
     out.CanDelete = false; out.CanDownload = false;
     return out;
@@ -289,22 +311,28 @@ async function episodeDetail(env, ctx, request, url, s, sid, id) {
     return out.MediaSources ? out : dto;
 }
 
-// PlaybackInfo 的媒体源：问过的那个节点（真实数据）在前，版本菜单里的其它节点跟在后面，Id 与菜单相同：
+// PlaybackInfo 的媒体源：问过的那个节点（真实数据）在前，版本菜单里的其它文件跟在后面，Id 与菜单相同：
 // Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找，找不到就播第一个。
-// 其它节点这时不问，只给直连地址（/n/…/ea-play/…）：真播它时才向那一个节点要 PlaybackInfo（见 playback.js 的 lazyStream），不能转码。
+// 其它文件这时不问节点，只给直连地址（/n/…/ea-play/<条目>/<媒体源>/…）：真播它时才向那一个节点要 PlaybackInfo
+// （见 playback.js 的 lazyStream），不能转码。
 async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     const r = await playbackInfo(env, request, url, s, id);
     if (!r.ok) return r;
     const data = await r.json();
     if (!Array.isArray(data.MediaSources) || !data.MediaSources.length) return json(data);
+    const have = new Set(data.MediaSources.map(m => String(m.Id)));
     const asked = String(data.MediaSources[0].Id).split('~')[0];
     const copies = decodeId(id) ? await copiesOf(env, s.scope, id) : await visibleSources(env, s.scope, id);
-    if (copies.length > 1) {
-        for (const c of (await playableRanked(env, s, request, url, copies)).slice(0, MAX_VERSIONS)) {
-            if (c.bad || c.src.prefix === asked) continue;
-            data.MediaSources.push(stubSource(c, id, {
+    const entries = menuEntries((await playableRanked(env, s, request, url, copies)).filter(c => !c.bad));
+    if (entries.length > 1) {
+        for (const e of entries) {
+            const { c, m } = e;
+            const vid = encodeMsid(c.src.prefix, (m && m.Id) || '');
+            if (have.has(vid) || (!m && c.src.prefix === asked)) continue;
+            have.add(vid);
+            data.MediaSources.push(stubSource(e, id, true, {
                 RunTimeTicks: data.MediaSources[0].RunTimeTicks,
-                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/_/stream?api_key=${s.token}`,
+                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/ea-play/${encodeURIComponent(c.src.item_id)}/${m && m.Id ? encodeURIComponent(m.Id) : '_'}/stream?api_key=${s.token}`,
             }));
         }
     }
