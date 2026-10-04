@@ -1,7 +1,7 @@
 // 合并目录：多节点的电影 / 剧集按 Tmdb → Imdb → Tvdb 去重成一条 agg_items，
 // 每个节点的副本是一条 agg_sources。只收录电影和剧集，不收录剧集的季 / 集
 // （D1 免费额度下写不起；季 / 集在播放阶段按需从节点实时取）。
-import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
+import { dbAll, dbFirst, dbRun, dbStmt, dbBatch } from '../db/helpers.js';
 
 export const LIB_MOVIES = '1';
 export const LIB_SERIES = '2';
@@ -60,63 +60,99 @@ export function sourceSig(libId, it) {
     return (h >>> 0).toString(16);
 }
 
-async function findVid(env, f) {
-    if (f.tmdb || f.imdb || f.tvdb) {
-        // 有外部 ID 的条目只按外部 ID 合并，绝不按片名合并（同名同年的不同作品很常见）。
-        return dbFirst(env,
-            `SELECT * FROM agg_items WHERE type = ? AND (tmdb = ? OR imdb = ? OR tvdb = ?)
-              ORDER BY (tmdb = ?) DESC, (imdb = ?) DESC LIMIT 1`,
-            f.type, f.tmdb, f.imdb, f.tvdb, f.tmdb, f.imdb);
-    }
-    return dbFirst(env, `SELECT * FROM agg_items WHERE type = ? AND name_key = ? LIMIT 1`, f.type, f.name_key);
-}
-
 const COLS = ['type', 'name', 'sort_name', 'name_key', 'year', 'premiere', 'date_added', 'rating',
     'official_rating', 'runtime_ticks', 'genres', 'tmdb', 'imdb', 'tvdb'];
+const META_COLS = COLS.filter(c => c !== 'type');
+const BATCH_STMTS = 100; // 每个 D1 batch 的语句数上限（分块提交，一页约 2–4 个 batch）
 
-// 合并一个节点条目。existing = 该 (prefix, item_id) 已有的 agg_sources 行（或 null）。
-// 返回估算的 D1 写行数（用于每日写入预算）。
-export async function mergeItem(env, prefix, libId, it, existing) {
-    if (!TYPES[it.Type] || !it.Id) return 0;
-    const sig = sourceSig(libId, it);
-    if (existing && existing.sig === sig) return 0;
-    const f = itemFields(it);
-    let cost = 0;
-    let vid = existing ? existing.vid : null;
-
-    if (vid === null) {
-        const hit = await findVid(env, f);
-        if (hit) {
-            vid = hit.vid;
-            // 合并进来的副本补上该条目缺的外部 ID，让后来的节点更容易命中。
-            const fill = ['tmdb', 'imdb', 'tvdb'].filter(k => f[k] && !hit[k]);
-            if (fill.length) {
-                await dbRun(env, `UPDATE agg_items SET ${fill.map(k => `${k} = ?`).join(', ')} WHERE vid = ?`, ...fill.map(k => f[k]), vid);
-                cost += COST_ITEM_UPDATE;
-            }
-        } else {
-            const row = await dbFirst(env,
-                `INSERT INTO agg_items (vid, ${COLS.join(', ')}, owner_prefix, owner_item)
-                 VALUES ((SELECT COALESCE(MAX(vid), ${FIRST_VID - 1}) + 1 FROM agg_items), ${COLS.map(() => '?').join(', ')}, ?, ?)
-                 RETURNING vid`,
-                ...COLS.map(c => f[c]), prefix, String(it.Id));
-            vid = row.vid;
-            cost += COST_NEW_ITEM;
+// 同类型作品里找可合并的那条（规则同以往的逐条 SQL）：有外部 ID 的条目只按外部 ID 合并，
+// 绝不按片名合并（同名同年的不同作品很常见）；Tmdb 命中优先于 Imdb，再优先于 Tvdb。
+function findMatch(rows, f) {
+    if (f.tmdb || f.imdb || f.tvdb) {
+        let best = null; let bestRank = -1;
+        for (const r of rows) {
+            if (r.type !== f.type) continue;
+            const t = !!f.tmdb && r.tmdb === f.tmdb, i = !!f.imdb && r.imdb === f.imdb, v = !!f.tvdb && r.tvdb === f.tvdb;
+            if (!t && !i && !v) continue;
+            const rank = (t ? 2 : 0) + (i ? 1 : 0);
+            if (rank > bestRank || (rank === bestRank && r.vid < best.vid)) { best = r; bestRank = rank; }
         }
-    } else {
-        // 已收录的副本元数据变了：只有它是该作品的「主副本」时才改作品元数据。
-        const r = await dbRun(env,
-            `UPDATE agg_items SET ${COLS.filter(c => c !== 'type').map(c => `${c} = ?`).join(', ')}
-              WHERE vid = ? AND owner_prefix = ? AND owner_item = ?`,
-            ...COLS.filter(c => c !== 'type').map(c => f[c]), vid, prefix, String(it.Id));
-        if (r && r.meta && r.meta.changes) cost += COST_ITEM_UPDATE;
+        return best;
     }
+    let best = null;
+    for (const r of rows) if (r.type === f.type && r.name_key === f.name_key && (!best || r.vid < best.vid)) best = r;
+    return best;
+}
 
-    await dbRun(env,
-        `INSERT INTO agg_sources (prefix, item_id, vid, lib_id, image_tags, sig) VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(prefix, item_id) DO UPDATE SET lib_id = excluded.lib_id, image_tags = excluded.image_tags, sig = excluded.sig`,
-        prefix, String(it.Id), vid, String(libId), JSON.stringify(imageTags(it)), sig);
-    return cost + COST_SOURCE;
+// 合并一个节点的一页条目。D1 往返：已有副本 1 次 + 候选作品 1 次 + 最大 vid 1 次 + 写入按 BATCH_STMTS 分块，
+// 不再是每条 3–4 次（同步时间几乎全花在这些往返上）。新作品的 vid 在内存里分配：同步有锁，只有它写 agg_items。
+// 返回 { cost: 估算的 D1 写行数, merged: 写入的条目数 }。
+export async function mergePage(env, prefix, libId, items) {
+    const list = items.filter(it => TYPES[it.Type] && it.Id);
+    if (!list.length) return { cost: 0, merged: 0 };
+    const have = await existingSources(env, prefix, list.map(it => it.Id));
+    const work = [];
+    for (const it of list) {
+        const existing = have.get(String(it.Id)) || null;
+        const sig = sourceSig(libId, it);
+        if (existing && existing.sig === sig) continue;
+        work.push({ it, existing, sig, f: itemFields(it) });
+    }
+    if (!work.length) return { cost: 0, merged: 0 };
+
+    const fresh = work.filter(w => !w.existing).map(w => w.f);
+    const vals = (k) => JSON.stringify([...new Set(fresh.map(f => f[k]).filter(Boolean))]);
+    const rows = fresh.length ? ((await dbAll(env,
+        `SELECT vid, type, name_key, tmdb, imdb, tvdb FROM agg_items
+          WHERE tmdb IN (SELECT value FROM json_each(?)) OR imdb IN (SELECT value FROM json_each(?))
+             OR tvdb IN (SELECT value FROM json_each(?)) OR name_key IN (SELECT value FROM json_each(?))`,
+        vals('tmdb'), vals('imdb'), vals('tvdb'), vals('name_key'))).results || []) : [];
+    let nextVid = fresh.length
+        ? Number((await dbFirst(env, `SELECT COALESCE(MAX(vid), ${FIRST_VID - 1}) + 1 AS v FROM agg_items`)).v)
+        : 0;
+
+    const stmts = []; const ownerUpdates = new Set(); let cost = 0;
+    for (const w of work) {
+        const { it, f } = w;
+        let vid;
+        if (w.existing) {
+            vid = w.existing.vid;
+            // 已收录的副本元数据变了：只有它是该作品的「主副本」时才改作品元数据（是否改到看 changes）。
+            ownerUpdates.add(stmts.length);
+            stmts.push(dbStmt(env,
+                `UPDATE agg_items SET ${META_COLS.map(c => `${c} = ?`).join(', ')} WHERE vid = ? AND owner_prefix = ? AND owner_item = ?`,
+                ...META_COLS.map(c => f[c]), vid, prefix, String(it.Id)));
+        } else {
+            const hit = findMatch(rows, f);
+            if (hit) {
+                vid = hit.vid;
+                // 合并进来的副本补上该条目缺的外部 ID，让后来的节点更容易命中。
+                const fill = ['tmdb', 'imdb', 'tvdb'].filter(k => f[k] && !hit[k]);
+                if (fill.length) {
+                    stmts.push(dbStmt(env, `UPDATE agg_items SET ${fill.map(k => `${k} = ?`).join(', ')} WHERE vid = ?`, ...fill.map(k => f[k]), vid));
+                    for (const k of fill) hit[k] = f[k];
+                    cost += COST_ITEM_UPDATE;
+                }
+            } else {
+                vid = nextVid++;
+                stmts.push(dbStmt(env,
+                    `INSERT INTO agg_items (vid, ${COLS.join(', ')}, owner_prefix, owner_item) VALUES (?, ${COLS.map(() => '?').join(', ')}, ?, ?)`,
+                    vid, ...COLS.map(c => f[c]), prefix, String(it.Id)));
+                rows.push({ vid, type: f.type, name_key: f.name_key, tmdb: f.tmdb, imdb: f.imdb, tvdb: f.tvdb });
+                cost += COST_NEW_ITEM;
+            }
+        }
+        stmts.push(dbStmt(env,
+            `INSERT INTO agg_sources (prefix, item_id, vid, lib_id, image_tags, sig) VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(prefix, item_id) DO UPDATE SET lib_id = excluded.lib_id, image_tags = excluded.image_tags, sig = excluded.sig`,
+            prefix, String(it.Id), vid, String(libId), JSON.stringify(imageTags(it)), w.sig));
+        cost += COST_SOURCE;
+    }
+    for (let i = 0; i < stmts.length; i += BATCH_STMTS) {
+        const res = await dbBatch(env, stmts.slice(i, i + BATCH_STMTS));
+        res.forEach((r, j) => { if (ownerUpdates.has(i + j) && r && r.meta && r.meta.changes) cost += COST_ITEM_UPDATE; });
+    }
+    return { cost, merged: work.length };
 }
 
 export async function existingSources(env, prefix, ids) {

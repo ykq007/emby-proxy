@@ -8,7 +8,7 @@
 import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 import { ensureAggSchema } from './schema.js';
 import { memberRoutes, nodeJson } from './upstream.js';
-import { mergeItem, existingSources, removeSources, forgetPrefix, safeJson } from './catalog.js';
+import { mergePage, removeSources, forgetPrefix, safeJson } from './catalog.js';
 
 export const PAGE = 200;
 const ID_PAGE = 1000;
@@ -136,18 +136,13 @@ async function syncNode(env, route, now, budget) {
         if (r.error) return fail(r.error);
         const items = (r.data && r.data.Items) || [];
         const total = Number(r.data && r.data.TotalRecordCount) || 0;
-        const have = await existingSources(env, route.prefix, items.map(it => it.Id));
-        let done = 0;
-        for (const it of items) {
-            if (budget.writes <= 0) break;
-            const cost = await mergeItem(env, route.prefix, lib.id, it, have.get(String(it.Id)) || null);
-            budget.writes -= cost;
-            if (cost) out.merged++;
-            done++;
-        }
+        // 整页一起合并（几次 D1 往返）；写入预算按页扣，最后一页可能略超。
+        const res = await mergePage(env, route.prefix, lib.id, items);
+        budget.writes -= res.cost;
+        out.merged += res.merged;
+        st.start += items.length;
+        if (items.length < PAGE || st.start >= total) { st.li++; st.start = 0; }
         if (budget.timing) budget.timing.mergeMs += Date.now() - t1;
-        st.start += done;
-        if (done === items.length && (items.length < PAGE || st.start >= total)) { st.li++; st.start = 0; }
     }
 
     if (st.li >= st.libs.length) {
@@ -201,11 +196,9 @@ async function reconcile(env, route, budget) {
             budget.requests--;
             const r = await nodeJson(env, route, itemsQuery(lib, { Ids: missing.slice(i, i + 100).join(',') }));
             if (r.error) return r;
-            for (const it of (r.data && r.data.Items) || []) {
-                const cost = await mergeItem(env, route.prefix, lib.id, it, null);
-                budget.writes -= cost;
-                if (cost) out.added++;
-            }
+            const res = await mergePage(env, route.prefix, lib.id, (r.data && r.data.Items) || []);
+            budget.writes -= res.cost;
+            out.added += res.merged;
         }
     }
     return out;

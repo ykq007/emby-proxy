@@ -617,3 +617,25 @@ test('AGG_EXCLUDE_NODES keeps a node out of the aggregate and removes its copies
     assert.ok(!calls.some(c => c.host === 'a.example'), 'the excluded node is not contacted');
     assert.ok(rows(`SELECT name FROM agg_items`).some(r => r.name === 'Dune'), 'nodeB titles stay');
 });
+
+test('batched merge: a page of 250 titles takes a handful of D1 round trips; duplicates inside one page still merge', async () => {
+    const many = Array.from({ length: 250 }, (_, i) => mv('x' + i, 'Film ' + i, 2000 + (i % 20), { Tmdb: String(90000 + i) }));
+    // 同一节点同一页里的同一部片（Tmdb 相同）和只靠片名+年份的重复。
+    many.push(mv('dupA', 'Twin', 1999, { Tmdb: '777' }), mv('dupB', 'Twin Copy', 1999, { Tmdb: '777', Imdb: 'tt777' }));
+    many.push(mv('nA', 'No Ids', 2011), mv('nB', 'No  Ids!', 2011));
+    nodes['a.example'].items.L1 = many;
+    let trips = 0; let inBatch = false;
+    const prep = env.DB.prepare.bind(env.DB); const batch = env.DB.batch.bind(env.DB);
+    env.DB.prepare = (sql) => { const st = prep(sql); const wrap = (f) => async (...a) => { if (!inBatch) trips++; return f(...a); }; return { bind(...a) { st.bind(...a); return this; }, first: wrap(st.first), all: wrap(st.all), run: wrap(st.run) }; };
+    env.DB.batch = async (stmts) => { trips++; inBatch = true; try { return await batch(stmts); } finally { inBatch = false; } };
+    await syncAll();
+    env.DB.prepare = prep; env.DB.batch = batch;
+    assert.ok(trips < 60, `D1 round trips for the whole sync: ${trips}`); // 逐条合并时约 1000 次
+    const twin = rows(`SELECT i.vid, i.imdb FROM agg_items i JOIN agg_sources s USING (vid) WHERE s.item_id IN ('dupA', 'dupB')`);
+    assert.equal(new Set(twin.map(r => r.vid)).size, 1, 'same Tmdb inside one page → one title');
+    assert.equal(twin[0].imdb, 'tt777', 'the second copy fills the missing Imdb');
+    const noIds = rows(`SELECT DISTINCT vid FROM agg_sources WHERE item_id IN ('nA', 'nB')`);
+    assert.equal(noIds.length, 1, 'no provider ids: name+year still merges within one page');
+    assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE prefix = 'nodeA' AND lib_id = 'L1'`)[0].n, 254);
+    assert.equal(new Set(rows(`SELECT vid FROM agg_items`).map(r => r.vid)).size, rows(`SELECT vid FROM agg_items`).length);
+});
