@@ -116,7 +116,7 @@ function fakeEmby(req) {
 
 beforeEach(async () => {
     __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); UPSTREAM_CB.clear(); clearResolveCache();
-    env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret' };
+    env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret', AGG_PAGE_DELAY_MS: '0' };
     await ensureSchema(env);
     await ensureAggSchema(env);
     const pw = await encryptSecret(env, 'pw');
@@ -650,4 +650,14 @@ test('a D1 error while merging stops only that node for this run; its cursor sta
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_items i WHERE NOT EXISTS (SELECT 1 FROM agg_sources s WHERE s.vid = i.vid)`)[0].n, 0, 'no title without a copy');
     await syncAll();
     assert.equal(rows(`SELECT * FROM agg_items`).length, 5);
+});
+
+test('sync waits between page requests to the same node (AGG_PAGE_DELAY_MS)', async () => {
+    const at = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = async (input, init) => { const r = input instanceof Request ? input : new Request(input, init); if (new URL(r.url).pathname.endsWith('/Users/UID/Items')) at.push(Date.now()); return orig(input, init); };
+    await runSync(env, Date.now(), { maxRequests: 50, pageDelayMs: 40 });
+    globalThis.fetch = orig;
+    assert.ok(at.length >= 3);
+    for (let i = 1; i < at.length; i++) assert.ok(at[i] - at[i - 1] >= 35, `gap ${at[i] - at[i - 1]} ms`);
 });

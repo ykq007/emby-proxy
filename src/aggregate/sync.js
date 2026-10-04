@@ -20,6 +20,8 @@ const DEFAULT_DAILY_WRITES = 30000;
 const DEFAULT_TICK_REQUESTS = 20;
 // 每轮最多跑这么久就不再发新的上游请求、存好游标（HTTP 触发的后台任务 30 秒后会被取消；单个请求最长 15 秒）。
 export const DEFAULT_TIME_BUDGET_MS = 12000;
+// 同一轮里两次上游请求之间至少间隔这么久，减轻节点负载（env.AGG_PAGE_DELAY_MS 可改，0 = 不停顿）。
+const DEFAULT_PAGE_DELAY_MS = 1000;
 const LIB_TYPES = new Set(['movies', 'tvshows', 'mixed', '']);
 const FIELDS = 'ProviderIds,Genres,PremiereDate,ProductionYear,DateCreated,SortName,CommunityRating,OfficialRating,RunTimeTicks';
 
@@ -44,7 +46,7 @@ async function fetchLibs(env, route) {
     return { libs };
 }
 
-// opts: { maxRequests, dailyWrites, timeBudgetMs }
+// opts: { maxRequests, dailyWrites, timeBudgetMs, pageDelayMs }
 export async function runSync(env, now = Date.now(), opts = {}) {
     await ensureAggSchema(env);
     const members = await memberRoutes(env, now);
@@ -63,6 +65,8 @@ export async function runSync(env, now = Date.now(), opts = {}) {
         deadline: Date.now() + (Number(opts.timeBudgetMs) || DEFAULT_TIME_BUDGET_MS),
         // 时间花在哪：取节点页面（fetch）还是合并进 D1（merge）。
         timing: { pages: 0, fetchMs: 0, mergeMs: 0 },
+        delayMs: Number(opts.pageDelayMs ?? env.AGG_PAGE_DELAY_MS ?? DEFAULT_PAGE_DELAY_MS) || 0,
+        lastFetch: 0,
     };
     const outOfTime = () => Date.now() > budget.deadline;
 
@@ -88,6 +92,13 @@ export async function runSync(env, now = Date.now(), opts = {}) {
         await dbRun(env, `DELETE FROM agg_meta WHERE k LIKE 'writes:%' AND k < ?`, dayKey(now - 7 * 86400000));
     }
     return summary;
+}
+
+// 发上游请求前调用：距上一次不足 delayMs 就先等一等。
+async function pace(budget) {
+    const wait = budget.lastFetch + (budget.delayMs || 0) - Date.now();
+    if (budget.lastFetch && wait > 0) await new Promise(r => setTimeout(r, wait));
+    budget.lastFetch = Date.now();
 }
 
 async function loadState(env, prefix) {
@@ -129,6 +140,7 @@ async function syncNode(env, route, now, budget) {
         const extra = { StartIndex: String(st.start), Limit: String(PAGE) };
         if (st.since) extra.MinDateLastSaved = st.since;
         budget.requests--;
+        await pace(budget);
         const t0 = Date.now();
         const r = await nodeJson(env, route, itemsQuery(lib, extra));
         const t1 = Date.now();
@@ -184,6 +196,7 @@ async function reconcile(env, route, budget) {
         const remote = new Set();
         for (let start = 0; start < remoteTotal; start += ID_PAGE) {
             budget.requests--;
+            await pace(budget);
             const r = await nodeJson(env, route, itemsQuery(lib, { StartIndex: String(start), Limit: String(ID_PAGE), Fields: '', EnableImageTypes: '' }));
             if (r.error) return r;
             for (const it of (r.data && r.data.Items) || []) remote.add(String(it.Id));
@@ -196,6 +209,7 @@ async function reconcile(env, route, budget) {
         const missing = [...remote].filter(id => !localSet.has(id));
         for (let i = 0; i < missing.length && budget.writes > 0; i += 100) {
             budget.requests--;
+            await pace(budget);
             const r = await nodeJson(env, route, itemsQuery(lib, { Ids: missing.slice(i, i + 100).join(',') }));
             if (r.error) return r;
             const res = await mergePage(env, route.prefix, lib.id, (r.data && r.data.Items) || []);
