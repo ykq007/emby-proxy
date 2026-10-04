@@ -1235,7 +1235,7 @@
         }
         async function loadViewers() {
             try { __viewers = await viewerApi('GET', '/api/viewers'); } catch (e) {
-                document.getElementById('viewerList').innerHTML = '<div class="vw-group vw-empty">读取失败<button type="button" class="btn-tier is-sm" onclick="loadViewers()">重试</button></div>';
+                document.getElementById('viewerMatrix').innerHTML = '<div class="vw-empty">读取失败<button type="button" class="btn-tier is-sm" onclick="loadViewers()">重试</button></div>';
                 return;
             }
             renderViewers();
@@ -1245,82 +1245,171 @@
             return '<label class="vw-switch">' + (text ? '<span>' + text + '</span>' : '') + '<input type="checkbox" class="switch-input" role="switch" aria-label="' + label + '"' + (checked ? ' checked' : '') +
                 ' onchange="this.disabled=true; ' + onchange + '"><span class="ios-switch" aria-hidden="true"></span></label>';
         }
+        var __vwOpen = null;  // 当前展开的编辑行：{ id, prefix }，prefix 为 '' 时编辑账号本身
+        var __vwLibs = {};    // prefix -> 上游媒体库列表（打开编辑行时才拉取）
         function vwNodeName(n, prefix) {
             return '<span class="vw-node-name"><span class="vw-name">' + vEsc(n && n.remark || prefix) + '</span><span class="vw-prefix">/' + vEsc(prefix) + '</span></span>';
         }
+        function vwUsage() {
+            var used = {}, granted = {};
+            __viewers.viewers.forEach(function (v) { v.access.forEach(function (a) { used[a.prefix] = (used[a.prefix] || 0) + a.quota; granted[a.prefix] = true; }); });
+            return { used: used, granted: granted };
+        }
         function renderViewers() {
-            var used = {}, byPrefix = {};
-            __viewers.nodes.forEach(function (n) { byPrefix[n.prefix] = n; });
-            __viewers.viewers.forEach(function (v) { v.access.forEach(function (a) { used[a.prefix] = (used[a.prefix] || 0) + a.quota; }); });
-
-            document.getElementById('viewerNodes').innerHTML = __viewers.nodes.map(function (n) {
-                var p = vEsc(n.prefix), cap = n.max_concurrent || 0, u = used[n.prefix] || 0;
-                var load = cap > 0
-                    ? '<span class="vw-meter' + (u >= cap ? ' is-full' : '') + '" aria-hidden="true"><i style="width:' + Math.min(100, u / cap * 100) + '%"></i></span><span class="vw-cap-num">已分配 <b>' + u + '</b> / ' + cap + '</span>'
-                    : '<span class="vw-cap-num vw-grow">已分配 <b>' + u + '</b> · 不限</span>';
-                return '<div class="vw-node' + (n.viewers_enabled ? '' : ' is-off') + '">' +
-                    '<div class="vw-node-top">' + vwNodeName(n, n.prefix) + vwSwitch('/' + p + ' 开启观看账号', n.viewers_enabled, 'saveNode(\'' + p + '\', { viewers_enabled: this.checked })') + '</div>' +
-                    '<div class="vw-node-cap">' + load +
-                    '<label class="vw-field">上限<input class="ns-input vw-num" type="number" min="0" inputmode="numeric" value="' + cap + '" aria-label="/' + p + ' 并发上限" onchange="saveNode(\'' + p + '\', { max_concurrent: Number(this.value) })"></label></div>' +
-                    '</div>';
-            }).join('') || '<div class="vw-empty">还没有节点<button type="button" class="btn-tier is-sm" onclick="showDest(\'config\', \'settings\')">去部署节点</button></div>';
-
-            var enabled = __viewers.nodes.filter(function (n) { return n.viewers_enabled; });
+            var u = vwUsage(), used = u.used;
+            // 列 = 开启了观看账号的节点，外加已关闭但仍有授权的节点（否则那些授权会看不见）。
+            var cols = __viewers.nodes.filter(function (n) { return n.viewers_enabled || u.granted[n.prefix]; });
+            if (__vwOpen && !__viewers.viewers.some(function (v) { return v.id === __vwOpen.id; })) __vwOpen = null;
             document.getElementById('viewerCount').textContent = __viewers.viewers.length ? __viewers.viewers.length + ' 个' : '';
-            document.getElementById('viewerList').innerHTML = __viewers.viewers.map(function (v) {
-                var id = vEsc(v.id), name = vEsc(v.username), total = 0;
-                var access = v.access.map(function (a) {
-                    var p = vEsc(a.prefix), hid = a.hidden_libraries.length;
-                    total += a.quota;
-                    return '<div class="vw-acc">' + vwNodeName(byPrefix[a.prefix], a.prefix) +
-                        '<label class="vw-field vw-acc-q">并发<input class="ns-input vw-num" type="number" min="0" inputmode="numeric" value="' + a.quota + '" aria-label="' + name + ' 在 /' + p + ' 的并发配额" onchange="grantViewer(\'' + id + '\', \'' + p + '\', this.value)"></label>' +
-                        '<button type="button" class="btn-tier is-sm is-ghost vw-acc-libs" aria-expanded="false" onclick="editViewerLibraries(\'' + id + '\', \'' + p + '\', this)"><svg><use href="#i-film"/></svg>首页媒体库' + (hid ? '<span class="vw-hid">隐藏 ' + hid + '</span>' : '') + '</button>' +
-                        '<button type="button" class="a-icon-btn is-md danger-hover vw-acc-rm" aria-label="移除 ' + name + ' 在 /' + p + ' 的访问" title="移除访问" onclick="revokeViewer(\'' + id + '\', \'' + p + '\')"><svg><use href="#i-x"/></svg></button>' +
-                        '</div><div class="vw-libs" data-for="' + id + '|' + p + '" hidden></div>';
+            if (!__viewers.viewers.length) showViewerCreate(true);
+            renderViewerNodes(used);
+
+            var m = document.getElementById('viewerMatrix');
+            m.style.setProperty('--vw-cols', cols.length);
+            var head = '<div class="vw-row vw-row-head" role="row"><div class="vw-c vw-c-who" role="columnheader">账号</div>' + cols.map(function (n) {
+                var cap = n.max_concurrent || 0, x = used[n.prefix] || 0, full = cap > 0 && x >= cap;
+                return '<div class="vw-c vw-col' + (n.viewers_enabled ? '' : ' is-off') + '" role="columnheader">' +
+                    '<span class="vw-name">' + vEsc(n.remark || n.prefix) + '</span>' +
+                    '<span class="vw-col-sub"><span class="vw-prefix">/' + vEsc(n.prefix) + '</span>' +
+                    (n.viewers_enabled
+                        ? '<span class="vw-load' + (full ? ' is-full' : '') + '">' + x + (cap ? '/' + cap : ' · 不限') + '</span>'
+                        : '<span class="vw-load">未开启</span>') + '</span>' +
+                    (cap && n.viewers_enabled ? '<span class="vw-meter' + (full ? ' is-full' : '') + '" aria-hidden="true"><i style="width:' + Math.min(100, x / cap * 100) + '%"></i></span>' : '') +
+                    '</div>';
+            }).join('') + '</div>';
+
+            var rows = __viewers.viewers.map(function (v) {
+                var id = vEsc(v.id), name = vEsc(v.username), total = 0, unlimited = false, byP = {};
+                v.access.forEach(function (a) { byP[a.prefix] = a; total += a.quota; if (!a.quota) unlimited = true; });
+                var open = __vwOpen && __vwOpen.id === v.id;
+                var meta = v.access.length ? v.access.length + ' 个节点 · 并发 ' + (unlimited ? '不限' : total) : '未授权节点';
+                var cells = cols.map(function (n) {
+                    var a = byP[n.prefix], p = vEsc(n.prefix), sel = open && __vwOpen.prefix === n.prefix;
+                    if (a) {
+                        var hid = a.hidden_libraries.length;
+                        return '<div class="vw-c" role="cell"><button type="button" class="vw-cell is-on' + (sel ? ' is-sel' : '') + '" aria-expanded="' + sel + '" aria-label="' + name + ' 在 /' + p + '：并发 ' + (a.quota || '不限') + (hid ? '，首页隐藏 ' + hid + ' 个媒体库' : '') + '。编辑" onclick="vwOpen(\'' + id + '\', \'' + p + '\')">' +
+                            (a.quota ? '<b>' + a.quota + '</b>' : '<b class="is-word">不限</b>') +
+                            (hid ? '<span class="vw-cell-hid" title="首页隐藏 ' + hid + ' 个媒体库"><svg aria-hidden="true"><use href="#i-eye-off"/></svg>' + hid + '</span>' : '') + '</button></div>';
+                    }
+                    var cap = n.max_concurrent || 0, full = cap > 0 && (used[n.prefix] || 0) >= cap;
+                    if (!n.viewers_enabled) return '<div class="vw-c" role="cell"><span class="vw-cell is-na" aria-label="/' + p + ' 未开启观看账号">–</span></div>';
+                    return '<div class="vw-c" role="cell"><button type="button" class="vw-cell is-add"' + (full ? ' disabled title="节点配额已分完"' : ' title="授权该节点"') +
+                        ' aria-label="授权 ' + name + ' 使用 /' + p + (full ? '（配额已分完）' : '') + '" onclick="vwGrant(\'' + id + '\', \'' + p + '\')"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div>';
                 }).join('');
-                // 只列出还没授权的已开启节点：对已授权节点再授权会把配额重置为 1。
-                var granted = v.access.map(function (a) { return a.prefix; });
-                var opts = enabled.filter(function (n) { return granted.indexOf(n.prefix) < 0; }).map(function (n) {
-                    return '<option value="' + vEsc(n.prefix) + '">' + vEsc(n.remark || n.prefix) + ' /' + vEsc(n.prefix) + '</option>';
+                var row = '<div class="vw-row' + (v.enabled ? '' : ' is-off') + (open ? ' is-open' : '') + '" role="row">' +
+                    '<div class="vw-c vw-c-who" role="rowheader"><button type="button" class="vw-who' + (open && !__vwOpen.prefix ? ' is-sel' : '') + '" aria-expanded="' + (open && !__vwOpen.prefix) + '" onclick="vwOpen(\'' + id + '\', \'\')">' +
+                    '<span class="vw-user">' + name + (v.enabled ? '' : '<span class="badge is-neutral">已停用</span>') + '</span><span class="vw-meta">' + meta + '</span>' +
+                    '<svg class="vw-caret" aria-hidden="true"><use href="#i-chevron"/></svg></button></div>' + cells + '</div>';
+                return row + (open ? vwEditor(v, byP, cols, used) : '');
+            }).join('');
+
+            var notes = '';
+            if (!cols.length) notes += '<div class="vw-row vw-row-note" role="row"><div class="vw-c" role="cell">还没有开启观看账号的节点。在下方「节点」里开启后，每个节点占一列。</div></div>';
+            if (!__viewers.viewers.length) notes += '<div class="vw-row vw-row-note" role="row"><div class="vw-c" role="cell">还没有观看账号。用上方表单创建第一个。</div></div>';
+            m.innerHTML = head + rows + notes;
+            if (__vwOpen && __vwOpen.prefix) vwLoadLibs(__vwOpen.id, __vwOpen.prefix);
+        }
+        function vwEditor(v, byP, cols, used) {
+            var id = vEsc(v.id), name = vEsc(v.username), p = __vwOpen.prefix;
+            var close = '<button type="button" class="a-icon-btn is-md vw-edit-x" aria-label="收起" onclick="vwOpen(null)"><svg><use href="#i-x"/></svg></button>';
+            var body;
+            if (!p) {
+                body = '<div class="vw-edit-head"><span class="vw-edit-title">账号 <b>' + name + '</b></span>' + close + '</div>' +
+                    '<div class="vw-edit-grid">' +
+                    '<div class="vw-edit-field"><span class="vw-edit-label">状态</span>' + vwSwitch('启用 ' + name, v.enabled, 'toggleViewer(\'' + id + '\', this.checked)', v.enabled ? '已启用' : '已停用') + '</div>' +
+                    '<form class="vw-edit-field vw-pw" onsubmit="event.preventDefault(); resetViewerPassword(\'' + id + '\', this);"><label class="vw-edit-label" for="vwPw">新密码</label>' +
+                    '<span class="vw-inline"><input class="ns-input" id="vwPw" type="password" minlength="6" required autocomplete="new-password" placeholder="至少 6 位"><button type="submit" class="btn-tier is-sm">修改密码</button></span>' +
+                    '<span class="vw-edit-help">改密码后，该账号所有设备都会被登出。</span></form>' +
+                    '</div><div class="vw-edit-foot"><button type="button" class="btn-tier is-sm is-ghost vw-danger" onclick="deleteViewer(\'' + id + '\')"><svg><use href="#i-trash"/></svg>删除账号</button></div>';
+            } else {
+                var a = byP[p], n = cols.find(function (c) { return c.prefix === p; }) || { prefix: p };
+                var cap = n.max_concurrent || 0, room = cap ? cap - ((used[p] || 0) - a.quota) : 0;
+                body = '<div class="vw-edit-head"><span class="vw-edit-title"><b>' + name + '</b> 在 ' + vwNodeName(n, p) + '</span>' + close + '</div>' +
+                    '<div class="vw-edit-grid">' +
+                    '<div class="vw-edit-field"><label class="vw-edit-label" for="vwQuota">并发配额</label>' +
+                    '<input class="ns-input vw-num" id="vwQuota" type="number" inputmode="numeric" min="' + (cap ? 1 : 0) + '"' + (cap ? ' max="' + room + '"' : '') + ' value="' + (a.quota || '') + '" placeholder="不限">' +
+                    '<span class="vw-edit-help">' + (cap ? '节点上限 ' + cap + '，这个账号最多可设 ' + room + '。' : '节点不限并发。留空 = 这个账号也不限。') + '</span></div>' +
+                    '<div class="vw-edit-field vw-edit-libs"><span class="vw-edit-label">首页隐藏的媒体库</span><div class="vw-libs" id="vwLibs"><span class="vw-edit-help">读取媒体库...</span></div>' +
+                    '<span class="vw-edit-help">勾选的媒体库不在首页显示。搜索和继续观看不受影响。</span></div>' +
+                    '</div><div class="vw-edit-foot"><button type="button" class="btn-tier is-sm is-primary" onclick="vwSaveAccess(\'' + id + '\', \'' + vEsc(p) + '\')">保存</button>' +
+                    '<button type="button" class="btn-tier is-sm is-ghost vw-danger" onclick="revokeViewer(\'' + id + '\', \'' + vEsc(p) + '\')"><svg><use href="#i-x"/></svg>移除访问</button></div>';
+            }
+            return '<div class="vw-row vw-edit" role="row"><div class="vw-c" role="cell"><div class="vw-edit-body">' + body + '</div></div></div>';
+        }
+        function vwOpen(id, prefix) {
+            var same = __vwOpen && id && __vwOpen.id === id && __vwOpen.prefix === prefix;
+            __vwOpen = id && !same ? { id: id, prefix: prefix } : null;
+            renderViewers();
+            var f = __vwOpen && document.querySelector('.vw-edit input:not([type=checkbox])');
+            if (f) f.focus({ preventScroll: true });
+        }
+        async function vwLoadLibs(id, prefix) {
+            var box = document.getElementById('vwLibs');
+            if (!box) return;
+            if (!__vwLibs[prefix]) {
+                try { __vwLibs[prefix] = (await viewerApi('GET', '/api/viewers/libraries?prefix=' + encodeURIComponent(prefix))).libraries; }
+                catch (e) { box.innerHTML = '<span class="vw-edit-help">读取失败</span>'; return; }
+                box = document.getElementById('vwLibs');
+                if (!box || !__vwOpen || __vwOpen.id !== id || __vwOpen.prefix !== prefix) return;
+            }
+            var cur = viewerAccess(id, prefix), hidden = cur ? cur.hidden_libraries : [];
+            box.innerHTML = __vwLibs[prefix].length ? __vwLibs[prefix].map(function (l) {
+                return '<label class="vw-lib"><input type="checkbox" value="' + vEsc(l.id) + '"' + (hidden.indexOf(l.id) >= 0 ? ' checked' : '') + '><svg aria-hidden="true"><use href="#i-eye-off"/></svg>' + vEsc(l.name) + '</label>';
+            }).join('') : '<span class="vw-edit-help">该节点没有媒体库</span>';
+        }
+        function vwSaveAccess(id, prefix) {
+            var q = document.getElementById('vwQuota'), box = document.getElementById('vwLibs');
+            var cur = viewerAccess(id, prefix);
+            // 媒体库还没读到时沿用原来的隐藏列表，而不是清空它。
+            var ids = box && box.querySelector('input')
+                ? Array.prototype.map.call(box.querySelectorAll('input:checked'), function (c) { return c.value; })
+                : (cur ? cur.hidden_libraries : []);
+            grantViewer(id, prefix, q.value === '' ? 0 : q.value, ids);
+        }
+        function vwGrant(id, prefix) {
+            __vwOpen = { id: id, prefix: prefix };  // 授权后直接展开编辑，方便马上调配额
+            grantViewer(id, prefix, 1);
+        }
+        function renderViewerNodes(used) {
+            var el = document.getElementById('viewerNodes');
+            if (!__viewers.nodes.length) { el.innerHTML = '<div class="vw-empty">还没有节点<button type="button" class="btn-tier is-sm" onclick="showDest(\'config\', \'settings\')">去部署节点</button></div>'; return; }
+            el.innerHTML = '<div class="vw-nrow vw-nrow-head" role="row"><span role="columnheader">节点</span><span role="columnheader">已分配</span><span role="columnheader">并发上限</span><span role="columnheader">观看账号</span></div>' +
+                __viewers.nodes.map(function (n) {
+                    var p = vEsc(n.prefix), cap = n.max_concurrent || 0, x = used[n.prefix] || 0;
+                    return '<div class="vw-nrow' + (n.viewers_enabled ? '' : ' is-off') + '" role="row">' +
+                        '<span role="rowheader">' + vwNodeName(n, n.prefix) + '</span>' +
+                        '<span class="vw-nload' + (cap && x >= cap ? ' is-full' : '') + '" role="cell"><span class="vw-m-label">已分配</span>' + x + (cap ? ' / ' + cap : '') + '</span>' +
+                        '<span role="cell"><label class="vw-m-label" for="vwcap-' + p + '">上限</label><input class="ns-input vw-num" id="vwcap-' + p + '" type="number" min="0" inputmode="numeric" value="' + (cap || '') + '" placeholder="不限" aria-label="/' + p + ' 并发上限，留空不限" onchange="saveNode(\'' + p + '\', { max_concurrent: Number(this.value) })"></span>' +
+                        '<span role="cell">' + vwSwitch('/' + p + ' 开启观看账号', n.viewers_enabled, 'saveNode(\'' + p + '\', { viewers_enabled: this.checked })') + '</span></div>';
                 }).join('');
-                var grant = opts
-                    ? '<select class="ns-input" id="grant-' + id + '" aria-label="为 ' + name + ' 授权节点">' + opts + '</select>' +
-                      '<button type="button" class="btn-tier is-sm" onclick="grantViewer(\'' + id + '\', document.getElementById(\'grant-' + id + '\').value, 1)"><svg><use href="#i-plus"/></svg>授权节点</button>'
-                    : '<span class="vw-note">' + (enabled.length ? '已开启的节点均已授权' : '还没有开启观看账号的节点，先在「节点」里开启') + '</span>';
-                var meta = v.access.length ? v.access.length + ' 个节点 · 并发 ' + total : '未授权任何节点';
-                return '<article class="vw-group vw-card' + (v.enabled ? '' : ' is-off') + '">' +
-                    '<header class="vw-card-head"><div class="vw-who"><span class="vw-user">' + name + (v.enabled ? '' : '<span class="badge is-neutral">已停用</span>') + '</span><span class="vw-meta">' + meta + '</span></div>' +
-                    '<div class="vw-actions">' + vwSwitch('启用 ' + name, v.enabled, 'toggleViewer(\'' + id + '\', this.checked)', '启用') +
-                    '<button type="button" class="btn-tier is-sm is-ghost" aria-expanded="false" onclick="toggleViewerPw(\'' + id + '\', this)"><svg><use href="#i-key"/></svg>改密码</button>' +
-                    '<button type="button" class="btn-tier is-sm is-ghost vw-danger" onclick="deleteViewer(\'' + id + '\')"><svg><use href="#i-trash"/></svg>删除</button></div></header>' +
-                    '<form class="vw-pw" id="vwpw-' + id + '" hidden onsubmit="event.preventDefault(); resetViewerPassword(\'' + id + '\', this);">' +
-                    '<input class="ns-input" type="password" minlength="6" required autocomplete="new-password" aria-label="' + name + ' 的新密码" placeholder="新密码（至少 6 位）">' +
-                    '<button type="submit" class="btn-tier is-sm is-primary">保存</button><span class="vw-note">该账号所有设备将被登出</span></form>' +
-                    access + '<div class="vw-grant">' + grant + '</div></article>';
-            }).join('') || '<div class="vw-group vw-empty">还没有观看账号，在上方填写用户名和密码创建第一个</div>';
+        }
+        function showViewerCreate(on) {
+            var f = document.getElementById('viewerCreate');
+            f.hidden = !on;
+            document.getElementById('viewerNewBtn').setAttribute('aria-expanded', String(on));
+        }
+        function toggleViewerCreate() {
+            var f = document.getElementById('viewerCreate');
+            showViewerCreate(f.hidden);
+            if (!f.hidden) document.getElementById('viewerNewName').focus();
         }
         async function createViewer() {
             var name = document.getElementById('viewerNewName'); var pass = document.getElementById('viewerNewPass');
             try { await viewerApi('POST', '/api/viewers', { username: name.value.trim(), password: pass.value }); } catch (e) { return; }
-            name.value = ''; pass.value = ''; showToast('已创建'); loadViewers();
+            name.value = ''; pass.value = ''; showViewerCreate(false); showToast('已创建'); loadViewers();
         }
         async function toggleViewer(id, enabled) {
             try { await viewerApi('POST', '/api/viewers', { id: id, enabled: enabled }); } catch (e) { loadViewers(); return; }
             loadViewers();
         }
-        function toggleViewerPw(id, btn) {
-            var f = document.getElementById('vwpw-' + id);
-            f.hidden = !f.hidden; btn.setAttribute('aria-expanded', String(!f.hidden));
-            if (!f.hidden) f.querySelector('input').focus();
-        }
         async function resetViewerPassword(id, form) {
             try { await viewerApi('POST', '/api/viewers', { id: id, password: form.querySelector('input').value }); } catch (e) { return; }
-            form.reset(); form.hidden = true; showToast('密码已修改');
+            form.reset(); showToast('密码已修改');
         }
         async function deleteViewer(id) {
             if (!await uiConfirm('删除该账号及其全部观看记录？不可恢复。', { danger: true })) return;
             try { await viewerApi('DELETE', '/api/viewers?id=' + encodeURIComponent(id)); } catch (e) { return; }
-            loadViewers();
+            __vwOpen = null; loadViewers();
         }
         function viewerAccess(id, prefix) {
             var v = __viewers.viewers.find(function (x) { return x.id === id; });
@@ -1332,38 +1421,21 @@
             try {
                 await viewerApi('POST', '/api/viewers/access', { viewer_id: id, prefix: prefix, quota: Number(quota),
                     hidden_libraries: hidden || (cur ? cur.hidden_libraries : []) });
-            } catch (e) { loadViewers(); return; }
+            } catch (e) { if (!cur) __vwOpen = null; loadViewers(); return; }
             showToast('已保存'); loadViewers();
         }
         async function revokeViewer(id, prefix) {
             if (!await uiConfirm('移除该账号在 /' + prefix + ' 的访问权限？')) return;
             try { await viewerApi('DELETE', '/api/viewers/access?viewer_id=' + encodeURIComponent(id) + '&prefix=' + encodeURIComponent(prefix)); } catch (e) { return; }
-            loadViewers();
+            __vwOpen = null; loadViewers();
         }
         async function saveNode(prefix, fields) {
             try { await viewerApi('POST', '/api/viewers/node', Object.assign({ prefix: prefix }, fields)); } catch (e) { loadViewers(); return; }
             showToast('已保存'); loadViewers();
         }
-        async function editViewerLibraries(id, prefix, btn) {
-            var box = document.querySelector('.vw-libs[data-for="' + id + '|' + prefix + '"]');
-            if (!box) return;
-            var show = function (on) { box.hidden = !on; btn.setAttribute('aria-expanded', String(on)); };
-            if (!box.hidden) { show(false); return; }
-            box.innerHTML = '<span class="vw-note">读取媒体库...</span>'; show(true);
-            var data;
-            try { data = await viewerApi('GET', '/api/viewers/libraries?prefix=' + encodeURIComponent(prefix)); } catch (e) { show(false); return; }
-            var cur = viewerAccess(id, prefix);
-            var hidden = cur ? cur.hidden_libraries : [];
-            if (!data.libraries.length) { box.innerHTML = '<span class="vw-note">该节点没有媒体库</span>'; return; }
-            box.innerHTML = '<p class="vw-note">勾选 = 在该账号的首页隐藏（搜索、继续观看不受影响）</p><div class="vw-lib-list">' +
-                data.libraries.map(function (l) {
-                    return '<label class="vw-lib"><input type="checkbox" value="' + vEsc(l.id) + '"' + (hidden.indexOf(l.id) >= 0 ? ' checked' : '') + '>' + vEsc(l.name) + '</label>';
-                }).join('') + '</div><button type="button" class="btn-tier is-sm is-primary">保存</button>';
-            box.querySelector('button').onclick = function () {
-                var ids = Array.prototype.map.call(box.querySelectorAll('input:checked'), function (c) { return c.value; });
-                grantViewer(id, prefix, cur ? cur.quota : 1, ids);
-            };
-        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && __vwOpen && document.getElementById('viewerMatrix').contains(document.activeElement)) vwOpen(null);
+        });
 
         // 兼容旧调用：showSection(sectionKey) → 解析所属目的地后切换
         function showSection(key) { showDest(destOfSection(key), key); }

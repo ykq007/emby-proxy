@@ -689,23 +689,25 @@ export const HTML_UI = `
 
             <!-- ===== 分区: 观看账号 (Viewers) ===== -->
             <section id="sec-viewers" class="app-section" data-section="viewers" style="display:none;">
-            <!-- 不用表格：移动端的 table→卡片规则在这里没有 data-label 可显示。账号为主栏，节点容量为侧栏。 -->
-            <p class="vw-lead">给朋友开独立账号：共享节点的上游 Emby 账号，但观看记录、收藏、继续观看各自独立；可按节点分配并发配额、隐藏首页媒体库。节点需先在「部署节点」里填写 Emby 用户名/密码。</p>
-            <div class="vw-layout">
-                <div class="vw-main">
-                    <div class="vw-head"><h2 class="vw-title">账号</h2><span class="vw-count" id="viewerCount"></span></div>
-                    <form class="vw-group vw-create" onsubmit="event.preventDefault(); createViewer();">
-                        <input class="ns-input" type="text" id="viewerNewName" aria-label="用户名" placeholder="用户名" autocomplete="off" required>
-                        <input class="ns-input" type="password" id="viewerNewPass" aria-label="密码" placeholder="密码（至少 6 位）" autocomplete="new-password" minlength="6" required>
-                        <button type="submit" class="btn-tier is-primary is-sm"><svg><use href="#i-plus"/></svg>新建账号</button>
-                    </form>
-                    <div class="vw-list" id="viewerList"><div class="vw-group vw-empty">加载中...</div></div>
+            <!-- 账号 × 节点矩阵：一眼看清谁在哪个节点有几路并发。用 role=table 的 div 网格而非 <table>，避开全局移动端 table→卡片规则。 -->
+            <p class="vw-lead">给朋友开独立账号。共用节点的上游 Emby 账号，但观看记录、收藏、继续观看各自独立。</p>
+            <div class="vw-block">
+                <div class="vw-head">
+                    <h2 class="vw-title" id="vwAccountsTitle">账号</h2><span class="vw-count" id="viewerCount"></span>
+                    <button type="button" class="btn-tier is-sm is-primary vw-new" id="viewerNewBtn" aria-expanded="false" aria-controls="viewerCreate" onclick="toggleViewerCreate()"><svg><use href="#i-plus"/></svg>新建账号</button>
                 </div>
-                <aside class="vw-rail" aria-labelledby="vwNodesTitle">
-                    <div class="vw-head"><h2 class="vw-title" id="vwNodesTitle">节点</h2></div>
-                    <p class="vw-note">只有开启了观看账号的节点才会处理 viewer 登录；未开启的节点照常直通上游。开启时会实际登录一次上游账号校验。并发上限 0 = 不限，各账号配额之和不能超过上限。</p>
-                    <div class="vw-group" id="viewerNodes"><div class="vw-empty">加载中...</div></div>
-                </aside>
+                <form class="vw-create" id="viewerCreate" hidden onsubmit="event.preventDefault(); createViewer();">
+                    <input class="ns-input" type="text" id="viewerNewName" aria-label="用户名" placeholder="用户名" autocomplete="off" required>
+                    <input class="ns-input" type="password" id="viewerNewPass" aria-label="密码" placeholder="密码（至少 6 位）" autocomplete="new-password" minlength="6" required>
+                    <button type="submit" class="btn-tier is-sm is-primary">创建</button>
+                </form>
+                <div class="vw-sheet"><div class="vw-matrix" id="viewerMatrix" role="table" aria-labelledby="vwAccountsTitle"><div class="vw-empty">加载中...</div></div></div>
+                <p class="vw-hint">格子里是该账号在该节点的并发配额。点数字修改配额或隐藏首页媒体库，点 <svg aria-hidden="true"><use href="#i-plus"/></svg> 授权，点账号名改密码或停用。</p>
+            </div>
+            <div class="vw-block">
+                <div class="vw-head"><h2 class="vw-title" id="vwNodesTitle">节点</h2></div>
+                <p class="vw-hint is-top">开启后，该节点才接受观看账号登录，未开启的节点照常直通上游。开启时会用节点的 Emby 账号试登录一次，账号在「部署节点」里填写。</p>
+                <div class="vw-sheet"><div class="vw-nodes" id="viewerNodes" role="table" aria-labelledby="vwNodesTitle"><div class="vw-empty">加载中...</div></div></div>
             </div>
             </section><!-- /sec-viewers -->
 
