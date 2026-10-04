@@ -1,8 +1,9 @@
 // 阶段 2：播放。客户端看到的条目 Id 是聚合 vid（或阶段 3 推出的集 Id，见 series.js），真正的媒体在某个节点上。
 //
 // PlaybackInfo：按 健康（探测失败 / 熔断冷却）→ 并发槽位 → routes.sort_order 给可见副本排序，
-//   在第一个能占到槽位的节点上取 PlaybackInfo（失败换下一个）；另取至多两个健康且有空槽的节点
-//   作为「其它版本」，客户端的版本选择器里以节点名（routes.remark，没有就用前缀）区分。
+//   在第一个能占到槽位的节点上取 PlaybackInfo（失败换下一个），只问这一个节点。
+//   版本菜单来自详情（api.js）：每个有空位的节点一个版本，以节点名（routes.remark，没有就用前缀）区分；
+//   客户端选了版本就带着它的 MediaSourceId 来，先去那个节点。
 //   MediaSource.Id 编码成 `<节点前缀>~<原 Id>`，之后的流 / 进度请求凭它找回节点；
 //   PlaySessionId → 节点 记在 agg_play_sessions 里兜底（HLS 分片请求常常只带它）。
 // 流：
@@ -23,7 +24,7 @@ import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
 const SEP = '~';
-export const MAX_VERSIONS = 3;
+export const MAX_VERSIONS = 10; // 详情版本菜单最多列几个节点
 const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
@@ -243,19 +244,8 @@ export async function playbackInfo(env, request, url, s, vid) {
             : json({ message: `No node could play this title (${lastError || 'no copy available'})` }, 503);
     }
 
-    // 其它版本：健康且有空槽的其它节点（客户端指定了版本时不取）。
+    // 只问一个节点：版本菜单来自详情（api.js），不在这里向其它节点要备选，免得每次起播都打扰多个节点。
     const results = [primary];
-    if (!want) {
-        const alts = [];
-        for (const c of ranked) {
-            if (alts.length >= MAX_VERSIONS - 1) break;
-            if (c === primary.c || c.bad) continue;
-            if (await slotFree(env, slotOf(s, c.src.prefix), device, now)) alts.push(c);
-        }
-        const got = await Promise.all(alts.map(c => askPlaybackInfo(env, c, s, request, url, body, null)));
-        got.forEach((res, i) => { if (res.data) results.push({ c: alts[i], ...res }); });
-    }
-
     const label = sources.length > 1;
     const out = { ...primary.data, MediaSources: [] };
     for (const r of results) {

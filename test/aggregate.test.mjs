@@ -376,22 +376,22 @@ async function playable() {
 const pbi = (vid, token, qs = '') => call(`/emby/Items/${vid}/PlaybackInfo?UserId=x${qs}`, { method: 'POST', token, body: { DeviceProfile: { Name: 'Hills' } } });
 const slots = () => rows(`SELECT prefix, device_id FROM playback_slots ORDER BY prefix`).map(r => ({ ...r }));
 
-test('PlaybackInfo offers one version per node, routed through the aggregate server; node tokens and paths never leak', async () => {
+test('PlaybackInfo asks only the best node (versions are offered on the title page), routed through the aggregate server; node tokens and paths never leak', async () => {
     const { token, vid } = await playable();
     const r = await pbi(vid, token);
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const ms = r.body.MediaSources;
-    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~ms-b1']);
-    assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p', 'nodeB · 1080p'], 'labelled by node name, or prefix when it has none');
+    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1']);
+    assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p'], 'labelled by node name');
     assert.ok(ms.every(m => m.ItemId === String(vid) && m.Path === undefined));
     assert.equal(ms[0].DirectStreamUrl, `/n/nodeA/videos/a1/stream.mkv?Static=true&MediaSourceId=ms-a1&api_key=${token}`);
     assert.ok(ms[0].TranscodingUrl.startsWith('/n/nodeA/videos/a1/master.m3u8?'));
-    assert.ok(ms[1].MediaStreams[0].DeliveryUrl.startsWith('/n/nodeB/Videos/b1/ms-b1/Subtitles/2/Stream.srt?'));
+    assert.ok(ms[0].MediaStreams[0].DeliveryUrl.startsWith('/n/nodeA/Videos/a1/ms-a1/Subtitles/2/Stream.srt?'));
     assert.equal(r.body.PlaySessionId, 'PS-a.example');
     assert.ok(!JSON.stringify(r.body).includes('TOK-'), 'no node token in the response');
 
     const asked = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
-    assert.deepEqual(asked.map(c => [c.host, c.query.UserId, c.device]), [['a.example', 'UID', 'dev1'], ['b.example', 'UID', 'dev1']]);
+    assert.deepEqual(asked.map(c => [c.host, c.query.UserId, c.device]), [['a.example', 'UID', 'dev1']], 'no other node is bothered');
     assert.ok(calls.every(c => c.ua === LOG_UA), 'upstream sees the client device UA, never a browser one');
     assert.deepEqual(slots(), [{ prefix: 'nodeA', device_id: 'dev1' }], 'only the primary node takes a slot');
 });
@@ -485,8 +485,8 @@ test('node-provided transcoding URLs work through /n/, playlists come back with 
     assert.deepEqual([up.host, up.path, up.query.api_key], ['a.example', '/videos/a1/master.m3u8', 'TOK-a.example-dev1']);
 
     // 只有 PlaySessionId 的 HLS 分片请求：凭 PlaybackInfo 时记下的会话找回节点。
-    const seg = await call(`/Videos/${vid}/hls1/main/0.ts?PlaySessionId=PS-b.example&api_key=${token}`, { bare: true });
-    assert.equal(seg.body, 'VIDEO-b.example-b1-hls1/main/0.ts');
+    const seg = await call(`/Videos/${vid}/hls1/main/0.ts?PlaySessionId=PS-a.example&api_key=${token}`, { bare: true });
+    assert.equal(seg.body, 'VIDEO-a.example-a1-hls1/main/0.ts');
 
     assert.equal((await call(`/n/nodeA/Users/UID/Items?api_key=${token}`, { bare: true })).status, 403, 'only /Videos/ is reachable');
     assert.equal((await call(`/n/nodeA/videos/a1/stream.mkv?api_key=${token}`, { method: 'POST', token })).status, 403, 'read-only');
@@ -569,15 +569,17 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     assert.equal(calls.filter(c => c.path === '/Shows/b9/Episodes').length, 1);
 });
 
-test('series: an episode on one node plays from that node; one on two nodes offers both versions', async () => {
+test('series: an episode on one node plays from that node; one on two nodes plays from the best one, or the picked one', async () => {
     const { token, E } = await seriesSetup();
     const only = await pbi(E(3, 1), token);
     assert.equal(only.status, 200, JSON.stringify(only.body));
     assert.deepEqual(only.body.MediaSources.map(m => m.Id), ['nodeB~ms-b9e31']);
     assert.ok(only.body.MediaSources.every(m => m.ItemId === E(3, 1)));
     await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(3, 1), MediaSourceId: 'nodeB~ms-b9e31', PositionTicks: 0 } });
-    const both = await pbi(E(2, 1), token);
-    assert.deepEqual(both.body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~ms-b9e21']);
+    assert.deepEqual((await pbi(E(2, 1), token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21']);
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(2, 1), MediaSourceId: 'nodeA~ms-a9e21', PositionTicks: 0 } });
+    const picked = await pbi(E(2, 1), token, '&MediaSourceId=' + encodeURIComponent('nodeB~b9e21'));
+    assert.deepEqual(picked.body.MediaSources.map(m => m.Id.split('~')[0]), ['nodeB']);
 });
 
 test('watch state: resume, 90% marks played, Next Up crosses nodes; progress writes are throttled; nothing goes to prod watch_state', async () => {
@@ -714,7 +716,6 @@ test('versions come from different nodes: a second copy of the same film on one 
     nodes['a.example'].items.L4 = [mv('a1dup', 'Inception', 2010, { Tmdb: '27205' })];
     const { token, vid } = await playable();
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE vid = ?`, vid)[0].n, 3, 'two copies on nodeA, one on nodeB');
-    const r = await pbi(vid, token);
-    assert.deepEqual(r.body.MediaSources.map(m => m.Id.split('~')[0]), ['nodeA', 'nodeB']);
-    assert.deepEqual(r.body.MediaSources.map(m => m.Name), ['节点A · 1080p', 'nodeB · 1080p']);
+    const d = (await call(`/emby/Users/x/Items/${vid}`, { token })).body;
+    assert.deepEqual(d.MediaSources.map(m => m.Id.split('~')[0]), ['nodeA', 'nodeB']);
 });
