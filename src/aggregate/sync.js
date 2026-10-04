@@ -55,7 +55,7 @@ export async function runSync(env, now = Date.now(), opts = {}) {
     const summary = { nodes: {}, writes: 0, requests: 0, stopped: '' };
 
     await dbRun(env, `DELETE FROM agg_play_sessions WHERE created_at < ?`, now - PLAY_SESSION_TTL_MS);
-    const synced = ((await dbAll(env, `SELECT prefix, updated_at FROM agg_sync`)).results || []);
+    const synced = ((await dbAll(env, `SELECT prefix, updated_at, since FROM agg_sync`)).results || []);
     for (const r of synced) if (!memberSet.has(r.prefix)) summary.writes += await forgetPrefix(env, r.prefix);
 
     const limit = Number(opts.dailyWrites ?? env.AGG_DAILY_WRITE_BUDGET) || DEFAULT_DAILY_WRITES;
@@ -71,9 +71,11 @@ export async function runSync(env, now = Date.now(), opts = {}) {
     };
     const outOfTime = () => Date.now() > budget.deadline;
 
-    // 最久没同步的节点先来。
+    // 首轮还没做完的节点先来（新加的节点不被其它节点每小时的增量挤到预算之外），其余最久没同步的先来。
     const last = new Map(synced.map(r => [r.prefix, Number(r.updated_at) || 0]));
-    const order = [...members].sort((a, b) => (last.get(a.prefix) || 0) - (last.get(b.prefix) || 0));
+    const fresh = new Set(synced.filter(r => !r.since).map(r => r.prefix));
+    for (const r of members) if (!last.has(r.prefix)) fresh.add(r.prefix);
+    const order = [...members].sort((a, b) => (fresh.has(b.prefix) - fresh.has(a.prefix)) || (last.get(a.prefix) || 0) - (last.get(b.prefix) || 0));
     for (const route of order) {
         if (budget.requests <= 0) { summary.stopped = 'requests'; break; }
         if (budget.writes <= 0) { summary.stopped = 'writes'; break; }

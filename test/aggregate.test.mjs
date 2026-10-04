@@ -886,6 +886,18 @@ test('a D1 error while merging stops only that node for this run; its cursor sta
     assert.equal(rows(`SELECT * FROM agg_items`).length, 5);
 });
 
+test('a node still on its first sync goes before the hourly checks of nodes that are done', async () => {
+    const t0 = Date.parse('2026-02-01T00:00:00Z');
+    await syncAll(t0);
+    // nodeB 的首轮被打回未完成；nodeA 刚同步过但也到期（一小时后），排序上 nodeA 更久没同步。
+    env.DB.db.exec(`UPDATE agg_sync SET since = '', libs = '[]', li = 0, start = 0, updated_at = ${t0 + 1000} WHERE prefix = 'nodeB'`);
+    env.DB.db.exec(`UPDATE agg_sync SET updated_at = ${t0} WHERE prefix = 'nodeA'`);
+    calls = [];
+    await runSync(env, t0 + 2 * 3600000, { maxRequests: 50, pageDelayMs: 0 });
+    const hosts = calls.filter(c => c.path === '/Users/UID/Items' || c.path === '/Users/UID/Views').map(c => c.host);
+    assert.equal(hosts[0], 'b.example', 'the unfinished first sync starts first');
+});
+
 test('sync waits between page requests to the same node (AGG_PAGE_DELAY_MS)', async () => {
     const at = [];
     const orig = globalThis.fetch;
