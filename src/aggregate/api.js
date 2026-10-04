@@ -6,7 +6,7 @@ import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw, browseSession, nodeFetch } from './upstream.js';
-import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, saveMedia, LIB_MOVIES, LIB_SERIES } from './catalog.js';
+import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, loadFullMedia, saveFullMedia, FULL_MEDIA_MS, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
@@ -239,30 +239,38 @@ function stubSource(e, id, label, extra = {}) {
     };
 }
 
-// 电影菜单里还没有文件摘要的副本：问一次（各等至多 MEDIA_WAIT_MS），存进 agg_sources，这份副本以后不再问。
-// 迟到的答复也在后台存下。剧集不需要：摘要随剧集列表带回。
+// 菜单里各副本的全部文件（c.src.media）：先用 agg_media 里存的；没有的（或存得太久的）向节点问一次详情
+// （各等至多 MEDIA_WAIT_MS），存下来，这份副本以后不再问。迟到的答复也在后台存下。first：第一份副本已取到的详情。
+// 节点的列表接口只给默认文件，所以同步 / 剧集列表带回的摘要只当没问到之前的占位。
 const MEDIA_WAIT_MS = 1500;
-async function fillMedia(env, ctx, s, copies) {
-    const missing = copies.filter(c => !(c.src.media || []).length);
-    if (!missing.length) return;
+async function useFullMedia(env, copies) {
+    const stored = await loadFullMedia(env, copies.map(c => c.src));
+    for (const c of copies) { const h = stored.get(c.src.prefix + '|' + c.src.item_id); if (h) c.src.media = h.media; }
+    return stored;
+}
+async function fillMedia(env, ctx, s, copies, first) {
+    const now = Date.now();
+    const stored = await useFullMedia(env, copies);
     const late = () => new Promise(r => setTimeout(() => r(null), MEDIA_WAIT_MS));
-    await Promise.all(missing.map(c => {
-        const p = liveItem(env, c.src, s.deviceId).then(async (d) => {
+    await Promise.all(copies.map((c, i) => {
+        const h = stored.get(c.src.prefix + '|' + c.src.item_id);
+        if (h && now - h.at < FULL_MEDIA_MS) return null;
+        const p = (i === 0 && first ? Promise.resolve(first) : liveItem(env, c.src, s.deviceId)).then(async (d) => {
             const media = d ? mediaList(d) : [];
-            if (media.length) { c.src.media = media; await saveMedia(env, c.src.prefix, c.src.item_id, media); }
+            if (media.length) { c.src.media = media; await saveFullMedia(env, c.src.prefix, c.src.item_id, media); }
         }).catch(() => {});
         if (ctx && ctx.waitUntil) ctx.waitUntil(p);
-        return Promise.race([p, late()]);
+        return h ? null : Promise.race([p, late()]); // 有旧的就先用旧的，后台更新
     }));
 }
 
 // 详情：第一个版本节点的实时详情做底，目录字段覆盖。真 Emby 详情的字段（Etag、Path、人物 / 工作室的 Id、Chapters…）
 // 一个不少：SenPlayer 这类严格解析的客户端缺一个就报「媒体库中不存在」。
 // 不外传的：节点上的目录路径（Path 只留文件名）、父级 Id 与父级图片标签（客户端拿着它们来取图会取错）、人物图。
-async function detailWithMenu(env, ctx, s, dto, id, ranked, playable, fill = false) {
+async function detailWithMenu(env, ctx, s, dto, id, ranked, playable) {
     const first = ranked[0];
-    if (playable && fill) await fillMedia(env, ctx, s, ranked.slice(1, MAX_VERSIONS));
     const d = first ? await liveItem(env, first.src, s.deviceId) : null;
+    if (playable && d) await fillMedia(env, ctx, s, ranked.slice(0, MAX_VERSIONS), d);
     if (!d) return { ...dto, CanDelete: false, CanDownload: false };
     const out = {};
     for (const [k, v] of Object.entries(d)) if (!/^Parent\w*(ItemId|ImageTags?)$/.test(k)) out[k] = v;
@@ -292,7 +300,7 @@ async function itemDetail(env, ctx, request, url, s, sid, vid) {
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
     const movie = row.type === 'Movie';
-    return detailWithMenu(env, ctx, s, dto, vid, movie ? await playableRanked(env, s, request, url, sources) : await rank(env, sources.slice(0, 1)), movie, movie);
+    return detailWithMenu(env, ctx, s, dto, vid, movie ? await playableRanked(env, s, request, url, sources) : await rank(env, sources.slice(0, 1)), movie);
 }
 
 // 推出的集 Id 的详情：合并结果 + 第一个版本节点的实时详情。
@@ -315,7 +323,9 @@ async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     const have = new Set(data.MediaSources.map(m => String(m.Id)));
     const asked = String(data.MediaSources[0].Id).split('~')[0];
     const copies = decodeId(id) ? await copiesOf(env, s.scope, id) : await visibleSources(env, s.scope, id);
-    const entries = menuEntries((await playableRanked(env, s, request, url, copies)).filter(c => !c.bad));
+    const ranked = (await playableRanked(env, s, request, url, copies)).filter(c => !c.bad);
+    await useFullMedia(env, ranked);
+    const entries = menuEntries(ranked);
     if (entries.length > 1) {
         for (const e of entries) {
             const { c, m } = e;

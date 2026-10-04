@@ -5,7 +5,7 @@
 // 例外：登录爆破封禁写 ip_bans（两个 Worker 共享封禁是有意的）。
 import { dbFirst, dbRun } from '../db/helpers.js';
 
-export const AGG_SCHEMA_VERSION = 4;
+export const AGG_SCHEMA_VERSION = 5;
 let ready = false;
 
 export function __resetAggSchemaForTest() { ready = false; }
@@ -55,6 +55,8 @@ export async function ensureAggSchema(env) {
             position_ticks INTEGER DEFAULT 0, runtime_ticks INTEGER DEFAULT 0, played INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0,
             last_played INTEGER DEFAULT 0, resume_hidden INTEGER DEFAULT 0, PRIMARY KEY(viewer_id, prefix, item_id))`,
         `CREATE TABLE IF NOT EXISTS agg_auth_rl (ip TEXT NOT NULL, win INTEGER NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY(ip, win))`,
+        // 副本的全部文件（版本菜单）：节点的列表接口只给默认文件，单条详情才有全部，问一次存下（catalog.js 的 loadFullMedia）。
+        `CREATE TABLE IF NOT EXISTS agg_media (prefix TEXT NOT NULL, item_id TEXT NOT NULL, media TEXT NOT NULL, updated_at INTEGER DEFAULT 0, PRIMARY KEY(prefix, item_id))`,
     ];
     for (const sql of stmts) await env.DB.exec(sql.replace(/\s+/g, ' '));
     // v4：副本的文件摘要（版本菜单显示大小 / 码率 / 分辨率，不用问节点）。老库补列，已有就跳过。

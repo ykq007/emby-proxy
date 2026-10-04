@@ -58,6 +58,9 @@ function fixtures() {
 
 const devOf = (req, u) => (/DeviceId="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || '') || [])[1] || u.searchParams.get('DeviceId') || '';
 
+// 真 Emby 的列表接口只给默认那个媒体源，单条详情才有全部。
+const listed = (it) => (it.MediaSources ? { ...it, MediaSources: it.MediaSources.slice(0, 1) } : it);
+
 // 假 Emby 节点。令牌绑定登录设备（TOK-<host>-<DeviceId>），换设备用就 401——验证设备身份前后一致。
 function fakeEmby(req, body) {
     const u = new URL(req.url);
@@ -82,13 +85,13 @@ function fakeEmby(req, body) {
         if (q.get('Ids')) { const ids = q.get('Ids').split(','); list = list.filter(it => ids.includes(it.Id)); }
         if (q.get('MinDateLastSaved')) list = list.filter(it => it.DateLastSaved >= q.get('MinDateLastSaved'));
         const start = Number(q.get('StartIndex')) || 0; const limit = q.has('Limit') ? Number(q.get('Limit')) : list.length;
-        return json({ Items: list.slice(start, start + limit), TotalRecordCount: list.length });
+        return json({ Items: list.slice(start, start + limit).map(listed), TotalRecordCount: list.length });
     }
     let m;
     if ((m = /^\/Shows\/(\w+)\/(Seasons|Episodes)$/.exec(p))) {
         const sh = (node.shows || {})[m[1]] || { seasons: [], episodes: [] };
         const list = m[2] === 'Seasons' ? sh.seasons : sh.episodes;
-        return json({ Items: list, TotalRecordCount: list.length });
+        return json({ Items: list.map(listed), TotalRecordCount: list.length });
     }
     if (p === '/Users/UID/Items/Latest') return json(node.latest || []);
     if ((m = /^\/Users\/UID\/Items\/(\w+)$/.exec(p))) {
@@ -320,7 +323,7 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.deepEqual(menu[0], { Id: 'nodeA~ms', ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: '节点A' });
     assert.deepEqual([menu[1].Id, menu[1].Name, menu[1].Container, menu[1].ItemId], ['nodeB~ms', 'nodeB', 'mkv', String(vid)]);
     assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1);
-    assert.equal(JSON.parse(rows(`SELECT media FROM agg_sources WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media)[0].Container, 'mkv');
+    assert.equal(JSON.parse(rows(`SELECT media FROM agg_media WHERE prefix = 'nodeB' AND item_id = 'b1'`)[0].media)[0].Container, 'mkv');
     __resetLiveForTest(); calls = [];
     assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources[1].Container, 'mkv');
     assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'never asked again');
@@ -344,21 +347,28 @@ test('version menu hides nodes that are full for this device; when every node is
     assert.deepEqual(await menu(), ['nodeA~ms', 'nodeB~ms'], 'all full: list stays, play answers 429');
 });
 
-test('version details come from the catalog sync and the episode lists, without asking the nodes', async () => {
-    const file = (name, h) => [{ Id: 'x', Name: name, Container: 'mkv', Size: 2e9, Bitrate: 8e6, MediaStreams: [{ Type: 'Video', Codec: 'hevc', Width: 3840, Height: h, Path: '/secret' }, { Type: 'Audio', Codec: 'aac', IsDefault: true }, { Type: 'Subtitle', Codec: 'srt' }] }];
-    nodes['b.example'].items.M1[0].MediaSources = file('2160p', 2160);
-    nodes['b.example'].shows.b9.episodes[0].MediaSources = file('ep 4k', 1608);
+test('the menu lists every file of each copy: lists give only the default file, so each copy is asked once for its detail, then never again', async () => {
+    const files = (h) => [
+        { Id: 'x4k', Name: '2160p', Container: 'mkv', Size: 2e9, Bitrate: 8e6, MediaStreams: [{ Type: 'Video', Codec: 'hevc', Width: 3840, Height: h, Path: '/secret' }, { Type: 'Audio', Codec: 'aac', IsDefault: true }, { Type: 'Subtitle', Codec: 'srt' }] },
+        { Id: 'xhd', Name: '1080p', Container: 'mkv', Size: 9e8, MediaStreams: [{ Type: 'Video', Codec: 'h264', Height: 1080 }] }];
+    nodes['b.example'].items.M1[0].MediaSources = files(2160);
+    nodes['b.example'].shows.b9.episodes[0].MediaSources = files(1608);
     await syncAll();
     const { token } = await viewer('alice', [['nodeA'], ['nodeB']]);
     const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid;
     calls = [];
-    const m = (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources[1];
-    assert.deepEqual([m.Name, m.Size, m.Bitrate, m.MediaStreams.map(x => [x.Type, x.Codec, x.Height])], ['nodeB · 2160p', 2e9, 8e6, [['Video', 'hevc', 2160], ['Audio', 'aac', undefined]]]);
-    assert.ok(!JSON.stringify(m).includes('/secret'), 'only the summary is kept');
-    assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'known from the sync: nodeB not asked');
+    const ms = (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources;
+    assert.deepEqual(ms.slice(1).map(m => [m.Id, m.Name, m.Size]), [['nodeB~x4k', 'nodeB · 2160p', 2e9], ['nodeB~xhd', 'nodeB · 1080p', 9e8]]);
+    assert.deepEqual(ms[1].MediaStreams.map(x => [x.Type, x.Codec, x.Height]), [['Video', 'hevc', 2160], ['Audio', 'aac', undefined]]);
+    assert.ok(!JSON.stringify(ms).includes('/secret'), 'only the summary is kept');
+    assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1, 'asked once');
+    __resetLiveForTest(); calls = [];
+    assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources.length, 3);
+    assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'never again');
+    // 剧集一样：列表只给默认文件，打开那一集时问一次。
     const series = rows(`SELECT vid FROM agg_items WHERE name = 'Breaking Bad'`)[0].vid;
     const e = (await call(`/emby/Users/x/Items/${series * 1e6 + 2 * 1000 + 1}`, { token })).body.MediaSources;
-    assert.deepEqual([e[1].Id, e[1].Name, e[1].MediaStreams[0].Height], ['nodeB~x', 'nodeB · ep 4k', 1608]);
+    assert.deepEqual(e.slice(1).map(m => [m.Id, m.Name, m.MediaStreams[0].Height]), [['nodeB~x4k', 'nodeB · 2160p', 1608], ['nodeB~xhd', 'nodeB · 1080p', 1080]]);
 });
 
 test('images are fetched from a copy that has them, matching the requested tag', async () => {
@@ -641,7 +651,7 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
     assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
     assert.deepEqual(d.MediaSources, [{ Id: 'nodeB~ms', ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
-    assert.deepEqual((await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeB~'], 'an episode on two nodes offers both');
+    assert.deepEqual((await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources.map(m => m.Id), ['nodeA~ms', 'nodeB~ms'], 'an episode on two nodes offers both');
     assert.equal(d.Id, E(3, 1)); assert.equal(d.SeasonId, S(3));
     assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
     // 一屏缩略图同时到达：共用一次上游请求。

@@ -24,7 +24,7 @@ import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
 const SEP = '~';
-export const MAX_VERSIONS = 20; // 版本菜单最多列几项（每份副本的每个文件一项）
+export const MAX_VERSIONS = 40; // 版本菜单最多列几项（每份副本的每个文件一项；一个节点就可能有十几个）
 const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
