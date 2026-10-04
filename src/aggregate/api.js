@@ -9,7 +9,7 @@ import { memberRoutes, nodeJson, nodeRaw } from './upstream.js';
 import { queryItems, visibleSources, visibleSourcesMany, getItemRow, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
-import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
+import { playbackInfo, videoStream, namespaced, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, nsUrl, MAX_VERSIONS } from './playback.js';
 import { decodeId, loadSeries, seasonDtos, episodeDtos, derivedDto, copiesOf, watchMeta, latestSeriesVids, MAX_SERIES_PER_REQUEST } from './series.js';
 import { setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from '../viewers/watch.js';
 
@@ -250,6 +250,33 @@ async function episodeDetail(env, ctx, request, url, s, sid, id) {
     return versions.length ? withLive(versions, dto, id) : dto;
 }
 
+// PlaybackInfo 的媒体源里也列出版本菜单的其它节点：Hills 不把选中的版本告诉服务器，而是在这份列表里按 Id 找；
+// 找不到就播第一个。其它节点不再问 PlaybackInfo（用详情的缓存数据），只给直连地址（经 /n/ 到该节点，取流时再占槽位），不能转码。
+async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
+    const r = await playbackInfo(env, request, url, s, id);
+    if (!r.ok) return r;
+    const data = await r.json();
+    if (!Array.isArray(data.MediaSources)) return json(data);
+    const have = new Set(data.MediaSources.map(m => String(m.Id).split('~')[0]));
+    const copies = decodeId(id) ? await copiesOf(env, s.scope, id) : await visibleSources(env, s.scope, id);
+    if (copies.length > 1) {
+        for (const { c, d } of await liveVersions(env, ctx, await playableRanked(env, s, request, url, copies))) {
+            const ms = (d.MediaSources || [])[0];
+            if (!ms || c.bad || have.has(c.src.prefix)) continue;
+            const { DirectStreamUrl, TranscodingUrl, TranscodingSubProtocol, TranscodingContainer, Path, ...rest } = ms;
+            const q = new URLSearchParams({ Static: 'true', MediaSourceId: String(ms.Id), api_key: s.token });
+            data.MediaSources.push({
+                ...rest, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id),
+                Name: [c.name, ms.Name].filter(Boolean).join(' · '),
+                SupportsTranscoding: false,
+                DirectStreamUrl: `/n/${encodeURIComponent(c.src.prefix)}/videos/${encodeURIComponent(c.src.item_id)}/stream.${ms.Container || 'mkv'}?${q}`,
+                MediaStreams: (ms.MediaStreams || []).map(st => (st.DeliveryUrl ? { ...st, DeliveryUrl: nsUrl(c.src.prefix, st.DeliveryUrl) } : st)),
+            });
+        }
+    }
+    return json(data);
+}
+
 // /Items/{vid}/Images/{type}[/{index}]：取有该图的可见副本；客户端带的 tag 优先匹配同一副本，缓存才稳定。
 async function image(env, ctx, request, s, vid, type, index, url) {
     const cache = typeof caches !== 'undefined' ? caches.default : null;
@@ -359,7 +386,7 @@ export async function handleAggRequest(request, env, ctx) {
 
     // ── 播放 ──────────────────────────────────────────────
     if ((m = R.ns.exec(path))) return namespaced(env, request, url, s, decodeURIComponent(m[1]), m[2]);
-    if ((m = R.playbackInfo.exec(path)) && (method === 'GET' || method === 'POST')) return playbackInfo(env, request, url, s, m[1]);
+    if ((m = R.playbackInfo.exec(path)) && (method === 'GET' || method === 'POST')) return playbackInfoWithVersions(env, ctx, request, url, s, m[1]);
     if (method === 'POST' && R.playPing.test(path)) return byPlaySession(env, request, url, s, '/Sessions/Playing/Ping');
     if (method === 'POST' && (m = R.playing.exec(path))) return playing(env, request, url, s, (m[1] || 'playing').toLowerCase());
     if (method === 'DELETE' && R.activeEncodings.test(path)) return byPlaySession(env, request, url, s, '/Videos/ActiveEncodings');

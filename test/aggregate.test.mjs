@@ -384,8 +384,12 @@ test('PlaybackInfo asks only the best node (versions are offered on the title pa
     const r = await pbi(vid, token);
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const ms = r.body.MediaSources;
-    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1']);
-    assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p'], 'labelled by node name');
+    // 第一个是问过的节点；其它节点按版本菜单附在后面（Hills 在这份列表里按 Id 找选中的版本），不问它们的 PlaybackInfo。
+    assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~ms']);
+    assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p', 'nodeB'], 'labelled by node name');
+    assert.equal(ms[1].DirectStreamUrl, `/n/nodeB/videos/b1/stream.mkv?Static=true&MediaSourceId=ms&api_key=${token}`);
+    assert.equal(ms[1].SupportsTranscoding, false);
+    assert.equal(ms[1].TranscodingUrl, undefined);
     assert.ok(ms.every(m => m.ItemId === String(vid) && m.Path === undefined));
     assert.equal(ms[0].DirectStreamUrl, `/n/nodeA/videos/a1/stream.mkv?Static=true&MediaSourceId=ms-a1&api_key=${token}`);
     assert.ok(ms[0].TranscodingUrl.startsWith('/n/nodeA/videos/a1/master.m3u8?'));
@@ -397,6 +401,11 @@ test('PlaybackInfo asks only the best node (versions are offered on the title pa
     assert.deepEqual(asked.map(c => [c.host, c.query.UserId, c.device]), [['a.example', 'UID', 'dev1']], 'no other node is bothered');
     assert.ok(calls.every(c => c.ua === LOG_UA), 'upstream sees the client device UA, never a browser one');
     assert.deepEqual(slots(), [{ prefix: 'nodeA', device_id: 'dev1' }], 'only the primary node takes a slot');
+    // 选了附加的版本：直连地址经 /n/ 到 nodeB，取流时在 nodeB 占槽位。
+    const b = await call(ms[1].DirectStreamUrl, { bare: true, range: 'bytes=0-' });
+    assert.equal(b.status, 206, String(b.body));
+    assert.deepEqual(calls.filter(c => c.path.toLowerCase().startsWith('/videos/')).map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'ms']]);
+    assert.ok(slots().some(x => x.prefix === 'nodeB' && x.device_id === 'dev1'));
 });
 
 test('PlaybackInfo prefers healthy nodes: failing probes or a dead node move playback to the next copy', async () => {
@@ -448,14 +457,14 @@ test('streams need a slot too: a late play after the PlaybackInfo hold expired, 
 test('picking a version pins PlaybackInfo to that node', async () => {
     const { token, vid } = await playable();
     const r = await pbi(vid, token, '&MediaSourceId=' + encodeURIComponent('nodeB~ms-b1'));
-    assert.deepEqual(r.body.MediaSources.map(m => m.Id), ['nodeB~ms-b1']);
+    assert.equal(r.body.MediaSources[0].Id, 'nodeB~ms-b1', 'the picked node comes first');
     const asked = calls.filter(c => c.path.endsWith('/PlaybackInfo'));
     assert.deepEqual(asked.map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'ms-b1']]);
     assert.deepEqual(slots(), [{ prefix: 'nodeB', device_id: 'dev1' }]);
     // Hills 把选中的版本放在 POST 体里：一样先去那个节点，体里的 Id 换成节点自己的。
     env.DB.db.exec(`DELETE FROM playback_slots`); calls = [];
     const inBody = await call(`/emby/Items/${vid}/PlaybackInfo?UserId=x`, { method: 'POST', token, body: { DeviceProfile: { Name: 'Hills' }, MediaSourceId: 'nodeB~ms-b1' } });
-    assert.deepEqual(inBody.body.MediaSources.map(m => m.Id), ['nodeB~ms-b1']);
+    assert.equal(inBody.body.MediaSources[0].Id, 'nodeB~ms-b1');
     const sent = calls.find(c => c.path.endsWith('/PlaybackInfo'));
     assert.equal(sent.host, 'b.example');
     assert.equal(JSON.parse(sent.body).MediaSourceId, 'ms-b1', "the node gets its own id, not the aggregate's");
@@ -586,10 +595,10 @@ test('series: an episode on one node plays from that node; one on two nodes play
     assert.deepEqual(only.body.MediaSources.map(m => m.Id), ['nodeB~ms-b9e31']);
     assert.ok(only.body.MediaSources.every(m => m.ItemId === E(3, 1)));
     await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(3, 1), MediaSourceId: 'nodeB~ms-b9e31', PositionTicks: 0 } });
-    assert.deepEqual((await pbi(E(2, 1), token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21']);
+    assert.deepEqual((await pbi(E(2, 1), token)).body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~ms'], 'asked nodeA; nodeB offered from the title page data');
     await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(2, 1), MediaSourceId: 'nodeA~ms-a9e21', PositionTicks: 0 } });
     const picked = await pbi(E(2, 1), token, '&MediaSourceId=' + encodeURIComponent('nodeB~b9e21'));
-    assert.deepEqual(picked.body.MediaSources.map(m => m.Id.split('~')[0]), ['nodeB']);
+    assert.equal(picked.body.MediaSources[0].Id.split('~')[0], 'nodeB');
 });
 
 test('watch state: resume, 90% marks played, Next Up crosses nodes; progress writes are throttled; nothing goes to prod watch_state', async () => {
