@@ -302,9 +302,9 @@ export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
     if (!path) {
         const piUrl = new URL(url); piUrl.search = '?IsPlayback=true';
         const got = await askPlaybackInfo(env, { route, src: { prefix, item_id: itemId } }, s, request, piUrl,
-            PI_BODY.get(`${s.viewerId}|${device}`) || '{}', msid, 'POST');
+            PI_BODY.get(`${s.viewerId}|${device}`) || '{}', msid || null, 'POST');
         if (got.error) return json({ message: got.error }, 503);
-        const ms = got.data.MediaSources.find(m => String(m.Id) === String(msid)) || got.data.MediaSources[0];
+        const ms = (msid && got.data.MediaSources.find(m => String(m.Id) === String(msid))) || got.data.MediaSources[0];
         if (!ms.DirectStreamUrl) return json({ message: 'This version cannot be played directly' }, 415);
         path = nsUrl(prefix, ms.DirectStreamUrl).replace(/^\/n\/[^/]+/, '');
         LAZY.set(k, { at: Date.now(), path });
@@ -328,6 +328,14 @@ export async function videoStream(env, request, url, s, vid, rest) {
     const c = await resolveCopy(env, s, vid, msidRaw, param(url, 'PlaySessionId'));
     if (!c) return json({ message: 'Not found' }, 404);
     if (pathMsid && c.msid) segs[0] = encodeURIComponent(c.msid);
+    // 客户端自己拼的整文件直连（/stream、/original）：这个节点没为这份副本发过 PlaySessionId，就照 lazyStream
+    // 先向它要 PlaybackInfo，用它自己的直连地址（有的节点不认自己拼的地址）。所有节点同一规则。
+    if (segs.length === 1 && /^(stream|original)(\.\w+)?$/i.test(segs[0])) {
+        const p = await lookupPlay(env, param(url, 'PlaySessionId'));
+        if (!(p && p.prefix === c.src.prefix && String(p.item_id) === String(c.src.item_id))) {
+            return lazyStream(env, request, url, s, c.src.prefix, c.src.item_id, c.msid || '');
+        }
+    }
     const blocked = await holdSlot(env, slotOf(s, c.src.prefix), deviceOf(s, request, url), c.src.item_id, '/' + rest);
     if (blocked) return blocked;
     const res = await withSession(env, c.route, s, request, url, (sess) => {

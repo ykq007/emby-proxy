@@ -495,12 +495,20 @@ test('client-built stream URLs are mapped to the real item on the right node, wi
     const r = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeB~ms-b1')}&api_key=${token}`, { bare: true, range: 'bytes=0-99' });
     assert.equal(r.status, 206);
     assert.equal(r.body, 'VIDEO-b.example-b1-stream.mkv');
-    const up = calls.find(c => c.path.startsWith('/Videos/'));
-    assert.equal(up.path, '/Videos/b1/stream.mkv');
+    // nodeB 没为这份副本发过 PlaySessionId：先向它要一次 PlaybackInfo，照它自己的直连地址取流（所有节点同一规则）。
+    assert.deepEqual(calls.filter(c => c.path.endsWith('/PlaybackInfo')).map(c => c.host), ['b.example']);
+    const up = calls.find(c => /^\/videos\//i.test(c.path));
+    assert.equal(up.path, '/videos/b1/stream.mkv');
     assert.equal(up.query.MediaSourceId, 'ms-b1');
     assert.equal(up.query.api_key, 'TOK-b.example-dev1', 'viewer token swapped for the device session token');
     assert.equal(up.range, 'bytes=0-99');
     assert.ok(calls.filter(c => c.host === 'b.example').every(c => /Client="Hills"/.test(c.auth || '')), 'never the default "Emby" identity');
+
+    // 带着 nodeA 自己发的 PlaySessionId：直接映射到 nodeA，不再问 PlaybackInfo。
+    calls = [];
+    const own = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeA~ms-a1')}&PlaySessionId=PS-a.example&api_key=${token}`, { bare: true });
+    assert.equal(own.body, 'VIDEO-a.example-a1-stream.mkv');
+    assert.equal(calls.filter(c => c.path.endsWith('/PlaybackInfo')).length, 0);
 
     const sub = await call(`/Videos/${vid}/${encodeURIComponent('nodeA~ms-a1')}/Subtitles/2/Stream.srt?api_key=${token}`, { bare: true });
     assert.equal(sub.body, 'VIDEO-a.example-a1-ms-a1/Subtitles/2/Stream.srt');
