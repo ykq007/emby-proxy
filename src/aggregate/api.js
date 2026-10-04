@@ -189,10 +189,12 @@ async function liveItem(env, src) {
 }
 
 // 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同一「Source N」编号），并发取各节点的实时详情。
-// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。
+// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
+const ALT_WAIT_MS = 2500;
 async function liveVersions(env, copies) {
     const ranked = (await rank(env, copies)).slice(0, MAX_VERSIONS);
-    const got = await Promise.all(ranked.map(c => liveItem(env, c.src)));
+    const late = () => new Promise(r => setTimeout(() => r(null), ALT_WAIT_MS));
+    const got = await Promise.all(ranked.map((c, i) => i ? Promise.race([liveItem(env, c.src), late()]) : liveItem(env, c.src)));
     return ranked.map((c, i) => ({ c, d: got[i] })).filter(x => x.d);
 }
 
