@@ -360,6 +360,22 @@ test('the menu lists every file of each copy: lists give only the default file, 
     const ms = (await call(`/emby/Users/x/Items/${vid}`, { token })).body.MediaSources;
     assert.deepEqual(ms.slice(1).map(m => [m.Id, m.Name, m.Size]), [['nodeB~x4k', 'nodeB · 2160p', 2e9], ['nodeB~xhd', 'nodeB · 1080p', 9e8]]);
     assert.deepEqual(ms[1].MediaStreams.map(x => [x.Type, x.Codec, x.Height]), [['Video', 'hevc', 2160], ['Audio', 'aac', undefined]]);
+    // 只有摘要的版本也要有真 Emby 媒体源 / 媒体流总有的字段：Hills 遇到缺字段的一项，整份 PlaybackInfo 都读不了。
+    const r = await pbi(vid, token);
+    const stub = r.body.MediaSources.find(m => m.Id === 'nodeB~x4k');
+    for (const k of ['Protocol', 'Id', 'Type', 'Container', 'Size', 'Name', 'IsRemote', 'HasMixedProtocols', 'RunTimeTicks', 'SupportsTranscoding',
+        'SupportsDirectStream', 'SupportsDirectPlay', 'IsInfiniteStream', 'RequiresOpening', 'RequiresClosing', 'RequiresLooping', 'SupportsProbing',
+        'MediaStreams', 'Formats', 'Bitrate', 'RequiredHttpHeaders', 'AddApiKeyToDirectStreamUrl', 'ReadAtNativeFramerate', 'DefaultAudioStreamIndex', 'ItemId', 'DirectStreamUrl']) {
+        assert.ok(k in stub, 'source field ' + k);
+    }
+    for (const st of stub.MediaStreams) {
+        for (const k of ['Index', 'Type', 'Codec', 'IsExternal', 'IsTextSubtitleStream', 'SupportsExternalStream', 'IsDefault', 'IsForced', 'IsInterlaced', 'Protocol', 'DisplayTitle']) {
+            assert.ok(k in st, `${st.Type} stream field ${k}`);
+        }
+    }
+    assert.equal(stub.MediaStreams[0].DisplayTitle, '4K HEVC');
+    assert.equal(stub.DefaultAudioStreamIndex, 1);
+    env.DB.db.exec(`DELETE FROM playback_slots`);
     assert.ok(!JSON.stringify(ms).includes('/secret'), 'only the summary is kept');
     assert.equal(calls.filter(c => c.host === 'b.example' && c.path === '/Users/UID/Items/b1').length, 1, 'asked once');
     __resetLiveForTest(); calls = [];

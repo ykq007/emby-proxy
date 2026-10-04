@@ -227,15 +227,33 @@ function menuEntries(ranked, firstList) {
 }
 const versionName = (e, ms, label) => (label ? [e.c.name, ms && ms.Name].filter(Boolean).join(' · ') : (ms && ms.Name) || e.c.name);
 
+// 菜单项里没问过节点的文件（只有摘要）：补齐真 Emby 媒体源 / 媒体流总会有的字段（中性默认值）。
+// Hills 解析 PlaybackInfo 很严格：列表里任何一项缺字段，整份都读不了，连第一个版本也播不了。
+function fullStream(st, i) {
+    const video = st.Type === 'Video';
+    const res = (h) => (h >= 2000 ? '4K' : h ? `${h}p` : '');
+    return {
+        Index: i, IsExternal: false, IsTextSubtitleStream: false, SupportsExternalStream: false, IsDefault: false,
+        IsForced: false, IsHearingImpaired: false, IsInterlaced: false, Protocol: 'File', AttachmentSize: 0, TimeBase: '1/1000',
+        ...(video ? { ExtendedVideoType: 'None', ExtendedVideoSubType: 'None', ExtendedVideoSubTypeDescription: 'None', VideoRange: 'SDR' } : {}),
+        DisplayTitle: video ? [res(st.Height), String(st.Codec || '').toUpperCase()].filter(Boolean).join(' ') : String(st.Codec || '').toUpperCase(),
+        ...st,
+    };
+}
 function stubSource(e, id, label, extra = {}) {
     const c = e.c; const m = e.m || {};
+    const streams = (m.MediaStreams || []).map((st, i) => fullStream(st, st.Index ?? i));
+    const audio = streams.find(x => x.Type === 'Audio' && x.IsDefault) || streams.find(x => x.Type === 'Audio');
     return {
         Protocol: 'File', Id: encodeMsid(c.src.prefix, m.Id || ''), Type: 'Default', IsRemote: false,
         ...(m.Container ? { Container: m.Container } : {}), ...(m.Size ? { Size: m.Size } : {}), ...(m.Bitrate ? { Bitrate: m.Bitrate } : {}),
-        Name: versionName(e, m, label),
+        Name: versionName(e, m, label), HasMixedProtocols: false,
         SupportsTranscoding: false, SupportsDirectStream: true, SupportsDirectPlay: true, IsInfiniteStream: false,
-        RequiresOpening: false, RequiresClosing: false, SupportsProbing: true, MediaStreams: m.MediaStreams || [], Formats: [],
-        RequiredHttpHeaders: {}, ItemId: String(id), ...extra,
+        RequiresOpening: false, RequiresClosing: false, RequiresLooping: false, SupportsProbing: true,
+        MediaStreams: streams, Formats: [], RequiredHttpHeaders: {}, AddApiKeyToDirectStreamUrl: false, ReadAtNativeFramerate: false,
+        ...(audio ? { DefaultAudioStreamIndex: audio.Index } : {}),
+        ItemId: String(id), RunTimeTicks: m.RunTimeTicks || 0,
+        ...Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== null)),
     };
 }
 
