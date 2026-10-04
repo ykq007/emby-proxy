@@ -15,14 +15,16 @@ let routesMem = null; // { at, routes }
 
 export function __resetAggUpstreamForTest() { MEM.clear(); DEV_MEM.clear(); routesMem = null; }
 
-// 聚合成员节点：开启了 viewers 的节点；env.AGG_NODES（逗号分隔）可进一步限定。
+// 聚合成员节点：开启了 viewers 的节点；env.AGG_NODES（逗号分隔）只取这些，env.AGG_EXCLUDE_NODES 去掉这些。
+// 节点退出成员后，下一轮同步自动清掉它在目录里的副本（sync.js → forgetPrefix）。
 export async function memberRoutes(env, now = Date.now()) {
     if (routesMem && now - routesMem.at < ROUTES_TTL_MS) return routesMem.routes;
-    const only = String(env.AGG_NODES || '').split(',').map(s => s.trim()).filter(Boolean);
+    const list = (v) => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
+    const only = list(env.AGG_NODES); const skip = list(env.AGG_EXCLUDE_NODES);
     const res = await dbAll(env,
         `SELECT prefix, target, custom_headers, COALESCE(sort_order, 0) AS sort_order FROM routes
           WHERE viewers_enabled = 1 ORDER BY sort_order, prefix`);
-    const routes = (res.results || []).filter(r => !only.length || only.includes(r.prefix));
+    const routes = (res.results || []).filter(r => (!only.length || only.includes(r.prefix)) && !skip.includes(r.prefix));
     routesMem = { at: now, routes };
     return routes;
 }

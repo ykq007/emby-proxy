@@ -607,3 +607,13 @@ test('sync stops starting node requests once its time budget is spent, and resum
     await syncAll();
     assert.equal(rows(`SELECT * FROM agg_items`).length, 5);
 });
+
+test('AGG_EXCLUDE_NODES keeps a node out of the aggregate and removes its copies', async () => {
+    await syncAll();
+    env.AGG_EXCLUDE_NODES = 'nodeA';
+    __resetAggUpstreamForTest(); calls = [];
+    await syncAll();
+    assert.equal(rows(`SELECT * FROM agg_sources WHERE prefix = 'nodeA'`).length, 0);
+    assert.ok(!calls.some(c => c.host === 'a.example'), 'the excluded node is not contacted');
+    assert.ok(rows(`SELECT name FROM agg_items`).some(r => r.name === 'Dune'), 'nodeB titles stay');
+});
