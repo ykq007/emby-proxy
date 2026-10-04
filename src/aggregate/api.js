@@ -197,17 +197,16 @@ async function liveItem(env, src) {
 export function __resetLiveForTest() { LIVE.clear(); }
 
 // 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同样以节点名区分；该设备起不了播的满节点不列），并发取各节点的实时详情。
-// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
+// 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。每个节点最多等 ALT_WAIT_MS，慢节点这次不列
+// （仍在后台取完进缓存，下次就有）；一个都没赶上时才等到有结果为止。
 const ALT_WAIT_MS = 2500;
 async function liveVersions(env, ctx, ranked) {
     ranked = ranked.slice(0, MAX_VERSIONS);
+    const ps = ranked.map(c => liveItem(env, c.src).catch(() => null));
+    if (ctx && ctx.waitUntil) for (const p of ps) ctx.waitUntil(p);
     const late = () => new Promise(r => setTimeout(() => r(null), ALT_WAIT_MS));
-    const got = await Promise.all(ranked.map((c, i) => {
-        if (!i) return liveItem(env, c.src);
-        const p = liveItem(env, c.src);
-        if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => null)); // 没赶上的也让它取完、进缓存
-        return Promise.race([p, late()]);
-    }));
+    let got = await Promise.all(ps.map(p => Promise.race([p, late()])));
+    if (!got.some(Boolean)) got = await Promise.all(ps);
     return ranked.map((c, i) => ({ c, d: got[i] })).filter(x => x.d);
 }
 
