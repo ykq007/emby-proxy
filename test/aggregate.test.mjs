@@ -596,3 +596,11 @@ test('POST /admin/sync: only with SYNC_TOKEN, runs one sync at a time', async ()
     assert.ok(rows(`SELECT * FROM agg_items`).length > 0);
     assert.equal(rows(`SELECT * FROM agg_meta WHERE k = 'sync_lock'`).length, 0, 'lock released');
 });
+
+test('sync stops starting node requests once its time budget is spent, and resumes from the saved cursor', async () => {
+    const first = await runSync(env, Date.now(), { maxRequests: 50, timeBudgetMs: -1 });
+    assert.equal(first.stopped, 'time');
+    assert.equal(calls.length, 0, 'no node request after the deadline');
+    await syncAll();
+    assert.equal(rows(`SELECT * FROM agg_items`).length, 5);
+});

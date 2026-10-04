@@ -18,6 +18,8 @@ const PASS_EVERY_MS = 3600 * 1000;      // 首轮全量之后，每个节点最�
 const PLAY_SESSION_TTL_MS = 2 * 24 * 3600 * 1000;
 const DEFAULT_DAILY_WRITES = 30000;
 const DEFAULT_TICK_REQUESTS = 20;
+// 每轮最多跑这么久就不再发新的上游请求、存好游标（HTTP 触发的后台任务 30 秒后会被取消；单个请求最长 15 秒）。
+export const DEFAULT_TIME_BUDGET_MS = 12000;
 const LIB_TYPES = new Set(['movies', 'tvshows', 'mixed', '']);
 const FIELDS = 'ProviderIds,Genres,PremiereDate,ProductionYear,DateCreated,SortName,CommunityRating,OfficialRating,RunTimeTicks';
 
@@ -42,7 +44,7 @@ async function fetchLibs(env, route) {
     return { libs };
 }
 
-// opts: { maxRequests, dailyWrites }
+// opts: { maxRequests, dailyWrites, timeBudgetMs }
 export async function runSync(env, now = Date.now(), opts = {}) {
     await ensureAggSchema(env);
     const members = await memberRoutes(env, now);
@@ -58,7 +60,9 @@ export async function runSync(env, now = Date.now(), opts = {}) {
     const budget = {
         requests: Number(opts.maxRequests ?? env.AGG_SYNC_REQUESTS) || DEFAULT_TICK_REQUESTS,
         writes: Math.max(0, limit - used - summary.writes),
+        deadline: Date.now() + (Number(opts.timeBudgetMs) || DEFAULT_TIME_BUDGET_MS),
     };
+    const outOfTime = () => Date.now() > budget.deadline;
 
     // 最久没同步的节点先来。
     const last = new Map(synced.map(r => [r.prefix, Number(r.updated_at) || 0]));
@@ -66,6 +70,7 @@ export async function runSync(env, now = Date.now(), opts = {}) {
     for (const route of order) {
         if (budget.requests <= 0) { summary.stopped = 'requests'; break; }
         if (budget.writes <= 0) { summary.stopped = 'writes'; break; }
+        if (outOfTime()) { summary.stopped = 'time'; break; }
         const before = { r: budget.requests, w: budget.writes };
         const res = await syncNode(env, route, now, budget);
         summary.nodes[route.prefix] = res;
@@ -116,7 +121,7 @@ async function syncNode(env, route, now, budget) {
         st.libs = v.libs; st.li = 0; st.start = 0; st.pass_start = new Date(now).toISOString();
     }
 
-    while (st.li < st.libs.length && budget.requests > 0 && budget.writes > 0) {
+    while (st.li < st.libs.length && budget.requests > 0 && budget.writes > 0 && Date.now() <= budget.deadline) {
         const lib = st.libs[st.li];
         const extra = { StartIndex: String(st.start), Limit: String(PAGE) };
         if (st.since) extra.MinDateLastSaved = st.since;
