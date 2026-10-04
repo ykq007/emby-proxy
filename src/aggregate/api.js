@@ -251,7 +251,7 @@ function stubSource(e, id, label, extra = {}) {
         SupportsTranscoding: false, SupportsDirectStream: true, SupportsDirectPlay: true, IsInfiniteStream: false,
         RequiresOpening: false, RequiresClosing: false, RequiresLooping: false, SupportsProbing: true,
         MediaStreams: streams, Formats: [], RequiredHttpHeaders: {}, AddApiKeyToDirectStreamUrl: false, ReadAtNativeFramerate: false,
-        ...(audio ? { DefaultAudioStreamIndex: audio.Index } : {}),
+        DefaultAudioStreamIndex: audio ? audio.Index : 0,
         ItemId: String(id), RunTimeTicks: m.RunTimeTicks || 0,
         ...Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== null)),
     };
