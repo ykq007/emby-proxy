@@ -302,9 +302,10 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.equal(d.status, 200);
     assert.equal(d.body.Id, String(vid));
     assert.equal(d.body.Overview, 'From a.example', 'nodeA sorts first');
-    assert.deepEqual(d.body.People, [{ Name: 'Actor', Type: 'Actor' }]);
+    assert.deepEqual(d.body.People, [{ Id: 'person1', Name: 'Actor', Type: 'Actor' }], 'Id kept (strict clients need it), image tag dropped');
     // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
-    assert.deepEqual(d.body.MediaSources, [{ Id: String(vid), ItemId: String(vid), Container: 'mkv' }]);
+    assert.deepEqual(d.body.MediaSources, [{ Id: String(vid), ItemId: String(vid), Container: 'mkv', Path: 'x.mkv' }]);
+    assert.equal(d.body.ParentId, '1');
     const bob = await viewer('bob', [['nodeB']]);
     assert.equal((await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body.Overview, 'From b.example');
 });
@@ -514,7 +515,8 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     // 详情与图片：推出的 Id 也能直接取。
     const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
     assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
-    assert.deepEqual(d.MediaSources, [{ Id: E(3, 1), ItemId: E(3, 1), Container: 'mkv' }]);
+    assert.deepEqual(d.MediaSources, [{ Id: E(3, 1), ItemId: E(3, 1), Container: 'mkv', Path: 'x.mkv' }]);
+    assert.equal(d.Id, E(3, 1)); assert.equal(d.SeasonId, S(3));
     assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
     // 一屏缩略图同时到达：共用一次上游请求。
     __resetSeriesForTest(); calls = [];

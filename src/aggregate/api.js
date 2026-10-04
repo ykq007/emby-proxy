@@ -188,15 +188,25 @@ async function liveItem(env, src) {
     return (live && live.data) || null;
 }
 
-// 详情里的媒体源：真 Emby 单条详情总带 MediaSources，SenPlayer 没有它就报「媒体库中不存在」。
-// Id 用作品自己的 Id（不带节点前缀），PlaybackInfo 照常挑节点、给其它版本；路径与节点流地址去掉。
-function detailSources(list, id) {
-    return (Array.isArray(list) ? list.slice(0, 1) : []).map(({ Path, DirectStreamUrl, TranscodingUrl, ...ms }) =>
-        ({ ...ms, Id: String(id), ItemId: String(id) }));
+// 详情：节点实时详情做底，目录字段覆盖。真 Emby 详情的字段（Etag、Path、人物 / 工作室的 Id、Chapters…）
+// 一个不少：SenPlayer 这类严格解析的客户端缺一个就报「媒体库中不存在」。
+// 不外传的：节点上的目录路径（Path 只留文件名）、父级 Id 与父级图片标签（客户端拿着它们来取图会取错）、人物图。
+// 媒体源 Id 用作品自己的 Id（不带节点前缀），PlaybackInfo 照常挑节点、给其它版本。
+function withLive(d, dto, id) {
+    const out = {};
+    for (const [k, v] of Object.entries(d)) if (!/^Parent\w*(ItemId|ImageTags?)$/.test(k)) out[k] = v;
+    for (const [k, v] of Object.entries(dto)) if (v !== undefined) out[k] = v;
+    const base = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
+    out.Path = d.FileName || base(d.Path);
+    if (Array.isArray(d.People)) out.People = d.People.map(({ PrimaryImageTag, ...p }) => p);
+    if (Array.isArray(d.MediaSources)) {
+        out.MediaSources = d.MediaSources.slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) =>
+            ({ ...ms, Id: String(id), ItemId: String(id), Path: base(ms.Path) }));
+    }
+    out.CanDelete = false; out.CanDownload = false;
+    return out;
 }
 
-// 详情：目录行 + 第一个可见副本的实时详情（简介、演职员名、媒体流信息）。
-// 节点专属的 Id（人物、工作室、类型）一律去掉，避免客户端拿着它们回来找不到。
 async function itemDetail(env, s, sid, vid) {
     const row = await getItemRow(env, vid);
     if (!row) return null;
@@ -204,26 +214,16 @@ async function itemDetail(env, s, sid, vid) {
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
     const d = await liveItem(env, sources[0]);
-    if (d) {
-        for (const k of ['Overview', 'Taglines', 'Tags', 'CriticRating', 'EndDate', 'Status', 'AirDays', 'AirTime', 'ProductionLocations', 'MediaStreams', 'Width', 'Height']) {
-            if (d[k] !== undefined) dto[k] = d[k];
-        }
-        if (Array.isArray(d.People)) dto.People = d.People.map(p => ({ Name: p.Name, Role: p.Role, Type: p.Type }));
-        if (Array.isArray(d.Studios)) dto.Studios = d.Studios.map(x => ({ Name: x.Name }));
-        if (row.type === 'Movie') dto.MediaSources = detailSources(d.MediaSources, vid);
-    }
-    dto.CanDelete = false; dto.CanDownload = false;
-    return dto;
+    return d ? withLive(d, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
 }
 
-// 推出的集 Id 的详情：合并结果 + 第一个副本的媒体源。
+// 推出的集 Id 的详情：合并结果 + 第一个副本的实时详情。
 async function episodeDetail(env, s, sid, id) {
     const dto = await derivedDto(env, s.scope, id, sid);
     if (!dto || dto.Type !== 'Episode') return dto;
     const src = (await copiesOf(env, s.scope, id))[0];
     const d = src && await liveItem(env, src);
-    if (d) { dto.MediaStreams = d.MediaStreams; dto.MediaSources = detailSources(d.MediaSources, id); }
-    return dto;
+    return d ? withLive(d, dto, id) : dto;
 }
 
 // /Items/{vid}/Images/{type}[/{index}]：取有该图的可见副本；客户端带的 tag 优先匹配同一副本，缓存才稳定。
