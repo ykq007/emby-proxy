@@ -247,7 +247,7 @@ const R = {
     playPing: re('Sessions\\/Playing\\/Ping'),
     activeEncodings: re('Videos\\/ActiveEncodings'),
     stream: new RegExp(E + 'Videos\\/(\\d+)\\/(.+)$', 'i'),
-    ns: /^\/n\/([^/]+)(\/.*)$/,
+    ns: new RegExp(E + 'n\\/([^/]+)(\\/.*)$', 'i'), // 客户端常在节点流地址前加 /emby（如 Hills）
     displayPrefs: re('DisplayPreferences\\/[^/]+'),
     user: re('Users\\/([^/]+)'),
     views: re('(?:Users\\/[^/]+\\/Views|Library\\/MediaFolders|Library\\/VirtualFolders)'),

@@ -448,6 +448,9 @@ test('node-provided transcoding URLs work through /n/, playlists come back with 
     assert.equal((await call(`/n/nodeA/videos/a1/stream.mkv?api_key=${token}`, { method: 'POST', token })).status, 403, 'read-only');
     const bob = await viewer('bob', [['nodeB']]);
     assert.equal((await call(`/n/nodeA/videos/a1/stream.mkv?api_key=${bob.token}`, { bare: true })).status, 403, 'no access to nodeA');
+    // 客户端（如 Hills）在节点流地址前加 /emby。
+    const viaEmby = await call(`/emby/n/nodeB/videos/b1/stream.mkv?Static=true&api_key=${bob.token}`, { bare: true, range: 'bytes=0-' });
+    assert.equal(viaEmby.status, 206, String(viaEmby.body));
 });
 
 test('playback reports reach the node playing the stream with real ids; Stopped frees the slot', async () => {
