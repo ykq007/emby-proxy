@@ -14,7 +14,7 @@
 // 并发：直接用生产的 playback_slots（acquireSlot / heartbeatSlot / releaseSlot），
 //   节点并发上限与 viewer 配额在生产与聚合之间合并计算。
 import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
-import { acquireSlot, heartbeatSlot, releaseSlot, SLOT_TTL_MS } from '../viewers/limits.js';
+import { acquireSlot, heartbeatSlot, releaseSlot, holdSlot, __resetSlotsForTest, SLOT_TTL_MS } from '../viewers/limits.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { UPSTREAM_CB } from '../proxy/circuit-breaker.js';
 import { memberRoutes, deviceSession, nodeFetch, bases } from './upstream.js';
@@ -33,7 +33,7 @@ export const PROGRESS_WRITE_MS = 60000;
 const PROGRESS_MEM = new Map(); // `${viewerId}|${vid}` -> 上次写入时间
 let healthMem = null;
 
-export function __resetPlaybackForTest() { PLAY_MEM.clear(); PROGRESS_MEM.clear(); healthMem = null; }
+export function __resetPlaybackForTest() { PLAY_MEM.clear(); PROGRESS_MEM.clear(); __resetSlotsForTest(); healthMem = null; }
 
 // 聚合端的观看状态（watch.js 共用，写 agg_watch_state，不写生产 watch_state）。
 export const watchSession = (s) => ({ viewerId: s.viewerId, prefix: 'agg', table: 'agg_watch_state' });
@@ -255,6 +255,8 @@ export async function videoStream(env, request, url, s, vid, rest) {
     const c = await resolveCopy(env, s, vid, msidRaw, param(url, 'PlaySessionId'));
     if (!c) return json({ message: 'Not found' }, 404);
     if (pathMsid && c.msid) segs[0] = encodeURIComponent(c.msid);
+    const blocked = await holdSlot(env, slotOf(s, c.src.prefix), deviceOf(s, request, url), c.src.item_id, '/' + rest);
+    if (blocked) return blocked;
     const res = await withSession(env, c.route, s, request, url, (sess) => {
         const q = upstreamQuery(url, sess.token, ['MediaSourceId']);
         if (c.msid) q.set('MediaSourceId', c.msid);
@@ -272,6 +274,8 @@ export async function namespaced(env, request, url, s, prefix, rest) {
     if (!/^\/videos\//i.test(path) || !['GET', 'HEAD'].includes(request.method)) return json({ message: 'Forbidden' }, 403);
     const route = (await memberRoutes(env)).find(r => r.prefix === prefix);
     if (!route) return json({ message: 'Not found' }, 404);
+    const blocked = await holdSlot(env, slotOf(s, prefix), deviceOf(s, request, url), decodeURIComponent(path.split('/')[2] || ''), path);
+    if (blocked) return blocked;
     const res = await withSession(env, route, s, request, url, (sess) =>
         nodeFetch(route, sess, `${path}?${upstreamQuery(url, sess.token)}`, { method: request.method, headers: passHeaders(request) }));
     if (res.error) return json({ message: res.error }, 503);

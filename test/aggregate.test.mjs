@@ -408,6 +408,22 @@ test('concurrency: a full node is skipped, and slots are shared with the product
     assert.equal(r.status, 429);
 });
 
+test('streams need a slot too: a late play after the PlaybackInfo hold expired, or another node\'s version, cannot pass the quota', async () => {
+    const { id, token, vid } = await playable();
+    // 同一 viewer 另一台设备正在看 nodeA（配额 1）。
+    env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES (?, 'nodeA', 'tv', 'x', ?)`).run(id, Date.now());
+    const direct = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeA~ms-a1')}&api_key=${token}`, { bare: true });
+    assert.equal(direct.status, 429);
+    assert.equal((await call(`/n/nodeA/videos/a1/stream.mkv?api_key=${token}`, { bare: true })).status, 429);
+    assert.ok(!calls.some(c => c.path.startsWith('/videos/') || c.path.startsWith('/Videos/')), 'nothing reached nodeA');
+    // nodeB 有空位：流照常，并占下 nodeB 的槽位（不是 pending，直接算在播）。
+    const b = await call(`/Videos/${vid}/stream.mkv?Static=true&MediaSourceId=${encodeURIComponent('nodeB~ms-b1')}&api_key=${token}`, { bare: true, range: 'bytes=0-' });
+    assert.equal(b.status, 206);
+    assert.deepEqual(slots(), [{ prefix: 'nodeA', device_id: 'tv' }, { prefix: 'nodeB', device_id: 'dev1' }]);
+    // 字幕不占槽位。
+    assert.notEqual((await call(`/Videos/${vid}/${encodeURIComponent('nodeA~ms-a1')}/Subtitles/2/Stream.srt?api_key=${token}`, { bare: true })).status, 429);
+});
+
 test('picking a version pins PlaybackInfo to that node', async () => {
     const { token, vid } = await playable();
     const r = await pbi(vid, token, '&MediaSourceId=' + encodeURIComponent('nodeB~ms-b1'));

@@ -12,7 +12,7 @@ import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
 import { clientIdentity, identityHeaders, getDeviceSession, loginDevice, dropDeviceSession } from './upstream.js';
-import { acquireSlot, heartbeatSlot, releaseSlot } from './limits.js';
+import { acquireSlot, heartbeatSlot, releaseSlot, holdSlot } from './limits.js';
 import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from './watch.js';
 
 const E = '^\\/(?:emby\\/)?';
@@ -21,6 +21,7 @@ const LOGIN = re('Users\\/AuthenticateByName');
 const LOGOUT = re('Sessions\\/Logout');
 const PLAYBACK_INFO = re('Items\\/([^/]+)\\/PlaybackInfo');
 const SESSION_PLAYING = re('Sessions\\/Playing(?:\\/(Progress|Stopped))?');
+const STREAM = new RegExp(E + '(?:Videos|Audio)\\/([^/]+)\\/', 'i');
 const PLAYED_ITEM = re('Users\\/[^/]+\\/PlayedItems\\/([^/]+)');
 const FAVORITE_ITEM = re('Users\\/[^/]+\\/FavoriteItems\\/([^/]+)');
 const ITEM_USERDATA = re('Users\\/[^/]+\\/Items\\/([^/]+)\\/UserData');
@@ -133,6 +134,11 @@ export async function handleViewerRequest(request, env, ctx, opts) {
     const fetchItem = (id) => upJson(`/Users/${up.userId}/Items/${encodeURIComponent(id)}`);
     const v = { env, ctx, s, token, url, path, method: request.method, get up() { return up; } };
     let mm;
+
+    if ((m === 'GET' || m === 'HEAD') && (mm = STREAM.exec(path))) {
+        const blocked = await holdSlot(env, s, device, mm[1], path);
+        if (blocked) return blocked;
+    }
 
     if ((mm = PLAYBACK_INFO.exec(path))) {
         const blocked = await acquireSlot(env, s, device, mm[1]);

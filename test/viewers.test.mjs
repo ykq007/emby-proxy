@@ -11,6 +11,7 @@ import { __setConfigForTest, __resetConfigCache } from '../src/proxy/config-cach
 import { encryptSecret } from '../src/emby/tokens.js';
 import { clearResolveCache } from '../src/viewers/store.js';
 import { __resetUpstreamMemForTest } from '../src/viewers/upstream.js';
+import { __resetSlotsForTest } from '../src/viewers/limits.js';
 import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 
 const ORIGIN = 'https://proxy.test';
@@ -62,7 +63,7 @@ function fakeUpstream(req) {
 }
 
 beforeEach(async () => {
-    __resetConfigCache(); __resetSchemaReadyForTest(); clearResolveCache(); __resetUpstreamMemForTest();
+    __resetConfigCache(); __resetSchemaReadyForTest(); clearResolveCache(); __resetUpstreamMemForTest(); __resetSlotsForTest();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret' };
     await ensureSchema(env);
     env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, max_concurrent, viewers_enabled) VALUES (?, ?, ?, ?, ?, 1)`)
@@ -252,6 +253,18 @@ test('concurrency: PlaybackInfo without playback frees the slot after the pendin
     await call('/emby/Sessions/Playing', { method: 'POST', token: a2, body: { ItemId: 'm1' } });
     age(61_000);
     assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 429, 'playing slot keeps full TTL');
+});
+
+test('concurrency: streams need a slot too, so a late play after the pending window cannot pass the quota', async () => {
+    const a = await makeViewer('alice', 1);
+    const a2 = (await loginAs('alice', 'alice-tv')).AccessToken;
+    assert.equal((await call('/emby/Items/m1/PlaybackInfo', { token: a.token })).status, 200);
+    env.DB.db.exec(`UPDATE playback_slots SET heartbeat_at = heartbeat_at - 61000`); // 详情页取了 PlaybackInfo，一分钟后才按播放
+    assert.equal((await call('/emby/Videos/m1/master.m3u8', { token: a2 })).status, 200, 'the TV takes the free slot by streaming');
+    assert.equal((await call('/emby/Videos/m1/master.m3u8', { token: a.token })).status, 429, 'the first device is now over quota');
+    assert.notEqual((await call('/emby/Videos/m1/ms1/Subtitles/2/Stream.srt', { token: a.token })).status, 429, 'subtitles are not playback');
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token: a2, body: { ItemId: 'm1', PositionTicks: 10 } });
+    assert.equal((await call('/emby/Videos/m1/master.m3u8', { token: a.token })).status, 200, 'free again after Stopped');
 });
 
 test('watch state is per viewer and hides the shared upstream history', async () => {
