@@ -199,10 +199,15 @@ export function __resetLiveForTest() { LIVE.clear(); }
 // 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同一「Source N」编号），并发取各节点的实时详情。
 // 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
 const ALT_WAIT_MS = 2500;
-async function liveVersions(env, copies) {
+async function liveVersions(env, ctx, copies) {
     const ranked = (await rank(env, copies)).slice(0, MAX_VERSIONS);
     const late = () => new Promise(r => setTimeout(() => r(null), ALT_WAIT_MS));
-    const got = await Promise.all(ranked.map((c, i) => i ? Promise.race([liveItem(env, c.src), late()]) : liveItem(env, c.src)));
+    const got = await Promise.all(ranked.map((c, i) => {
+        if (!i) return liveItem(env, c.src);
+        const p = liveItem(env, c.src);
+        if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => null)); // 没赶上的也让它取完、进缓存
+        return Promise.race([p, late()]);
+    }));
     return ranked.map((c, i) => ({ c, d: got[i] })).filter(x => x.d);
 }
 
@@ -228,21 +233,21 @@ function withLive(versions, dto, id) {
     return out;
 }
 
-async function itemDetail(env, s, sid, vid) {
+async function itemDetail(env, ctx, s, sid, vid) {
     const row = await getItemRow(env, vid);
     if (!row) return null;
     const sources = await visibleSources(env, s.scope, vid);
     if (!sources.length) return null;
     const dto = itemDto(row, sid, sources[0].image_tags);
-    const versions = await liveVersions(env, row.type === 'Movie' ? sources : sources.slice(0, 1));
+    const versions = await liveVersions(env, ctx, row.type === 'Movie' ? sources : sources.slice(0, 1));
     return versions.length ? withLive(versions, dto, vid) : { ...dto, CanDelete: false, CanDownload: false };
 }
 
 // 推出的集 Id 的详情：合并结果 + 各节点副本的实时详情。
-async function episodeDetail(env, s, sid, id) {
+async function episodeDetail(env, ctx, s, sid, id) {
     const dto = await derivedDto(env, s.scope, id, sid);
     if (!dto || dto.Type !== 'Episode') return dto;
-    const versions = await liveVersions(env, await copiesOf(env, s.scope, id));
+    const versions = await liveVersions(env, ctx, await copiesOf(env, s.scope, id));
     return versions.length ? withLive(versions, dto, id) : dto;
 }
 
@@ -423,7 +428,7 @@ export async function handleAggRequest(request, env, ctx) {
     if ((m = R.item.exec(path))) {
         const lib = LIBS.find(l => l.id === m[1]);
         if (lib) return json(libDto(lib, sid));
-        const dto = decodeId(m[1]) ? await episodeDetail(env, s, sid, m[1]) : await itemDetail(env, s, sid, m[1]);
+        const dto = decodeId(m[1]) ? await episodeDetail(env, ctx, s, sid, m[1]) : await itemDetail(env, ctx, s, sid, m[1]);
         return dto ? withWatch(env, s, dto) : json({ message: 'Not found' }, 404);
     }
     if (R.items.test(path)) return itemsResponse(env, s, sid, url.searchParams);
