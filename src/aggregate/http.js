@@ -8,8 +8,9 @@ export const CORS = {
 export const json = (data, status = 200) => Response.json(data, { status, headers: CORS });
 export const empty = (status = 204) => new Response(null, { status, headers: CORS });
 
+// 不区分大小写取查询参数；url 可以是 URL 或 URLSearchParams。
 export function param(url, name) {
     const want = name.toLowerCase();
-    for (const [k, v] of url.searchParams) if (k.toLowerCase() === want) return v;
+    for (const [k, v] of (url.searchParams || url)) if (k.toLowerCase() === want) return v;
     return null;
 }

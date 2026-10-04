@@ -5,7 +5,7 @@
 // 例外：登录爆破封禁写 ip_bans（两个 Worker 共享封禁是有意的）。
 import { dbFirst, dbRun } from '../db/helpers.js';
 
-export const AGG_SCHEMA_VERSION = 2;
+export const AGG_SCHEMA_VERSION = 3;
 let ready = false;
 
 export function __resetAggSchemaForTest() { ready = false; }
@@ -49,6 +49,11 @@ export async function ensureAggSchema(env) {
         // v2 播放：每个 (节点, viewer 设备) 一个上游会话；PlaySessionId → 节点与真实条目（流 / 进度上报找回节点用）。
         `CREATE TABLE IF NOT EXISTS agg_device_sessions (prefix TEXT NOT NULL, device_id TEXT NOT NULL, blob TEXT NOT NULL, PRIMARY KEY(prefix, device_id))`,
         `CREATE TABLE IF NOT EXISTS agg_play_sessions (play_session_id TEXT PRIMARY KEY, prefix TEXT NOT NULL, item_id TEXT NOT NULL, vid INTEGER NOT NULL, created_at INTEGER NOT NULL)`,
+        // v3 观看状态：与生产 watch_state 同结构（watch.js 共用），prefix 恒为 'agg'，item_id 是聚合 Id。
+        `CREATE TABLE IF NOT EXISTS agg_watch_state (viewer_id TEXT NOT NULL, prefix TEXT NOT NULL, item_id TEXT NOT NULL,
+            item_type TEXT DEFAULT '', series_id TEXT DEFAULT '', parent_index INTEGER DEFAULT 0, index_number INTEGER DEFAULT 0,
+            position_ticks INTEGER DEFAULT 0, runtime_ticks INTEGER DEFAULT 0, played INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0,
+            last_played INTEGER DEFAULT 0, resume_hidden INTEGER DEFAULT 0, PRIMARY KEY(viewer_id, prefix, item_id))`,
         `CREATE TABLE IF NOT EXISTS agg_auth_rl (ip TEXT NOT NULL, win INTEGER NOT NULL, n INTEGER DEFAULT 0, PRIMARY KEY(ip, win))`,
     ];
     for (const sql of stmts) await env.DB.exec(sql.replace(/\s+/g, ' '));

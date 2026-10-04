@@ -9,7 +9,8 @@ import { createViewer, grantAccess, updateViewer, clearResolveCache } from '../s
 import { ensureAggSchema, __resetAggSchemaForTest } from '../src/aggregate/schema.js';
 import { __resetAggUpstreamForTest } from '../src/aggregate/upstream.js';
 import { __resetAggAuthForTest } from '../src/aggregate/auth.js';
-import { __resetPlaybackForTest } from '../src/aggregate/playback.js';
+import { __resetPlaybackForTest, PROGRESS_WRITE_MS } from '../src/aggregate/playback.js';
+import { __resetSeriesForTest, CACHE_MS } from '../src/aggregate/series.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
 import { runSync } from '../src/aggregate/sync.js';
 import worker from '../src/aggregate/index.js';
@@ -25,6 +26,9 @@ const mv = (Id, Name, year, ProviderIds = {}, saved = '2026-01-01T00:00:00Z') =>
     ({ Id, Name, Type: 'Movie', ProductionYear: year, ProviderIds, DateCreated: saved, DateLastSaved: saved, ImageTags: { Primary: 'p' + Id }, BackdropImageTags: ['b' + Id], Genres: ['Drama'] });
 const sr = (Id, Name, year, ProviderIds = {}) =>
     ({ ...mv(Id, Name, year, ProviderIds), Type: 'Series' });
+const ss = (Id, n) => ({ Id, Name: `Season ${n}`, Type: 'Season', IndexNumber: n, ImageTags: { Primary: 'p' + Id } });
+const ep = (Id, s, e, created = '2026-01-01T00:00:00Z') =>
+    ({ Id, Name: `Ep ${s}x${e}`, Type: 'Episode', ParentIndexNumber: s, IndexNumber: e, RunTimeTicks: 1000, DateCreated: created, ImageTags: { Primary: 'p' + Id } });
 
 function fixtures() {
     return {
@@ -35,6 +39,8 @@ function fixtures() {
                 L2: [sr('a9', 'Breaking Bad', 2008, { Tvdb: '81189', Tmdb: '1396' })],
                 L3: [{ Id: 'a20', Name: 'Song', Type: 'Audio' }],
             },
+            shows: { a9: { seasons: [ss('a9s1', 1), ss('a9s2', 2)], episodes: [ep('a9e11', 1, 1), ep('a9e12', 1, 2), ep('a9e21', 2, 1)] } },
+            latest: [],
         },
         'b.example': {
             libs: [{ Id: 'M1', CollectionType: 'movies' }, { Id: 'M2', CollectionType: 'tvshows' }],
@@ -42,6 +48,8 @@ function fixtures() {
                 M1: [mv('b1', 'Inception', 2010, { IMDB: 'tt1375666' }), mv('b2', 'Local  Film!', 2020), mv('b3', 'Dune', 2021, { Tmdb: '438631' })],
                 M2: [sr('b9', 'Breaking Bad', 2008, { Tvdb: '81189' })],
             },
+            shows: { b9: { seasons: [ss('b9s2', 2), ss('b9s3', 3)], episodes: [ep('b9e21', 2, 1), ep('b9e31', 3, 1, '2026-03-01T00:00:00Z')] } },
+            latest: [],
         },
     };
 }
@@ -75,6 +83,12 @@ function fakeEmby(req) {
         return json({ Items: list.slice(start, start + limit), TotalRecordCount: list.length });
     }
     let m;
+    if ((m = /^\/Shows\/(\w+)\/(Seasons|Episodes)$/.exec(p))) {
+        const sh = (node.shows || {})[m[1]] || { seasons: [], episodes: [] };
+        const list = m[2] === 'Seasons' ? sh.seasons : sh.episodes;
+        return json({ Items: list, TotalRecordCount: list.length });
+    }
+    if (p === '/Users/UID/Items/Latest') return json(node.latest || []);
     if ((m = /^\/Users\/UID\/Items\/(\w+)$/.exec(p))) {
         const it = Object.values(node.items).flat().find(x => x.Id === m[1]);
         return it ? json({ ...it, Overview: 'From ' + host, People: [{ Id: 'person1', Name: 'Actor', Type: 'Actor', PrimaryImageTag: 'x' }], MediaSources: [{ Id: 'ms' }] }) : json({}, 404);
@@ -101,7 +115,7 @@ function fakeEmby(req) {
 }
 
 beforeEach(async () => {
-    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); UPSTREAM_CB.clear(); clearResolveCache();
+    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); UPSTREAM_CB.clear(); clearResolveCache();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret' };
     await ensureSchema(env);
     await ensureAggSchema(env);
@@ -467,4 +481,97 @@ test('viewers cannot use a browser on the aggregate server', async () => {
     assert.equal((await call(`/Videos/${vid}/stream.mkv?api_key=${token}`, { bare: true, ua: BROWSER })).status, 403);
     assert.equal(calls.length, 0, 'nothing reached a node');
     assert.equal(rows(`SELECT * FROM playback_slots`).length, 0);
+});
+
+// ── 阶段 3：剧集与观看状态 ─────────────────────────────────────────────
+
+async function seriesSetup() {
+    await syncAll();
+    const a = await viewer('alice', [['nodeA'], ['nodeB']]);
+    const vid = rows(`SELECT vid FROM agg_items WHERE name = 'Breaking Bad'`)[0].vid;
+    const movie = rows(`SELECT vid FROM agg_items WHERE name = 'Inception'`)[0].vid;
+    const E = (s, e) => String(vid * 1e6 + s * 1000 + e);
+    const S = (s) => String(vid * 1e6 + 999000 + s);
+    calls = [];
+    return { ...a, vid, movie, E, S };
+}
+
+test('series: seasons and episodes are merged across nodes by number (A has S1–S2, B has S2–S3)', async () => {
+    const { token, vid, E, S } = await seriesSetup();
+    const seasons = (await call(`/emby/Shows/${vid}/Seasons?UserId=x`, { token })).body;
+    assert.deepEqual(seasons.Items.map(x => [x.Id, x.IndexNumber, x.SeriesId]), [[S(1), 1, String(vid)], [S(2), 2, String(vid)], [S(3), 3, String(vid)]]);
+    const eps = (await call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token })).body;
+    assert.deepEqual(eps.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1), E(3, 1)], 'S2E1 on both nodes appears once');
+    const s3 = (await call(`/emby/Shows/${vid}/Episodes?SeasonId=${S(3)}`, { token })).body;
+    assert.deepEqual(s3.Items.map(x => [x.Id, x.SeasonId, x.ParentIndexNumber, x.IndexNumber]), [[E(3, 1), S(3), 3, 1]]);
+    // 按 ParentId 浏览（部分客户端这样走）：剧集 → 季，季 → 集。
+    assert.deepEqual((await call(`/emby/Users/x/Items?ParentId=${vid}`, { token })).body.Items.map(x => x.Type), ['Season', 'Season', 'Season']);
+    assert.deepEqual((await call(`/emby/Users/x/Items?ParentId=${S(1)}`, { token })).body.Items.map(x => x.Id), [E(1, 1), E(1, 2)]);
+    // 详情与图片：推出的 Id 也能直接取。
+    const d = (await call(`/emby/Users/x/Items/${E(3, 1)}`, { token })).body;
+    assert.equal(d.Name, 'Ep 3x1'); assert.equal(d.SeriesName, 'Breaking Bad');
+    assert.equal((await call(`/emby/Items/${E(3, 1)}/Images/Primary?tag=pb9e31`)).body, 'IMG-b.example-b9e31-pb9e31');
+    // 一屏缩略图同时到达：共用一次上游请求。
+    __resetSeriesForTest(); calls = [];
+    await Promise.all([E(1, 1), E(1, 2), E(2, 1)].map(id => call(`/emby/Items/${id}/Images/Primary?tag=p`)));
+    // 节点数据缓存 + 并发合并：每个节点的剧集只取了一次。
+    assert.equal(calls.filter(c => c.path === '/Shows/a9/Episodes').length, 1);
+    assert.equal(calls.filter(c => c.path === '/Shows/b9/Episodes').length, 1);
+});
+
+test('series: an episode on one node plays from that node; one on two nodes offers both versions', async () => {
+    const { token, E } = await seriesSetup();
+    const only = await pbi(E(3, 1), token);
+    assert.equal(only.status, 200, JSON.stringify(only.body));
+    assert.deepEqual(only.body.MediaSources.map(m => m.Id), ['nodeB~ms-b9e31']);
+    assert.ok(only.body.MediaSources.every(m => m.ItemId === E(3, 1)));
+    await call('/emby/Sessions/Playing/Stopped', { method: 'POST', token, body: { ItemId: E(3, 1), MediaSourceId: 'nodeB~ms-b9e31', PositionTicks: 0 } });
+    const both = await pbi(E(2, 1), token);
+    assert.deepEqual(both.body.MediaSources.map(m => m.Id), ['nodeA~ms-a9e21', 'nodeB~ms-b9e21']);
+});
+
+test('watch state: resume, 90% marks played, Next Up crosses nodes; progress writes are throttled; nothing goes to prod watch_state', async () => {
+    const { token, vid, movie, E } = await seriesSetup();
+    const report = (kind, ItemId, PositionTicks) => call('/emby/Sessions/Playing' + kind, { method: 'POST', token, body: { ItemId, PositionTicks } });
+    await report('', String(movie), 0);
+    await report('/Progress', String(movie), 100);
+    await report('/Progress', String(movie), 200); // 一分钟内第二次：不写
+    let resume = (await call('/emby/Users/x/Items/Resume', { token })).body;
+    assert.deepEqual(resume.Items.map(i => i.Id), [String(movie)]);
+    assert.equal(resume.Items[0].UserData.PlaybackPositionTicks, 100, 'second progress within a minute was not written');
+    await report('/Stopped', String(movie), 150);
+    assert.equal((await call('/emby/Users/x/Items/Resume', { token })).body.Items[0].UserData.PlaybackPositionTicks, 150, 'Stopped is always written');
+
+    // 看完 A 上的 S2E1 → Next Up 是只在 B 上的 S3E1。
+    await report('', E(2, 1), 0);
+    await report('/Stopped', E(2, 1), 950);
+    const next = (await call('/emby/Shows/NextUp?UserId=x', { token })).body;
+    assert.deepEqual(next.Items.map(i => i.Id), [E(3, 1)]);
+    const eps = (await call(`/emby/Shows/${vid}/Episodes`, { token })).body.Items;
+    assert.equal(eps.find(e => e.Id === E(2, 1)).UserData.Played, true);
+    assert.equal(rows(`SELECT COUNT(*) AS n FROM watch_state`)[0].n, 0, 'the aggregator never writes prod watch_state');
+    assert.ok(PROGRESS_WRITE_MS >= 60000);
+});
+
+test('favorites and played marks are stored locally and never sent to the node', async () => {
+    const { token, movie } = await seriesSetup();
+    const r = await call(`/emby/Users/x/FavoriteItems/${movie}`, { method: 'POST', token });
+    assert.equal(r.body.IsFavorite, true);
+    const fav = (await call('/emby/Users/x/Items?Filters=IsFavorite&Recursive=true', { token })).body;
+    assert.deepEqual(fav.Items.map(i => [i.Id, i.UserData.IsFavorite]), [[String(movie), true]]);
+    await call(`/emby/Users/x/PlayedItems/${movie}`, { method: 'POST', token });
+    assert.equal((await call(`/emby/Users/x/Items/${movie}`, { token })).body.UserData.Played, true);
+    await call(`/emby/Users/x/FavoriteItems/${movie}`, { method: 'DELETE', token });
+    assert.equal((await call('/emby/Users/x/Items?Filters=IsFavorite', { token })).body.Items.length, 0);
+    assert.ok(!calls.some(c => /FavoriteItems|PlayedItems|UserData/.test(c.path)), JSON.stringify(calls.map(c => c.path)));
+});
+
+test('home Latest for TV: a new episode on a node moves its series to the front; node lists are cached', async () => {
+    const { token, vid } = await seriesSetup();
+    nodes['b.example'].latest = [{ Id: 'b9e31', Type: 'Episode', SeriesId: 'b9', DateCreated: '2026-03-01T00:00:00Z' }];
+    const latest = (await call('/emby/Users/x/Items/Latest?ParentId=2', { token })).body;
+    assert.equal(latest[0].Id, String(vid));
+    await call('/emby/Users/x/Items/Latest?ParentId=2', { token });
+    assert.equal(calls.filter(c => c.path === '/Users/UID/Items/Latest').length, 2, 'one request per node, then cached');
+    assert.ok(CACHE_MS <= 10 * 60000);
 });

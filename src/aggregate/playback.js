@@ -1,4 +1,4 @@
-// 阶段 2：播放。客户端看到的条目 Id 是聚合 vid，真正的媒体在某个节点上。
+// 阶段 2：播放。客户端看到的条目 Id 是聚合 vid（或阶段 3 推出的集 Id，见 series.js），真正的媒体在某个节点上。
 //
 // PlaybackInfo：按 健康（探测失败 / 熔断冷却）→ 并发槽位 → routes.sort_order 给可见副本排序，
 //   在第一个能占到槽位的节点上取 PlaybackInfo（失败换下一个）；另取至多两个健康且有空槽的节点
@@ -18,7 +18,8 @@ import { acquireSlot, heartbeatSlot, releaseSlot, SLOT_TTL_MS } from '../viewers
 import { clientIdentity } from '../viewers/upstream.js';
 import { UPSTREAM_CB } from '../proxy/circuit-breaker.js';
 import { memberRoutes, deviceSession, nodeFetch, bases } from './upstream.js';
-import { visibleSources } from './catalog.js';
+import { copiesOf, watchMeta } from './series.js';
+import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
 const SEP = '~';
@@ -27,9 +28,15 @@ const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
 const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
 const PLAY_MEM = new Map(); // PlaySessionId -> { prefix, item_id, vid }
+// 进度上报（客户端约每 10 秒一次）每个 viewer 每个条目最多每分钟写一次 D1；开始 / 停止总是写。
+export const PROGRESS_WRITE_MS = 60000;
+const PROGRESS_MEM = new Map(); // `${viewerId}|${vid}` -> 上次写入时间
 let healthMem = null;
 
-export function __resetPlaybackForTest() { PLAY_MEM.clear(); healthMem = null; }
+export function __resetPlaybackForTest() { PLAY_MEM.clear(); PROGRESS_MEM.clear(); healthMem = null; }
+
+// 聚合端的观看状态（watch.js 共用，写 agg_watch_state，不写生产 watch_state）。
+export const watchSession = (s) => ({ viewerId: s.viewerId, prefix: 'agg', table: 'agg_watch_state' });
 
 export const encodeMsid = (prefix, id) => `${prefix}${SEP}${id}`;
 export function decodeMsid(v, prefixes) {
@@ -139,7 +146,7 @@ async function resolveCopy(env, s, vid, msidRaw, psid, now = Date.now()) {
         const p = await lookupPlay(env, psid);
         if (p && Number(p.vid) === Number(vid)) prefix = p.prefix;
     }
-    const ranked = await rank(env, await visibleSources(env, s.scope, vid), now);
+    const ranked = await rank(env, await copiesOf(env, s.scope, vid), now);
     const c = prefix ? ranked.find(x => x.src.prefix === prefix) : ranked[0];
     return c ? { ...c, msid: want ? want.id : null } : null;
 }
@@ -188,7 +195,7 @@ function rewriteSource(ms, c, vid, label) {
 // GET|POST /Items/{vid}/PlaybackInfo
 export async function playbackInfo(env, request, url, s, vid) {
     const now = Date.now();
-    const sources = await visibleSources(env, s.scope, vid);
+    const sources = await copiesOf(env, s.scope, vid);
     if (!sources.length) return json({ message: 'Not found' }, 404);
     const want = decodeMsid(param(url, 'MediaSourceId'), s.scope.prefixes);
     let ranked = await rank(env, sources, now);
@@ -277,6 +284,7 @@ export async function playing(env, request, url, s, kind) {
     if (!/^\d+$/.test(vid)) return empty();
     const c = await resolveCopy(env, s, vid, body.MediaSourceId ?? body.mediaSourceId, body.PlaySessionId ?? body.playSessionId);
     if (!c) return empty();
+    await recordWatch(env, s, kind, { ItemId: vid, PositionTicks: body.PositionTicks ?? body.positionTicks });
     body.ItemId = c.src.item_id;
     if (c.msid) body.MediaSourceId = c.msid;
     delete body.NowPlayingQueue; delete body.PlaylistItemId; // 里面是 vid，节点不认识
@@ -288,6 +296,17 @@ export async function playing(env, request, url, s, kind) {
         nodeFetch(c.route, sess, path, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }));
     res.r?.body?.cancel().catch(() => {});
     return empty();
+}
+
+async function recordWatch(env, s, kind, body) {
+    const k = `${s.viewerId}|${body.ItemId}`; const now = Date.now();
+    if (kind === 'progress') {
+        if (now - (PROGRESS_MEM.get(k) || 0) < PROGRESS_WRITE_MS) return;
+        PROGRESS_MEM.set(k, now);
+        if (PROGRESS_MEM.size > 1000) PROGRESS_MEM.delete(PROGRESS_MEM.keys().next().value);
+    } else PROGRESS_MEM.delete(k);
+    await recordPlayback(env, watchSession(s), kind, body, (id) => watchMeta(env, s.scope, id), now)
+        .catch(e => console.log('agg watch write failed:', e && e.message || e));
 }
 
 // POST /Sessions/Playing/Ping、DELETE /Videos/ActiveEncodings：凭 PlaySessionId 找回节点转发。
