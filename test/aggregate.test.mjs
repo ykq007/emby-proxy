@@ -319,6 +319,17 @@ test('viewer login, views, library listing, search, latest and counts', async ()
     assert.deepEqual([counts.body.MovieCount, counts.body.SeriesCount], [4, 1]);
 });
 
+test('search finds a title by its name, not only by its sort name (Chinese sort names are pinyin initials)', async () => {
+    nodes['b.example'].items.M1.push({ ...mv('b7', '阳光先生', 2018), SortName: 'ygxs' });
+    await syncAll();
+    const { token } = await viewer('alice', [['nodeA'], ['nodeB']]);
+    const find = async (term) => (await call(`/emby/Users/x/Items?SearchTerm=${encodeURIComponent(term)}&IncludeItemTypes=Movie,Series&Recursive=true`, { token })).body.Items.map(i => i.Name);
+    assert.deepEqual(await find('阳光先生'), ['阳光先生']);
+    assert.deepEqual(await find('阳光'), ['阳光先生'], 'part of the name');
+    assert.deepEqual(await find('ygxs'), ['阳光先生'], 'pinyin initials still work');
+    assert.deepEqual(await find('incep'), ['Inception']);
+});
+
 test('a viewer only sees titles from nodes they can access, minus hidden libraries', async () => {
     await syncAll();
     const bob = await viewer('bob', [['nodeB']]);

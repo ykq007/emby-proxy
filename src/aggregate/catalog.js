@@ -256,7 +256,11 @@ export async function queryItems(env, scope, q) {
     const where = ['1']; const binds = [];
     if (q.types && q.types.length) { where.push(`i.type IN (SELECT value FROM json_each(?))`); binds.push(JSON.stringify(q.types)); }
     if (q.ids && q.ids.length) { where.push(`i.vid IN (SELECT value FROM json_each(?))`); binds.push(JSON.stringify(q.ids.map(Number))); }
-    if (q.search) { where.push(`i.sort_name LIKE ?`); binds.push('%' + normalizeName(q.search).replace(/[%_]/g, '') + '%'); }
+    // 搜名字（name_key 是规整过的片名）和排序名：中文片名的 SortName 是拼音首字母（阳光先生 → ygxs），只搜它就搜不到中文。
+    if (q.search) {
+        const term = '%' + normalizeName(q.search).replace(/[%_]/g, '') + '%';
+        where.push(`(i.name_key LIKE ? OR i.sort_name LIKE ?)`); binds.push(term, term);
+    }
     if (q.startsWith) { where.push(`i.sort_name LIKE ?`); binds.push(normalizeName(q.startsWith).replace(/[%_]/g, '') + '%'); }
     if (q.genres && q.genres.length) {
         where.push('(' + q.genres.map(() => `i.genres LIKE ?`).join(' OR ') + ')');
