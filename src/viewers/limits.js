@@ -26,6 +26,7 @@ export async function acquireSlot(env, s, deviceId, itemId, now = Date.now()) {
     if (!Number(row?.same)) {
         const cap = Number(row?.cap) || 0;
         if ((s.quota > 0 && Number(row?.mine) >= s.quota) || (cap > 0 && Number(row?.total) >= cap)) {
+            console.log(`slot full: ${s.prefix} total=${row?.total}/${cap} viewer=${row?.mine}/${s.quota}`);
             return Response.json({ message: 'Concurrent playback limit reached' }, { status: 429 });
         }
     }

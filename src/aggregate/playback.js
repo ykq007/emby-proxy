@@ -155,8 +155,18 @@ async function resolveCopy(env, s, vid, msidRaw, psid, now = Date.now()) {
 }
 
 // 响应后处理：节点令牌 → viewer 令牌（JSON / 播放列表 / 重定向），其余原样流式透传。
-function finish(r, upToken, token, path) {
+function finish(r, upToken, token, path, prefix = '') {
     if (!r) return json({ message: 'Node unreachable' }, 502);
+    if (r.status >= 400 && r.status !== 416) {
+        // 节点自己拒绝（如节点侧的并发限制）：记下节点与原文，便于区分是不是本端的槽位限制。
+        return r.text().then(t => {
+            console.log(`node ${prefix} answered ${r.status} for ${path.split('?')[0]}: ${swap(t, upToken, 'TOKEN').slice(0, 200)}`);
+            const headers = new Headers(r.headers);
+            for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
+            headers.delete('Content-Length');
+            return new Response(swap(t, upToken, token), { status: r.status, statusText: r.statusText, headers });
+        });
+    }
     const headers = new Headers(r.headers);
     for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
     const loc = headers.get('Location');
@@ -264,7 +274,7 @@ export async function videoStream(env, request, url, s, vid, rest) {
             { method: request.method, headers: passHeaders(request) });
     });
     if (res.error) return json({ message: res.error }, 503);
-    return finish(res.r, res.sess.token, s.token, rest);
+    return finish(res.r, res.sess.token, s.token, rest, c.src.prefix);
 }
 
 // GET|HEAD /n/<前缀>/Videos/…（节点给出的流地址，原样转发）
@@ -279,7 +289,7 @@ export async function namespaced(env, request, url, s, prefix, rest) {
     const res = await withSession(env, route, s, request, url, (sess) =>
         nodeFetch(route, sess, `${path}?${upstreamQuery(url, sess.token)}`, { method: request.method, headers: passHeaders(request) }));
     if (res.error) return json({ message: res.error }, 503);
-    return finish(res.r, res.sess.token, s.token, path);
+    return finish(res.r, res.sess.token, s.token, path, prefix);
 }
 
 // POST /Sessions/Playing[/Progress|/Stopped]：改写成节点上的条目再上报；顺带续 / 放并发槽位。
