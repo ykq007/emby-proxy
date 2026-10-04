@@ -70,6 +70,13 @@ export function mediaSummary(ms) {
 }
 // 一份副本的全部文件（一个条目可以有多个媒体源，如 4K 与 1080p）。没有返回 []。
 export const mediaList = (it) => (it.MediaSources || []).map(mediaSummary).filter(Boolean);
+// 节点原样的媒体源（版本菜单只用它，绝不拿摘要拼）。去掉地址类字段（里面有节点令牌，播放时由节点重新给）
+// 与媒体流的节点路径（外挂字幕的文件路径）。
+export const realSources = (it) => (Array.isArray(it && it.MediaSources) ? it.MediaSources : [])
+    .filter(ms => ms && typeof ms === 'object' && ms.Id)
+    .map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
+        ...ms, ...(Array.isArray(ms.MediaStreams) ? { MediaStreams: ms.MediaStreams.map(({ DeliveryUrl, Path, ...st }) => st) } : {}),
+    }));
 // 存的摘要：数组；v4 早期存的是单个对象。
 export const asMediaList = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : []);
 const mediaOf = (it) => { const l = mediaList(it); return l.length ? l : null; };
@@ -302,7 +309,7 @@ export async function visibleSourcesMany(env, scope, vids) {
 }
 
 // 副本的全部文件：节点的列表接口（同步页、剧集列表）只给默认那个文件，单条详情才有全部。
-// 打开作品时向节点问一次详情，存进 agg_media；之后用存下的，过了 FULL_MEDIA_MS 才在后台重问。
+// 打开作品时向节点问一次详情，把节点原样的媒体源（realSources）存进 agg_media；之后用存下的，过了 FULL_MEDIA_MS 才在后台重问。
 export const FULL_MEDIA_MS = 7 * 24 * 60 * 60 * 1000;
 export async function loadFullMedia(env, copies) {
     const out = new Map();
@@ -312,13 +319,13 @@ export async function loadFullMedia(env, copies) {
         `SELECT m.prefix, m.item_id, m.media, m.updated_at FROM agg_media m
            JOIN json_each(?) j ON m.prefix = json_extract(j.value, '$[0]') AND m.item_id = json_extract(j.value, '$[1]')`,
         JSON.stringify(keys))).results || [];
-    for (const r of rows) out.set(r.prefix + '|' + r.item_id, { media: asMediaList(safeJson(r.media, null)), at: Number(r.updated_at) || 0 });
+    for (const r of rows) { const v = safeJson(r.media, null); out.set(r.prefix + '|' + r.item_id, { sources: Array.isArray(v) ? v : [], at: Number(r.updated_at) || 0 }); }
     return out;
 }
-export async function saveFullMedia(env, prefix, itemId, media, now = Date.now()) {
-    if (!media || !media.length) return;
+export async function saveFullMedia(env, prefix, itemId, sources, now = Date.now()) {
+    if (!sources || !sources.length) return;
     await dbRun(env, `INSERT OR REPLACE INTO agg_media (prefix, item_id, media, updated_at) VALUES (?, ?, ?, ?)`,
-        prefix, String(itemId), JSON.stringify(media), now);
+        prefix, String(itemId), JSON.stringify(sources), now);
 }
 
 export async function visibleSources(env, scope, vid) {

@@ -8,7 +8,9 @@ import { encryptToken, decryptToken } from '../emby/tokens.js';
 import { fetchEmbyJsonWithFallback } from '../emby/client.js';
 import { parseCustomHeadersForProbe, isBrowserUa } from '../emby/headers.js';
 import { loginUpstream, identityHeaders, getDeviceSession } from '../viewers/upstream.js';
-import { orderUpstreamsByHealth, markUpstreamFailure, markUpstreamSuccess } from '../proxy/circuit-breaker.js';
+import { forwardToNode } from '../proxy/forward.js';
+import { getConfig } from '../proxy/config-cache.js';
+import { nodeBase } from './ids.js';
 
 const MEM = new Map(); // prefix -> session（同步 / 详情 / 图片）
 const PICK = new Map(); // prefix -> 同步用的那台真实设备的身份
@@ -25,7 +27,7 @@ export async function memberRoutes(env, now = Date.now()) {
     const list = (v) => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
     const only = list(env.AGG_NODES); const skip = list(env.AGG_EXCLUDE_NODES);
     const res = await dbAll(env,
-        `SELECT prefix, target, custom_headers, remark, COALESCE(sort_order, 0) AS sort_order FROM routes
+        `SELECT prefix, target, custom_headers, mode, cache_img, remark, COALESCE(sort_order, 0) AS sort_order FROM routes
           WHERE viewers_enabled = 1 ORDER BY sort_order, prefix`);
     const routes = (res.results || []).filter(r => (!only.length || only.includes(r.prefix)) && !skip.includes(r.prefix));
     routesMem = { at: now, routes };
@@ -43,7 +45,7 @@ async function syncDevice(env, route) {
     try { saved = row && JSON.parse(await decryptToken(env, prefix, row.blob) || 'null'); } catch (e) { }
     if (saved && saved.real && saved.ident) { PICK.set(prefix, saved.ident); return saved.ident; }
     if (saved && saved.token) {
-        const r = await nodeFetch(route, saved, '/Sessions/Logout', { method: 'POST' }).catch(() => null);
+        const r = await nodeFetch(env, route, saved, '/Sessions/Logout', { method: 'POST' }).catch(() => null);
         r?.body?.cancel().catch(() => {});
     }
     const ident = await syncIdent(env, prefix);
@@ -131,24 +133,33 @@ export async function deviceSession(env, route, ident, fresh = false, fixIdent =
     return s;
 }
 
-// 原样把请求发给节点（播放 / 流）。按熔断状态排序节点的多个地址，网络错误记一次失败换下一个。
-// pathQuery 不带 /emby 前缀；init.headers 只放调用方白名单过的客户端头（Range / Accept / Content-Type…），
-// 身份与令牌一律由会话决定。返回 Response 或 null（全部地址不可达）。
-export async function nodeFetch(route, sess, pathQuery, init = {}) {
-    const urls = bases(route);
-    const now = Date.now();
-    for (const i of orderUpstreamsByHealth(urls, now)) {
-        const headers = { ...headersFor(route, sess), ...(init.headers || {}) };
-        try {
-            const r = await fetch(urls[i].replace(/\/+$/, '') + '/emby' + pathQuery,
-                { method: init.method || 'GET', headers, body: init.body, redirect: 'manual' });
-            markUpstreamSuccess(urls[i]);
-            return r;
-        } catch (e) {
-            markUpstreamFailure(urls[i], now);
+// 发给节点：经 proxy/forward.js，与生产代理同一套（多地址故障转移、协议回退、403 换头、超时、
+// 3xx 与正文里节点地址的改写，改写后的地址在本 Worker 的 /n/<前缀>/ 下）。pathQuery 不带 /emby 前缀。
+// init.request：正在处理的客户端请求，决定本 Worker 的 origin。默认照它的头发（只把 viewer 令牌 init.token
+//   换成节点令牌，与生产 viewer 网关一样除令牌外原样转发）；init.own：聚合端自己发的请求（能力报告、
+//   附加版本的 PlaybackInfo、登出），改用会话里的设备身份。init.headers 覆盖在最后。
+// init.dropToken：带 viewer 令牌的头去掉而不是换成节点令牌（发往别的主机时）。
+// init.exact：pathQuery 已是节点上的完整路径（含 /emby 或指向别的主机的绝对地址的路径），不再加 /emby。
+export async function nodeFetch(env, route, sess, pathQuery, init = {}) {
+    const { request, token } = init;
+    let headers;
+    if (request && !init.own) {
+        headers = new Headers(request.headers);
+        for (const [k, v] of [...headers]) {
+            if (!token || !v.includes(token)) continue;
+            if (init.dropToken) headers.delete(k); else headers.set(k, v.split(token).join(sess.token));
         }
-    }
-    return null;
+        headers.delete('Content-Length');
+    } else headers = new Headers(identityHeaders(sess.ident, sess.token));
+    for (const [k, v] of Object.entries(init.headers || {})) headers.set(k, v);
+    const u = new URL((init.exact ? '' : '/emby') + pathQuery, request ? request.url : 'https://aggregate.invalid');
+    const req = new Request(u, { method: init.method || 'GET', headers, body: init.body });
+    let manualRedirectSet = null;
+    try { manualRedirectSet = (await getConfig(env)).config.manualRedirectSet; } catch (e) { }
+    return forwardToNode(req, env, null, {
+        targets: bases(route), path: u.pathname, search: u.search, mode: route.mode, customHeaders: route.custom_headers,
+        cache: route.cache_img !== 'off', publicPrefix: nodeBase(route.prefix), manualRedirectSet,
+    });
 }
 
 function headersFor(route, s) {

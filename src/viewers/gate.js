@@ -228,30 +228,37 @@ async function userDataWrite(v, r, itemId, flags, fetchItem) {
     return new Response(JSON.stringify(applyUserData(ud, row)), { status: r.status, headers });
 }
 
-// 响应后处理：上游令牌 → viewer 令牌；GET JSON 再做 媒体库隐藏 + 观看状态覆盖 + 用户对象改名。
-async function finish(v, r) {
+// 回应里的上游令牌换回 viewer 令牌（Location 与 JSON / 播放列表正文），其余原样流式透传。
+// edit(text) → text：换完令牌后再改正文。生产 viewer 网关与聚合端共用。
+export async function swapBack(r, upToken, token, path, edit = null) {
     if (r.status === 101 || r.webSocket) return r;
-    const { up, token } = v;
     const ct = r.headers.get('content-type') || '';
-    const textual = /json|mpegurl|dash\+xml/i.test(ct) || /\.(m3u8|mpd)$/i.test(v.path);
+    const textual = /json|mpegurl|dash\+xml/i.test(ct) || /\.(m3u8|mpd)$/i.test(String(path).split('?')[0]);
     const loc = r.headers.get('Location') || '';
-    if (!textual && !loc.includes(up.token)) return r;
+    if (!textual && !loc.includes(upToken)) return r;
     const headers = new Headers(r.headers);
-    if (loc) headers.set('Location', loc.split(up.token).join(token));
+    if (loc) headers.set('Location', loc.split(upToken).join(token));
     if (!textual) return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
-    let text = (await r.text()).split(up.token).join(token);
-    if (r.ok && v.method === 'GET' && /json/i.test(ct)) {
+    let text = (await r.text()).split(upToken).join(token);
+    if (edit) text = await edit(text);
+    headers.delete('Content-Length');
+    return new Response(text, { status: r.status, statusText: r.statusText, headers });
+}
+
+// 响应后处理：上游令牌 → viewer 令牌；GET JSON 再做 媒体库隐藏 + 观看状态覆盖 + 用户对象改名。
+function finish(v, r) {
+    const { up, token } = v;
+    const json = r.ok && v.method === 'GET' && /json/i.test(r.headers.get('content-type') || '');
+    return swapBack(r, up.token, token, v.path, json ? async (text) => {
         try {
             let data = JSON.parse(text);
             data = hideLibraries(v, data);
             await overlayJson(v.env, v.s, data);
             const um = USER_OBJECT.exec(v.path);
             if (um && data && data.Id === up.userId) viewerize(data, v.s);
-            text = JSON.stringify(data);
-        } catch (e) { /* 非 JSON 或解析失败：只做令牌替换 */ }
-    }
-    headers.delete('Content-Length');
-    return new Response(text, { status: r.status, statusText: r.statusText, headers });
+            return JSON.stringify(data);
+        } catch (e) { return text; } // 非 JSON 或解析失败：只做令牌替换
+    } : null);
 }
 
 function hideLibraries(v, data) {

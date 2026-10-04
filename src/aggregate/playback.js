@@ -22,12 +22,12 @@ import { memberRoutes, deviceSession, nodeFetch, bases, knownIdent } from './ups
 import { copiesOf, watchMeta } from './series.js';
 import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
+import { swapBack } from '../viewers/gate.js';
+import { encodeMsid, decodeMsid, hasMsid, nodeUrl, nodePath } from './ids.js';
 
-const SEP = '~';
 export const MAX_VERSIONS = 40; // 版本菜单最多列几项（每份副本的每个文件一项；一个节点就可能有十几个）
 const HEALTH_TTL_MS = 30000;
 const TOKEN_PARAM = /^(api_?key|x-emby-token|accesstoken)$/i;
-const PASS_HEADERS = ['range', 'if-range', 'accept', 'accept-language', 'if-none-match', 'if-modified-since'];
 const PLAY_MEM = new Map(); // PlaySessionId -> { prefix, item_id, vid }
 const PI_BODY = new Map(); // `${viewerId}|${device}` -> 该设备最近一次 PlaybackInfo 的 POST 体（DeviceProfile）
 const LAZY = new Map(); // `${viewerId}|${device}|${prefix}|${itemId}|${msid}` -> { at, path }：附加版本向节点要来的直连地址
@@ -44,13 +44,13 @@ export function rememberCapabilities(s, request, url, path, body) {
     CAPS.set(`${s.viewerId}|${deviceOf(s, request, url)}`, { path, query: q.toString(), body, at: Date.now() });
     if (CAPS.size > 500) CAPS.delete(CAPS.keys().next().value);
 }
-async function sendCapabilities(s, device, route, sess) {
+async function sendCapabilities(env, request, s, device, route, sess) {
     const caps = CAPS.get(`${s.viewerId}|${device}`);
     const k = `${s.viewerId}|${device}|${route.prefix}|${caps && caps.at}`;
     if (!caps || CAPS_SENT.has(k)) return;
     CAPS_SENT.add(k); if (CAPS_SENT.size > 2000) CAPS_SENT.delete(CAPS_SENT.values().next().value);
-    const r = await nodeFetch(route, sess, caps.path + (caps.query ? '?' + caps.query : ''),
-        { method: 'POST', body: caps.body || undefined, headers: caps.body ? { 'Content-Type': 'application/json' } : {} });
+    const r = await nodeFetch(env, route, sess, caps.path + (caps.query ? '?' + caps.query : ''),
+        { request, own: true, method: 'POST', body: caps.body || undefined, headers: caps.body ? { 'Content-Type': 'application/json' } : {} });
     r?.body?.cancel().catch(() => {});
 }
 const copyKey = (s, device, prefix, itemId) => `${s.viewerId}|${device}|${prefix}|${itemId}`;
@@ -68,26 +68,9 @@ export function __resetPlaybackForTest() { PLAY_MEM.clear(); PI_BODY.clear(); LA
 // 聚合端的观看状态（watch.js 共用，写 agg_watch_state，不写生产 watch_state）。
 export const watchSession = (s) => ({ viewerId: s.viewerId, prefix: 'agg', table: 'agg_watch_state' });
 
-export const encodeMsid = (prefix, id) => `${prefix}${SEP}${id}`;
-export function decodeMsid(v, prefixes) {
-    const s = String(v || ''); const i = s.indexOf(SEP);
-    if (i < 1) return null;
-    const prefix = s.slice(0, i);
-    return prefixes.includes(prefix) ? { prefix, id: s.slice(i + 1) } : null;
-}
-
 const swap = (text, from, to) => (from && text.includes(from) ? text.split(from).join(to) : text);
 const slotOf = (s, prefix) => ({ prefix, viewerId: s.viewerId, quota: s.scope.quota.get(prefix) || 0 });
 const deviceOf = (s, request, url) => s.deviceId || clientIdentity(request, url).deviceId || 'ea-' + s.viewerId;
-
-// 节点返回的 URL → 本 Worker 的 /n/<前缀>/… 路径（去掉节点主机与 /emby 前缀）。
-export function nsUrl(prefix, u) {
-    if (!u) return u;
-    let p = String(u);
-    if (/^https?:\/\//i.test(p)) { try { const x = new URL(p); p = x.pathname + x.search; } catch (e) { return u; } }
-    if (!p.startsWith('/')) p = '/' + p;
-    return `/n/${encodeURIComponent(prefix)}${p.replace(/^\/emby(?=\/)/i, '')}`;
-}
 
 async function failingNodes(env, now) {
     if (healthMem && now - healthMem.at < HEALTH_TTL_MS) return healthMem.set;
@@ -162,12 +145,6 @@ async function withSession(env, route, s, request, url, send) {
     return { r, sess };
 }
 
-function passHeaders(request) {
-    const h = {};
-    for (const k of PASS_HEADERS) { const v = request.headers.get(k); if (v) h[k] = v; }
-    return h;
-}
-
 // 客户端查询串 → 发给节点的查询串：令牌参数换成节点令牌（节点生成的播放列表会照抄它，
 // 分片请求才带得上令牌），其余照传；drop 里的键去掉。
 function upstreamQuery(url, upToken, drop = []) {
@@ -216,39 +193,34 @@ async function resolveCopy(env, s, vid, msidRaw, psid, now = Date.now()) {
     return c ? { ...c, msid: want ? want.id : null } : null;
 }
 
-// 响应后处理：节点令牌 → viewer 令牌（JSON / 播放列表 / 重定向），其余原样流式透传。
-function finish(r, upToken, token, path, prefix = '') {
-    if (!r) return json({ message: 'Node unreachable' }, 502);
+// 节点的回应：节点令牌换回 viewer 令牌（与生产 viewer 网关同一个 swapBack）。
+// 节点自己拒绝（如节点侧的并发限制）时记下节点与原文，便于区分是不是本端的槽位限制。
+// 节点 3xx 去别的主机（不在手动重定向白名单里）：forward.js 像生产那样改写成 /n/<前缀>/<编码后的地址>，
+// 客户端跟着它来时没有令牌，所以附上 viewer 令牌（发往那台主机前去掉，见 nodeTarget）。
+async function finish(r, upToken, token, path, prefix) {
     if (r.status >= 400 && r.status !== 416) {
-        // 节点自己拒绝（如节点侧的并发限制）：记下节点与原文，便于区分是不是本端的槽位限制。
-        return r.text().then(t => {
-            console.log(`node ${prefix} answered ${r.status} for ${path.split('?')[0]}: ${swap(t, upToken, 'TOKEN').slice(0, 200)}`);
-            const headers = new Headers(r.headers);
-            for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
-            headers.delete('Content-Length');
-            return new Response(swap(t, upToken, token), { status: r.status, statusText: r.statusText, headers });
-        });
+        const t = await r.text();
+        console.log(`node ${prefix} answered ${r.status} for ${path.split('?')[0]}: ${swap(t, upToken, 'TOKEN').slice(0, 200)}`);
+        r = new Response(t, r);
     }
-    const headers = new Headers(r.headers);
-    for (const [k, v] of Object.entries(CORS)) headers.set(k, v);
-    const loc = headers.get('Location');
-    if (loc) headers.set('Location', swap(loc, upToken, token));
-    const ct = r.headers.get('content-type') || '';
-    const textual = /json|mpegurl|dash\+xml/i.test(ct) || /\.(m3u8|mpd)$/i.test(path.split('?')[0]);
-    if (!textual) return new Response(r.body, { status: r.status, statusText: r.statusText, headers });
-    headers.delete('Content-Length');
-    return r.text().then(t => new Response(swap(t, upToken, token), { status: r.status, statusText: r.statusText, headers }));
+    const loc = r.headers.get('Location') || '';
+    if (/^\/n\/[^/?]+\/https?%3A[^?]*$/i.test(loc)) {
+        r = new Response(r.body, r);
+        r.headers.set('Location', `${loc}?api_key=${encodeURIComponent(token)}`);
+    }
+    return swapBack(r, upToken, token, path);
 }
 
-async function askPlaybackInfo(env, c, s, request, url, body, msid, method = request.method) {
+// own：聚合端自己要的 PlaybackInfo（附加版本第一次取流时），不照客户端这次请求的头发。
+async function askPlaybackInfo(env, c, s, request, url, { body, msid, method = request.method, own = false } = {}) {
     const res = await withSession(env, c.route, s, request, url, async (sess) => {
-        await sendCapabilities(s, deviceOf(s, request, url), c.route, sess);
+        await sendCapabilities(env, request, s, deviceOf(s, request, url), c.route, sess);
         const q = upstreamQuery(url, sess.token, ['UserId', 'MediaSourceId']);
         q.set('UserId', sess.userId);
         if (msid) q.set('MediaSourceId', msid);
         const headers = body ? { 'Content-Type': request.headers.get('content-type') || 'application/json' } : {};
-        return nodeFetch(c.route, sess, `/Items/${encodeURIComponent(c.src.item_id)}/PlaybackInfo?${q}`,
-            { method, body, headers });
+        return nodeFetch(env, c.route, sess, `/Items/${encodeURIComponent(c.src.item_id)}/PlaybackInfo?${q}`,
+            { request, token: s.token, own, method, body, headers });
     });
     if (res.error) return { error: res.error };
     const r = res.r;
@@ -263,8 +235,8 @@ function rewriteSource(ms, c, vid, label) {
     if ('ItemId' in ms) ms.ItemId = String(vid);
     delete ms.Path; // 节点上的文件路径不给客户端
     if (label) ms.Name = [c.name, ms.Name].filter(Boolean).join(' · ');
-    for (const k of ['DirectStreamUrl', 'TranscodingUrl']) if (ms[k]) ms[k] = nsUrl(c.src.prefix, ms[k]);
-    for (const st of ms.MediaStreams || []) if (st.DeliveryUrl) st.DeliveryUrl = nsUrl(c.src.prefix, st.DeliveryUrl);
+    for (const k of ['DirectStreamUrl', 'TranscodingUrl']) if (ms[k]) ms[k] = nodeUrl(c.src.prefix, ms[k]);
+    for (const st of ms.MediaStreams || []) if (st.DeliveryUrl) st.DeliveryUrl = nodeUrl(c.src.prefix, st.DeliveryUrl);
     return ms;
 }
 
@@ -302,7 +274,7 @@ export async function playbackInfo(env, request, url, s, vid) {
         const slot = slotOf(s, c.src.prefix);
         if (await acquireSlot(env, slot, device, c.src.item_id)) { full++; continue; }
         const msid = want && c === hit ? want.id : null;
-        const res = await askPlaybackInfo(env, c, s, request, url, bodyFor(msid), msid);
+        const res = await askPlaybackInfo(env, c, s, request, url, { body: bodyFor(msid), msid });
         if (res.data) { primary = { c, ...res }; break; }
         lastError = res.error;
         await releaseSlot(env, slot, device);
@@ -332,7 +304,6 @@ export async function playbackInfo(env, request, url, s, vid) {
 // 第一次取流时才向这一个节点要 PlaybackInfo（用该设备最近的 DeviceProfile），之后照它给的 DirectStreamUrl 取流：
 // 有的节点（如 sntp）要 PlaySessionId 等参数，自己拼的地址会 400。ponytail: 直连地址只记在本 isolate。
 export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
-    if (msid === '_') msid = '';
     if (!['GET', 'HEAD'].includes(request.method) || !s.scope.prefixes.includes(prefix)) return json({ message: 'Forbidden' }, 403);
     const route = (await memberRoutes(env)).find(r => r.prefix === prefix);
     if (!route) return json({ message: 'Not found' }, 404);
@@ -341,33 +312,65 @@ export async function lazyStream(env, request, url, s, prefix, itemId, msid) {
     if (blocked) return blocked;
     const k = [s.viewerId, device, prefix, itemId, msid].join('|');
     const hit = LAZY.get(k);
-    let path = hit && Date.now() - hit.at < LAZY_MS ? hit.path : null;
-    if (!path) {
+    let to = hit && Date.now() - hit.at < LAZY_MS ? hit.to : null;
+    if (!to) {
         const piUrl = new URL(url); piUrl.search = '?IsPlayback=true';
         const got = await askPlaybackInfo(env, { route, src: { prefix, item_id: itemId } }, s, request, piUrl,
-            PI_BODY.get(`${s.viewerId}|${device}`) || '{}', msid || null, 'POST');
+            { body: PI_BODY.get(`${s.viewerId}|${device}`) || '{}', msid: msid || null, method: 'POST', own: true });
         if (got.error) return json({ message: got.error }, 503);
         const ms = (msid && got.data.MediaSources.find(m => String(m.Id) === String(msid))) || got.data.MediaSources[0];
         if (!ms.DirectStreamUrl) return json({ message: 'This version cannot be played directly' }, 415);
         rememberCopy(s, device, prefix, itemId, ms.Id, got.data.PlaySessionId);
-        path = nsUrl(prefix, ms.DirectStreamUrl).replace(/^\/n\/[^/]+/, '');
-        LAZY.set(k, { at: Date.now(), path });
+        // 客户端那一侧的地址（/n/<前缀>/…），令牌换成 viewer 的：取流时由 sendToNode 换回当时的节点令牌。
+        to = new URL(swap(nodeUrl(prefix, ms.DirectStreamUrl), got.sess.token, s.token), url.origin);
+        to = { rest: to.pathname.replace(/^\/n\/[^/]+/, ''), search: to.search };
+        LAZY.set(k, { at: Date.now(), to });
         if (LAZY.size > 500) LAZY.delete(LAZY.keys().next().value);
     }
+    const target = nodeTarget(route, to.rest);
+    if (!target) return json({ message: 'Forbidden' }, 403);
+    const u = new URL(url); u.search = to.search;
+    return sendToNode(env, request, u, s, route, target);
+}
+
+// /n/<前缀>/ 后面的路径 → 发给节点的目标。节点自己的路径只放行 /Videos/ 下（viewer 拿不到节点的其它接口）。
+// 绝对地址是 forward.js 像生产代理那样改写出来的：正文里的节点地址（原样拼在后面）与 3xx 去的地址（编码过）。
+// 指向节点自己时同一规则；指向别处（CDN 等）放行：正文里的照生产换令牌，3xx 去的不带任何令牌（地址自带签名）。
+// 返回 { targets, path, search, itemId, keepToken } 或 null（不放行）。
+function nodeTarget(route, rest) {
+    let abs = null;
+    if (/^\/https?(:|%3A)/i.test(rest)) { try { abs = new URL(decodeURIComponent(rest.slice(1))); } catch (e) { return null; } }
+    const path = abs ? abs.pathname : rest;
+    const own = !abs || bases(route).some(b => { try { return new URL(b).origin === abs.origin; } catch (e) { return false; } });
+    const m = /^(?:\/emby)?\/videos\/([^/]+)\//i.exec(path);
+    if (own && !m) return null;
+    return {
+        targets: abs ? [abs.origin] : null, path: abs ? path : '/emby' + nodePath(path),
+        search: abs ? abs.search : '', itemId: m ? decodeURIComponent(m[1]) : '',
+        keepToken: own || !/^\/https?%3A/i.test(rest),
+    };
+}
+
+// 发给 nodeTarget 给出的目标；查询串里的 viewer 令牌换成节点令牌（keepToken 为假时去掉）。
+async function sendToNode(env, request, url, s, route, target) {
     const res = await withSession(env, route, s, request, url, (sess) => {
-        const u = new URL(path, 'http://node');
-        for (const [key] of [...u.searchParams]) if (TOKEN_PARAM.test(key)) u.searchParams.set(key, sess.token);
-        return nodeFetch(route, sess, u.pathname + u.search, { method: request.method, headers: passHeaders(request) });
+        const q = new URLSearchParams();
+        for (const [k, v] of [...new URLSearchParams(target.search), ...url.searchParams]) {
+            if (!TOKEN_PARAM.test(k)) q.append(k, v); else if (target.keepToken) q.append(k, sess.token);
+        }
+        const qs = q.toString() ? '?' + q : '';
+        const to = target.targets ? { ...route, target: target.targets.join(',') } : route;
+        return nodeFetch(env, to, sess, target.path + qs, { request, token: s.token, dropToken: !target.keepToken, exact: true });
     });
     if (res.error) return json({ message: res.error }, 503);
-    return finish(res.r, res.sess.token, s.token, path, prefix);
+    return finish(res.r, res.sess.token, s.token, target.path, route.prefix);
 }
 
 // GET|HEAD /Videos/{vid}/…（客户端自己拼的直连 / 字幕 / HLS 分片）
 export async function videoStream(env, request, url, s, vid, rest) {
     const segs = rest.split('/');
     let msidRaw = param(url, 'MediaSourceId');
-    const pathMsid = segs.length > 1 && decodeURIComponent(segs[0]).includes(SEP);
+    const pathMsid = segs.length > 1 && hasMsid(decodeURIComponent(segs[0]));
     if (!msidRaw && pathMsid) msidRaw = decodeURIComponent(segs[0]);
     const c = await resolveCopy(env, s, vid, msidRaw, param(url, 'PlaySessionId'));
     if (!c) return json({ message: 'Not found' }, 404);
@@ -389,26 +392,22 @@ export async function videoStream(env, request, url, s, vid, rest) {
     const res = await withSession(env, c.route, s, request, url, (sess) => {
         const q = upstreamQuery(url, sess.token, ['MediaSourceId']);
         if (c.msid) q.set('MediaSourceId', c.msid);
-        return nodeFetch(c.route, sess, `/Videos/${encodeURIComponent(c.src.item_id)}/${segs.join('/')}?${q}`,
-            { method: request.method, headers: passHeaders(request) });
+        return nodeFetch(env, c.route, sess, `/Videos/${encodeURIComponent(c.src.item_id)}/${segs.join('/')}?${q}`, { request, token: s.token });
     });
     if (res.error) return json({ message: res.error }, 503);
     return finish(res.r, res.sess.token, s.token, rest, c.src.prefix);
 }
 
-// GET|HEAD /n/<前缀>/Videos/…（节点给出的流地址，原样转发）
+// GET|HEAD /n/<前缀>/…（节点给出的流地址，原样转发；规则见 nodeTarget）
 export async function namespaced(env, request, url, s, prefix, rest) {
-    if (!s.scope.prefixes.includes(prefix)) return json({ message: 'Forbidden' }, 403);
-    const path = rest.replace(/^\/emby(?=\/)/i, '');
-    if (!/^\/videos\//i.test(path) || !['GET', 'HEAD'].includes(request.method)) return json({ message: 'Forbidden' }, 403);
+    if (!s.scope.prefixes.includes(prefix) || !['GET', 'HEAD'].includes(request.method)) return json({ message: 'Forbidden' }, 403);
     const route = (await memberRoutes(env)).find(r => r.prefix === prefix);
     if (!route) return json({ message: 'Not found' }, 404);
-    const blocked = await holdSlot(env, slotOf(s, prefix), deviceOf(s, request, url), decodeURIComponent(path.split('/')[2] || ''), path);
+    const target = nodeTarget(route, rest);
+    if (!target) return json({ message: 'Forbidden' }, 403);
+    const blocked = await holdSlot(env, slotOf(s, prefix), deviceOf(s, request, url), target.itemId, target.path);
     if (blocked) return blocked;
-    const res = await withSession(env, route, s, request, url, (sess) =>
-        nodeFetch(route, sess, `${path}?${upstreamQuery(url, sess.token)}`, { method: request.method, headers: passHeaders(request) }));
-    if (res.error) return json({ message: res.error }, 503);
-    return finish(res.r, res.sess.token, s.token, path, prefix);
+    return sendToNode(env, request, url, s, route, target);
 }
 
 // POST /Sessions/Playing[/Progress|/Stopped]：改写成节点上的条目再上报；顺带续 / 放并发槽位。
@@ -439,7 +438,7 @@ export async function playing(env, request, url, s, kind) {
     await (kind === 'stopped' ? releaseSlot(env, slot, device) : heartbeatSlot(env, slot, device));
     const path = '/Sessions/Playing' + (kind === 'playing' ? '' : kind === 'progress' ? '/Progress' : '/Stopped');
     const res = await withSession(env, c.route, s, request, url, (sess) =>
-        nodeFetch(c.route, sess, path, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }));
+        nodeFetch(env, c.route, sess, path, { request, token: s.token, method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }));
     res.r?.body?.cancel().catch(() => {});
     return empty();
 }
@@ -462,7 +461,7 @@ export async function byPlaySession(env, request, url, s, path) {
     const route = (await memberRoutes(env)).find(r => r.prefix === p.prefix);
     if (!route) return empty();
     const res = await withSession(env, route, s, request, url, (sess) =>
-        nodeFetch(route, sess, `${path}?${upstreamQuery(url, sess.token)}`, { method: request.method }));
+        nodeFetch(env, route, sess, `${path}?${upstreamQuery(url, sess.token)}`, { request, token: s.token, method: request.method }));
     res.r?.body?.cancel().catch(() => {});
     if (path.toLowerCase().endsWith('/ping')) await heartbeatSlot(env, slotOf(s, p.prefix), deviceOf(s, request, url));
     return empty();
