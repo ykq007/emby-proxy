@@ -8,6 +8,7 @@ name = "emby-aggregate"
 main = "aggregate.js"
 compatibility_date = "2025-09-01"
 workers_dev = true
+# routes = [{ pattern = "agg.<你的域名>", custom_domain = true }]  # 自定义域名（区域须在同一账号）
 keep_vars = true
 no_bundle = true
 
@@ -25,3 +26,6 @@ AGG_SERVER_NAME = "Emby Aggregate"
 binding = "DB"
 database_name = "emby-proxy-prod-db"
 database_id = "<prod database_id from wrangler.prod.toml>"
+
+# [limits]
+# cpu_ms = 60000  # 仅 Workers Paid；免费版每次 10 ms

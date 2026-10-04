@@ -11,7 +11,7 @@ import { sha256Hex } from '../viewers/store.js';
 
 const LOCK_MS = 9 * 60 * 1000; // 一轮同步的锁；进程意外中断时最多卡这么久
 // cron 触发的一轮不受 HTTP 后台任务 30 秒的限制，可以跑久一些（仍远小于 LOCK_MS 和 10 分钟的 cron 间隔）。
-const CRON_TIME_BUDGET_MS = 2 * 60 * 1000;
+const CRON_TIME_BUDGET_MS = 8 * 60 * 1000;
 
 // 同一时刻只跑一轮同步（Cloudflare cron 与外部定时器可能同时到）：两轮并发会把同一部作品插成两条。
 export async function guardedSync(env, now = Date.now(), opts = {}) {
