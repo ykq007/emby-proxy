@@ -61,6 +61,8 @@ export async function runSync(env, now = Date.now(), opts = {}) {
         requests: Number(opts.maxRequests ?? env.AGG_SYNC_REQUESTS) || DEFAULT_TICK_REQUESTS,
         writes: Math.max(0, limit - used - summary.writes),
         deadline: Date.now() + (Number(opts.timeBudgetMs) || DEFAULT_TIME_BUDGET_MS),
+        // 时间花在哪：取节点页面（fetch）还是合并进 D1（merge）。
+        timing: { pages: 0, fetchMs: 0, mergeMs: 0 },
     };
     const outOfTime = () => Date.now() > budget.deadline;
 
@@ -77,6 +79,7 @@ export async function runSync(env, now = Date.now(), opts = {}) {
         summary.requests += before.r - budget.requests;
         summary.writes += before.w - budget.writes;
     }
+    summary.timing = budget.timing;
     if (!summary.stopped && budget.writes <= 0) summary.stopped = 'writes';
     if (!summary.stopped && budget.requests <= 0) summary.stopped = 'requests';
     if (summary.writes) {
@@ -126,7 +129,10 @@ async function syncNode(env, route, now, budget) {
         const extra = { StartIndex: String(st.start), Limit: String(PAGE) };
         if (st.since) extra.MinDateLastSaved = st.since;
         budget.requests--;
+        const t0 = Date.now();
         const r = await nodeJson(env, route, itemsQuery(lib, extra));
+        const t1 = Date.now();
+        if (budget.timing) { budget.timing.pages++; budget.timing.fetchMs += t1 - t0; }
         if (r.error) return fail(r.error);
         const items = (r.data && r.data.Items) || [];
         const total = Number(r.data && r.data.TotalRecordCount) || 0;
@@ -139,6 +145,7 @@ async function syncNode(env, route, now, budget) {
             if (cost) out.merged++;
             done++;
         }
+        if (budget.timing) budget.timing.mergeMs += Date.now() - t1;
         st.start += done;
         if (done === items.length && (items.length < PAGE || st.start >= total)) { st.li++; st.start = 0; }
     }
