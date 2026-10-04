@@ -18,8 +18,8 @@ crons = ["*/10 * * * *"]
 [vars]
 AGG_SERVER_NAME = "Emby Aggregate"
 # AGG_NODES = "node1,node2"        # 留空 = 所有开启了 viewers 的节点
-# AGG_DAILY_WRITE_BUDGET = "30000"
-# AGG_SYNC_REQUESTS = "20"
+# AGG_DAILY_WRITE_BUDGET = "30000"  # Workers Paid 可调到 500000
+# AGG_SYNC_REQUESTS = "20"         # Workers Paid 可调到 100
 
 [[d1_databases]]
 binding = "DB"

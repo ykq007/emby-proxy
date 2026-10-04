@@ -10,16 +10,18 @@ import { dbFirst, dbRun } from '../db/helpers.js';
 import { sha256Hex } from '../viewers/store.js';
 
 const LOCK_MS = 9 * 60 * 1000; // 一轮同步的锁；进程意外中断时最多卡这么久
+// cron 触发的一轮不受 HTTP 后台任务 30 秒的限制，可以跑久一些（仍远小于 LOCK_MS 和 10 分钟的 cron 间隔）。
+const CRON_TIME_BUDGET_MS = 2 * 60 * 1000;
 
 // 同一时刻只跑一轮同步（Cloudflare cron 与外部定时器可能同时到）：两轮并发会把同一部作品插成两条。
-export async function guardedSync(env, now = Date.now()) {
+export async function guardedSync(env, now = Date.now(), opts = {}) {
     await ensureAggSchema(env);
     const got = await dbFirst(env,
         `INSERT INTO agg_meta (k, v) VALUES ('sync_lock', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v
           WHERE CAST(agg_meta.v AS INTEGER) < ? RETURNING v`, String(now), now - LOCK_MS);
     if (!got) return { skipped: 'another sync is running' };
     try {
-        return await runSync(env, now);
+        return await runSync(env, now, opts);
     } finally {
         await dbRun(env, `DELETE FROM agg_meta WHERE k = 'sync_lock' AND v = ?`, String(now));
     }
@@ -48,6 +50,6 @@ export default {
         return handleAggRequest(request, env, ctx);
     },
     async scheduled(event, env, ctx) {
-        ctx.waitUntil(logSync(guardedSync(env)));
+        ctx.waitUntil(logSync(guardedSync(env, Date.now(), { timeBudgetMs: CRON_TIME_BUDGET_MS })));
     },
 };

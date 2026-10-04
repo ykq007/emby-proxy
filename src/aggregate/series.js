@@ -4,7 +4,7 @@
 //   集 = vid * 1e6 + 季 * 1000 + 集号（季 0–998，集 0–999；超出范围的集不收录）
 //   季 = vid * 1e6 + 999000 + 季
 // 节点数据按 (节点, 节点上的剧集 Id) 在 isolate 内存里缓存 CACHE_MS；每部剧最多取 MAX_COPIES 个节点，
-// 守住 Workers 免费版每次请求 50 个外部子请求的上限。
+// 守住每次请求的外部子请求上限（Workers Paid 1000；免费版 50，用免费版时把 MAX_COPIES 调回 3）。
 import { dbAll } from '../db/helpers.js';
 import { memberRoutes, nodeJson } from './upstream.js';
 import { visibleSources, getItemRow } from './catalog.js';
@@ -14,8 +14,8 @@ const SEASON_BASE = 999000;
 const DERIVED_MIN = 1e9;
 export const CACHE_MS = 5 * 60 * 1000;
 export const LATEST_CACHE_MS = 10 * 60 * 1000;
-export const MAX_COPIES = 3;
-// 一次请求最多展开的剧集数（Next Up / 继续观看）：每部剧至多 MAX_COPIES 个节点请求，12 × 3 = 36 < 50。
+export const MAX_COPIES = 20;
+// 一次请求最多展开的剧集数（Next Up / 继续观看）：每部剧至多 MAX_COPIES 个节点请求，12 × 20 = 240 < 1000。
 export const MAX_SERIES_PER_REQUEST = 12;
 const MEM_MAX = 500;
 const MEM = new Map(); // `${kind}|${prefix}|${itemId}` -> { at, items }
