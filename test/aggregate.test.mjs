@@ -575,3 +575,24 @@ test('home Latest for TV: a new episode on a node moves its series to the front;
     assert.equal(calls.filter(c => c.path === '/Users/UID/Items/Latest').length, 2, 'one request per node, then cached');
     assert.ok(CACHE_MS <= 10 * 60000);
 });
+
+test('POST /admin/sync: only with SYNC_TOKEN, runs one sync at a time', async () => {
+    const trigger = async (auth) => {
+        const work = [];
+        const r = await worker.fetch(new Request(ORIGIN + '/admin/sync', { method: 'POST', headers: auth ? { Authorization: auth } : {} }), env, { waitUntil: (p) => work.push(p) });
+        await Promise.all(work);
+        return r.status;
+    };
+    assert.equal(await trigger('Bearer x'), 404, 'no SYNC_TOKEN set: the endpoint does not exist');
+    env.SYNC_TOKEN = 'sync-secret';
+    assert.equal(await trigger(''), 401);
+    assert.equal(await trigger('Bearer admin-secret'), 401, 'ADMIN_TOKEN does not work here');
+    // 另一轮正在跑（锁未过期）：这次跳过。
+    env.DB.db.prepare(`INSERT INTO agg_meta (k, v) VALUES ('sync_lock', ?)`).run(String(Date.now()));
+    assert.equal(await trigger('Bearer sync-secret'), 202);
+    assert.equal(rows(`SELECT * FROM agg_items`).length, 0);
+    env.DB.db.exec(`DELETE FROM agg_meta WHERE k = 'sync_lock'`);
+    assert.equal(await trigger('Bearer sync-secret'), 202);
+    assert.ok(rows(`SELECT * FROM agg_items`).length > 0);
+    assert.equal(rows(`SELECT * FROM agg_meta WHERE k = 'sync_lock'`).length, 0, 'lock released');
+});

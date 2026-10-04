@@ -76,6 +76,11 @@ cp wrangler.aggregate.example.toml wrangler.aggregate.prod.toml   # 已 gitignor
 npx wrangler secret put ADMIN_TOKEN -c wrangler.aggregate.prod.toml  # 必须与生产 Worker 相同
 ```
 
+外部定时器（Cloudflare cron 不触发时，如 cron-job.org）：
+`openssl rand -hex 32 | tee ~/.config/emby-proxy/sync_token | npx wrangler secret put SYNC_TOKEN -c wrangler.aggregate.prod.toml`，
+然后让定时器每 10 分钟 `POST https://emby-aggregate.<子域>.workers.dev/admin/sync`，
+请求头 `Authorization: Bearer <sync_token>`。SYNC_TOKEN 只能触发同步，不要用 ADMIN_TOKEN；两边同时触发时有锁，只跑一轮。
+
 部署：`npm run deploy:agg`。cron 每 10 分钟跑一次，首轮全量做完后每个节点最多每小时一轮增量。
 同步登录照搬一台真实 viewer 设备的身份（App 名、设备名、版本、UA），所以至少要有一个 viewer 用 App 看过任一节点，否则不同步。
 首次全量受每日写入预算
