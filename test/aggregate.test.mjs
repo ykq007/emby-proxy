@@ -661,3 +661,13 @@ test('sync waits between page requests to the same node (AGG_PAGE_DELAY_MS)', as
     assert.ok(at.length >= 3);
     for (let i = 1; i < at.length; i++) assert.ok(at[i] - at[i - 1] >= 35, `gap ${at[i] - at[i - 1]} ms`);
 });
+
+test('versions come from different nodes: a second copy of the same film on one node is not offered', async () => {
+    nodes['a.example'].libs.push({ Id: 'L4', CollectionType: 'movies' });
+    nodes['a.example'].items.L4 = [mv('a1dup', 'Inception', 2010, { Tmdb: '27205' })];
+    const { token, vid } = await playable();
+    assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE vid = ?`, vid)[0].n, 3, 'two copies on nodeA, one on nodeB');
+    const r = await pbi(vid, token);
+    assert.deepEqual(r.body.MediaSources.map(m => m.Id.split('~')[0]), ['nodeA', 'nodeB']);
+    assert.deepEqual(r.body.MediaSources.map(m => m.Name), ['1080p · Source 1', '1080p · Source 2']);
+});

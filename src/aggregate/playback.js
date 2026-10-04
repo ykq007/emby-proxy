@@ -71,7 +71,10 @@ async function failingNodes(env, now) {
 async function rank(env, sources, now) {
     const routes = new Map((await memberRoutes(env, now)).map(r => [r.prefix, r]));
     const failing = await failingNodes(env, now);
-    return sources.filter(src => routes.has(src.prefix)).map((src, i) => {
+    // 每个节点只留第一份副本（同一节点多个媒体库里的同一部片）：版本要来自不同节点才有意义。
+    const seen = new Set();
+    const perNode = sources.filter(src => routes.has(src.prefix) && !seen.has(src.prefix) && seen.add(src.prefix));
+    return perNode.map((src, i) => {
         const route = routes.get(src.prefix);
         const cooling = bases(route).every(u => (UPSTREAM_CB.get(u)?.failUntil || 0) > now);
         return { src, route, label: i + 1, bad: (failing.has(src.prefix) ? 2 : 0) + (cooling ? 1 : 0) };
