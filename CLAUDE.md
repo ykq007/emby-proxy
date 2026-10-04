@@ -11,6 +11,8 @@ This repo builds two Cloudflare Workers. Every rule below applies to **both**:
 
 Domain vocabulary lives in `CONTEXT.md`; deploy steps live in `DEPLOY.md`.
 
+**Open handoff:** read `docs/HANDOFF.md` first; it lists unfinished steps for this branch.
+
 ## Testing against Emby nodes: User-Agent
 
 Never test with an Emby Web / browser User-Agent (anything starting with `Mozilla/`), and never
