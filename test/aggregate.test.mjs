@@ -121,9 +121,10 @@ beforeEach(async () => {
     await ensureSchema(env);
     await ensureAggSchema(env);
     const pw = await encryptSecret(env, 'pw');
-    for (const [prefix, host, order] of [['nodeA', 'a.example', 0], ['nodeB', 'b.example', 1]]) {
-        env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, viewers_enabled, sort_order) VALUES (?, ?, 'shared', ?, 1, ?)`)
-            .run(prefix, 'https://' + host, pw, order);
+    // nodeA 有显示名（版本菜单用它），nodeB 没有（退回前缀）。
+    for (const [prefix, host, order, remark] of [['nodeA', 'a.example', 0, '节点A'], ['nodeB', 'b.example', 1, '']]) {
+        env.DB.db.prepare(`INSERT INTO routes (prefix, target, emby_username, emby_password_enc, viewers_enabled, sort_order, remark) VALUES (?, ?, 'shared', ?, 1, ?, ?)`)
+            .run(prefix, 'https://' + host, pw, order, remark);
         env.DB.db.prepare(`INSERT INTO visitor_logs (prefix, ua) VALUES (?, ?), (?, 'Mozilla/5.0 Chrome')`).run(prefix, LOG_UA, prefix);
     }
     // 生产 viewer 网关存下的真实设备：同步会话照搬它的身份。nodeB 没有设备（借 nodeA 的），浏览器设备不用。
@@ -306,7 +307,7 @@ test('item detail comes from the first visible copy with node-specific ids strip
     assert.deepEqual(d.body.People, [{ Id: 'person1', Name: 'Actor', Type: 'Actor' }], 'Id kept (strict clients need it), image tag dropped');
     // 真 Emby 单条详情总带 MediaSources（SenPlayer 靠它）：Id 用作品 Id，路径与节点流地址不外泄。
     // 版本菜单来自详情：每个节点一个版本，Id 带节点前缀，编号与 PlaybackInfo 一致。
-    assert.deepEqual(d.body.MediaSources, ['nodeA', 'nodeB'].map((n, i) => ({ Id: `${n}~ms`, ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: `Source ${i + 1}` })));
+    assert.deepEqual(d.body.MediaSources, [['nodeA', '节点A'], ['nodeB', 'nodeB']].map(([n, name]) => ({ Id: `${n}~ms`, ItemId: String(vid), Container: 'mkv', Path: 'x.mkv', Name: name })));
     assert.equal(d.body.ParentId, '1');
     const bob = await viewer('bob', [['nodeB']]);
     const b = (await call(`/emby/Users/x/Items/${vid}`, { token: bob.token })).body;
@@ -368,7 +369,7 @@ test('PlaybackInfo offers one version per node, routed through the aggregate ser
     assert.equal(r.status, 200, JSON.stringify(r.body));
     const ms = r.body.MediaSources;
     assert.deepEqual(ms.map(m => m.Id), ['nodeA~ms-a1', 'nodeB~ms-b1']);
-    assert.deepEqual(ms.map(m => m.Name), ['1080p · Source 1', '1080p · Source 2']);
+    assert.deepEqual(ms.map(m => m.Name), ['节点A · 1080p', 'nodeB · 1080p'], 'labelled by node name, or prefix when it has none');
     assert.ok(ms.every(m => m.ItemId === String(vid) && m.Path === undefined));
     assert.equal(ms[0].DirectStreamUrl, `/n/nodeA/videos/a1/stream.mkv?Static=true&MediaSourceId=ms-a1&api_key=${token}`);
     assert.ok(ms[0].TranscodingUrl.startsWith('/n/nodeA/videos/a1/master.m3u8?'));
@@ -702,5 +703,5 @@ test('versions come from different nodes: a second copy of the same film on one 
     assert.equal(rows(`SELECT COUNT(*) AS n FROM agg_sources WHERE vid = ?`, vid)[0].n, 3, 'two copies on nodeA, one on nodeB');
     const r = await pbi(vid, token);
     assert.deepEqual(r.body.MediaSources.map(m => m.Id.split('~')[0]), ['nodeA', 'nodeB']);
-    assert.deepEqual(r.body.MediaSources.map(m => m.Name), ['1080p · Source 1', '1080p · Source 2']);
+    assert.deepEqual(r.body.MediaSources.map(m => m.Name), ['节点A · 1080p', 'nodeB · 1080p']);
 });

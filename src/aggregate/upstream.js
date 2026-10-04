@@ -22,7 +22,7 @@ export async function memberRoutes(env, now = Date.now()) {
     const list = (v) => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
     const only = list(env.AGG_NODES); const skip = list(env.AGG_EXCLUDE_NODES);
     const res = await dbAll(env,
-        `SELECT prefix, target, custom_headers, COALESCE(sort_order, 0) AS sort_order FROM routes
+        `SELECT prefix, target, custom_headers, remark, COALESCE(sort_order, 0) AS sort_order FROM routes
           WHERE viewers_enabled = 1 ORDER BY sort_order, prefix`);
     const routes = (res.results || []).filter(r => (!only.length || only.includes(r.prefix)) && !skip.includes(r.prefix));
     routesMem = { at: now, routes };

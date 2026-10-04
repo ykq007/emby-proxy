@@ -2,7 +2,7 @@
 //
 // PlaybackInfo：按 健康（探测失败 / 熔断冷却）→ 并发槽位 → routes.sort_order 给可见副本排序，
 //   在第一个能占到槽位的节点上取 PlaybackInfo（失败换下一个）；另取至多两个健康且有空槽的节点
-//   作为「其它版本」，客户端的版本选择器里就是「Source 1 / Source 2 …」。
+//   作为「其它版本」，客户端的版本选择器里以节点名（routes.remark，没有就用前缀）区分。
 //   MediaSource.Id 编码成 `<节点前缀>~<原 Id>`，之后的流 / 进度请求凭它找回节点；
 //   PlaySessionId → 节点 记在 agg_play_sessions 里兜底（HLS 分片请求常常只带它）。
 // 流：
@@ -77,7 +77,7 @@ export async function rank(env, sources, now = Date.now()) {
     return perNode.map((src, i) => {
         const route = routes.get(src.prefix);
         const cooling = bases(route).every(u => (UPSTREAM_CB.get(u)?.failUntil || 0) > now);
-        return { src, route, label: i + 1, bad: (failing.has(src.prefix) ? 2 : 0) + (cooling ? 1 : 0) };
+        return { src, route, label: i + 1, name: route.remark || src.prefix, bad: (failing.has(src.prefix) ? 2 : 0) + (cooling ? 1 : 0) };
     }).sort((a, b) => a.bad - b.bad || a.label - b.label);
 }
 
@@ -199,7 +199,7 @@ function rewriteSource(ms, c, vid, label) {
     ms.Id = encodeMsid(c.src.prefix, ms.Id);
     if ('ItemId' in ms) ms.ItemId = String(vid);
     delete ms.Path; // 节点上的文件路径不给客户端
-    if (label) ms.Name = [ms.Name, `Source ${c.label}`].filter(Boolean).join(' · ');
+    if (label) ms.Name = [c.name, ms.Name].filter(Boolean).join(' · ');
     for (const k of ['DirectStreamUrl', 'TranscodingUrl']) if (ms[k]) ms[k] = nsUrl(c.src.prefix, ms[k]);
     for (const st of ms.MediaStreams || []) if (st.DeliveryUrl) st.DeliveryUrl = nsUrl(c.src.prefix, st.DeliveryUrl);
     return ms;

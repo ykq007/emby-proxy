@@ -196,7 +196,7 @@ async function liveItem(env, src) {
 }
 export function __resetLiveForTest() { LIVE.clear(); }
 
-// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同一「Source N」编号），并发取各节点的实时详情。
+// 详情的版本：每个节点一份（与 PlaybackInfo 同一排序、同样以节点名区分），并发取各节点的实时详情。
 // 客户端的版本菜单来自详情里的 MediaSources，不是 PlaybackInfo。其它版本最多等 ALT_WAIT_MS，慢节点这次不列。
 const ALT_WAIT_MS = 2500;
 async function liveVersions(env, ctx, copies) {
@@ -226,7 +226,7 @@ function withLive(versions, dto, id) {
     if (Array.isArray(d.MediaSources)) {
         out.MediaSources = versions.flatMap(({ c, d: v }) => (v.MediaSources || []).slice(0, 1).map(({ DirectStreamUrl, TranscodingUrl, ...ms }) => ({
             ...ms, Id: encodeMsid(c.src.prefix, ms.Id), ItemId: String(id), Path: base(ms.Path),
-            ...(versions.length > 1 ? { Name: [ms.Name, `Source ${c.label}`].filter(Boolean).join(' · ') } : {}),
+            ...(versions.length > 1 ? { Name: [c.name, ms.Name].filter(Boolean).join(' · ') } : {}),
         })));
     }
     out.CanDelete = false; out.CanDownload = false;
