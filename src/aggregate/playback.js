@@ -20,7 +20,6 @@ import { clientIdentity } from '../viewers/upstream.js';
 import { UPSTREAM_CB } from '../proxy/circuit-breaker.js';
 import { memberRoutes, deviceSession, nodeFetch, bases, knownIdent } from './upstream.js';
 import { copiesOf, watchMeta } from './series.js';
-import { fileKey } from './catalog.js';
 import { recordPlayback } from '../viewers/watch.js';
 import { CORS, json, empty, param } from './http.js';
 
@@ -283,18 +282,9 @@ export async function playbackInfo(env, request, url, s, vid) {
     let ranked = await rank(env, sources, now, { perNode: !want });
     // 选了版本：先试那份副本；它的节点满了或答不上来，再按原顺序试其它节点（每个节点一份，不让客户端直接报错）。
     const hit = want ? pickCopy(ranked, want) : null;
-    // 每份副本发给节点的媒体源 Id：选中的那份是 want.id；同一文件（去重合并的）在别的节点上的副本是它们自己的 Id。
-    const msidOf = new Map();
     if (want) {
-        const key = hit && fileKey((hit.src.media || []).find(m => String(m.Id) === String(want.id)));
-        const same = key ? ranked.filter(c => c !== hit && c.src.prefix !== hit.src.prefix).map(c => {
-            const m = (c.src.media || []).find(x => fileKey(x) === key);
-            if (m) msidOf.set(c, String(m.Id));
-            return m ? c : null;
-        }).filter(Boolean) : [];
-        if (hit) msidOf.set(hit, want.id);
         const seen = new Set();
-        ranked = [hit, ...same, ...ranked].filter(c => c && !seen.has(c.src.prefix) && seen.add(c.src.prefix));
+        ranked = [hit, ...ranked].filter(c => c && !seen.has(c.src.prefix) && seen.add(c.src.prefix));
     }
     // 发给节点的 POST 体：MediaSourceId 换成该节点自己的 Id（不是选中的节点就去掉）。
     const bodyFor = (msid) => {
@@ -311,7 +301,7 @@ export async function playbackInfo(env, request, url, s, vid) {
     for (const c of ranked) {
         const slot = slotOf(s, c.src.prefix);
         if (await acquireSlot(env, slot, device, c.src.item_id)) { full++; continue; }
-        const msid = msidOf.get(c) || null;
+        const msid = want && c === hit ? want.id : null;
         const res = await askPlaybackInfo(env, c, s, request, url, bodyFor(msid), msid);
         if (res.data) { primary = { c, ...res }; break; }
         lastError = res.error;

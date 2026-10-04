@@ -70,12 +70,6 @@ export function mediaSummary(ms) {
 }
 // 一份副本的全部文件（一个条目可以有多个媒体源，如 4K 与 1080p）。没有返回 []。
 export const mediaList = (it) => (it.MediaSources || []).map(mediaSummary).filter(Boolean);
-// 去重用：两个节点上的同一个文件（大小、容器、视频编码、分辨率都一样）。没有大小就不算，返回 null。
-export function fileKey(m) {
-    if (!m || !m.Size) return null;
-    const v = (m.MediaStreams || []).find(x => x.Type === 'Video') || {};
-    return [m.Size, m.Container || '', v.Codec || '', v.Height || ''].join('|');
-}
 // 存的摘要：数组；v4 早期存的是单个对象。
 export const asMediaList = (v) => (Array.isArray(v) ? v : v && typeof v === 'object' ? [v] : []);
 const mediaOf = (it) => { const l = mediaList(it); return l.length ? l : null; };

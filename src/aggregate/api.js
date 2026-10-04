@@ -6,7 +6,7 @@ import { extractToken } from '../viewers/gate.js';
 import { clientIdentity } from '../viewers/upstream.js';
 import { login, resolveToken, revokeToken, serverId } from './auth.js';
 import { memberRoutes, nodeJson, nodeRaw, browseSession, nodeFetch } from './upstream.js';
-import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, saveMedia, fileKey, LIB_MOVIES, LIB_SERIES } from './catalog.js';
+import { queryItems, visibleSources, visibleSourcesMany, getItemRow, mediaList, saveMedia, LIB_MOVIES, LIB_SERIES } from './catalog.js';
 import { CORS, json, empty, param } from './http.js';
 import { isBrowserUa, BROWSER_BLOCKED_MESSAGE } from '../emby/headers.js';
 import { playbackInfo, videoStream, namespaced, lazyStream, rememberCapabilities, playing, byPlaySession, watchSession, rank, playableRanked, encodeMsid, MAX_VERSIONS } from './playback.js';
@@ -217,23 +217,15 @@ const baseName = (x) => String(x || '').split(/[\\/]/).pop() || undefined;
 // 最多 MAX_VERSIONS 项；该设备起不了播的满节点不列。只向第一份副本的节点要实时详情；其它副本用存下的文件摘要
 // （c.src.media：目录同步 / 剧集列表带回，或电影第一次打开时补的）。版本 Id = `<前缀>~<该文件的媒体源 Id>`；
 // 还没有摘要的副本列一项 `<前缀>~`，播放时由节点自己挑文件。
-// 去重：几个节点上的同一个文件（fileKey 相同）只列一项，由排在最前、该设备此刻有空位的节点出（ranked 已按健康与
-// 节点顺序排好、满的去掉）；名字里列出这些节点。起播时那个节点满了，PlaybackInfo 先换同一文件的其它节点（playback.js）。
 function menuEntries(ranked, firstList) {
-    const out = []; const byKey = new Map();
+    const out = [];
     ranked.forEach((c, i) => {
         const list = i === 0 && firstList ? firstList : (c.src.media || []);
-        for (const m of (list.length ? list : [null])) {
-            const k = fileKey(m && (m.live || m));
-            if (k && byKey.has(k)) { const g = byKey.get(k); if (!g.nodes.includes(c.name)) g.nodes.push(c.name); continue; }
-            const e = { c, m, nodes: [c.name] };
-            if (k) byKey.set(k, e);
-            out.push(e);
-        }
+        for (const m of (list.length ? list : [null])) out.push({ c, m });
     });
     return out.slice(0, MAX_VERSIONS);
 }
-const versionName = (e, ms, label) => (label ? [e.nodes.join(' / '), ms && ms.Name].filter(Boolean).join(' · ') : (ms && ms.Name) || e.c.name);
+const versionName = (e, ms, label) => (label ? [e.c.name, ms && ms.Name].filter(Boolean).join(' · ') : (ms && ms.Name) || e.c.name);
 
 function stubSource(e, id, label, extra = {}) {
     const c = e.c; const m = e.m || {};

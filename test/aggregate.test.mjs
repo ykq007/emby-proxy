@@ -847,19 +847,3 @@ test('every version is listed: each file of each copy, a second copy on the same
     assert.deepEqual(d.MediaSources.slice(2).map(m => m.Name), ['nodeB · 2160p', 'nodeB · 1080p']);
 });
 
-test('去重: the same file on two nodes is listed once, served by the first node with room; a full node hands over to the other copy of that file', async () => {
-    const file = (Id) => [{ Id, Name: '4k', Size: 5e9, Container: 'mkv', MediaStreams: [{ Type: 'Video', Codec: 'hevc', Height: 1608 }] }];
-    nodes['a.example'].shows.a9.episodes[2].MediaSources = file('xa'); // S2E1
-    nodes['b.example'].shows.b9.episodes[0].MediaSources = file('xb');
-    const { id, token, E } = await seriesSetup();
-    const menu = (await call(`/emby/Users/x/Items/${E(2, 1)}`, { token })).body.MediaSources;
-    assert.deepEqual(menu.map(m => [m.Id, m.Name]), [['nodeA~xa', '4k']], 'one entry; names only matter when there is a choice');
-    // nodeA 满了：同一文件换 nodeB，并用 nodeB 自己的媒体源 Id。
-    env.DB.db.exec(`UPDATE routes SET max_concurrent = 1`);
-    env.DB.db.prepare(`INSERT INTO playback_slots (viewer_id, prefix, device_id, item_id, heartbeat_at) VALUES ('other', 'nodeA', 'tv', 'x', ?)`).run(Date.now());
-    calls = [];
-    const r = await pbi(E(2, 1), token, '&MediaSourceId=' + encodeURIComponent('nodeA~xa'));
-    assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.deepEqual(calls.filter(c => c.path.endsWith('/PlaybackInfo')).map(c => [c.host, c.query.MediaSourceId]), [['b.example', 'xb']]);
-    assert.ok(id);
-});
