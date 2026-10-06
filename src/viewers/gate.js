@@ -13,7 +13,7 @@ import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
 import { clientIdentity, identityHeaders, getDeviceSession, loginDevice, dropDeviceSession } from './upstream.js';
 import { acquireSlot, heartbeatSlot, releaseSlot, holdSlot } from './limits.js';
-import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterIds, resumeIds, buildNextUp } from './watch.js';
+import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterRows, datePlayedPage, resumeIds, buildNextUp } from './watch.js';
 
 const E = '^\\/(?:emby\\/)?';
 const re = (s) => new RegExp(E + s + '$', 'i');
@@ -206,12 +206,20 @@ export async function handleViewerRequest(request, env, ctx, opts) {
 
     if (m === 'GET' && ITEMS_QUERY.test(path)) {
         const params = new URLSearchParams(url.search);
-        const ids = await localFilterIds(env, s, params);
-        if (ids !== null) {
-            if (!ids.length) return Response.json({ Items: [], TotalRecordCount: 0 }, { headers: { 'Access-Control-Allow-Origin': '*' } });
+        const rows = await localFilterRows(env, s, params);
+        if (rows !== null) {
+            // 观看历史：本地排好序、分好页，上游只取这一页，回来再按本地顺序排、给出本地总数。
+            const page = datePlayedPage(params, rows);
+            const ids = page ? page.ids : rows.map(x => String(x.item_id));
+            if (!ids.length) return Response.json({ Items: [], TotalRecordCount: page ? page.total : 0 }, { headers: { 'Access-Control-Allow-Origin': '*' } });
             params.set('Ids', ids.join(','));
             const u = new URL(request.url); u.search = params.toString();
-            return finish(v, await send(new Request(u, request)));
+            return finish(v, await send(new Request(u, request)), page && ((data) => {
+                if (!data || !Array.isArray(data.Items)) return;
+                const byId = new Map(data.Items.map(it => [String(it.Id), it]));
+                data.Items = page.ids.map(id => byId.get(id)).filter(Boolean);
+                data.TotalRecordCount = page.total;
+            }));
         }
     }
 
@@ -246,7 +254,8 @@ export async function swapBack(r, upToken, token, path, edit = null) {
 }
 
 // 响应后处理：上游令牌 → viewer 令牌；GET JSON 再做 媒体库隐藏 + 观看状态覆盖 + 用户对象改名。
-function finish(v, r) {
+// reshape(data)：原地再改一次 JSON（观看历史按本地顺序重排）。
+function finish(v, r, reshape = null) {
     const { up, token } = v;
     const json = r.ok && v.method === 'GET' && /json/i.test(r.headers.get('content-type') || '');
     return swapBack(r, up.token, token, v.path, json ? async (text) => {
@@ -254,6 +263,7 @@ function finish(v, r) {
             let data = JSON.parse(text);
             data = hideLibraries(v, data);
             await overlayJson(v.env, v.s, data);
+            if (reshape) reshape(data);
             const um = USER_OBJECT.exec(v.path);
             if (um && data && data.Id === up.userId) viewerize(data, v.s);
             return JSON.stringify(data);

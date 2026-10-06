@@ -171,6 +171,7 @@ async function itemsResponse(env, s, sid, searchParams) {
     }
     const q = itemsQueryFrom(params);
     if (!q) return json({ Items: [], TotalRecordCount: 0 });
+    if (local) q.playedOrder = true; // 观看历史（SortBy=DatePlayed）按该 viewer 的播放时间排
     const { items, total } = await queryItems(env, s.scope, q);
     const tagged = await withTags(env, s, items);
     return withWatch(env, s, { Items: tagged.map(({ row, tags }) => itemDto(row, sid, tags)), TotalRecordCount: total });
