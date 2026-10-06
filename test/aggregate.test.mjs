@@ -328,6 +328,21 @@ test('viewer login, views, library listing, search, latest and counts', async ()
     assert.deepEqual([counts.body.MovieCount, counts.body.SeriesCount], [4, 1]);
 });
 
+test('watch history (SortBy=DatePlayed) follows the viewer\'s play order, not the date added', async () => {
+    await syncAll();
+    const { token } = await viewer('alice', [['nodeA'], ['nodeB']]);
+    const vid = (name) => String(rows(`SELECT vid FROM agg_items WHERE name = ?`, name)[0].vid);
+    for (const name of ['Dune', 'Arrival', 'Inception']) {
+        await call(`/emby/Users/x/PlayedItems/${vid(name)}`, { method: 'POST', token });
+        await new Promise(r => setTimeout(r, 2));
+    }
+    const history = async (q) => (await call(`/emby/Users/x/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie&SortBy=DatePlayed${q}`, { token })).body;
+    const desc = await history('&SortOrder=Descending&StartIndex=0&Limit=2');
+    assert.deepEqual([desc.Items.map(i => i.Name), desc.TotalRecordCount], [['Inception', 'Arrival'], 3]);
+    assert.deepEqual((await history('&SortOrder=Descending&StartIndex=2&Limit=2')).Items.map(i => i.Name), ['Dune']);
+    assert.deepEqual((await history('&SortOrder=Ascending')).Items.map(i => i.Name), ['Dune', 'Arrival', 'Inception']);
+});
+
 test('search finds a title by its name, not only by its sort name (Chinese sort names are pinyin initials)', async () => {
     nodes['b.example'].items.M1.push({ ...mv('b7', '阳光先生', 2018), SortName: 'ygxs' });
     await syncAll();

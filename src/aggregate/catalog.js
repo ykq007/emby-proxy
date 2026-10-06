@@ -258,7 +258,7 @@ const SORTS = {
     runtime: 'i.runtime_ticks', random: 'RANDOM()',
 };
 
-// q: { types[], ids[], search, startsWith, genres[], years[], sortBy, desc, start, limit, count }
+// q: { types[], ids[], search, startsWith, genres[], years[], sortBy, desc, start, limit, count, playedOrder }
 export async function queryItems(env, scope, q) {
     const where = ['1']; const binds = [];
     if (q.types && q.types.length) { where.push(`i.type IN (SELECT value FROM json_each(?))`); binds.push(JSON.stringify(q.types)); }
@@ -277,11 +277,13 @@ export async function queryItems(env, scope, q) {
     const sc = scopeSql(scope);
     const base = `FROM agg_items i WHERE ${where.join(' AND ')}${sc.sql}`;
     const allBinds = [...binds, ...sc.binds];
-    const order = SORTS[(q.sortBy || 'sortname').toLowerCase()] || SORTS.sortname;
-    const dir = q.desc ? 'DESC' : 'ASC';
+    // q.playedOrder：ids 已按该 viewer 最近播放排好（本地观看状态），DatePlayed 照 ids 的顺序排；倒序 = 最近的在前。
+    const byIds = q.playedOrder && q.sortBy === 'dateplayed' && q.ids && q.ids.length;
+    const order = byIds ? '(SELECT j.key FROM json_each(?) j WHERE j.value = i.vid)' : SORTS[(q.sortBy || 'sortname').toLowerCase()] || SORTS.sortname;
+    const dir = byIds ? (q.desc ? 'ASC' : 'DESC') : q.desc ? 'DESC' : 'ASC';
     const rows = await dbAll(env,
         `SELECT i.* ${base} ORDER BY ${order} ${order === 'RANDOM()' ? '' : dir}, i.vid LIMIT ? OFFSET ?`,
-        ...allBinds, Math.min(Math.max(Number(q.limit) || 100, 1), 500), Math.max(Number(q.start) || 0, 0));
+        ...allBinds, ...(byIds ? [JSON.stringify(q.ids.map(Number))] : []), Math.min(Math.max(Number(q.limit) || 100, 1), 500), Math.max(Number(q.start) || 0, 0));
     const items = rows.results || [];
     let total = items.length + (Number(q.start) || 0);
     if (q.count !== false) {

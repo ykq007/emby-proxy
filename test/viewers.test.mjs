@@ -48,7 +48,8 @@ function fakeUpstream(req) {
             : { Id: m[1], Type: 'Movie', RunTimeTicks: 1000, UserData: { Played: true } });
     }
     if (p === '/Users/U1/Items') {
-        const ids = (u.searchParams.get('Ids') || 'm1,m2').split(',');
+        // 像 Emby：按它自己的排序（这里按 Id）返回，不按 Ids 的顺序。
+        const ids = (u.searchParams.get('Ids') || 'm1,m2').split(',').sort();
         return json({ Items: ids.map(Id => ({ Id, UserData: { Played: true, IsFavorite: true, PlaybackPositionTicks: 5 } })), TotalRecordCount: ids.length });
     }
     if (p === '/Users/U1/Views') return json({ Items: [{ Id: 'L1', Name: 'Movies', Type: 'CollectionFolder' }, { Id: 'L2', Name: 'Anime', Type: 'CollectionFolder' }], TotalRecordCount: 2 });
@@ -286,6 +287,31 @@ test('watch state is per viewer and hides the shared upstream history', async ()
     assert.deepEqual(fav.Items.map(i => i.Id), ['m2']);
     const favB = await (await call('/emby/Users/U1/Items?Filters=IsFavorite', { token: b.token })).json();
     assert.equal(favB.TotalRecordCount, 0);
+});
+
+test('watch history (SortBy=DatePlayed) is sorted, filtered and paged locally; upstream is asked only for the page', async () => {
+    const a = await makeViewer('alice');
+    for (const id of ['m1', 'e1', 'm3', 'm2']) {
+        await call(`/emby/Users/U1/PlayedItems/${id}`, { method: 'POST', token: a.token });
+        await new Promise(r => setTimeout(r, 2)); // last_played 是毫秒
+    }
+    const history = async (q) => {
+        seen = [];
+        const d = await (await call(`/emby/Users/U1/Items?Filters=IsPlayed&Recursive=true&IncludeItemTypes=Movie&SortBy=DatePlayed,SortName${q}`, { token: a.token })).json();
+        const up = new URL(seen.find(x => new URL(x.url).pathname === '/emby/Users/U1/Items').url).searchParams;
+        return { ids: d.Items.map(i => i.Id), total: d.TotalRecordCount, upIds: up.get('Ids'), upPaged: up.has('StartIndex') || up.has('Limit') };
+    };
+    assert.deepEqual(await history('&SortOrder=Descending&StartIndex=0&Limit=2'), { ids: ['m2', 'm3'], total: 3, upIds: 'm2,m3', upPaged: false });
+    assert.deepEqual(await history('&SortOrder=Descending&StartIndex=2&Limit=2'), { ids: ['m1'], total: 3, upIds: 'm1', upPaged: false });
+    assert.deepEqual(await history('&SortOrder=Ascending&Limit=2'), { ids: ['m1', 'm3'], total: 3, upIds: 'm1,m3', upPaged: false });
+    const past = await (await call('/emby/Users/U1/Items?Filters=IsPlayed&SortBy=DatePlayed&StartIndex=10&Limit=5', { token: a.token })).json();
+    assert.deepEqual(past, { Items: [], TotalRecordCount: 4 });
+
+    // 本地答不了的条件（ParentId）：照旧把全部 Id 交给上游筛选、排序、分页。
+    seen = [];
+    await call('/emby/Users/U1/Items?Filters=IsPlayed&ParentId=L1&SortBy=DatePlayed&Limit=2', { token: a.token });
+    const up = new URL(seen.find(x => new URL(x.url).pathname === '/emby/Users/U1/Items').url).searchParams;
+    assert.deepEqual([up.get('Ids').split(',').sort(), up.get('Limit')], [['e1', 'm1', 'm2', 'm3'], '2']);
 });
 
 test('failed upstream write stores nothing locally', async () => {

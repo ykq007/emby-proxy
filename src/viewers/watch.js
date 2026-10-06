@@ -126,10 +126,10 @@ export async function overlayJson(env, s, data) {
     return data;
 }
 
-// Filters=IsFavorite/IsPlayed/IsResumable 或 IsFavorite=true/IsPlayed=true：由本地记录给出 Ids。
-// 返回 null = 查询不含本地可答的过滤；否则返回匹配的 item id 数组，并从 params 里移除这些过滤。
+// Filters=IsFavorite/IsPlayed/IsResumable 或 IsFavorite=true/IsPlayed=true：由本地记录给出条目。
+// 返回 null = 查询不含本地可答的过滤；否则返回匹配的行 [{ item_id, item_type }]（最近播放在前），并从 params 里移除这些过滤。
 // IsUnplayed / IsPlayed=false 仍交给上游账号判断（已知限制）。
-export async function localFilterIds(env, s, params) {
+export async function localFilterRows(env, s, params) {
     const filters = (params.get('Filters') || '').split(',').map(x => x.trim()).filter(Boolean);
     const conds = [];
     const take = (name, cond) => {
@@ -146,12 +146,40 @@ export async function localFilterIds(env, s, params) {
     const rest = filters.filter(f => !['IsFavorite', 'IsPlayed', 'IsResumable'].includes(f));
     if (rest.length) params.set('Filters', rest.join(',')); else params.delete('Filters');
     const r = await dbAll(env,
-        `SELECT item_id FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND ${conds.join(' AND ')} ORDER BY last_played DESC LIMIT 1000`,
+        `SELECT item_id, item_type FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND ${conds.join(' AND ')}
+          ORDER BY last_played DESC, rowid DESC LIMIT 1000`,
         s.viewerId, s.prefix);
-    let ids = (r.results || []).map(x => String(x.item_id));
+    let rows = r.results || [];
     const given = params.get('Ids');
-    if (given) { const g = new Set(given.split(',')); ids = ids.filter(id => g.has(id)); }
-    return ids;
+    if (given) { const g = new Set(given.split(',')); rows = rows.filter(x => g.has(String(x.item_id))); }
+    return rows;
+}
+
+export async function localFilterIds(env, s, params) {
+    const rows = await localFilterRows(env, s, params);
+    return rows && rows.map(x => String(x.item_id));
+}
+
+// 观看历史（SortBy=DatePlayed）：排序、类型过滤与分页都按本地记录做，上游只取这一页的条目。
+// 上游按共享账号的播放时间排序，而且不分页就得解析全部 Id（最多 1000 个），既慢又是别人的顺序。
+// 查询带本地答不了的条件（ParentId、Genres、其余 Filters…）时返回 null，照旧整批交给上游。
+// 适用时从 params 移除排序 / 分页，返回 { ids: 这一页（本地顺序）, total }；rows 来自 localFilterRows。
+const PAGE_SAFE = new Set(['recursive', 'fields', 'includeitemtypes', 'sortby', 'sortorder', 'startindex', 'limit',
+    'enableimagetypes', 'imagetypelimit', 'enableimages', 'enableuserdata', 'enabletotalrecordcount', 'collapseboxsetitems',
+    'excludelocationtypes', 'ismissing', 'isvirtualitem', 'groupitemsintocollections', 'mediatypes', 'userid', 'ids',
+    'api_key', 'deviceid']);
+export function datePlayedPage(params, rows) {
+    const get = (k) => { for (const [kk, v] of params) if (kk.toLowerCase() === k) return v; return null; };
+    if (!/^dateplayed$/i.test(String(get('sortby') || '').split(',')[0].trim())) return null;
+    for (const k of params.keys()) if (!PAGE_SAFE.has(k.toLowerCase()) && !/^x-(emby|mediabrowser)-/i.test(k)) return null;
+    const types = String(get('includeitemtypes') || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    // 没记下类型的行（首次记录时上游没答）留着，交给上游按 IncludeItemTypes 判。
+    let list = types.length ? rows.filter(x => !x.item_type || types.includes(String(x.item_type).toLowerCase())) : rows;
+    if (/^asc/i.test(get('sortorder') || '')) list = [...list].reverse();
+    const start = Math.max(0, Number(get('startindex')) || 0);
+    const limit = Number(get('limit')) || list.length;
+    for (const k of [...params.keys()]) if (['sortby', 'sortorder', 'startindex', 'limit'].includes(k.toLowerCase())) params.delete(k);
+    return { ids: list.slice(start, start + limit).map(x => String(x.item_id)), total: list.length };
 }
 
 // Continue Watching：本地 进度>0、未看完且未被隐藏，每部剧只取最近一集。
