@@ -33,7 +33,7 @@ import {
 // parseCfIpTop20 — pure
 // ---------------------------------------------------------------------------
 
-test('parseCfIpTop20: happy path — maps ip -> domain, note carries 1-based rank', () => {
+test('parseCfIpTop20: happy path — maps ip -> domain, note names the source only', () => {
     const json = {
         code: 0,
         message: 'true',
@@ -41,8 +41,8 @@ test('parseCfIpTop20: happy path — maps ip -> domain, note carries 1-based ran
     };
     const out = parseCfIpTop20(json);
     assert.deepEqual(out, [
-        { domain: 'cf.xycf.asia', note: 'vps789·综合排名1', rank: 1 },
-        { domain: 'cdn.example.com', note: 'vps789·综合排名2', rank: 2 },
+        { domain: 'cf.xycf.asia', note: 'vps789' },
+        { domain: 'cdn.example.com', note: 'vps789' },
     ]);
 });
 
@@ -50,14 +50,12 @@ test('parseCfIpTop20: drops raw IPv4 literal entries', () => {
     const json = { code: 0, data: { good: [{ ip: '1.2.3.4' }, { ip: 'good.example.com' }] } };
     const out = parseCfIpTop20(json);
     assert.deepEqual(out.map(d => d.domain), ['good.example.com']);
-    assert.equal(out[0].rank, 2, 'rank reflects original source position, not compacted index');
 });
 
 test('parseCfIpTop20: drops entries containing a colon (IPv6 literals)', () => {
     const json = { code: 0, data: { good: [{ ip: '::1' }, { ip: 'fe80::1' }, { ip: 'ok.example.com' }] } };
     const out = parseCfIpTop20(json);
     assert.deepEqual(out.map(d => d.domain), ['ok.example.com']);
-    assert.equal(out[0].rank, 3);
 });
 
 test('parseCfIpTop20: drops entries with characters outside [a-z0-9.-]', () => {
@@ -66,14 +64,13 @@ test('parseCfIpTop20: drops entries with characters outside [a-z0-9.-]', () => {
     assert.deepEqual(out.map(d => d.domain), ['ok-2.example.com']);
 });
 
-test('parseCfIpTop20: dedupes (case-insensitive), keeping the first occurrence\'s rank', () => {
+test('parseCfIpTop20: dedupes (case-insensitive), keeping the first occurrence', () => {
     const json = {
         code: 0,
         data: { good: [{ ip: 'CF.Example.com' }, { ip: 'other.example.com' }, { ip: 'cf.example.com' }] },
     };
     const out = parseCfIpTop20(json);
     assert.deepEqual(out.map(d => d.domain), ['cf.example.com', 'other.example.com']);
-    assert.equal(out.find(d => d.domain === 'cf.example.com').rank, 1);
 });
 
 test('parseCfIpTop20: missing/malformed data.good -> empty array, no throw', () => {
@@ -94,7 +91,7 @@ test('fetchCfIpTop20: ok response -> parsed domain list, hits CFIP_TOP20_URL', a
     };
     const out = await fetchCfIpTop20({}, { fetchImpl });
     assert.equal(seenUrl, CFIP_TOP20_URL);
-    assert.deepEqual(out, [{ domain: 'cf.xycf.asia', note: 'vps789·综合排名1', rank: 1 }]);
+    assert.deepEqual(out, [{ domain: 'cf.xycf.asia', note: 'vps789' }]);
 });
 
 test('fetchCfIpTop20: json.code !== 0 -> null', async () => {
@@ -172,7 +169,7 @@ function makeOptimizedDB(initialRows) {
 test('reconcileOptimizedDomains: inserts new domains as builtin=1 enabled=1', async () => {
     const db = makeOptimizedDB([]);
     const env = { DB: db };
-    await reconcileOptimizedDomains(env, [{ domain: 'new.example.com', note: 'vps789·综合排名1' }]);
+    await reconcileOptimizedDomains(env, [{ domain: 'new.example.com', note: 'vps789' }]);
     const row = db.rows().find(r => r.domain === 'new.example.com');
     assert.ok(row);
     assert.equal(row.builtin, 1);
@@ -189,7 +186,7 @@ test('reconcileOptimizedDomains: deletes a builtin row no longer in the new top-
 test('reconcileOptimizedDomains: a disabled survivor (still in the new list) keeps enabled=0', async () => {
     const db = makeOptimizedDB([{ domain: 'survivor.example.com', builtin: 1, enabled: 0, last_ms: 42 }]);
     const env = { DB: db };
-    await reconcileOptimizedDomains(env, [{ domain: 'survivor.example.com', note: 'vps789·综合排名1' }]);
+    await reconcileOptimizedDomains(env, [{ domain: 'survivor.example.com', note: 'vps789' }]);
     const row = db.rows().find(r => r.domain === 'survivor.example.com');
     assert.ok(row);
     assert.equal(row.enabled, 0, 'INSERT OR IGNORE must not clobber the existing disabled toggle');
@@ -220,8 +217,8 @@ test('reconcileOptimizedDomains: full mix — insert + delete + preserve + untou
     ]);
     const env = { DB: db };
     await reconcileOptimizedDomains(env, [
-        { domain: 'survivor.example.com', note: 'vps789·综合排名1' },
-        { domain: 'fresh.example.com', note: 'vps789·综合排名2' },
+        { domain: 'survivor.example.com', note: 'vps789' },
+        { domain: 'fresh.example.com', note: 'vps789' },
     ]);
     const domains = db.rows().map(r => r.domain).sort();
     assert.deepEqual(domains, ['custom.example.com', 'fresh.example.com', 'survivor.example.com'].sort());

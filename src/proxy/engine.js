@@ -151,7 +151,8 @@ export async function proxyRequest(request, env, ctx, url) {
             const clientIp = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || "Unknown";
             const clientCountry = request.headers.get("cf-ipcountry") || "Unknown";
             const clientUa = request.headers.get("User-Agent") || "Unknown";
-            stmts.push(dbStmt(env, `INSERT INTO visitor_logs (prefix, ip, country, ua) VALUES (?, ?, ?, ?)`, matchedPrefix, clientIp, clientCountry, clientUa));
+            const clientColo = request.cf?.colo || '';
+            stmts.push(dbStmt(env, `INSERT INTO visitor_logs (prefix, ip, country, ua, colo) VALUES (?, ?, ?, ?, ?)`, matchedPrefix, clientIp, clientCountry, clientUa, clientColo));
 
             ctx.waitUntil(dbBatch(env, stmts));
         } catch (e) { }

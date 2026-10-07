@@ -21,15 +21,19 @@ export async function handleDns(request, env, ctx, url, deps = {}) {
             if (!listRes.ok) return Response.json({ success: false, error: 'CF 拉取记录失败: ' + (listRes.errors ? JSON.stringify(listRes.errors) : listRes.error) }, { status: 502 });
 
             const oldRecords = (listRes.result || []).filter(r => r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME');
-            // 删除旧 A/AAAA/CNAME
-            for (const r of oldRecords) {
-                await cfApi.rest(`/zones/${zoneId}/dns_records/${r.id}`, { method: 'DELETE' });
+            // 已有 CNAME 时原地改写：写入失败也不会删掉旧记录，域名不会断线。
+            // 只有 A/AAAA 时只能先删再建，因为 CNAME 不能和同名 A/AAAA 共存。
+            const record = { type: 'CNAME', name: domain, content: newDomain, ttl: 60, proxied: false };
+            const cname = oldRecords.find(r => r.type === 'CNAME');
+            let postRes;
+            if (cname) {
+                postRes = await cfApi.rest(`/zones/${zoneId}/dns_records/${cname.id}`, { method: 'PUT', body: record });
+            } else {
+                for (const r of oldRecords) {
+                    await cfApi.rest(`/zones/${zoneId}/dns_records/${r.id}`, { method: 'DELETE' });
+                }
+                postRes = await cfApi.rest(`/zones/${zoneId}/dns_records`, { method: 'POST', body: record });
             }
-            // 写入新 CNAME
-            const postRes = await cfApi.rest(`/zones/${zoneId}/dns_records`, {
-                method: 'POST',
-                body: { type: 'CNAME', name: domain, content: newDomain, ttl: 60, proxied: false }
-            });
             if (!postRes.ok) return Response.json({ success: false, error: 'CF 写入失败: ' + (postRes.errors ? JSON.stringify(postRes.errors) : postRes.error) }, { status: 502 });
             return Response.json({ success: true, name: domain, content: newDomain, replaced: oldRecords.length });
         } catch (e) { return Response.json({ success: false, error: e.message }, { status: 500 }); }

@@ -125,6 +125,21 @@ test('POST /api/dns/replace: deletes every old record then writes a single new C
     assert.deepEqual(posts[0].init.body, { type: 'CNAME', name: 'proxy.example.com', content: 'new-target.example.net', ttl: 60, proxied: false });
 });
 
+test('POST /api/dns/replace: an existing CNAME is overwritten in place, never deleted', async () => {
+    const cfApi = createFakeCfApi({
+        rest: (path, init) => (init.method === undefined || init.method === 'GET')
+            ? { ok: true, status: 200, result: [{ id: 'c1', type: 'CNAME', content: 'old.example.net' }] }
+            : { ok: false, status: 500, error: 'boom' },
+    });
+    const req = jsonRequest('POST', { domain: 'new-target.example.net' });
+    const res = await handleDns(req, makeEnv(), {}, makeUrl('/api/dns/replace'), { cfApi });
+
+    assert.equal(res.status, 502);
+    assert.deepEqual(cfApi.calls.rest.slice(1).map(c => [c.init.method, c.path]), [
+        ['PUT', '/zones/zone-1/dns_records/c1'],
+    ]);
+});
+
 test('POST /api/dns/replace: rejects with 400 when domain body field is missing', async () => {
     const cfApi = createFakeCfApi();
     const req = jsonRequest('POST', {});

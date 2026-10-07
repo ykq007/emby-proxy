@@ -28,22 +28,6 @@ export const DEFAULT_OPTIMIZED_DOMAINS = [
     { domain: 'icook.tw',              note: '台湾' }
 ];
 
-// F4: HEAD 测速辅助
-export async function probeDomain(domain) {
-    const start = Date.now();
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 4000);
-    try {
-        const res = await fetch(`https://${domain}/cdn-cgi/trace`, {
-            method: 'HEAD', redirect: 'manual', signal: controller.signal,
-            cf: { cacheTtl: 0 }
-        });
-        clearTimeout(t);
-        if (res.status >= 500) return { ms: -1, ok: false };
-        return { ms: Date.now() - start, ok: true };
-    } catch (e) { clearTimeout(t); return { ms: -1, ok: false }; }
-}
-
 export async function loadCountryAllowlist(env) {
     if (!env.DB) return null;
     try {

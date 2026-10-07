@@ -31,20 +31,18 @@ const DOMAIN_RE = /^[a-z0-9.-]+$/;
  *   - 丢弃裸 IPv4（entry.ip 本身就是 IP，不是域名，测速逻辑要求的是域名）
  *   - 丢弃含 ':' 的（IPv6 字面量）
  *   - 必须匹配 /^[a-z0-9.-]+$/，否则丢弃
- *   - 按结果去重（保留先出现的 rank）
+ *   - 按结果去重（保留先出现的）
  *
- * rank 取 data.good[] 里的原始 1-based 下标（即接口给出的真实排名），不是
- * 过滤/去重后的紧凑序号——note 里的"综合排名"要如实反映源站排名。
+ * 不保留 vps789 的排名：它是在国内三网测的，我们的观众在马来西亚，照搬排名会误导。
  *
  * @param {*} json - 已解析的响应体，形如 { code, message, data: { good: [...] } }
- * @returns {{domain:string, note:string, rank:number}[]}
+ * @returns {{domain:string, note:string}[]}
  */
 export function parseCfIpTop20(json) {
     const good = json && json.data && Array.isArray(json.data.good) ? json.data.good : [];
     const seen = new Set();
     const out = [];
-    good.forEach((entry, idx) => {
-        const rank = idx + 1;
+    good.forEach(entry => {
         if (!entry) return;
         const domain = String(entry.ip ?? '').trim().toLowerCase();
         if (!domain) return;
@@ -53,7 +51,7 @@ export function parseCfIpTop20(json) {
         if (!DOMAIN_RE.test(domain)) return;
         if (seen.has(domain)) return;
         seen.add(domain);
-        out.push({ domain, note: `vps789·综合排名${rank}`, rank });
+        out.push({ domain, note: 'vps789' });
     });
     return out;
 }
@@ -67,7 +65,7 @@ export function parseCfIpTop20(json) {
  * @param {object} [options]
  * @param {typeof fetch} [options.fetchImpl] - 覆盖底层 fetch（测试/依赖注入用）。
  * @param {number} [options.timeoutMs=8000]
- * @returns {Promise<{domain:string, note:string, rank:number}[]|null>}
+ * @returns {Promise<{domain:string, note:string}[]|null>}
  */
 export async function fetchCfIpTop20(env, { fetchImpl = fetch, timeoutMs = 8000 } = {}) {
     const ctrl = new AbortController();
