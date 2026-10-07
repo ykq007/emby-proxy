@@ -115,12 +115,14 @@ async function dtosFor(env, s, sid, ids) {
         const { items } = await queryItems(env, s.scope, { ids: plain, limit: plain.length, count: false });
         for (const { row, tags } of await withTags(env, s, items)) byId.set(String(row.vid), itemDto(row, sid, tags));
     }
-    const series = new Set();
+    const series = new Set(); const derived = [];
     for (const id of ids.filter(id => decodeId(id))) {
         const v = decodeId(id).vid;
         if (!series.has(v) && series.size >= MAX_SERIES_PER_REQUEST) continue; // ponytail: 超出的剧这次不展示
-        series.add(v);
-        const dto = await derivedDto(env, s.scope, id, sid);
+        series.add(v); derived.push(id);
+    }
+    // 各剧并行取：每部剧都要问它所在的节点，逐部等会叠加。
+    for (const [id, dto] of await Promise.all(derived.map(async id => [id, await derivedDto(env, s.scope, id, sid)]))) {
         if (dto) byId.set(String(id), dto);
     }
     return ids.map(id => byId.get(String(id))).filter(Boolean);
@@ -206,7 +208,7 @@ async function liveItem(env, src, deviceId = '') {
     const hit = LIVE.get(k);
     if (hit && Date.now() - hit.at < LIVE_MS) return hit.data;
     const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
-    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000, deviceId }) : null;
+    const live = route ? await nodeJson(env, route, `/Users/{uid}/Items/${encodeURIComponent(src.item_id)}`, { timeoutMs: 8000, deadlineMs: 8000, deviceId }) : null;
     const data = (live && live.data) || null;
     if (data) { LIVE.set(k, { at: Date.now(), data }); if (LIVE.size > LIVE_MAX) LIVE.delete(LIVE.keys().next().value); }
     return data;

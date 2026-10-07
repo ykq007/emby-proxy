@@ -32,3 +32,7 @@ database_id = "<prod database_id from wrangler.prod.toml>"
 
 # [limits]
 # cpu_ms = 60000  # 仅 Workers Paid；免费版每次 10 ms
+
+# Workers Logs：保留请求日志（含 console.log 与异常），在 Cloudflare 后台 Workers → emby-aggregate → Logs 查看。
+[observability]
+enabled = true

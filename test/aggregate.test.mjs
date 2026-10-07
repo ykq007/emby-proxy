@@ -11,7 +11,7 @@ import { ensureAggSchema, __resetAggSchemaForTest } from '../src/aggregate/schem
 import { __resetAggUpstreamForTest } from '../src/aggregate/upstream.js';
 import { __resetAggAuthForTest } from '../src/aggregate/auth.js';
 import { __resetPlaybackForTest, PROGRESS_WRITE_MS } from '../src/aggregate/playback.js';
-import { __resetSeriesForTest, CACHE_MS } from '../src/aggregate/series.js';
+import { __resetSeriesForTest, CACHE_MS, BROWSE_WAIT_MS } from '../src/aggregate/series.js';
 import { __resetLiveForTest } from '../src/aggregate/api.js';
 import { __resetCountsForTest } from '../src/aggregate/catalog.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
@@ -76,6 +76,7 @@ function fakeEmby(req, body) {
     const p = u.pathname.replace(/^\/emby/, '');
     const q = u.searchParams;
     calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range'), key: req.headers.get('X-Node-Key'), body });
+    if (node.hang) return new Promise(() => {}); // 连得上但永远不回
     const json = (d, status = 200) => Response.json(d, { status });
     if (p === '/Users/AuthenticateByName') {
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
@@ -740,6 +741,19 @@ test('series: seasons and episodes are merged across nodes by number (A has S1�
     // 节点数据缓存 + 并发合并：每个节点的剧集只取了一次。
     assert.equal(calls.filter(c => c.path === '/Shows/a9/Episodes').length, 1);
     assert.equal(calls.filter(c => c.path === '/Shows/b9/Episodes').length, 1);
+});
+
+test('series: a node that never answers is cut off after BROWSE_WAIT_MS and then skipped; the other node still lists', async (t) => {
+    const { token, vid, E } = await seriesSetup();
+    nodes['b.example'].hang = true;
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const first = call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token });
+    while (!calls.some(c => c.host === 'b.example')) await new Promise(r => setImmediate(r));
+    t.mock.timers.tick(BROWSE_WAIT_MS);
+    assert.deepEqual((await first).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)]);
+    __resetSeriesForTest(); calls = [];
+    assert.deepEqual((await call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token })).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)]);
+    assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'node B is not asked again while marked down');
 });
 
 test('series: an episode on one node plays from that node; one on two nodes plays from the best one, or the picked one', async () => {

@@ -18,7 +18,7 @@ const DEV_MEM = new Map(); // `${prefix}\n${deviceId}` -> session（播放：每
 const ROUTES_TTL_MS = 60000;
 let routesMem = null; // { at, routes }
 
-export function __resetAggUpstreamForTest() { MEM.clear(); DEV_MEM.clear(); PICK.clear(); routesMem = null; }
+export function __resetAggUpstreamForTest() { MEM.clear(); DEV_MEM.clear(); PICK.clear(); DOWN.clear(); routesMem = null; }
 
 // 聚合成员节点：开启了 viewers 的节点；env.AGG_NODES（逗号分隔）只取这些，env.AGG_EXCLUDE_NODES 去掉这些。
 // 节点退出成员后，下一轮同步自动清掉它在目录里的副本（sync.js → forgetPrefix）。
@@ -175,7 +175,22 @@ export async function browseSession(env, route, deviceId) {
 }
 
 // opts.deviceId：用该设备自己的会话发（和用代理浏览时节点看到的一样）；它在这个节点没有会话或被拒时用同步会话。
+// 浏览（剧集列表、详情、最新）传 opts.deadlineMs：整个取数（会话 × 地址 × /emby 前缀 × 重登）最多等这么久。
+// 不设上限时，一个连不上的节点每次尝试 15 s、要试 4 次以上，客户端约 60 s 就放弃了（SenPlayer 的继续观看、Next Up）。
+// 超时或连不上的节点记 DOWN_MS，期间浏览直接跳过它，用其它节点的副本。后台同步不传，不受影响。
+const DOWN = new Map(); // prefix -> 到期时刻
+const DOWN_MS = 60000;
 export async function nodeJson(env, route, pathQuery, opts = {}) {
+    if (!opts.deadlineMs) return nodeJsonNoDeadline(env, route, pathQuery, opts);
+    if ((DOWN.get(route.prefix) || 0) > Date.now()) return { error: 'upstream unreachable' };
+    let timer;
+    const late = new Promise(r => { timer = setTimeout(() => r({ error: 'upstream too slow' }), opts.deadlineMs); });
+    const r = await Promise.race([nodeJsonNoDeadline(env, route, pathQuery, opts), late]).finally(() => clearTimeout(timer));
+    if (r.error === 'upstream too slow' || r.error === 'upstream unreachable') DOWN.set(route.prefix, Date.now() + DOWN_MS);
+    return r;
+}
+
+async function nodeJsonNoDeadline(env, route, pathQuery, opts) {
     const dev = await browseSession(env, route, opts.deviceId);
     if (dev) {
         const pq = pathQuery.replace('{uid}', encodeURIComponent(dev.userId));

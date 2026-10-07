@@ -13,6 +13,8 @@ export const LATEST_CACHE_MS = 10 * 60 * 1000;
 export const MAX_COPIES = 20;
 // 一次请求最多展开的剧集数（Next Up / 继续观看）：每部剧至多 MAX_COPIES 个节点请求，12 × 20 = 240 < 1000。
 export const MAX_SERIES_PER_REQUEST = 12;
+// 浏览时每个节点最多等多久（见 upstream.js 的 nodeJson）。
+export const BROWSE_WAIT_MS = 6000;
 const MEM_MAX = 500;
 const MEM = new Map(); // `${kind}|${prefix}|${itemId}` -> { at, items }
 const LATEST = new Map(); // prefix -> { at, items }
@@ -37,7 +39,7 @@ async function nodeList(env, route, kind, itemId, deviceId = '') {
     const path = kind === 'seasons'
         ? `/Shows/${id}/Seasons?UserId={uid}&EnableUserData=false&Fields=PremiereDate,Overview`
         : `/Shows/${id}/Episodes?UserId={uid}&EnableUserData=false&Fields=Overview,PremiereDate,DateCreated,MediaSources&EnableImageTypes=Primary,Thumb&ImageTypeLimit=1`;
-    const p = nodeJson(env, route, path, { deviceId }).then((r) => {
+    const p = nodeJson(env, route, path, { deviceId, deadlineMs: BROWSE_WAIT_MS }).then((r) => {
         if (r.error) return null; // 失败不缓存，下次再试
         const items = (r.data && r.data.Items) || [];
         remember(MEM, k, items);
@@ -182,7 +184,8 @@ export async function latestSeriesVids(env, scope, limit) {
         const hit = LATEST.get(route.prefix);
         if (hit && Date.now() - hit.at < LATEST_CACHE_MS) return { prefix: route.prefix, items: hit.items };
         const r = await nodeJson(env, route,
-            '/Users/{uid}/Items/Latest?IncludeItemTypes=Episode&GroupItems=false&Limit=30&Fields=DateCreated&EnableImages=false&EnableUserData=false');
+            '/Users/{uid}/Items/Latest?IncludeItemTypes=Episode&GroupItems=false&Limit=30&Fields=DateCreated&EnableImages=false&EnableUserData=false',
+            { deadlineMs: BROWSE_WAIT_MS });
         if (r.error) return { prefix: route.prefix, items: [] };
         const items = (Array.isArray(r.data) ? r.data : (r.data && r.data.Items) || [])
             .filter(it => it.SeriesId).map(it => ({ series: String(it.SeriesId), at: String(it.DateCreated || '') }));
