@@ -13,6 +13,7 @@ import { __resetAggAuthForTest } from '../src/aggregate/auth.js';
 import { __resetPlaybackForTest, PROGRESS_WRITE_MS } from '../src/aggregate/playback.js';
 import { __resetSeriesForTest, CACHE_MS } from '../src/aggregate/series.js';
 import { __resetLiveForTest } from '../src/aggregate/api.js';
+import { __resetCountsForTest } from '../src/aggregate/catalog.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
 import { runSync } from '../src/aggregate/sync.js';
 import { __resetConfigCache } from '../src/proxy/config-cache.js';
@@ -129,7 +130,7 @@ function fakeEmby(req, body) {
 }
 
 beforeEach(async () => {
-    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); __resetLiveForTest(); __resetUpstreamMemForTest(); UPSTREAM_CB.clear(); clearResolveCache(); __resetConfigCache();
+    __resetSchemaReadyForTest(); __resetAggSchemaForTest(); __resetAggUpstreamForTest(); __resetAggAuthForTest(); __resetPlaybackForTest(); __resetSeriesForTest(); __resetLiveForTest(); __resetCountsForTest(); __resetUpstreamMemForTest(); UPSTREAM_CB.clear(); clearResolveCache(); __resetConfigCache();
     env = { DB: createD1Sqlite(), ADMIN_TOKEN: 'admin-secret', AGG_PAGE_DELAY_MS: '0' };
     await ensureSchema(env);
     await ensureAggSchema(env);

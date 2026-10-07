@@ -261,7 +261,8 @@ const SORTS = {
 // q: { types[], ids[], search, startsWith, genres[], years[], sortBy, desc, start, limit, count, playedOrder }
 export async function queryItems(env, scope, q) {
     const where = ['1']; const binds = [];
-    if (q.types && q.types.length) { where.push(`i.type IN (SELECT value FROM json_each(?))`); binds.push(JSON.stringify(q.types)); }
+    // 逐个占位而不是 json_each：单个类型时 SQLite 才能按 (type, date_added) 索引顺序取前 N 条，不扫全表再排序。
+    if (q.types && q.types.length) { where.push(`i.type IN (${q.types.map(() => '?').join(', ')})`); binds.push(...q.types); }
     if (q.ids && q.ids.length) { where.push(`i.vid IN (SELECT value FROM json_each(?))`); binds.push(JSON.stringify(q.ids.map(Number))); }
     // 搜名字（name_key 是规整过的片名）和排序名：中文片名的 SortName 是拼音首字母（阳光先生 → ygxs），只搜它就搜不到中文。
     if (q.search) {
@@ -281,17 +282,30 @@ export async function queryItems(env, scope, q) {
     const byIds = q.playedOrder && q.sortBy === 'dateplayed' && q.ids && q.ids.length;
     const order = byIds ? '(SELECT j.key FROM json_each(?) j WHERE j.value = i.vid)' : SORTS[(q.sortBy || 'sortname').toLowerCase()] || SORTS.sortname;
     const dir = byIds ? (q.desc ? 'ASC' : 'DESC') : q.desc ? 'DESC' : 'ASC';
+    const limit = Math.min(Math.max(Number(q.limit) || 100, 1), 500);
     const rows = await dbAll(env,
         `SELECT i.* ${base} ORDER BY ${order} ${order === 'RANDOM()' ? '' : dir}, i.vid LIMIT ? OFFSET ?`,
-        ...allBinds, ...(byIds ? [JSON.stringify(q.ids.map(Number))] : []), Math.min(Math.max(Number(q.limit) || 100, 1), 500), Math.max(Number(q.start) || 0, 0));
+        ...allBinds, ...(byIds ? [JSON.stringify(q.ids.map(Number))] : []), limit, Math.max(Number(q.start) || 0, 0));
     const items = rows.results || [];
     let total = items.length + (Number(q.start) || 0);
-    if (q.count !== false) {
-        const c = await dbFirst(env, `SELECT COUNT(*) AS n ${base}`, ...allBinds);
-        total = Number(c && c.n) || 0;
+    // 不满一页（且不是越界的空页）时上面的 total 已是准数。否则 COUNT 在本 isolate 记 COUNT_MS：翻页只改 OFFSET，
+    // 而不能看全部节点的 viewer，每次 COUNT 要读约 10 万行（实测 0.1–1.5 s）。
+    const short = items.length < limit && (items.length > 0 || !q.start);
+    if (q.count !== false && !short) {
+        const key = base + '\n' + JSON.stringify(allBinds);
+        const hit = COUNTS.get(key);
+        if (hit && Date.now() - hit.at < COUNT_MS) total = hit.n;
+        else {
+            const c = await dbFirst(env, `SELECT COUNT(*) AS n ${base}`, ...allBinds);
+            total = Number(c && c.n) || 0;
+            COUNTS.set(key, { at: Date.now(), n: total });
+            if (COUNTS.size > COUNT_MAX) COUNTS.delete(COUNTS.keys().next().value);
+        }
     }
     return { items, total };
 }
+const COUNTS = new Map(); const COUNT_MS = 5 * 60 * 1000; const COUNT_MAX = 500;
+export function __resetCountsForTest() { COUNTS.clear(); }
 
 // 一批作品对该 viewer 可见的副本，按节点排序（routes.sort_order）。返回 Map(vid -> [source])。
 export async function visibleSourcesMany(env, scope, vids) {
