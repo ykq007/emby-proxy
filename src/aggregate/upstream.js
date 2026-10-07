@@ -178,6 +178,12 @@ export async function browseSession(env, route, deviceId) {
 // 浏览（剧集列表、详情、最新）传 opts.deadlineMs：整个取数（会话 × 地址 × /emby 前缀 × 重登）最多等这么久。
 // 不设上限时，一个连不上的节点每次尝试 15 s、要试 4 次以上，客户端约 60 s 就放弃了（SenPlayer 的继续观看、Next Up）。
 // 超时或连不上的节点记 DOWN_MS，期间浏览直接跳过它，用其它节点的副本。后台同步不传，不受影响。
+// 慢节点记进 Workers Logs（超过 SLOW_LOG_MS 才记，含超过浏览上限后才回来的），用来找出是哪个节点拖慢了浏览。
+const SLOW_LOG_MS = 2000;
+function logSlow(route, pathQuery, t0, result) {
+    const ms = Date.now() - t0;
+    if (ms >= SLOW_LOG_MS) console.log(`agg slow node ${route.prefix} ${ms}ms ${result} ${pathQuery.split('?')[0]}`);
+}
 const DOWN = new Map(); // prefix -> 到期时刻
 const DOWN_MS = 60000;
 export async function nodeJson(env, route, pathQuery, opts = {}) {
@@ -185,7 +191,10 @@ export async function nodeJson(env, route, pathQuery, opts = {}) {
     if ((DOWN.get(route.prefix) || 0) > Date.now()) return { error: 'upstream unreachable' };
     let timer;
     const late = new Promise(r => { timer = setTimeout(() => r({ error: 'upstream too slow' }), opts.deadlineMs); });
-    const r = await Promise.race([nodeJsonNoDeadline(env, route, pathQuery, opts), late]).finally(() => clearTimeout(timer));
+    const t0 = Date.now();
+    const work = nodeJsonNoDeadline(env, route, pathQuery, opts);
+    work.then(x => logSlow(route, pathQuery, t0, x.error || 'ok'), () => {});
+    const r = await Promise.race([work, late]).finally(() => clearTimeout(timer));
     if (r.error === 'upstream too slow' || r.error === 'upstream unreachable') DOWN.set(route.prefix, Date.now() + DOWN_MS);
     return r;
 }
@@ -223,13 +232,18 @@ async function nodeJsonNoDeadline(env, route, pathQuery, opts) {
 // 每个地址等响应头至多 waitMs（0 = 不限）；记了 DOWN 的节点直接跳过。取不到返回 null，调用方换下一个副本。
 export async function nodeRaw(env, route, pathQuery, deviceId = '', waitMs = 0) {
     if ((DOWN.get(route.prefix) || 0) > Date.now()) return null;
+    const t0 = Date.now();
     const s = (await browseSession(env, route, deviceId)) || await session(env, route);
     if (s.error) return null;
+    if (Date.now() - t0 >= SLOW_LOG_MS) logSlow(route, 'session for ' + pathQuery, t0, 'ok');
     for (const base of bases(route)) {
         const ctrl = new AbortController();
         const tmr = waitMs ? setTimeout(() => ctrl.abort(), waitMs) : null;
         try {
-            const r = await fetch(base.replace(/\/+$/, '') + '/emby' + pathQuery, { headers: headersFor(route, s), redirect: 'follow', signal: ctrl.signal });
+            const t1 = Date.now();
+            const r = await fetch(base.replace(/\/+$/, '') + '/emby' + pathQuery, { headers: headersFor(route, s), redirect: 'follow', signal: ctrl.signal })
+                .catch((e) => { logSlow(route, pathQuery, t1, ctrl.signal.aborted ? 'timeout' : 'error'); throw e; });
+            logSlow(route, pathQuery, t1, String(r.status));
             if (r.ok) return r;
             r.body?.cancel().catch(() => {});
         } catch (e) { } finally { clearTimeout(tmr); }
