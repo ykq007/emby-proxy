@@ -11,7 +11,7 @@ import { ensureAggSchema, __resetAggSchemaForTest } from '../src/aggregate/schem
 import { __resetAggUpstreamForTest } from '../src/aggregate/upstream.js';
 import { __resetAggAuthForTest } from '../src/aggregate/auth.js';
 import { __resetPlaybackForTest, PROGRESS_WRITE_MS } from '../src/aggregate/playback.js';
-import { __resetSeriesForTest, CACHE_MS, BROWSE_WAIT_MS } from '../src/aggregate/series.js';
+import { __resetSeriesForTest, CACHE_MS, BROWSE_WAIT_MS, GRACE_MS } from '../src/aggregate/series.js';
 import { __resetLiveForTest } from '../src/aggregate/api.js';
 import { __resetCountsForTest } from '../src/aggregate/catalog.js';
 import { UPSTREAM_CB } from '../src/proxy/circuit-breaker.js';
@@ -743,14 +743,18 @@ test('series: seasons and episodes are merged across nodes by number (A has S1â€
     assert.equal(calls.filter(c => c.path === '/Shows/b9/Episodes').length, 1);
 });
 
-test('series: a node that never answers is cut off after BROWSE_WAIT_MS and then skipped; the other node still lists', async (t) => {
+test('series: a node that never answers does not hold the list once another node answered; after BROWSE_WAIT_MS it is skipped', async (t) => {
     const { token, vid, E } = await seriesSetup();
     nodes['b.example'].hang = true;
     t.mock.timers.enable({ apis: ['setTimeout'] });
+    const turns = async (n) => { for (let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
     const first = call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token });
-    while (!calls.some(c => c.host === 'b.example')) await new Promise(r => setImmediate(r));
+    while (!calls.some(c => c.host === 'b.example') || !calls.some(c => c.path === '/Shows/a9/Episodes')) await turns(1);
+    await turns(20);
+    t.mock.timers.tick(GRACE_MS);
+    assert.deepEqual((await first).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)], 'answered GRACE_MS after node A, not BROWSE_WAIT_MS');
     t.mock.timers.tick(BROWSE_WAIT_MS);
-    assert.deepEqual((await first).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)]);
+    await turns(20);
     __resetSeriesForTest(); calls = [];
     assert.deepEqual((await call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token })).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)]);
     assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'node B is not asked again while marked down');

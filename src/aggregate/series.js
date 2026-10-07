@@ -28,6 +28,22 @@ function remember(map, k, items) {
     if (map.size > MEM_MAX) map.delete(map.keys().next().value);
 }
 
+// 多个节点并行问：第一个有数据的节点答了以后，其余的最多再等 GRACE_MS，不等最慢的（一个慢节点要等满 BROWSE_WAIT_MS）。
+// 没等到的照样跑完、进 MEM 缓存，下一次请求就有。没答的位置是 null。
+export const GRACE_MS = 1000;
+function firstPlusGrace(promises, answered) {
+    return new Promise((resolve) => {
+        const out = promises.map(() => null); let left = promises.length; let timer = null;
+        const done = () => { clearTimeout(timer); resolve(out.slice()); };
+        if (!left) return done();
+        promises.forEach((p, i) => p.then((v) => {
+            out[i] = v;
+            if (--left === 0) done();
+            else if (!timer && answered(v)) timer = setTimeout(done, GRACE_MS);
+        }, () => { if (--left === 0) done(); }));
+    });
+}
+
 const INFLIGHT = new Map(); // 同一份节点数据的并发请求共用一次上游请求（一屏缩略图同时到达时）
 
 async function nodeList(env, route, kind, itemId, deviceId = '') {
@@ -67,7 +83,7 @@ export async function loadSeries(env, scope, vid, { seasons = true } = {}) {
     const copies = (await visibleSources(env, scope, vid)).slice(0, MAX_COPIES);
     if (!copies.length) return null;
     const routes = new Map((await memberRoutes(env)).map(r => [r.prefix, r]));
-    const got = await Promise.all(copies.map(async (c) => {
+    const got = await firstPlusGrace(copies.map(async (c) => {
         const route = routes.get(c.prefix);
         if (!route) return null;
         const [eps, ss] = await Promise.all([
@@ -75,7 +91,7 @@ export async function loadSeries(env, scope, vid, { seasons = true } = {}) {
             seasons ? nodeList(env, route, 'seasons', c.item_id, scope.deviceId) : null,
         ]);
         return { c, eps: eps || [], ss: ss || [] };
-    }));
+    }), g => g && (g.eps.length || g.ss.length));
     const S = new Map(); const E = new Map();
     for (const g of got) {
         if (!g) continue;
@@ -180,7 +196,7 @@ export async function watchMeta(env, scope, id) {
 // 单集映射回目录里的剧集，按最新一集的入库时间排序。返回 vid 数组。尚未同步进目录的新剧要等下一轮同步。
 export async function latestSeriesVids(env, scope, limit) {
     const routes = (await memberRoutes(env)).filter(r => scope.prefixes.includes(r.prefix));
-    const lists = await Promise.all(routes.map(async (route) => {
+    const lists = (await firstPlusGrace(routes.map(async (route) => {
         const hit = LATEST.get(route.prefix);
         if (hit && Date.now() - hit.at < LATEST_CACHE_MS) return { prefix: route.prefix, items: hit.items };
         const r = await nodeJson(env, route,
@@ -191,7 +207,7 @@ export async function latestSeriesVids(env, scope, limit) {
             .filter(it => it.SeriesId).map(it => ({ series: String(it.SeriesId), at: String(it.DateCreated || '') }));
         remember(LATEST, route.prefix, items);
         return { prefix: route.prefix, items };
-    }));
+    }), l => l && l.items.length)).filter(Boolean);
     const pairs = [];
     for (const l of lists) for (const it of l.items) pairs.push([l.prefix, it.series, it.at]);
     if (!pairs.length) return [];
