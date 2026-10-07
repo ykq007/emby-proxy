@@ -28,7 +28,6 @@ import {
     hostMatchesAllowlist,
     readManualRedirectDomains,
     DEFAULT_OPTIMIZED_DOMAINS,
-    probeDomain,
     loadCountryAllowlist,
     writeManualRedirectDomains,
 } from '../src/routing/validate.js';
@@ -590,44 +589,6 @@ test('DEFAULT_OPTIMIZED_DOMAINS: contains known domains', () => {
     assert.ok(domains.includes('visa.com.hk'));
     assert.ok(domains.includes('icook.tw'));
     assert.ok(domains.includes('time.is'));
-});
-
-// ---------------------------------------------------------------------------
-// probeDomain — fetch-dependent
-// ---------------------------------------------------------------------------
-
-test('probeDomain: returns { ms, ok } on success (status < 500)', async () => {
-    const restore = stubFetch(async () => new Response('', { status: 200 }));
-    try {
-        const result = await probeDomain('example.com');
-        assert.ok(typeof result.ms === 'number');
-        assert.equal(result.ok, true);
-        assert.ok(result.ms >= 0);
-    } finally {
-        restore();
-    }
-});
-
-test('probeDomain: status >= 500 → { ms: -1, ok: false }', async () => {
-    const restore = stubFetch(async () => new Response('', { status: 503 }));
-    try {
-        const result = await probeDomain('example.com');
-        assert.equal(result.ms, -1);
-        assert.equal(result.ok, false);
-    } finally {
-        restore();
-    }
-});
-
-test('probeDomain: fetch throws → { ms: -1, ok: false }', async () => {
-    const restore = stubFetch(async () => { throw new Error('network error'); });
-    try {
-        const result = await probeDomain('example.com');
-        assert.equal(result.ms, -1);
-        assert.equal(result.ok, false);
-    } finally {
-        restore();
-    }
 });
 
 // ---------------------------------------------------------------------------

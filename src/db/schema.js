@@ -12,7 +12,7 @@ const RETRY_COOLDOWN_MS = 30000;
 // Schema 版本号：每次新增/修改 DDL 时递增此值即可触发下次冷启重新跑一遍迁移。
 // 版本号存在 kv_config(k=SCHEMA_VERSION_KEY) 里；命中且匹配时 ensureSchema 只做
 // 一次 SELECT 就返回，省掉冷启时 ~50 条 DDL exec 带来的延迟。
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 // Key constant lives in db/kv.js (the kv_config registry); re-exported here
 // so existing importers of SCHEMA_VERSION_KEY from this module keep working.
 export { SCHEMA_VERSION_KEY };
@@ -42,6 +42,7 @@ export async function ensureSchema(env) {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS routes (prefix TEXT PRIMARY KEY, target TEXT NOT NULL)`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS request_stats (prefix TEXT, date TEXT, count INTEGER DEFAULT 0, PRIMARY KEY(prefix, date))`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS visitor_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, prefix TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, ip TEXT, country TEXT, ua TEXT)`);
+        try { await env.DB.exec(`ALTER TABLE visitor_logs ADD COLUMN colo TEXT DEFAULT ''`); } catch (e) { }
 
         // routes 基础业务列（原先散落在 /api/routes 内联 DDL，已收敛至此）
         try { await env.DB.exec(`ALTER TABLE routes ADD COLUMN mode TEXT DEFAULT 'off'`); } catch (e) { }
@@ -141,6 +142,8 @@ export async function ensureSchema(env) {
             dbStmt(env, `INSERT OR IGNORE INTO optimized_domains (domain, note, builtin, enabled) VALUES (?, ?, 1, 1)`, d.domain, d.note)
         );
         if (seedStmts.length) await dbBatch(env, seedStmts);
+        // 旧版 note 带 vps789 的国内排名（"vps789·综合排名N"），对马来西亚观众没有意义。
+        await dbRun(env, `UPDATE optimized_domains SET note = 'vps789' WHERE builtin = 1 AND note LIKE 'vps789·%'`);
 
         // Seed manual redirect domains 默认值
         const existing = await dbFirst(env, `SELECT v FROM kv_config WHERE k = '${MANUAL_REDIRECT_DOMAINS_KEY}'`);

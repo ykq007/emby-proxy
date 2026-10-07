@@ -1,6 +1,5 @@
 import { ensureSchema } from '../db/schema.js';
 import { dbAll, dbFirst, dbRun, dbStmt, dbBatch } from '../db/helpers.js';
-import { probeDomain } from '../routing/validate.js';
 import { maybeRefreshOptimizedDomains } from '../optimized/vps789.js';
 
 export async function handleOptimizedDomains(request, env, ctx, url) {
@@ -14,7 +13,9 @@ export async function handleOptimizedDomains(request, env, ctx, url) {
         // 刷新失败/异常绝不能影响列表接口本身返回。
         try { await maybeRefreshOptimizedDomains(env, ctx); } catch (e) {}
         const { results } = await dbAll(env, `SELECT id, domain, note, builtin, enabled, last_ms FROM optimized_domains ORDER BY builtin DESC, id ASC`);
-        return Response.json({ success: true, items: results || [] });
+        // 观众最近 24h 从哪个 CF 机房进入：换 DNS 之后看这里，才知道换得对不对。
+        const { results: colos } = await dbAll(env, `SELECT colo, COUNT(*) AS n FROM visitor_logs WHERE colo != '' AND timestamp > datetime('now', '-1 day') GROUP BY colo ORDER BY n DESC`);
+        return Response.json({ success: true, items: results || [], colos: colos || [] });
     }
     if (url.pathname === '/api/optimized-domains' && request.method === 'POST') {
         if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
@@ -50,27 +51,18 @@ export async function handleOptimizedDomains(request, env, ctx, url) {
         }
         return new Response("Method not allowed", { status: 405 });
     }
+    // 保存浏览器本地测速结果。测速只能在管理员浏览器里做：Worker 机房到 CF 边缘的延迟说明不了观众的线路。
     if (url.pathname === '/api/optimized-domains/speedtest' && request.method === 'POST') {
         if (!env.DB) return Response.json({ success: false, error: '未绑定 D1 数据库' });
         await ensureSchema(env);
-        const { results } = await dbAll(env, `SELECT id, domain FROM optimized_domains WHERE enabled = 1`);
-        const rows = results || [];
-        const measured = await Promise.all(rows.map(async r => {
-            const probe = await probeDomain(r.domain);
-            return { id: r.id, domain: r.domain, ms: probe.ms, ok: probe.ok };
-        }));
-        // 持久化 last_ms
-        try {
-            const stmts = measured.map(m => dbStmt(env, `UPDATE optimized_domains SET last_ms = ? WHERE id = ?`, m.ms, m.id));
-            if (stmts.length) await dbBatch(env, stmts);
-        } catch (e) {}
-        measured.sort((a, b) => {
-            if (!a.ok && !b.ok) return 0;
-            if (!a.ok) return 1;
-            if (!b.ok) return -1;
-            return a.ms - b.ms;
-        });
-        return Response.json({ success: true, items: measured });
+        let items;
+        try { ({ items } = await request.json()); } catch (e) { items = null; }
+        if (!Array.isArray(items)) return Response.json({ success: false, error: 'items 必须是数组' }, { status: 400 });
+        const stmts = items
+            .filter(m => Number.isInteger(m?.id) && Number.isInteger(m?.ms))
+            .map(m => dbStmt(env, `UPDATE optimized_domains SET last_ms = ? WHERE id = ?`, m.ms < 0 ? -1 : m.ms, m.id));
+        if (stmts.length) await dbBatch(env, stmts);
+        return Response.json({ success: true, saved: stmts.length });
     }
 
     return null;

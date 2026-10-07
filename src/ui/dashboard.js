@@ -396,12 +396,12 @@ export const HTML_UI = `
                 <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                     <h2 class="section-title"><svg class="st-ico" aria-hidden="true"><use href="#i-star"/></svg>域名列表</h2>
                     <div class="flex-wrap-tight">
-                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains('client')">全部测速 (本地)</button>
-                        <button type="button" class="btn-tier" onclick="speedtestOptimizedDomains('edge')" title="从 Worker 机房测，仅供参考">Edge 测速</button>
+                        <button type="button" class="btn-tier is-primary" onclick="speedtestOptimizedDomains()">全部测速 (本地)</button>
                         <button type="button" class="btn-tier" onclick="runDownloadSpeedtest()" title="测当前 DNS 路径的实际下载带宽"><svg class="bt-ico" aria-hidden="true"><use href="#i-download"/></svg>当前路径带宽</button>
                         <button type="button" class="btn-tier" onclick="addOptimizedDomain()">+ 添加自定义</button>
                     </div>
                     <div id="downloadSpeedResult" style="margin-top:10px; font-size:var(--text-md); color:var(--text-sec);"></div>
+                    <div id="odColoSplit" style="flex-basis:100%; font-size:var(--text-md); color:var(--text-sec);"></div>
                 </div>
                 <!-- 缺少 DNS 环境变量时的说明放在表格上方：先告诉你为什么按钮不可用，再给你看按钮。 -->
                 <div id="dnsReadyHint" style="margin-bottom:14px; padding:10px 14px; border-radius:var(--radius-md); font-size:var(--text-md);"></div>

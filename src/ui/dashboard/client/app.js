@@ -36,11 +36,21 @@
                         return;
                     }
                     renderOptimizedDomains(data.items || []);
+                    renderColoSplit(data.colos || []);
                 } catch (e) {
                     console.error('[optimized-domains] load error:', e);
                     const body = document.getElementById('optimizedDomainsBody');
                     if (body) body.innerHTML = '<tr><td colspan="6" class="text-center" style="color:var(--err);">JS 异常: ' + e.message + '</td></tr>';
                 }
+            }
+            // 观众真实入口机房：换 DNS 后靠它判断观众是否换到了想要的机房（如 KUL → SIN）。
+            function renderColoSplit(colos) {
+                const el = document.getElementById('odColoSplit');
+                if (!el) return;
+                const total = colos.reduce((sum, c) => sum + c.n, 0);
+                el.textContent = total
+                    ? '过去 24 小时观众入口机房：' + colos.map(c => c.colo + ' ' + Math.round(c.n * 100 / total) + '%').join(' · ') + '（' + total + ' 次播放）'
+                    : '过去 24 小时还没有观众入口机房记录';
             }
             // Sort state + cache. Latency is the table's decision data, so it owns
             // the default order (fastest first); idle/failed rows sink to the bottom.
@@ -159,24 +169,7 @@
                 }
             }
 
-            // 客户端侧测速：先 fetch no-cors，失败回退到 Image() 加载（兼容更多目标）
-            function clientProbeImage(domain, timeoutMs) {
-                return new Promise(resolve => {
-                    const start = performance.now();
-                    const img = new Image();
-                    let done = false;
-                    const finish = (ok) => {
-                        if (done) return; done = true;
-                        const ms = Math.round(performance.now() - start);
-                        resolve({ ms: ok ? ms : -1, ok });
-                    };
-                    const t = setTimeout(() => finish(false), timeoutMs);
-                    img.onload = () => { clearTimeout(t); finish(true); };
-                    // onerror 也算"通了"：说明 TCP/TLS 已经握手成功，只是资源不是图片
-                    img.onerror = () => { clearTimeout(t); finish(true); };
-                    img.src = 'https://' + domain + '/favicon.ico?_=' + Date.now();
-                });
-            }
+            // 客户端侧测速。no-cors fetch 只要拿到任何 HTTP 响应就会 resolve，DNS/TCP/TLS 失败或超时则 reject。
             async function clientProbe(domain, timeoutMs) {
                 timeoutMs = timeoutMs || 4000;
                 const start = performance.now();
@@ -186,52 +179,30 @@
                     await fetch('https://' + domain + '/cdn-cgi/trace?_=' + Date.now(), {
                         mode: 'no-cors', cache: 'no-store', signal: controller.signal
                     });
-                    clearTimeout(t);
                     return { ms: Math.round(performance.now() - start), ok: true };
                 } catch (e) {
+                    return { ms: -1, ok: false };
+                } finally {
                     clearTimeout(t);
-                    console.log('[probe] fetch failed for', domain, e.message, '— fallback to Image');
-                    return await clientProbeImage(domain, timeoutMs);
                 }
             }
-            async function speedtestOptimizedDomains(mode) {
-                mode = mode || 'client';
-                showToast((mode === 'client' ? '本地' : 'Edge') + '测速中...');
-                let measured;
-                if (mode === 'edge') {
-                    const res = await fetch('/api/optimized-domains/speedtest', { method: 'POST', body: '{}' });
-                    const data = await res.json();
-                    if (!data.success) { showError('测速失败：' + (data.error || '未知错误')); return; }
-                    measured = data.items || [];
-                } else {
-                    // 客户端：先取启用域名列表
-                    const listRes = await fetch('/api/optimized-domains');
-                    const listData = await listRes.json();
-                    if (!listData.success) { showError('拉取域名列表失败'); return; }
-                    const enabled = (listData.items || []).filter(it => it.enabled);
-                    measured = await Promise.all(enabled.map(async it => {
-                        const p = await clientProbe(it.domain);
-                        return { id: it.id, domain: it.domain, ms: p.ms, ok: p.ok };
-                    }));
-                    measured.sort((a, b) => {
-                        if (!a.ok && !b.ok) return 0; if (!a.ok) return 1; if (!b.ok) return -1;
-                        return a.ms - b.ms;
-                    });
-                }
-                _lastSpeedtest = {};
-                measured.forEach(it => { _lastSpeedtest[it.id] = { ms: it.ms, ok: it.ok }; });
-                showToast((mode === 'client' ? '本地' : 'Edge') + '测速完成，已按延迟排序');
+            async function speedtestOptimizedDomains() {
+                showToast('本地测速中...');
                 const listRes = await fetch('/api/optimized-domains');
                 const listData = await listRes.json();
-                if (listData.success) {
-                    const items = (listData.items || []).slice().sort((a, b) => {
-                        const sa = _lastSpeedtest[a.id], sb = _lastSpeedtest[b.id];
-                        if (!sa && !sb) return 0; if (!sa) return 1; if (!sb) return -1;
-                        if (!sa.ok && !sb.ok) return 0; if (!sa.ok) return 1; if (!sb.ok) return -1;
-                        return sa.ms - sb.ms;
-                    });
-                    renderOptimizedDomains(items);
-                }
+                if (!listData.success) { showError('拉取域名列表失败'); return; }
+                const enabled = (listData.items || []).filter(it => it.enabled);
+                const measured = await Promise.all(enabled.map(async it => {
+                    const p = await clientProbe(it.domain);
+                    return { id: it.id, ms: p.ms, ok: p.ok };
+                }));
+                _lastSpeedtest = {};
+                measured.forEach(it => { _lastSpeedtest[it.id] = { ms: it.ms, ok: it.ok }; });
+                try {
+                    await fetch('/api/optimized-domains/speedtest', { method: 'POST', body: JSON.stringify({ items: measured.map(m => ({ id: m.id, ms: m.ms })) }) });
+                } catch (e) { console.warn('[optimized-domains] save speedtest failed:', e.message); }
+                showToast('本地测速完成，已按延迟排序');
+                renderOptimizedDomains(listData.items || []);
             }
             let _dnsReady = false;
             let _dnsActive = ''; // 当前 DNS CNAME 实际指向的域名（小写），用于"生效中"标记
