@@ -46,7 +46,7 @@ const DENIED = [
 const unauthorized = () => Response.json({ message: 'Unauthorized' }, { status: 401 });
 const browserBlocked = () => Response.json({ message: BROWSER_BLOCKED_MESSAGE }, { status: 403 });
 
-export function extractToken(request, url) {
+function extractToken(request, url) {
     const h = request.headers;
     const direct = h.get('X-Emby-Token') || h.get('X-MediaBrowser-Token');
     if (direct) return direct;
@@ -237,8 +237,8 @@ async function userDataWrite(v, r, itemId, flags, fetchItem) {
 }
 
 // 回应里的上游令牌换回 viewer 令牌（Location 与 JSON / 播放列表正文），其余原样流式透传。
-// edit(text) → text：换完令牌后再改正文。生产 viewer 网关与聚合端共用。
-export async function swapBack(r, upToken, token, path, edit = null) {
+// edit(text) → text：换完令牌后再改正文。
+async function swapBack(r, upToken, token, path, edit = null) {
     if (r.status === 101 || r.webSocket) return r;
     const ct = r.headers.get('content-type') || '';
     const textual = /json|mpegurl|dash\+xml/i.test(ct) || /\.(m3u8|mpd)$/i.test(String(path).split('?')[0]);

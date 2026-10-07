@@ -6,7 +6,7 @@
 // ponytail: D1 先查后插非原子，两个设备同一瞬间起播可能超 1 个；要严格就换 Durable Object。
 import { dbRun, dbFirst } from '../db/helpers.js';
 
-export const SLOT_TTL_MS = 3 * 60 * 1000;
+const SLOT_TTL_MS = 3 * 60 * 1000;
 export const PENDING_TTL_MS = 60 * 1000;
 const HELD = new Map(); // `${viewerId}|${prefix}|${device}` -> 上次在 D1 确认占着槽位的时间
 const HOLD_RECHECK_MS = 30000;

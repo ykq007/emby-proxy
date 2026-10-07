@@ -76,18 +76,6 @@ _Avoid_: Allowance, seat, slot count
 One viewer stream on one device counted against the viewer quota and node concurrency limit; taken at PlaybackInfo, released on stop or after 3 minutes without a heartbeat.
 _Avoid_: Session, lease, stream count
 
-**Aggregate server**:
-The separate `emby-aggregate` Worker that presents every viewer-enabled Emby node as one virtual Emby server, with titles merged across nodes.
-_Avoid_: Meta server, merged node, all-in-one
-
 **Node forward**:
-The one path every request to an Emby node takes in both Workers (`forwardToNode` in `src/proxy/forward.js`): failover across the node's addresses, scheme fallback, 403 header cascade, timeout, and rewriting of redirects and node URLs in responses so clients stay on the proxy.
+The one path every request to an Emby node takes (`forwardToNode` in `src/proxy/forward.js`): failover across the node's addresses, scheme fallback, 403 header cascade, timeout, and rewriting of redirects and node URLs in responses so clients stay on the proxy.
 _Avoid_: Upstream fetch, transport, node client
-
-**Title copy**:
-One Emby node's copy of a merged title (`agg_sources`); a title with copies on several nodes is offered as one version per node at playback.
-_Avoid_: Mirror, replica, duplicate
-
-**Version**:
-One file of one title copy offered in the aggregate server's version menu; always the Emby node's own media source, with only its Id (`<prefix>~<id>`), ItemId and Name changed.
-_Avoid_: Stub source, menu entry

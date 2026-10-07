@@ -33,7 +33,7 @@ export async function verifyPassword(password, stored) {
     return diff === 0;
 }
 
-export async function sha256Hex(s) {
+async function sha256Hex(s) {
     return hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
 }
 

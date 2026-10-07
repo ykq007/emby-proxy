@@ -5,9 +5,6 @@
 import { dbAll, dbFirst, dbRun } from '../db/helpers.js';
 
 const PLAYED_RATIO = 0.9;
-// 表名：生产用 watch_state；聚合 Worker 传 s.table = 'agg_watch_state'（它不能写生产表）。
-const TABLES = new Set(['watch_state', 'agg_watch_state']);
-const T = (s) => (s.table && TABLES.has(s.table) ? s.table : 'watch_state');
 const WRITABLE = new Set(['item_type', 'series_id', 'parent_index', 'index_number', 'position_ticks',
     'runtime_ticks', 'played', 'is_favorite', 'last_played']);
 
@@ -15,14 +12,14 @@ async function upsert(env, s, itemId, fields) {
     const cols = Object.keys(fields).filter(k => WRITABLE.has(k));
     if (!cols.length) return;
     await dbRun(env,
-        `INSERT INTO ${T(s)} (viewer_id, prefix, item_id, ${cols.join(', ')}) VALUES (?, ?, ?, ${cols.map(() => '?').join(', ')})
+        `INSERT INTO watch_state (viewer_id, prefix, item_id, ${cols.join(', ')}) VALUES (?, ?, ?, ${cols.map(() => '?').join(', ')})
          ON CONFLICT(viewer_id, prefix, item_id) DO UPDATE SET ${cols.map(c => `${c} = excluded.${c}`).join(', ')}`,
         s.viewerId, s.prefix, String(itemId), ...cols.map(c => fields[c]));
 }
 
 // 首次记录某条目时向上游取一次类型/剧集信息（Resume 分组、NextUp、90% 判定要用）。
 async function withMeta(env, s, itemId, fetchItem, fields) {
-    const row = await dbFirst(env, `SELECT item_type, runtime_ticks FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
+    const row = await dbFirst(env, `SELECT item_type, runtime_ticks FROM watch_state WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
         s.viewerId, s.prefix, String(itemId));
     if (row && row.item_type) return { ...fields, runtime: Number(row.runtime_ticks) || 0 };
     const it = (await fetchItem(itemId).catch(() => null)) || {};
@@ -72,12 +69,12 @@ export async function setUserData(env, s, itemId, flags, fetchItem, now = Date.n
 // 「从继续观看中移除」与 Emby 一致：只隐藏，进度保留；剧集按整部剧隐藏（隐藏任一集，整部剧都不再出现）。
 // 该剧任一集 / 该电影再次播放时取消隐藏（见 recordPlayback）。
 async function setResumeHidden(env, s, itemId, hidden) {
-    const row = await dbFirst(env, `SELECT series_id FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
+    const row = await dbFirst(env, `SELECT series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND item_id = ?`,
         s.viewerId, s.prefix, String(itemId));
     if (!row) return;
     const sid = row.series_id || '';
     await dbRun(env,
-        `UPDATE ${T(s)} SET resume_hidden = ? WHERE viewer_id = ? AND prefix = ? AND (item_id = ? OR (? != '' AND series_id = ?))`,
+        `UPDATE watch_state SET resume_hidden = ? WHERE viewer_id = ? AND prefix = ? AND (item_id = ? OR (? != '' AND series_id = ?))`,
         hidden ? 1 : 0, s.viewerId, s.prefix, String(itemId), sid, sid);
 }
 
@@ -88,7 +85,7 @@ export async function loadRows(env, s, ids) {
     for (let i = 0; i < uniq.length; i += 90) {
         const chunk = uniq.slice(i, i + 90);
         const r = await dbAll(env,
-            `SELECT item_id, position_ticks, runtime_ticks, played, is_favorite, last_played FROM ${T(s)}
+            `SELECT item_id, position_ticks, runtime_ticks, played, is_favorite, last_played FROM watch_state
               WHERE viewer_id = ? AND prefix = ? AND item_id IN (${chunk.map(() => '?').join(',')})`,
             s.viewerId, s.prefix, ...chunk);
         for (const row of r.results || []) out.set(String(row.item_id), row);
@@ -146,18 +143,13 @@ export async function localFilterRows(env, s, params) {
     const rest = filters.filter(f => !['IsFavorite', 'IsPlayed', 'IsResumable'].includes(f));
     if (rest.length) params.set('Filters', rest.join(',')); else params.delete('Filters');
     const r = await dbAll(env,
-        `SELECT item_id, item_type FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND ${conds.join(' AND ')}
+        `SELECT item_id, item_type FROM watch_state WHERE viewer_id = ? AND prefix = ? AND ${conds.join(' AND ')}
           ORDER BY last_played DESC, rowid DESC LIMIT 1000`,
         s.viewerId, s.prefix);
     let rows = r.results || [];
     const given = params.get('Ids');
     if (given) { const g = new Set(given.split(',')); rows = rows.filter(x => g.has(String(x.item_id))); }
     return rows;
-}
-
-export async function localFilterIds(env, s, params) {
-    const rows = await localFilterRows(env, s, params);
-    return rows && rows.map(x => String(x.item_id));
 }
 
 // 观看历史（SortBy=DatePlayed）：排序、类型过滤与分页都按本地记录做，上游只取这一页的条目。
@@ -185,7 +177,7 @@ export function datePlayedPage(params, rows) {
 // Continue Watching：本地 进度>0、未看完且未被隐藏，每部剧只取最近一集。
 export async function resumeIds(env, s, params) {
     const r = await dbAll(env,
-        `SELECT item_id, series_id FROM ${T(s)} WHERE viewer_id = ? AND prefix = ? AND position_ticks > 0 AND played = 0 AND resume_hidden = 0
+        `SELECT item_id, series_id FROM watch_state WHERE viewer_id = ? AND prefix = ? AND position_ticks > 0 AND played = 0 AND resume_hidden = 0
           ORDER BY last_played DESC, rowid DESC LIMIT 500`,
         s.viewerId, s.prefix);
     const seen = new Set(); const ids = [];
@@ -205,7 +197,7 @@ export async function resumeIds(env, s, params) {
 const MAX_NEXTUP_SERIES = 12;
 export async function buildNextUp(env, s, params, fetchEpisodes) {
     const r = await dbAll(env,
-        `SELECT item_id, series_id, parent_index, index_number, position_ticks, played, last_played, resume_hidden FROM ${T(s)}
+        `SELECT item_id, series_id, parent_index, index_number, position_ticks, played, last_played, resume_hidden FROM watch_state
           WHERE viewer_id = ? AND prefix = ? AND item_type = 'Episode' AND series_id != '' AND (played = 1 OR position_ticks > 0)`,
         s.viewerId, s.prefix);
     // 与 Emby 一致：从继续观看中移除的剧，Next Up 里也不再出现，直到再次播放。

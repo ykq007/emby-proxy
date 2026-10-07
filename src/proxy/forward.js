@@ -1,5 +1,4 @@
-// 把一个请求发给节点并整理回应。两个 Worker 共用同一份：生产 proxyRequest（路由、网关、viewer 之后）
-// 与聚合端（选好副本、换好 Id 与令牌之后），节点看到的请求、客户端拿到的回应因此一致。
+// 把一个请求发给节点并整理回应（生产 proxyRequest 在路由、网关、viewer 之后调用）。
 // 流程：多地址按健康排序故障转移（协议回退 + 403 逐级换头 + 每地址 15s 超时）→ 3xx 改写 →
 //       响应体改写（PlaybackInfo / System/Info / 播放列表 / HTML·JS 里泄露的节点地址）→ 静态缓存 / R2 海报。
 import { buildUpstreamHeaders } from '../emby/headers.js';
