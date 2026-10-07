@@ -8,6 +8,7 @@ import { requireAuth } from './middleware/auth.js';
 import { handlePublic } from './api/public.js';
 import { handleCf } from './api/cf.js';
 import { handleSystem } from './api/system.js';
+import { handlePlacement } from './api/placement.js';
 import { handleOptimizedDomains } from './api/optimized-domains.js';
 import { handleDns } from './api/dns.js';
 import { handleRoutes } from './api/routes.js';
@@ -23,7 +24,7 @@ export async function handleRequest(request, env, ctx) {
     let r;
 
     // ── 公开端点（鉴权前）────────────────────────────────
-    // placement / trace / edge-info / client_rtt / tg-webhook / OPTIONS / status / public / card
+    // trace / edge-info / client_rtt / tg-webhook / OPTIONS / status / public / card
     if (r = await handlePublic(request, env, ctx, url)) return r;
 
     // ── 鉴权门控（admin_token cookie）─────────────────────
@@ -47,6 +48,7 @@ export async function handleRequest(request, env, ctx) {
 
     // ── 管理端点（保持原始相对顺序）──────────────────────
     if (r = await handleCf(request, env, ctx, url)) return r;                // analytics / route-trends / deploy / purge-cache
+    if (r = await handlePlacement(request, env, ctx, url)) return r;         // placement GET / POST（改 Worker 落地机房，必须在鉴权之后）
     if (r = await handleSystem(request, env, ctx, url)) return r;            // ping-node / _probe_now / _counts_now / speedtest-down / manual-redirect-domains
     if (r = await handleOptimizedDomains(request, env, ctx, url)) return r;  // optimized-domains CRUD + speedtest
     if (r = await handleDns(request, env, ctx, url)) return r;               // dns-ready / dns/replace / get-dns / update-dns / get-*-ips

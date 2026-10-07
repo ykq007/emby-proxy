@@ -3297,6 +3297,36 @@
         }
 
         // 新增：调用部署修改接口
+        // 下拉框默认停在「智能调度」，不代表线上设置；打开面板时先读回 Cloudflare 上的真实落地设置。
+        async function loadPlacement() {
+            var statusElem = document.getElementById('place-status');
+            try {
+                var res = await fetch('/api/placement');
+                var data = await res.json();
+                if (!data.success) {
+                    if (statusElem) { statusElem.innerText = '无法读取当前设置：' + data.msg; statusElem.style.color = 'var(--err)'; }
+                    return;
+                }
+                var p = data.placement;
+                var modeSel = document.getElementById('cf-mode-select');
+                if (p.region) {
+                    var provider = p.region.split(':')[0];
+                    var known = !!(cfRegions[provider] && cfRegions[provider].some(function (r) { return r.value === p.region; }));
+                    modeSel.value = known ? provider : 'custom';
+                    handleModeChange();
+                    if (known) document.getElementById('cf-region-select').value = p.region;
+                    else document.getElementById('cf-custom-input').value = p.region;
+                } else {
+                    modeSel.value = JSON.stringify({ mode: p.mode });
+                    handleModeChange();
+                }
+            } catch (e) {
+                if (statusElem) { statusElem.innerText = '无法读取当前设置：' + e.message; statusElem.style.color = 'var(--err)'; }
+            }
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadPlacement);
+        else loadPlacement();
+
         async function updatePlacement() {
             var statusElem = document.getElementById('place-status');
             var modeVal = document.getElementById('cf-mode-select').value;

@@ -4,41 +4,8 @@ import { tgSendMessage } from '../tg/client.js';
 import { renderHelp, renderStart } from '../tg/commands.js';
 import { handleStatus, handleKeepalive, handleMute, handleUnmute, handleNode, handleList, handleUnknownCommand } from '../stats/bot-commands.js';
 import { routeCallback } from '../tg/callback-router.js';
-import { createCfApi } from '../cf/api.js';
 
 export async function handlePublic(request, env, ctx, url, deps = {}) {
-    // ==========================================
-    // 🚀 新增：全云厂商 Worker 放置区域接口
-    // ==========================================
-    if (url.pathname === '/api/placement' && request.method === 'POST') {
-        try {
-            const body = await request.json();
-            const placementData = body.placement;
-
-            if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID || !env.CF_WORKER_NAME) {
-                return jsonResponse({ success: false, msg: '后台变量未配置全！请检查 CF_API_TOKEN, CF_ACCOUNT_ID, CF_WORKER_NAME' });
-            }
-
-            const cfApi = deps.cfApi || createCfApi(env);
-            const formData = new FormData();
-            formData.append('settings', new Blob([JSON.stringify({ placement: placementData })], { type: 'application/json' }));
-
-            const cfRes = await cfApi.rest(`/accounts/${env.CF_ACCOUNT_ID}/workers/scripts/${env.CF_WORKER_NAME}/settings`, {
-                method: 'PATCH',
-                body: formData,
-                isForm: true,
-            });
-
-            if (cfRes.ok) {
-                return jsonResponse({ success: true, msg: '部署区域修改成功！' });
-            } else {
-                return jsonResponse({ success: false, msg: 'CF报错: ' + ((cfRes.errors && cfRes.errors[0]?.message) || cfRes.error || '未知错误') });
-            }
-        } catch (e) {
-            return jsonResponse({ success: false, msg: e.message });
-        }
-    }
-
     // ==========================================
     // 🚀 新增：CF 节点与落地机房探针接口
     // ==========================================
