@@ -9,7 +9,7 @@ This repo builds two Cloudflare Workers. Every rule below applies to **both**:
   It must never run prod's `ensureSchema`. The only prod tables it may write are `ip_bans` (shared
   login-bruteforce bans) and `playback_slots` (concurrency limits shared with the prod viewer gate).
 
-Domain vocabulary lives in `CONTEXT.md`; deploy steps live in `DEPLOY.md`.
+Domain vocabulary lives in `CONTEXT.md`; deploy steps live in `DEPLOY.md`. Read `AGENTS.md` too.
 
 **Open handoff:** read `docs/HANDOFF.md` first; it lists unfinished steps for this branch.
 
