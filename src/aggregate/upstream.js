@@ -220,15 +220,19 @@ async function nodeJsonNoDeadline(env, route, pathQuery, opts) {
 }
 
 // 原样取节点的二进制响应（图片）。
-export async function nodeRaw(env, route, pathQuery, deviceId = '') {
+// 每个地址等响应头至多 waitMs（0 = 不限）；记了 DOWN 的节点直接跳过。取不到返回 null，调用方换下一个副本。
+export async function nodeRaw(env, route, pathQuery, deviceId = '', waitMs = 0) {
+    if ((DOWN.get(route.prefix) || 0) > Date.now()) return null;
     const s = (await browseSession(env, route, deviceId)) || await session(env, route);
     if (s.error) return null;
     for (const base of bases(route)) {
+        const ctrl = new AbortController();
+        const tmr = waitMs ? setTimeout(() => ctrl.abort(), waitMs) : null;
         try {
-            const r = await fetch(base.replace(/\/+$/, '') + '/emby' + pathQuery, { headers: headersFor(route, s), redirect: 'follow' });
+            const r = await fetch(base.replace(/\/+$/, '') + '/emby' + pathQuery, { headers: headersFor(route, s), redirect: 'follow', signal: ctrl.signal });
             if (r.ok) return r;
             r.body?.cancel().catch(() => {});
-        } catch (e) { }
+        } catch (e) { } finally { clearTimeout(tmr); }
     }
     return null;
 }

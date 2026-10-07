@@ -76,7 +76,7 @@ function fakeEmby(req, body) {
     const p = u.pathname.replace(/^\/emby/, '');
     const q = u.searchParams;
     calls.push({ host, auth: req.headers.get('X-Emby-Authorization'), method: req.method, path: p, query: Object.fromEntries(q), ua: req.headers.get('User-Agent'), device: devOf(req, u), range: req.headers.get('Range'), key: req.headers.get('X-Node-Key'), body });
-    if (node.hang) return new Promise(() => {}); // 连得上但永远不回
+    if (node.hang) return new Promise((_, reject) => req.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))); // 连得上但永远不回，像真 fetch 一样可中止
     const json = (d, status = 200) => Response.json(d, { status });
     if (p === '/Users/AuthenticateByName') {
         if (/^Mozilla/.test(req.headers.get('User-Agent') || '')) return json({}, 403);
@@ -758,6 +758,16 @@ test('series: a node that never answers does not hold the list once another node
     __resetSeriesForTest(); calls = [];
     assert.deepEqual((await call(`/emby/Shows/${vid}/Episodes?UserId=x`, { token })).body.Items.map(x => x.Id), [E(1, 1), E(1, 2), E(2, 1)]);
     assert.equal(calls.filter(c => c.host === 'b.example').length, 0, 'node B is not asked again while marked down');
+});
+
+test('image: a node that does not answer within 2.5 s is skipped for the next copy', async (t) => {
+    const { movie } = await seriesSetup();
+    nodes['a.example'].hang = true;
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const res = call(`/emby/Items/${movie}/Images/Primary?tag=pa1`);
+    while (!calls.some(c => c.host === 'a.example')) await new Promise(r => setImmediate(r));
+    t.mock.timers.tick(2500);
+    assert.equal((await res).body, 'IMG-b.example-b1-pb1');
 });
 
 test('series: an episode on one node plays from that node; one on two nodes plays from the best one, or the picked one', async () => {

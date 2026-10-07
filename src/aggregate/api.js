@@ -323,6 +323,7 @@ async function playbackInfoWithVersions(env, ctx, request, url, s, id) {
     return json(data);
 }
 
+const IMAGE_WAIT_MS = 2500; const IMAGE_TRIES = 3;
 // /Items/{vid}/Images/{type}[/{index}]：取有该图的可见副本；客户端带的 tag 优先匹配同一副本，缓存才稳定。
 async function image(env, ctx, request, s, vid, type, index, url) {
     const cache = typeof caches !== 'undefined' ? caches.default : null;
@@ -331,15 +332,21 @@ async function image(env, ctx, request, s, vid, type, index, url) {
     const tag = url.searchParams.get('tag') || url.searchParams.get('Tag') || '';
     const sources = (await copiesOf(env, s ? s.scope : { prefixes: (await memberRoutes(env)).map(r => r.prefix), hidden: new Map() }, vid))
         .filter(src => src.image_tags[type]);
-    const src = sources.find(x => x.image_tags[type] === tag) || sources[0];
-    if (!src) return empty(404);
-    const route = (await memberRoutes(env)).find(r => r.prefix === src.prefix);
-    const q = new URLSearchParams();
-    for (const k of ['maxWidth', 'maxHeight', 'width', 'height', 'quality', 'fillWidth', 'fillHeight', 'format']) {
-        const v = url.searchParams.get(k); if (v) q.set(k, v);
+    const same = sources.find(x => x.image_tags[type] === tag);
+    const routes = new Map((await memberRoutes(env)).map(r => [r.prefix, r]));
+    // 客户端带的 tag 那份副本优先；它慢（等不到 IMAGE_WAIT_MS）或取不到就换下一份，最多 IMAGE_TRIES 份。
+    let r = null;
+    for (const src of [...(same ? [same] : []), ...sources.filter(x => x !== same)].slice(0, IMAGE_TRIES)) {
+        const route = routes.get(src.prefix);
+        if (!route) continue;
+        const q = new URLSearchParams();
+        for (const k of ['maxWidth', 'maxHeight', 'width', 'height', 'quality', 'fillWidth', 'fillHeight', 'format']) {
+            const v = url.searchParams.get(k); if (v) q.set(k, v);
+        }
+        q.set('tag', src.image_tags[type]);
+        r = await nodeRaw(env, route, `/Items/${encodeURIComponent(src.item_id)}/Images/${type}${index ? '/' + index : ''}?${q}`, s ? s.deviceId : '', IMAGE_WAIT_MS);
+        if (r) break;
     }
-    q.set('tag', src.image_tags[type]);
-    const r = route && await nodeRaw(env, route, `/Items/${encodeURIComponent(src.item_id)}/Images/${type}${index ? '/' + index : ''}?${q}`, s ? s.deviceId : '');
     if (!r) return empty(404);
     const headers = new Headers(CORS);
     headers.set('Content-Type', r.headers.get('content-type') || 'image/jpeg');
