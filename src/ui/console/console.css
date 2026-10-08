@@ -1,5 +1,7 @@
 /* Instrument design system. Rules and token meanings live in DESIGN.md. */
 
+/* Page styles, one file per page. @import must stay above every other rule. */
+
 :root {
     --bg: #141619;
     --panel: #1b1e22;

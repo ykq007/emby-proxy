@@ -31,8 +31,14 @@ const LEGACY = {
     'config/tools': 'tools', 'config/danger': 'danger',
 };
 
-export function pageFromHash(hash) {
-    const h = String(hash || '').replace(/^#/, '');
-    if (PAGE_LIST.some(p => p.key === h)) return h;
-    return LEGACY[h] || DEFAULT_PAGE;
+// '#nodes/hk1' → { key: 'nodes', arg: 'hk1' }. Unknown keys fall back to the default page.
+export function parseHash(hash) {
+    const h = decodeURIComponent(String(hash || '').replace(/^#/, ''));
+    if (LEGACY[h]) return { key: LEGACY[h], arg: '' };
+    const [key, ...rest] = h.split('/');
+    return PAGE_LIST.some(p => p.key === key) ? { key, arg: rest.join('/') } : { key: DEFAULT_PAGE, arg: '' };
 }
+
+export const pageFromHash = hash => parseHash(hash).key;
+
+export const pageHash = (key, arg = '') => '#' + key + (arg ? '/' + encodeURIComponent(arg) : '');

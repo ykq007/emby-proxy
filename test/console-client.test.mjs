@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { html, raw } from '../src/ui/console/html.js';
-import { pageFromHash } from '../src/ui/console/nav.js';
+import { pageFromHash, pageHash, parseHash } from '../src/ui/console/nav.js';
 
 test('html escapes interpolated values but not nested templates', () => {
     const name = '<img src=x onerror=alert(1)>';
@@ -22,4 +22,12 @@ test('pageFromHash keeps new keys, maps old #dest/tab links, defaults to overvie
     assert.equal(pageFromHash('#network'), 'speed');
     assert.equal(pageFromHash(''), 'overview');
     assert.equal(pageFromHash('#nope'), 'overview');
+});
+
+test('parseHash splits a page argument and pageHash builds it back', () => {
+    assert.deepEqual(parseHash('#nodes/hk%201'), { key: 'nodes', arg: 'hk 1' });
+    assert.deepEqual(parseHash('#config/settings'), { key: 'nodes', arg: '' });
+    assert.deepEqual(parseHash('#bogus/x'), { key: 'overview', arg: '' });
+    assert.equal(pageHash('nodes', 'hk 1'), '#nodes/hk%201');
+    assert.equal(pageHash('stats'), '#stats');
 });

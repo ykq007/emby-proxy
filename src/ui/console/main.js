@@ -1,4 +1,4 @@
-import { NAV, PAGE_LIST, pageFromHash } from './nav.js';
+import { NAV, PAGE_LIST, pageFromHash, pageHash, parseHash } from './nav.js';
 import { pageModule } from './pages.js';
 import { html, render } from './html.js';
 import { applyTheme, cycleTheme } from './theme.js';
@@ -8,9 +8,9 @@ import { openPalette, setShellCommands } from './palette.js';
 let cleanup = null;
 
 function route() {
-    const key = pageFromHash(location.hash);
-    if (location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
-    const page = PAGE_LIST.find(p => p.key === key);
+    const { key, arg } = parseHash(location.hash);
+    if (location.hash !== pageHash(key, arg)) history.replaceState(null, '', pageHash(key, arg));
+    const page = { ...PAGE_LIST.find(p => p.key === key), arg };
 
     document.querySelectorAll('[data-nav]').forEach(a => {
         const current = a.dataset.nav === key || (a.dataset.nav === 'more' && !a.closest('.tabbar').querySelector(`[data-nav="${key}"]`));

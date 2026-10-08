@@ -62,7 +62,8 @@
 ## 代码约定
 
 - 页面列表只在 `src/ui/console/nav.js` 定义一次。侧栏、手机底栏、⌘K 和路由都从这里读。
-- 一个页面一个模块，放在 `src/ui/console/pages/`，导出 `mount(root, page)`，可返回清理函数。在 `pages.js` 登记。
+- 一个页面一个模块，放在 `src/ui/console/pages/`，导出 `mount(root, page)`，可返回清理函数。在 `pages.js` 登记。`page.arg` 是 hash 斜杠后的部分，例如 `#nodes/hk1` 的 `hk1`；用 `pageHash(key, arg)` 生成链接。
+- 页面自己的样式放在 `pages/<key>.css`，在 `console.css` 顶部 `@import`。能用公共组件就不写新样式。
 - HTML 一律用 `html` 模板拼，它会转义插值。用 `render(el, value)` 写进页面，不要直接赋值 `innerHTML`。
 - 按钮写 `data-action="名字"`，页面用 `on(root, { 名字: fn })` 统一处理。不写内联 `onclick`。
 - 请求一律走 `api()`。它处理 JSON、错误消息，遇到 401 回到登录页。
