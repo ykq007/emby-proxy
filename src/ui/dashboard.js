@@ -36,7 +36,7 @@ export const HTML_UI = `<!DOCTYPE html>
         <div class="main">
             <header class="top">
                 <span class="crumb"><span id="crumbGroup"></span><span class="crumb-sep"> / </span><b id="crumbPage"></b></span>
-                <span class="status-line st" id="statusLine" hidden><i aria-hidden="true"></i><span></span></span>
+                <a class="status-line st" id="statusLine" href="#overview" hidden><i aria-hidden="true"></i><span></span></a>
                 <span class="grow"></span>
                 <button type="button" class="kbd-btn" data-action="palette" aria-label="打开命令面板">⌘K</button>
                 <button type="button" class="icon-btn" data-action="theme" aria-label="切换主题">

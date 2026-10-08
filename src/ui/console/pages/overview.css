@@ -1,0 +1,64 @@
+/* 看板 (overview). Shared components cover the rest; see DESIGN.md. */
+
+.ov-mask, .ov-all, .ov-check { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.ov-mask { color: var(--tx2); }
+.ov-updated { font-size: 12px; }
+.ov-updated.ov-stale { color: var(--warn); }
+.ov-batch { background: var(--line-soft); }
+.ov-batch select { width: auto; }
+.readout .v small.ov-na { margin-left: 0; font-size: 14px; }
+
+.ov-tbl .c-cb, .ov-tbl .c-grip { width: 1%; padding-right: 0; }
+.ov-tbl .c-grip { padding-left: 4px; }
+.ov-cb { display: inline-grid; place-items: center; cursor: pointer; }
+.grip { cursor: grab; color: var(--tx3); user-select: none; font-size: 15px; line-height: 1; }
+.ov-tbl tr.sortable-ghost td { background: var(--line); }
+.ov-tbl.no-trend .c-tr { display: none; }
+.ov-name { border: 0; background: none; padding: 0; font-weight: 500; text-align: left; }
+.ov-pfx { margin-left: 8px; }
+.ov-tbl .ov-mst { display: none; }
+.ov-ping { border: 0; background: none; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; }
+.ov-ping:hover { background: var(--line); }
+
+.ov-head { display: flex; align-items: center; gap: 10px; }
+.ov-sm { font-size: 12px; margin-top: 6px; }
+.ov-sm + .kv { margin-top: 14px; }
+.ov-probes-wide .probes { display: flex; }
+.ov-probes-wide .probes i { flex: 1; min-width: 2px; max-width: 6px; }
+.ov-trend { display: grid; gap: 2px; }
+.ov-trend .spark { width: 100%; max-width: 240px; }
+.ov-switch { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; cursor: pointer; }
+.ov-switch > span { display: grid; }
+.ov-switch input { margin-top: 2px; }
+.ov-counts { grid-template-columns: max-content 1fr max-content 1fr; }
+.panel .sec:last-child { border-bottom: 0; }
+
+@media (max-width: 760px) {
+    .ov-updated, .toolbar .grow { display: none; }
+    .toolbar input.ov-search[type="search"] { flex-basis: 100%; }
+    .ov-readout > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .tbl.ov-tbl thead { display: none; }
+    .tbl.ov-tbl tbody tr {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: "cb nm rtt" "cb pr bw";
+        align-items: center;
+        gap: 6px 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line-soft);
+    }
+    .tbl.ov-tbl tbody tr:hover { background: var(--line-soft); }
+    .tbl.ov-tbl tbody tr:hover td { background: none; }
+    .tbl.ov-tbl tbody td { display: none; padding: 0; border: 0; }
+    .tbl.ov-tbl td.c-cb { display: block; grid-area: cb; }
+    .tbl.ov-tbl td.c-nm { display: flex; align-items: baseline; gap: 8px; min-width: 0; grid-area: nm; }
+    .tbl.ov-tbl td.c-rtt { display: block; grid-area: rtt; }
+    .tbl.ov-tbl td.c-pr { display: block; grid-area: pr; }
+    .tbl.ov-tbl td.c-bw { display: block; grid-area: bw; color: var(--tx2); }
+    .ov-cb { width: 44px; height: 44px; margin: -12px -6px -12px -14px; }
+    .ov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .ov-pfx { margin-left: 0; }
+    .ov-tbl .ov-mst { display: inline-flex; font-size: 12px; }
+    .ov-ping { min-height: 44px; margin: -12px -4px; }
+    .ov-counts { grid-template-columns: max-content 1fr; }
+}

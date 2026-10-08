@@ -1,6 +1,7 @@
 /* Instrument design system. Rules and token meanings live in DESIGN.md. */
 
 /* Page styles, one file per page. @import must stay above every other rule. */
+@import "./pages/overview.css";
 
 :root {
     --bg: #141619;
@@ -100,7 +101,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .st.off i { background: var(--tx3); }
 .st.err { color: var(--err); }
 .st.warn { color: var(--warn); }
-.status-line { color: var(--tx2); }
+.status-line { color: var(--tx2); text-decoration: none; }
 .probes { display: inline-flex; gap: 2px; vertical-align: middle; }
 .probes i { width: 4px; height: 14px; border-radius: 1px; background: var(--ok); }
 .probes i.s { background: var(--warn); }
@@ -109,7 +110,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .spark { color: var(--tx2); width: auto; height: auto; stroke-width: 1.5; }
 
 /* ── Controls ─────────────────────────────────────── */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 5px; background: transparent; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 5px; background: transparent; white-space: nowrap; text-decoration: none; }
 .btn:hover { background: var(--line-soft); }
 .btn.pri { background: var(--acc); border-color: var(--acc); color: var(--on-acc); font-weight: 600; }
 .btn.pri:hover { filter: brightness(1.08); }
@@ -123,7 +124,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .kbd-btn { border: 1px solid var(--line); border-radius: 4px; background: none; color: var(--tx3); font-size: 11px; padding: 2px 6px; }
 .kbd-btn:hover { color: var(--tx); }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {
+input:where(:not([type="checkbox"], [type="radio"], [type="file"])), select, textarea {
     width: 100%;
     min-height: 32px;
     padding: 6px 10px;
