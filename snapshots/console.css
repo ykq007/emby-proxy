@@ -3,6 +3,7 @@
 /* Page styles, one file per page. @import must stay above every other rule. */
 @import "./pages/overview.css";
 @import "./pages/nodes.css";
+@import "./pages/stats.css";
 
 :root {
     --bg: #141619;

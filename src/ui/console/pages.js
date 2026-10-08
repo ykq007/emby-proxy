@@ -4,10 +4,12 @@
 import * as placeholder from './pages/placeholder.js';
 import * as nodes from './pages/nodes.js';
 import * as overview from './pages/overview.js';
+import * as stats from './pages/stats.js';
 
 const PAGES = {
     nodes,
     overview,
+    stats,
 };
 
 export const pageModule = key => PAGES[key] || placeholder;
