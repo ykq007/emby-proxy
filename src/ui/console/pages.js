@@ -2,9 +2,11 @@
 // page is the NAV entry plus arg, the part after the slash in '#nodes/hk1'.
 // Pages not listed here render the placeholder.
 import * as placeholder from './pages/placeholder.js';
+import * as nodes from './pages/nodes.js';
 import * as overview from './pages/overview.js';
 
 const PAGES = {
+    nodes,
     overview,
 };
 
