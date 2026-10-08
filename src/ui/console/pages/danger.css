@@ -1,0 +1,8 @@
+/* 危险区: one row per action, explanation on the left, red button on the right. */
+.danger-row { display: flex; align-items: center; gap: 16px; }
+.danger-row p { margin-top: 4px; max-width: 64ch; }
+.deploy-modal { width: min(640px, calc(100vw - 32px)); }
+@media (max-width: 760px) {
+    .danger-row { flex-wrap: wrap; }
+    .danger-row .btn { width: 100%; }
+}

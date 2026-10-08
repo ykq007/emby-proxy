@@ -4,6 +4,7 @@ import { html, render } from './html.js';
 import { applyTheme, cycleTheme } from './theme.js';
 import { confirm, on, openSheet, toast } from './ui.js';
 import { openPalette, setShellCommands } from './palette.js';
+import './update.js';
 
 let cleanup = null;
 

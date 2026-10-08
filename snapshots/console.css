@@ -4,6 +4,10 @@
 @import "./pages/overview.css";
 @import "./pages/nodes.css";
 @import "./pages/stats.css";
+@import "./update.css";
+@import "./pages/global.css";
+@import "./pages/viewers.css";
+@import "./pages/danger.css";
 
 :root {
     --bg: #141619;
@@ -114,6 +118,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 /* ── Controls ─────────────────────────────────────── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 5px; background: transparent; white-space: nowrap; text-decoration: none; }
 .btn:hover { background: var(--line-soft); }
+a.btn { text-decoration: none; }
 .btn.pri { background: var(--acc); border-color: var(--acc); color: var(--on-acc); font-weight: 600; }
 .btn.pri:hover { filter: brightness(1.08); }
 .btn.danger { border-color: var(--err); color: var(--err); }
