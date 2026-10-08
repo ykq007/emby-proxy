@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Emby Proxy · UI 原型</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+.num{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.app{display:none;min-height:100vh}
+body[data-v=a] .app.a,body[data-v=b] .app.b,body[data-v=c] .app.c{display:grid}
+#switch{position:fixed;right:12px;bottom:12px;z-index:99;display:flex;gap:4px;padding:4px;border-radius:10px;background:#000c;backdrop-filter:blur(8px)}
+#switch button{color:#fff;padding:6px 10px;border-radius:7px;font-size:12px}
+#switch button.on{background:#fff;color:#000}
+body.shot #switch{display:none}
+
+/* ================= A · 仪表 Instrument ================= */
+.a{--bg:#141619;--panel:#1a1d21;--line:#ffffff14;--line2:#ffffff0a;--tx:#e8eaed;--tx2:#9aa0a8;--tx3:#6b7178;--acc:#e5a440;--ok:#4cc38a;--warn:#e5a440;--err:#f0645a;
+  background:var(--bg);color:var(--tx);grid-template-columns:200px 1fr;font-size:13px}
+.a aside{border-right:1px solid var(--line);padding:14px 0;position:sticky;top:0;height:100vh;overflow:auto}
+.a .brand{padding:0 16px 14px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;gap:8px}
+.a .brand i{width:8px;height:8px;border-radius:2px;background:var(--acc)}
+.a .grp{padding:14px 16px 6px;color:var(--tx3);font-size:11px;letter-spacing:.08em}
+.a .nav{display:block;width:100%;text-align:left;padding:7px 16px;color:var(--tx2);border-left:2px solid transparent}
+.a .nav:hover{color:var(--tx);background:var(--line2)}
+.a .nav.on{color:var(--tx);border-left-color:var(--acc);background:var(--line2)}
+.a .nav.danger{color:#e88}
+.a main{min-width:0}
+.a .top{display:flex;align-items:center;gap:20px;padding:0 20px;height:44px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
+.a .top .crumb{color:var(--tx2)} .a .top .crumb b{color:var(--tx);font-weight:500}
+.a .top .sp{flex:1}
+.a .top .k{color:var(--tx3);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:2px 6px}
+.a .readout{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--line)}
+.a .readout>div{padding:14px 20px;border-right:1px solid var(--line)}
+.a .readout>div:last-child{border-right:0}
+.a .readout .l{color:var(--tx3);font-size:11px;letter-spacing:.06em}
+.a .readout .v{font-size:22px;margin-top:4px}
+.a .readout .v small{font-size:12px;color:var(--tx2);margin-left:3px}
+.a .readout .v.err{color:var(--err)}
+.a .bar{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line)}
+.a .bar input{background:var(--panel);border:1px solid var(--line);color:var(--tx);border-radius:5px;padding:6px 10px;width:220px}
+.a .bar .sp{flex:1}
+.a .btn{border:1px solid var(--line);border-radius:5px;padding:6px 12px;color:var(--tx)}
+.a .btn.pri{background:var(--acc);border-color:var(--acc);color:#1a1300;font-weight:600}
+.a table{width:100%;border-collapse:collapse}
+.a th{text-align:left;font-weight:400;color:var(--tx3);font-size:11px;letter-spacing:.06em;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.a td{padding:9px 12px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.a tr:hover td{background:var(--line2)}
+.a th:first-child,.a td:first-child{padding-left:20px}
+.a .r{text-align:right}
+.a .st{display:inline-flex;align-items:center;gap:6px}
+.a .st i{width:7px;height:7px;border-radius:50%}
+.a .st.ok i{background:var(--ok)} .a .st.err i{background:var(--err)} .a .st.err{color:var(--err)}
+.a .nm b{font-weight:500} .a .nm span{color:var(--tx3);margin-left:8px}
+.a .probes{display:inline-flex;gap:2px;vertical-align:middle}
+.a .probes i{width:4px;height:14px;border-radius:1px;background:var(--ok);opacity:.85}
+.a .probes i.s{background:var(--warn)} .a .probes i.f{background:var(--err)}
+.a .spk{color:var(--tx2)}
+.a .tabbar{display:none}
+.a .mo{display:none}.a .dk{color:var(--tx3)}
+@media (max-width:760px){
+  .a{grid-template-columns:minmax(0,1fr)}
+  .a aside{display:none}
+  .a .readout{grid-template-columns:repeat(2,1fr)}
+  .a .readout>div{border-bottom:1px solid var(--line)}
+  .a .readout>div:first-child{grid-column:1/-1}
+  .a .bar input{flex:1;width:auto}
+  .a thead{display:none}
+  .a tr{display:grid;grid-template-columns:1fr auto;padding:10px 16px;border-bottom:1px solid var(--line2);gap:4px 12px}
+  .a td{padding:0;border:0}
+  .a td:first-child{padding-left:0}
+  .a td.hm{display:none}
+  .a .mo{display:inline-flex}.a .dk{display:none}
+  .a td.c-nm{grid-column:1} .a td.c-rtt{grid-column:2;text-align:right}
+  .a td.c-pr{grid-column:1} .a td.c-bw{grid-column:2;text-align:right;color:var(--tx2)}
+  .a main{padding-bottom:64px}
+  .a .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+  .a .tabbar button{padding:12px 0 14px;color:var(--tx3);font-size:12px}
+  .a .tabbar button.on{color:var(--acc)}
+  .a .top .k,.a .top .who{display:none}
+}
+
+/* ================= B · 纸面 Ledger ================= */
+.b{--bg:#f5f4ef;--card:#fff;--ink:#16161a;--tx2:#5d5d66;--tx3:#8a8a92;--line:#16161a1a;--ok:#1f8a4c;--okbg:#dff3e6;--warn:#b26b00;--err:#c8322a;--errbg:#fbe3e0;--acc:#16161a;
+  background:var(--bg);color:var(--ink);grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);font-size:14px}
+.b header{display:flex;align-items:center;gap:28px;padding:0 32px;height:56px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:2}
+.b .brand{font-weight:700;font-size:15px}
+.b nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.b nav button{padding:8px 12px;border-radius:999px;color:var(--tx2);white-space:nowrap}
+.b nav button.on{background:var(--ink);color:#fff}
+.b header .sp{flex:1}
+.b header .who{color:var(--tx2);font-size:13px}
+.b main{max-width:1180px;width:100%;margin:0 auto;padding:36px 32px 64px}
+.b .verdict{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;padding-bottom:28px;border-bottom:2px solid var(--ink)}
+.b .verdict h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:-.01em;flex:1;min-width:280px}
+.b .verdict h1 em{font-style:normal;color:var(--err)}
+.b .verdict .when{color:var(--tx3);font-size:13px;margin-top:8px;font-weight:400;letter-spacing:0}
+.b .figs{display:flex;gap:36px}
+.b .figs div{min-width:80px}
+.b .figs .v{font-size:30px;font-weight:600;line-height:1}
+.b .figs .v small{font-size:14px;color:var(--tx2);font-weight:400;margin-left:2px}
+.b .figs .l{color:var(--tx2);font-size:12px;margin-top:6px}
+.b .alert{margin-top:24px;display:flex;gap:12px;align-items:center;background:var(--errbg);color:#7a1d17;border-radius:10px;padding:12px 16px}
+.b .alert b{font-weight:600}
+.b .alert .sp{flex:1}
+.b .alert button{background:#7a1d17;color:#fff;border-radius:7px;padding:6px 12px;font-size:13px}
+.b .head{display:flex;align-items:baseline;gap:12px;margin:36px 0 14px}
+.b .head h2{font-size:18px}
+.b .head span{color:var(--tx3);font-size:13px}
+.b .head .sp{flex:1}
+.b .head button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;font-size:13px}
+.b .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.b .tile{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--line);display:grid;gap:12px}
+.b .tile.off{border-color:var(--err);box-shadow:inset 3px 0 0 var(--err)}
+.b .tile .t1{display:flex;align-items:center;gap:8px}
+.b .tile .t1 b{font-weight:600;font-size:15px}
+.b .tile .t1 .pfx{color:var(--tx3);font-size:12px}
+.b .tile .t1 .sp{flex:1}
+.b .tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--okbg);color:var(--ok);font-weight:500}
+.b .tag.err{background:var(--errbg);color:var(--err)}
+.b .grid24{display:grid;grid-template-columns:repeat(24,1fr);gap:2px}
+.b .grid24 i{height:18px;border-radius:2px;background:#cfe9d8}
+.b .grid24 i.s{background:#f3d9a8} .b .grid24 i.f{background:#f0b4ae}
+.b .t2{display:flex;justify-content:space-between;color:var(--tx2);font-size:12px}
+.b .t3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.b .t3 .v{font-size:16px;font-weight:600}
+.b .t3 .l{color:var(--tx3);font-size:11px;margin-top:2px}
+@media (max-width:760px){
+  .b header{padding:0 16px;gap:12px;height:auto;flex-wrap:wrap;padding-top:10px}
+  .b header .who{display:none}
+  .b nav{order:3;width:calc(100% + 32px);margin:0 -16px;padding:8px 16px 10px}
+  .b main{padding:24px 16px 48px}
+  .b .verdict h1{font-size:26px}
+  .b .figs{gap:20px;width:100%;justify-content:space-between}
+  .b .figs .v{font-size:24px}
+  .b .alert{flex-wrap:wrap}
+}
+
+/* ================= C · 分栏 Split ================= */
+.c{--bg:#f4f6f9;--rail:#0f1720;--pane:#fff;--line:#0f17201a;--tx:#0f1720;--tx2:#55606e;--tx3:#8a94a1;--acc:#2563eb;--accbg:#e8efff;--ok:#16a34a;--warn:#d97706;--err:#dc2626;
+  background:var(--bg);color:var(--tx);grid-template-columns:60px 340px 1fr;font-size:14px;height:100vh}
+.c .rail{background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.c .rail .logo{width:32px;height:32px;border-radius:9px;background:var(--acc);margin-bottom:14px}
+.c .rail button{width:44px;height:44px;border-radius:10px;color:#93a0b0;display:grid;place-items:center;font-size:11px;line-height:1.1}
+.c .rail button.on{background:#ffffff1a;color:#fff}
+.c .rail .sp{flex:1}
+.c .list{border-right:1px solid var(--line);background:var(--pane);display:flex;flex-direction:column;min-height:0}
+.c .lh{padding:16px 16px 10px;border-bottom:1px solid var(--line)}
+.c .lh .t{display:flex;align-items:center;justify-content:space-between}
+.c .lh h1{font-size:17px}
+.c .lh .sum{color:var(--tx2);font-size:13px;margin-top:2px}
+.c .lh .sum b{color:var(--err);font-weight:600}
+.c .lh input{margin-top:10px;width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.c .lh .k{font-size:11px;color:var(--tx3);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.c .items{overflow:auto;flex:1}
+.c .it{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.c .it:hover{background:var(--bg)}
+.c .it.on{background:var(--accbg)}
+.c .it .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);grid-row:span 2}
+.c .it.off .dot{background:var(--err)}
+.c .it b{font-weight:600;font-size:14px}
+.c .it .rt{font-size:13px;color:var(--tx2)}
+.c .it .sub{grid-column:2/4;color:var(--tx3);font-size:12px;display:flex;justify-content:space-between}
+.c .it.off .rt{color:var(--err);font-weight:600}
+.c .grp{padding:14px 16px 6px;font-size:11px;color:var(--tx3);letter-spacing:.06em;background:var(--pane);position:sticky;top:0}
+.c .detail{overflow:auto;min-width:0}
+.c .dh{display:flex;align-items:center;gap:12px;padding:20px 28px;border-bottom:1px solid var(--line);background:var(--pane)}
+.c .dh .back{display:none;font-size:20px;color:var(--acc)}
+.c .dh h2{font-size:22px}
+.c .dh .pfx{color:var(--tx3)}
+.c .dh .sp{flex:1}
+.c .btn{border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--pane);font-size:13px}
+.c .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.c .db{padding:24px 28px;display:grid;gap:16px;grid-template-columns:repeat(4,1fr)}
+.c .box{background:var(--pane);border:1px solid var(--line);border-radius:12px;padding:16px}
+.c .box .l{font-size:12px;color:var(--tx2)}
+.c .box .v{font-size:24px;font-weight:600;margin-top:6px}
+.c .box .v small{font-size:13px;color:var(--tx2);font-weight:400;margin-left:2px}
+.c .box.wide{grid-column:1/-1}
+.c .box.half{grid-column:span 2}
+.c .box h3{font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between}
+.c .box h3 span{font-weight:400;color:var(--tx3);font-size:12px}
+.c .chart{color:var(--acc)}
+.c .kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px}
+.c .kv dt{color:var(--tx2)}
+.c .media{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.c .media .v{font-size:20px}
+@media (max-width:760px){
+  .c{grid-template-columns:minmax(0,1fr);height:auto;min-height:100vh}
+  .c .rail{position:fixed;bottom:0;left:0;right:0;flex-direction:row;justify-content:space-around;padding:6px 0 10px;z-index:3}
+  .c .rail .logo,.c .rail .sp,.c .rail .x{display:none}
+  .c .list{border:0;padding-bottom:70px}
+  .c .detail{display:none}
+  .c.push .list{display:none}
+  .c.push .detail{display:block;padding-bottom:70px}
+  .c .dh{padding:14px 16px;position:sticky;top:0;z-index:2}
+  .c .dh .back{display:block}
+  .c .dh h2{font-size:18px}
+  .c .dh .btn:not(.pri){display:none}
+  .c .db{grid-template-columns:repeat(2,1fr);padding:16px;gap:10px}
+  .c .box.half{grid-column:1/-1}
+}
+</style>
+</head>
+<body data-v="a">
+<div id="switch"><button data-k="a">A 仪表</button><button data-k="b">B 纸面</button><button data-k="c">C 分栏</button></div>
+<div class="app a" id="A"></div>
+<div class="app b" id="B"></div>
+<div class="app c" id="C"></div>
+<script>
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const NODES = [
+  ['hk1', '香港 主力', '亚洲'], ['hk2', '香港 备用', '亚洲'], ['jp-nf', '日本 NF', '亚洲'], ['jp4k', '东京 4K', '亚洲'],
+  ['sg2', '新加坡 SG2', '亚洲'], ['tw', '台北 HiNet', '亚洲'], ['kr', '首尔 KT', '亚洲'],
+  ['us-w', '美西 洛杉矶', '美洲'], ['us-e', '美东 纽约', '美洲'], ['de', '法兰克福', '欧洲'], ['uk', '伦敦 BT', '欧洲'], ['nl', '阿姆斯特丹', '欧洲'],
+].map(([prefix, name, group], i) => {
+  const off = i === 4 || i === 10;
+  const base = group === '亚洲' ? 40 : group === '美洲' ? 160 : 210;
+  return {
+    prefix, name, group, off,
+    host: prefix + '.media-' + (i + 3) + '.net',
+    rtt: off ? null : Math.round(base + rnd() * 60),
+    probes: Array.from({ length: 24 }, (_, k) => off && k > 19 ? 'f' : rnd() < 0.06 ? 's' : rnd() < 0.02 ? 'f' : 'o'),
+    reqs: Math.round(rnd() * 9000 + (off ? 0 : 400)),
+    bw: +(rnd() * 38 + 0.4).toFixed(1),
+    trend: Array.from({ length: 14 }, () => Math.round(rnd() * 100 + 20)),
+    lat: Array.from({ length: 48 }, () => Math.round(base + rnd() * 50 + (rnd() < .08 ? 120 : 0))),
+    media: { movie: Math.round(rnd() * 9000 + 800), series: Math.round(rnd() * 2400 + 200), ep: Math.round(rnd() * 90000 + 4000) },
+    keep: Math.round(rnd() * 20), lastPlay: ['3 分钟前', '18 分钟前', '1 小时前', '昨天', '2 天前'][Math.floor(rnd() * 5)],
+    mode: rnd() < .6 ? '直连' : '中转',
+  };
+});
+const online = NODES.filter(n => !n.off).length, total = NODES.length;
+const offs = NODES.filter(n => n.off);
+const bwTotal = NODES.reduce((s, n) => s + n.bw, 0).toFixed(1);
+const reqTotal = NODES.reduce((s, n) => s + n.reqs, 0);
+const fmt = n => n.toLocaleString('en-US');
+const NAV = [
+  ['监控', [['overview', '看板'], ['stats', '统计']]],
+  ['网络', [['speed', '测速 & DNS'], ['cdn', '优选 CDN'], ['redirect', '重定向白名单']]],
+  ['配置', [['nodes', '部署节点'], ['global', '全局设置'], ['viewers', '观看账号'], ['tools', '工具箱'], ['danger', '危险区']]],
+];
+function spark(a, w, h, fill) {
+  const mx = Math.max(...a), mn = Math.min(...a);
+  const p = a.map((v, i) => [(i * w / (a.length - 1)).toFixed(1), (h - 2 - (v - mn) / (mx - mn || 1) * (h - 4)).toFixed(1)]);
+  const line = p.map(q => q.join(',')).join(' ');
+  return `<svg class="spk" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${fill ? `<polygon points="0,${h} ${line} ${w},${h}" fill="currentColor" opacity=".1"/>` : ''}<polyline points="${line}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+}
+
+/* ---- A ---- */
+document.getElementById('A').innerHTML = `
+<aside>
+  <div class="brand"><i></i>Emby Proxy</div>
+  ${NAV.map(([g, items]) => `<div class="grp">${g}</div>` + items.map(([k, l]) => `<button class="nav${k === 'overview' ? ' on' : ''}${k === 'danger' ? ' danger' : ''}">${l}</button>`).join('')).join('')}
+</aside>
+<main>
+  <div class="top"><span class="crumb">监控 / <b>看板</b></span><span class="sp"></span><span class="k">⌘K</span><span class="who" style="color:var(--tx2)">admin</span></div>
+  <div class="readout">
+    <div><div class="l">节点在线</div><div class="v num">${online}<small>/ ${total}</small></div></div>
+    <div><div class="l">离线</div><div class="v num err">${offs.length}<small>${offs.map(n => n.prefix).join(' ')}</small></div></div>
+    <div><div class="l">边缘延迟</div><div class="v num">38<small>ms</small></div></div>
+    <div><div class="l">今日流量</div><div class="v num">${bwTotal}<small>GB</small></div></div>
+    <div><div class="l">今日请求</div><div class="v num">${fmt(reqTotal)}</div></div>
+  </div>
+  <div class="bar"><input placeholder="筛选节点  /"><span class="sp"></span><button class="btn">全局测速</button><button class="btn pri">+ 节点</button></div>
+  <table>
+    <thead><tr><th>节点</th><th>状态</th><th class="r">延迟</th><th>近 24 次探测</th><th class="r">今日请求</th><th class="r">流量</th><th>14 天</th><th>最近播放</th><th>模式</th></tr></thead>
+    <tbody>${[...NODES].sort((x, y) => y.off - x.off).map(n => `<tr>
+      <td class="c-nm nm"><b>${n.name}</b><span class="num">/${n.prefix}</span></td>
+      <td class="hm"><span class="st ${n.off ? 'err' : 'ok'}"><i></i>${n.off ? '离线' : '在线'}</span></td>
+      <td class="c-rtt r num">${n.off ? '<span class="st err mo"><i></i>离线</span><span class="dk">—</span>' : n.rtt + ' ms'}</td>
+      <td class="c-pr"><span class="probes">${n.probes.map(p => `<i class="${p}"></i>`).join('')}</span></td>
+      <td class="hm r num">${fmt(n.reqs)}</td>
+      <td class="c-bw r num">${n.bw} GB</td>
+      <td class="hm">${spark(n.trend, 72, 18)}</td>
+      <td class="hm" style="color:var(--tx2)">${n.lastPlay}</td>
+      <td class="hm" style="color:var(--tx2)">${n.mode}</td></tr>`).join('')}</tbody>
+  </table>
+  <div class="tabbar"><button class="on">看板</button><button>统计</button><button>网络</button><button>更多</button></div>
+</main>`;
+
+/* ---- B ---- */
+document.getElementById('B').innerHTML = `
+<header>
+  <div class="brand">Emby Proxy</div>
+  <nav>${[['overview', '看板'], ['stats', '统计'], ['nodes', '节点'], ['net', '网络'], ['viewers', '观看账号'], ['settings', '设置']].map(([k, l]) => `<button class="${k === 'overview' ? 'on' : ''}">${l}</button>`).join('')}</nav>
+  <span class="sp"></span><span class="who">admin · 退出</span>
+</header>
+<main>
+  <section class="verdict">
+    <h1>${offs.length ? `<em>${offs.length} 个节点离线</em>，其余 ${online} 个正常。` : '全部节点运行正常。'}<div class="when">10:42 更新 · 每 5 分钟探测一次</div></h1>
+    <div class="figs">
+      <div><div class="v num">38<small>ms</small></div><div class="l">边缘延迟</div></div>
+      <div><div class="v num">${bwTotal}<small>GB</small></div><div class="l">今日流量</div></div>
+      <div><div class="v num">${(reqTotal / 1000).toFixed(1)}<small>k</small></div><div class="l">今日请求</div></div>
+    </div>
+  </section>
+  ${offs.map(n => `<div class="alert"><span><b>${n.name}</b> 从 09:50 起无响应 · ${n.host}</span><span class="sp"></span><button>重新探测</button></div>`).join('')}
+  <div class="head"><h2>节点</h2><span>${total} 个 · 方格是近 24 次探测</span><span class="sp"></span><button>全局测速</button><button>+ 添加</button></div>
+  <div class="tiles">${[...NODES].sort((x, y) => y.off - x.off).map(n => `<article class="tile${n.off ? ' off' : ''}">
+    <div class="t1"><b>${n.name}</b><span class="pfx num">/${n.prefix}</span><span class="sp"></span><span class="tag${n.off ? ' err' : ''}">${n.off ? '离线' : n.rtt + ' ms'}</span></div>
+    <div class="grid24">${n.probes.map(p => `<i class="${p}"></i>`).join('')}</div>
+    <div class="t3"><div><div class="v num">${fmt(n.reqs)}</div><div class="l">今日请求</div></div><div><div class="v num">${n.bw} GB</div><div class="l">流量</div></div><div><div class="v">${n.lastPlay}</div><div class="l">最近播放</div></div></div>
+  </article>`).join('')}</div>
+</main>`;
+
+/* ---- C ---- */
+const groups = [...new Set(NODES.map(n => n.group))];
+function cDetail(n) {
+  return `<div class="dh"><button class="back" onclick="C.classList.remove('push')">‹</button><div><h2>${n.name}</h2><div class="pfx num">/${n.prefix} · ${n.host}</div></div><span class="sp"></span><button class="btn">编辑</button><button class="btn">测速</button><button class="btn pri">播放测试</button></div>
+  <div class="db">
+    <div class="box"><div class="l">状态</div><div class="v" style="color:${n.off ? 'var(--err)' : 'var(--ok)'}">${n.off ? '离线' : '在线'}</div></div>
+    <div class="box"><div class="l">延迟</div><div class="v num">${n.off ? '--' : n.rtt}<small>ms</small></div></div>
+    <div class="box"><div class="l">今日请求</div><div class="v num">${fmt(n.reqs)}</div></div>
+    <div class="box"><div class="l">今日流量</div><div class="v num">${n.bw}<small>GB</small></div></div>
+    <div class="box wide"><h3>延迟 · 近 24 小时 <span>每 30 分钟一点</span></h3><div class="chart">${spark(n.lat, 900, 120, 1).replace('width="900"', 'width="100%" preserveAspectRatio="none"')}</div></div>
+    <div class="box half"><h3>媒体库</h3><div class="media"><div><div class="v num">${fmt(n.media.movie)}</div><div class="l">电影</div></div><div><div class="v num">${fmt(n.media.series)}</div><div class="l">剧集</div></div><div><div class="v num">${fmt(n.media.ep)}</div><div class="l">单集</div></div></div></div>
+    <div class="box half"><h3>配置</h3><dl class="kv"><dt>反代模式</dt><dd>${n.mode}</dd><dt>保活</dt><dd>每 ${n.keep || 7} 天播放一次</dd><dt>最近播放</dt><dd>${n.lastPlay}</dd><dt>分组</dt><dd>${n.group}</dd></dl></div>
+  </div>`;
+}
+const C = document.getElementById('C');
+C.innerHTML = `
+<div class="rail"><div class="logo"></div>
+  ${[['看板', 1], ['统计'], ['网络'], ['账号'], ['设置']].map(([l, on]) => `<button class="${on ? 'on' : ''}">${l}</button>`).join('')}
+  <span class="sp"></span><button class="x">⌘K</button></div>
+<div class="list">
+  <div class="lh"><div class="t"><h1>节点</h1><span class="k">⌘K</span></div><div class="sum">${online}/${total} 在线 · <b>${offs.length} 离线</b> · 今日 ${bwTotal} GB</div><input placeholder="搜索节点"></div>
+  <div class="items">${groups.map(g => `<div class="grp">${g}</div>` + NODES.filter(n => n.group === g).sort((x, y) => y.off - x.off).map(n => `<button class="it${n.off ? ' off' : ''}" data-p="${n.prefix}"><span class="dot"></span><b>${n.name}</b><span class="rt num">${n.off ? '离线' : n.rtt + ' ms'}</span><span class="sub"><span class="num">/${n.prefix}</span><span>${n.bw} GB · ${n.lastPlay}</span></span></button>`).join('')).join('')}</div>
+</div>
+<div class="detail" id="cd"></div>`;
+function pick(p) {
+  const n = NODES.find(x => x.prefix === p);
+  C.querySelectorAll('.it').forEach(el => el.classList.toggle('on', el.dataset.p === p));
+  document.getElementById('cd').innerHTML = cDetail(n);
+}
+C.querySelectorAll('.it').forEach(el => el.onclick = () => { pick(el.dataset.p); C.classList.add('push'); });
+pick(offs[0].prefix);
+
+/* ---- switcher ---- */
+function setV(v) { document.body.dataset.v = v; document.querySelectorAll('#switch button').forEach(b => b.classList.toggle('on', b.dataset.k === v)); }
+document.querySelectorAll('#switch button').forEach(b => b.onclick = () => setV(b.dataset.k));
+addEventListener('keydown', e => { if (e.key >= '1' && e.key <= '3') setV('abc'[e.key - 1]); });
+const h = location.hash.slice(1).split('-');
+if (h.includes('shot')) document.body.classList.add('shot');
+if (h.includes('push')) C.classList.add('push');
+setV('abc'.includes(h[0]) && h[0] ? h[0] : 'a');
+</script>
+</body>
+</html>

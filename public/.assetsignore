@@ -1,4 +1,3 @@
-# Dev-only output of scripts/preview-ui.mjs. It lands inside the assets
-# directory, so without this line wrangler uploads the whole console shell
-# to the edge, where it is served without auth.
+# Output of the removed scripts/preview-ui.mjs. A leftover copy inside the assets
+# directory would be uploaded and served to the edge without auth, so keep it out.
 preview/

@@ -19,7 +19,7 @@ const useSrc = existsSync(resolve(repoRoot, 'src/index.js'));
 // hashes into public/static/.
 const mod = useSrc
     ? {
-        CSS_COMMON: readFileSync(resolve(repoRoot, 'src/ui/dashboard/client/app.css'), 'utf8'),
+        CSS_COMMON: readFileSync(resolve(repoRoot, 'src/ui/console/console.css'), 'utf8'),
         LOGIN_UI: (await import('../src/ui/login.js')).LOGIN_UI,
         HTML_UI: (await import('../src/ui/dashboard.js')).HTML_UI,
     }
@@ -28,7 +28,7 @@ const mod = useSrc
 const outputs = {
     'login.html': mod.LOGIN_UI,
     'dashboard.html': mod.HTML_UI,
-    'css-common.css': mod.CSS_COMMON,
+    'console.css': mod.CSS_COMMON,
 };
 
 const mode = process.argv[2];

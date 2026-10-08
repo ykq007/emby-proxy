@@ -17,7 +17,7 @@
     "deploy:plain": "npm run build && wrangler deploy --main worker.js",
     "snapshot:write": "node scripts/snapshot-ui.mjs --write",
     "snapshot:check": "node scripts/snapshot-ui.mjs --check",
-    "lint": "eslint src/ui/dashboard/client",
+    "lint": "eslint src/ui/console",
     "test": "node --test \"test/**/*.test.mjs\"",
     "verify": "npm run build && npm run lint && npm run snapshot:check && npm test",
     "tg:commands": "node scripts/register-tg-commands.mjs"

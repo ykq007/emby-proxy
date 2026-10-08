@@ -18,7 +18,7 @@ public/*
 .impeccable/
 .ccg/
 
-# dev-only UI preview output (scripts/preview-ui.mjs).
+# UI preview output from the removed scripts/preview-ui.mjs. Kept so a leftover public/preview/ never deploys.
 # Note public/ is the wrangler [assets] directory: gitignoring this output is
 # NOT enough, because wrangler uploads whatever is on disk and the edge then
 # serves the whole console shell without auth. public/.assetsignore is what
