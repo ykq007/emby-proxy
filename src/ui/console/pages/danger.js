@@ -1,6 +1,6 @@
 import { html, render } from '../html.js';
 import { api } from '../api.js';
-import { confirm, on, toast, toastError } from '../ui.js';
+import { confirm, on, toast, toastError, openModal } from '../ui.js';
 
 export function mount(root) {
     render(root, html`
@@ -44,9 +44,7 @@ export function mount(root) {
 }
 
 function openDeployDialog() {
-    const d = document.createElement('dialog');
-    d.className = 'modal deploy-modal';
-    render(d, html`
+    const d = openModal(html`
         <form method="dialog">
             <h2>覆盖部署 Worker</h2>
             <p class="note err">提交错误的代码会让面板立刻崩溃（500 错误），只能去 Cloudflare 后台抢修。请先在本地测试通过。</p>
@@ -56,10 +54,7 @@ function openDeployDialog() {
                 <button class="btn" value="cancel">取消</button>
                 <button type="button" class="btn danger pri" data-deploy>部署并重启</button>
             </div>
-        </form>`);
-    d.addEventListener('close', () => d.remove());
-    document.body.append(d);
-    d.showModal();
+        </form>`, 'deploy-modal');
     const f = d.querySelector('form');
     const btn = d.querySelector('[data-deploy]');
     btn.onclick = async () => {

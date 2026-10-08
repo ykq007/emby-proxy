@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { html, raw } from '../src/ui/console/html.js';
 import { pageFromHash, pageHash, parseHash } from '../src/ui/console/nav.js';
+import { isNewer } from '../src/ui/console/version.js';
 
 test('html escapes interpolated values but not nested templates', () => {
     const name = '<img src=x onerror=alert(1)>';
@@ -30,4 +31,12 @@ test('parseHash splits a page argument and pageHash builds it back', () => {
     assert.deepEqual(parseHash('#bogus/x'), { key: 'overview', arg: '' });
     assert.equal(pageHash('nodes', 'hk 1'), '#nodes/hk%201');
     assert.equal(pageHash('stats'), '#stats');
+});
+
+test('isNewer compares dotted versions numerically', () => {
+    assert.equal(isNewer('2.10.0', '2.9.3'), true);
+    assert.equal(isNewer('2.5.1', '2.5.1'), false);
+    assert.equal(isNewer('2.5.0', '2.5.1'), false);
+    assert.equal(isNewer('2.6', '2.5.9'), true);
+    assert.equal(isNewer('3.0.0', '3'), false);
 });

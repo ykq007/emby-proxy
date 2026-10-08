@@ -1,6 +1,6 @@
 import { html, render } from '../html.js';
 import { api } from '../api.js';
-import { confirm, on, toast, toastError } from '../ui.js';
+import { confirm, on, toast, toastError, openModal } from '../ui.js';
 import { coloSplit, domainMs, latencyCell, sortByLatency } from './speed-lib.js';
 
 const BANDWIDTH_BYTES = 10 * 1024 * 1024;
@@ -23,27 +23,20 @@ async function probe(domain, timeoutMs = 4000) {
 // Small modal form; resolves { domain, note } or null.
 function askDomain() {
     return new Promise(resolve => {
-        const d = document.createElement('dialog');
-        d.className = 'modal';
-        render(d, html`
+        const d = openModal(html`
             <form method="dialog">
                 <h2>添加自定义优选域名</h2>
                 <label class="field"><span>域名</span><input name="domain" required placeholder="example.com" pattern="[A-Za-z0-9.\\-]+" autocomplete="off" spellcheck="false"></label>
                 <label class="field"><span>备注（可空）</span><input name="note" autocomplete="off"></label>
                 <div class="modal-actions">
-                    <button type="button" class="btn" data-cancel>取消</button>
+                    <button type="button" class="btn" data-close>取消</button>
                     <button class="btn pri" value="add">添加</button>
                 </div>
             </form>`);
-        d.querySelector('[data-cancel]').onclick = () => d.close();
-        d.addEventListener('click', e => { if (e.target === d) d.close(); });
         d.addEventListener('close', () => {
             const f = d.querySelector('form');
             resolve(d.returnValue === 'add' ? { domain: f.domain.value.trim(), note: f.note.value.trim() } : null);
-            d.remove();
         });
-        document.body.append(d);
-        d.showModal();
     });
 }
 

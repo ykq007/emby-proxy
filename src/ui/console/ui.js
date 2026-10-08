@@ -41,11 +41,14 @@ function dialog(className, content) {
     d.className = className;
     render(d, content);
     d.addEventListener('close', () => d.remove());
-    d.addEventListener('click', e => { if (e.target === d) d.close(); });
+    d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); });
     document.body.append(d);
     d.showModal();
     return d;
 }
+
+// A centered dialog. Clicking the backdrop or any [data-close] element closes it.
+export const openModal = (content, className = '') => dialog(('modal ' + className).trim(), content);
 
 // Resolves true on OK. A danger confirm puts focus on Cancel.
 export function confirm({ title, body = '', ok = '确定', danger = false }) {
@@ -74,14 +77,13 @@ export function openPanel({ title, sub = '', content = '' }) {
         <div class="panel-body"></div>`);
     d.body = d.querySelector('.panel-body');
     render(d.body, content);
-    d.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => d.close(); });
     return d;
 }
 
 // Bottom sheet listing actions or links on a phone.
 export function openSheet(content) {
     const d = dialog('sheet', content);
-    d.addEventListener('click', e => { if (e.target.closest('a,[data-close]')) d.close(); });
+    d.addEventListener('click', e => { if (e.target.closest('a')) d.close(); });
     return d;
 }
 

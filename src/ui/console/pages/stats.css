@@ -1,5 +1,4 @@
 /* 统计 page. */
-.stats .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .stats .readout .v.stats-msg { font-size: 13px; margin-top: 10px; }
 .stats .note code { font-family: var(--mono); font-size: 12px; }
 
@@ -22,7 +21,7 @@
 .top5 .rank { width: 1%; }
 .top5 .bar-col { width: 40%; }
 .top5 .bar { display: block; height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
-.top5 .bar i { display: block; height: 100%; border-radius: 3px; background: var(--acc); }
+.top5 .bar i { display: block; height: 100%; border-radius: 3px; background: var(--data); }
 
 .th-sort { display: inline-flex; gap: 4px; align-items: center; border: 0; padding: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; }
 .th-sort:hover { color: var(--tx); }

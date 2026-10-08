@@ -21,7 +21,7 @@ function ensureChartJs() {
 }
 
 const TIMEOUT_MS = 10000;
-// Slice 1 is the accent; the rest step down a neutral ink so the biggest share reads first.
+// Slice 1 is the data colour; the rest step down a neutral ink so the biggest share reads first.
 const DONUT_ALPHA = ['', 'ff', 'b3', '80', '59', '38'];
 
 function trafficCell(label, value) {
@@ -141,7 +141,7 @@ export function mount(root) {
         const visits = slices.reduce((s, l) => s + l.count, 0);
         const css = getComputedStyle(document.documentElement);
         const tok = n => css.getPropertyValue(n).trim();
-        const colors = slices.map((_, i) => i === 0 ? tok('--acc') : tok('--tx2') + DONUT_ALPHA[i]);
+        const colors = slices.map((_, i) => i === 0 ? tok('--data') : tok('--tx2') + DONUT_ALPHA[i]);
 
         render(el, html`
             <div class="stats-charts">
@@ -177,7 +177,7 @@ export function mount(root) {
         Object.assign(Chart.defaults, { color: tok('--tx3'), borderColor: tok('--line-soft'), animation: false });
         Chart.defaults.font.family = tok('--sans');
         const tooltip = { backgroundColor: tok('--raise'), titleColor: tok('--tx'), bodyColor: tok('--tx'), borderColor: tok('--line'), borderWidth: 1, padding: 10, displayColors: false };
-        const acc = tok('--acc');
+        const acc = tok('--data');
         const trendEl = el.querySelector('[data-chart="trend"]');
         if (trendEl) charts.push(new Chart(trendEl, {
             type: 'line',

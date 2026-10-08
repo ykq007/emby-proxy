@@ -1,8 +1,9 @@
 // Background check for a newer release, as the old console did: fetch the published worker from
-// GITHUB_RAW_URL, read its "// VERSION: x.y.z" line, and offer a one-click redeploy when it differs.
+// GITHUB_RAW_URL, read its "// VERSION: x.y.z" line, and offer a one-click redeploy when it is newer.
 import { html, render } from './html.js';
 import { api } from './api.js';
 import { confirm, toast, toastError } from './ui.js';
+import { isNewer } from './version.js';
 
 const CURRENT = __CURRENT_VERSION__;
 const RAW_URL = __GITHUB_RAW_URL__;
@@ -17,7 +18,8 @@ async function check() {
         code = await res.text();
     } catch { return; }
     const latest = code.match(/\/\/\s*VERSION:\s*v?([\d.]+)/i)?.[1];
-    if (!latest || latest === CURRENT) return;
+    // Only newer: a local build ahead of the published release must not offer a downgrade.
+    if (!latest || !isNewer(latest, CURRENT)) return;
 
     const bar = document.createElement('div');
     bar.className = 'note update-note';

@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { html, raw, render } from '../html.js';
 import { pageHash } from '../nav.js';
-import { confirm, on, toast, toastError } from '../ui.js';
+import { confirm, on, toast, toastError, openModal } from '../ui.js';
 import { enabledCount, isSensitiveKey, mergeHeaders, parseCurl, parseHeaders, serializeHeaders } from './nodes-headers.js';
 
 // '~' can never be part of a prefix (letters, digits, _ and - only), so '#nodes/~new' cannot shadow a node.
@@ -233,21 +233,11 @@ function editorView(root, routes, arg) {
         }
     }
 
-    function modal(content) {
-        const d = document.createElement('dialog');
-        d.className = 'modal nodes-dlg';
-        render(d, content);
-        d.addEventListener('close', () => d.remove());
-        d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) d.close(); });
-        document.body.append(d);
-        d.showModal();
-        return d;
-    }
 
     function openImport() {
         const current = isNew ? '' : r.prefix;
         const sources = routes.map(n => ({ n, count: parseHeaders(n.custom_headers).length })).filter(s => s.n.prefix !== current && s.count > 0);
-        const d = modal(html`
+        const d = openModal(html`
             <div class="modal-body">
                 <h2>从已有节点导入请求头</h2>
                 <p class="muted">选择一个源节点，把它的请求头合并到当前编辑器。同名键以源节点为准，其余追加。</p>
@@ -268,7 +258,7 @@ function editorView(root, routes, arg) {
     }
 
     function openCurl() {
-        const d = modal(html`
+        const d = openModal(html`
             <form method="dialog">
                 <h2>从 cURL 命令导入</h2>
                 <p class="muted">粘贴浏览器 DevTools「Copy as cURL」的内容，自动提取所有 -H 请求头。已有的同名请求头保持不变。</p>

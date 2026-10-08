@@ -1,6 +1,6 @@
 import { html, render } from '../html.js';
 import { api } from '../api.js';
-import { confirm, on, openPanel, toast, toastError } from '../ui.js';
+import { confirm, on, openPanel, toast, toastError, openModal } from '../ui.js';
 import { isFull, matrixColumns, quotaRoom, usedByNode } from './viewers-model.js';
 
 const nodeName = n => html`${n.remark || n.prefix} <span class="faint num">/${n.prefix}</span>`;
@@ -182,9 +182,7 @@ export function mount(root) {
     function changePassword(btn) {
         const v = viewer(btn.dataset.id);
         if (!v) return;
-        const d = document.createElement('dialog');
-        d.className = 'modal';
-        render(d, html`
+        const d = openModal(html`
             <form>
                 <h2>修改 ${v.username} 的密码</h2>
                 <label class="field"><span>新密码</span><input name="password" type="password" minlength="6" required autocomplete="new-password" placeholder="至少 6 位" autofocus></label>
@@ -195,9 +193,6 @@ export function mount(root) {
                     <button class="btn pri">修改密码</button>
                 </div>
             </form>`);
-        d.addEventListener('close', () => d.remove());
-        document.body.append(d);
-        d.showModal();
         const f = d.querySelector('form');
         const errEl = d.querySelector('.field-err');
         d.querySelector('[data-cancel]').onclick = () => d.close();
