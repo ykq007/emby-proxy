@@ -8,6 +8,8 @@
 @import "./pages/global.css";
 @import "./pages/viewers.css";
 @import "./pages/danger.css";
+@import "./pages/speed.css";
+@import "./pages/cdn.css";
 
 :root {
     --bg: #141619;

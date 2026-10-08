@@ -1,0 +1,95 @@
+/* 测速 & DNS. The latency bar, .sp-tag and .sp-th-btn are also used by 优选 CDN. */
+
+.sp-tag { display: inline-block; padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--tx2); font: 11px/16px var(--mono); vertical-align: 1px; }
+.sp-tag.ok { border-color: var(--ok); color: var(--ok); }
+.sp-tag.acc { border-color: var(--acc); color: var(--tx); }
+
+.sp-lat { display: inline-flex; align-items: center; gap: 8px; }
+.sp-lat-bar { width: 56px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; flex: none; }
+.sp-lat-bar i { display: block; height: 100%; background: var(--tx3); transform: scaleX(var(--f)); transform-origin: left; transition: transform .16s; }
+.sp-lat.ok .sp-lat-bar i { background: var(--ok); }
+.sp-lat.warn .sp-lat-bar i { background: var(--warn); }
+.sp-lat.err .sp-lat-bar i { background: var(--err); }
+.sp-lat.err .num { color: var(--err); }
+.sp-lat.off .num { color: var(--tx3); }
+
+.sp-th-btn { border: 0; background: none; padding: 0; color: inherit; font: inherit; letter-spacing: inherit; }
+.sp-th-btn:hover { color: var(--tx); }
+
+.sp-dns .sec-head { margin-bottom: 10px; }
+.sp-recs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.sp-recs li { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg label { position: relative; display: flex; }
+.seg input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.seg span { display: flex; align-items: center; justify-content: center; min-height: 28px; padding: 0 11px; border-left: 1px solid var(--line); color: var(--tx2); white-space: nowrap; flex: 1; }
+.seg label:first-child span { border-left: 0; }
+.seg label:hover span { color: var(--tx); background: var(--line-soft); }
+.seg input:checked + span { background: var(--line); color: var(--tx); }
+.seg input:focus-visible + span { outline: 2px solid var(--acc); outline-offset: -2px; }
+
+.sp-more { anchor-name: --sp-more; }
+.sp-menu { position-anchor: --sp-more; inset: auto; top: anchor(bottom); right: anchor(right); margin: 4px 0 0; padding: 4px; min-width: 190px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--tx); box-shadow: var(--shadow); }
+.sp-menu button { display: flex; width: 100%; padding: 7px 10px; border: 0; border-radius: 4px; background: none; text-align: left; }
+.sp-menu button:hover:not(:disabled) { background: var(--line-soft); }
+.sp-menu button:disabled { color: var(--tx3); cursor: default; }
+.sp-menu .danger, .sheet-list .danger { color: var(--err); }
+.sp-menu .danger { border-top: 1px solid var(--line); border-radius: 0 0 4px 4px; margin-top: 4px; }
+@supports not (anchor-name: --a) {
+    .sp-menu { inset: 0; margin: auto; height: fit-content; }
+}
+.sheet-list button:disabled { color: var(--tx3); }
+.sp-sheet-why { padding: 8px 4px 12px; font-size: 12px; }
+
+.sp-custom summary { cursor: pointer; color: var(--tx2); }
+.sp-custom summary:hover { color: var(--tx); }
+.sp-custom[open] summary { margin-bottom: 14px; }
+.sp-custom textarea { min-height: 72px; }
+
+.sp-hint { padding: 10px 20px 0; font-size: 12px; }
+.sp-tbl th.sp-ck, .sp-tbl td.sp-ck { width: 1px; padding-right: 0; }
+.sp-hit { display: inline-flex; align-items: center; justify-content: center; }
+.sp-copy { border: 0; background: none; padding: 0; color: var(--tx); text-align: left; }
+.sp-copy:hover { color: var(--acc); }
+.sp-act .btn + .btn { margin-left: 6px; }
+.sp-none td { white-space: normal; }
+.sp-none:hover td { background: none !important; }
+
+.sp .only-phone, .sp-selbar { display: none; }
+
+@media (max-width: 760px) {
+    .sp .only-desk { display: none; }
+    .sp .only-phone { display: inline-flex; }
+    .sp .btn { min-height: 44px; }
+    .sp-tools { gap: 8px; }
+    .sp-tools .seg { display: flex; width: 100%; }
+    .sp-tools .seg label { flex: 1; }
+    .sp-tools .seg span { min-height: 44px; padding: 0 4px; }
+    .sp-tools .sp-main { flex: 1 1 100%; }
+    .sp-tools .btn:not(.sp-main) { flex: 1; }
+    .sp-hint { padding: 10px 16px 0; }
+
+    /* Each result row becomes two lines: node and latency, then status, record and actions. */
+    .sp-tbl thead tr { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+    .sp-tbl thead th { display: none; border: 0; }
+    .sp-tbl thead th.sp-ck, .sp-tbl thead th.sp-sort { display: block; padding: 0; }
+    .sp-tbl thead th.sp-sort { margin-left: auto; padding-right: 16px; }
+    .sp-tbl thead th.sp-ck::after { content: "全选"; }
+    .sp-tbl thead th.sp-ck { display: flex; align-items: center; width: auto; }
+    .sp-th-btn { min-height: 44px; padding: 0 4px; }
+    .sp-tbl tbody tr:not(.sp-none) { display: grid; grid-template-columns: 44px auto minmax(0, 1fr) auto; grid-template-areas: "ck target target lat" "ck st rec act"; align-items: center; column-gap: 8px; padding: 6px 16px 8px 0; border-bottom: 1px solid var(--line-soft); }
+    .sp-tbl tbody tr:not(.sp-none) td { padding: 0; border: 0; background: none !important; white-space: normal; }
+    .sp-tbl td.sp-ck { grid-area: ck; align-self: stretch; padding: 0; }
+    .sp-tbl td.sp-target { grid-area: target; overflow-wrap: anywhere; }
+    .sp-tbl td.sp-latc { grid-area: lat; justify-self: end; }
+    .sp-tbl td.sp-st { grid-area: st; font-size: 12px; }
+    .sp-tbl td.sp-rec { grid-area: rec; font-size: 12px; }
+    .sp-tbl td.sp-act { grid-area: act; justify-self: end; }
+    .sp-hit { width: 44px; height: 100%; min-height: 44px; }
+    .sp-copy { min-height: 32px; overflow-wrap: anywhere; }
+    .sp-lat-bar { width: 36px; }
+
+    .sp-selbar:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: 6; padding: 8px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+    .sp.has-sel { padding-bottom: 64px; }
+}

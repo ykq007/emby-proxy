@@ -1,0 +1,32 @@
+/* 优选 CDN. The latency bar and tags come from speed.css. */
+
+.cdn-info { display: grid; gap: 8px; }
+.cdn-info .note { margin: 0; }
+.cdn-dns .st { margin-right: 4px; }
+.cdn-tbl tr.cdn-active td:first-child { box-shadow: inset 2px 0 var(--ok); }
+.cdn-dom .sp-tag { margin-left: 6px; }
+.cdn-note { min-width: 120px; }
+.cdn-en { width: 1px; }
+.cdn-act .btn + .btn { margin-left: 6px; }
+
+@media (max-width: 760px) {
+    .cdn-tools .btn { flex: 1; min-height: 44px; }
+    .cdn-tools .btn.pri { flex-basis: 100%; }
+    .cdn-tbl thead tr { display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); }
+    .cdn-tbl thead th { display: none; border: 0; }
+    .cdn-tbl thead th.cdn-sort { display: block; padding: 0 16px; }
+    /* Two lines per domain: name and latency, then switch, note and actions. */
+    .cdn-tbl tbody tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "dom dom lat" "en note act"; align-items: center; gap: 6px 10px; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); }
+    .cdn-tbl tbody tr:has(.empty) { display: block; padding: 0; }
+    .cdn-tbl tbody td { padding: 0 !important; border: 0; background: none !important; white-space: normal; }
+    .cdn-dom { grid-area: dom; overflow-wrap: anywhere; }
+    .cdn-lat { grid-area: lat; justify-self: end; }
+    .cdn-en { grid-area: en; display: flex; align-items: center; min-height: 44px; width: auto; }
+    .cdn-note { grid-area: note; min-width: 0; font-size: 12px; }
+    .cdn-act { grid-area: act; justify-self: end; white-space: nowrap !important; }
+    .cdn-act .btn { min-height: 44px; }
+    .cdn-tbl .sp-lat-bar { width: 36px; }
+    .cdn-tbl tr.cdn-active td:first-child { box-shadow: none; }
+    .cdn-tbl tr.cdn-active { box-shadow: inset 2px 0 var(--ok); }
+}
+
