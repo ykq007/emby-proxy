@@ -41,5 +41,7 @@ viewer names.
 
 `npm run verify` (build, lint, UI snapshot check, tests) must pass before you push.
 
-After changing theme tokens in `console.css`, run `npm run theme:write` then `npm run laws`. `bend PROOF.bend`
-must print ALL PROOFS CHECK: `LAWS.bend` holds both themes to WCAG AA and a matching `color-scheme`.
+After changing theme tokens, `--side`, `.sec` padding or the mobile breakpoint in `console.css`, or the `.vw-grid` cell width in
+`viewers.css`, run `npm run bend:write` then `npm run laws`. `bend PROOF.bend`
+must print ALL PROOFS CHECK: `LAWS.bend` holds both themes to WCAG AA and a matching `color-scheme`, and
+holds the 观看账号 grid to no sideways scroll from 320px up.

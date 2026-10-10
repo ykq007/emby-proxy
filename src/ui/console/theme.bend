@@ -1,4 +1,4 @@
-# AUTO-GENERATED from console.css by scripts/theme-bend.mjs. Do not edit.
+# AUTO-GENERATED from console.css by scripts/bend-tokens.mjs. Do not edit.
 import Base
 import ./contrast.bend as C
 

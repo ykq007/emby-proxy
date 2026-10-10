@@ -1,18 +1,18 @@
-/* 观看账号: on a phone the account × node matrix scrolls inside .tbl-wrap, with the account column pinned. */
+/* 观看账号: one block per account, its node cells wrap. LAWS.bend proves the grid never scrolls sideways. */
 .vw-create { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 220px) auto; gap: 12px; align-items: end; margin-top: 14px; }
-.vw-matrix th, .vw-matrix td { vertical-align: middle; }
-.vw-matrix thead th div:last-child { margin-top: 2px; }
-.vw-matrix tbody th { font: inherit; color: var(--tx); letter-spacing: normal; text-align: left; padding: 9px 12px 9px 20px; border-bottom: 1px solid var(--line-soft); }
-.vw-matrix tr > :first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); box-shadow: inset -1px 0 var(--line); }
-.vw-matrix tbody tr:hover > :first-child { background: linear-gradient(var(--line-soft), var(--line-soft)), var(--bg); }
-.vw-who { display: flex; align-items: center; gap: 8px; }
+.vw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.vw-head > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.vw-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px 12px; margin: 0; padding: 0; list-style: none; }
+.vw-grid li { display: grid; gap: 4px; min-width: 0; }
+.vw-node { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--tx2); }
 .vw-full { color: var(--warn); }
 .vw-cell { display: inline-flex; align-items: baseline; justify-content: center; gap: 6px; min-width: 56px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--line-soft); }
 .vw-cell:hover { border-color: var(--tx3); }
 .vw-cell small { color: var(--tx2); font-size: 11px; }
 .vw-cell.add { background: none; border-style: dashed; color: var(--tx3); font-size: 15px; }
 .vw-cell:disabled { cursor: not-allowed; color: var(--tx3); border-color: var(--line-soft); }
-.vw-acts { display: inline-flex; align-items: center; gap: 8px; }
+.vw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .vw-capcell { width: 120px; min-width: 104px; }
 .hit { display: inline-grid; place-items: center; cursor: pointer; }
 .vw-libs { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 4px 12px; }
@@ -20,8 +20,7 @@
 
 @media (max-width: 760px) {
     .vw-create { grid-template-columns: minmax(0, 1fr); }
-    .vw-matrix tbody th { padding-left: 16px; }
-    .vw-cell { min-height: 44px; min-width: 60px; }
+    .vw-cell { min-height: 44px; }
     .hit { min-width: 44px; min-height: 44px; }
     .vw-lib { min-height: 44px; }
 }

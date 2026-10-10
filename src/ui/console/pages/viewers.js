@@ -4,7 +4,6 @@ import { confirm, on, openPanel, toast, toastError, openModal } from '../ui.js';
 import { isFull, matrixColumns, quotaRoom, usedByNode } from './viewers-model.js';
 
 const nodeName = n => html`${n.remark || n.prefix} <span class="faint num">/${n.prefix}</span>`;
-const capText = (x, cap) => cap ? `${x} / ${cap}` : `${x} · 不限`;
 
 export function mount(root) {
     let data = { viewers: [], nodes: [] };
@@ -39,20 +38,9 @@ export function mount(root) {
                     <button class="btn pri">创建</button>
                 </form>
             </section>
-            <div class="tbl-wrap">
-                <table class="tbl vw-matrix">
-                    <thead><tr>
-                        <th scope="col">账号</th>
-                        ${cols.map(n => html`<th scope="col"><div>${nodeName(n)}</div><div class="num ${isFull(n, used) ? 'vw-full' : ''}">${n.viewers_enabled ? capText(used[n.prefix] || 0, n.max_concurrent) : '未开启'}</div></th>`)}
-                        <th scope="col" class="r">操作</th>
-                    </tr></thead>
-                    <tbody>
-                        ${data.viewers.map(v => accountRow(v, cols, used))}
-                        ${!cols.length ? html`<tr><td class="wrap muted" colspan="2">还没有开启观看账号的节点。在下方节点列表里开启后，每个节点占一列。</td></tr>` : ''}
-                        ${!data.viewers.length ? html`<tr><td class="wrap muted" colspan="${cols.length + 2}">还没有观看账号。用上方表单创建第一个。</td></tr>` : ''}
-                    </tbody>
-                </table>
-            </div>
+            ${data.viewers.map(v => accountBlock(v, cols, used))}
+            ${!cols.length ? html`<p class="sec muted">还没有开启观看账号的节点。在下方节点列表里开启后，每个账号下会多一格。</p>` : ''}
+            ${!data.viewers.length ? html`<p class="sec muted">还没有观看账号。用上方表单创建第一个。</p>` : ''}
             <p class="sec muted">格子里是该账号在该节点的并发配额。点格子修改配额或隐藏首页媒体库，点 + 授权。</p>
             <section class="sec">
                 <div class="sec-head"><h2>节点</h2><p>开启后，该节点才接受观看账号登录。未开启的节点照常直通上游。开启时会用节点的 Emby 账号试登录一次，账号在部署节点里填写。</p></div>
@@ -74,21 +62,25 @@ export function mount(root) {
             : html`<div class="empty"><b>还没有节点</b><span>先部署一个节点，再给观看账号授权。</span><a class="btn" href="#nodes">去部署节点</a></div>`}`);
     }
 
-    function accountRow(v, cols, used) {
+    function accountBlock(v, cols, used) {
         const byPrefix = Object.fromEntries(v.access.map(a => [a.prefix, a]));
         const total = v.access.reduce((s, a) => s + a.quota, 0);
         const unlimited = v.access.some(a => !a.quota);
         const meta = v.access.length ? `${v.access.length} 个节点 · 并发 ${unlimited ? '不限' : total}` : '未授权节点';
         return html`
-            <tr>
-                <th scope="row"><div class="vw-who"><b>${v.username}</b>${v.enabled ? '' : html`<span class="st off"><i aria-hidden="true"></i>已停用</span>`}</div><div class="faint">${meta}</div></th>
-                ${cols.map(n => html`<td>${cell(v, n, byPrefix[n.prefix], used)}</td>`)}
-                <td class="r"><div class="vw-acts">
-                    <label class="hit"><input type="checkbox" class="switch" ${v.enabled ? 'checked' : ''} aria-label="启用 ${v.username}" data-change="toggleViewer" data-id="${v.id}"></label>
-                    <button type="button" class="btn sm" data-action="password" data-id="${v.id}">改密码</button>
-                    <button type="button" class="btn sm danger" data-action="remove" data-id="${v.id}">删除</button>
-                </div></td>
-            </tr>`;
+            <section class="sec" aria-label="${v.username}">
+                <div class="vw-head">
+                    <div><div class="vw-who"><b>${v.username}</b>${v.enabled ? '' : html`<span class="st off"><i aria-hidden="true"></i>已停用</span>`}</div><div class="faint">${meta}</div></div>
+                    <div class="vw-acts">
+                        <label class="hit"><input type="checkbox" class="switch" ${v.enabled ? 'checked' : ''} aria-label="启用 ${v.username}" data-change="toggleViewer" data-id="${v.id}"></label>
+                        <button type="button" class="btn sm" data-action="password" data-id="${v.id}">改密码</button>
+                        <button type="button" class="btn sm danger" data-action="remove" data-id="${v.id}">删除</button>
+                    </div>
+                </div>
+                <ul class="vw-grid">
+                    ${cols.map(n => html`<li><span class="vw-node ${isFull(n, used) ? 'vw-full' : ''}" title="${n.remark || n.prefix} /${n.prefix}">${nodeName(n)}</span>${cell(v, n, byPrefix[n.prefix], used)}</li>`)}
+                </ul>
+            </section>`;
     }
 
     function cell(v, n, a, used) {
