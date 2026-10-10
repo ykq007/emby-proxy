@@ -19,7 +19,10 @@
     "snapshot:check": "node scripts/snapshot-ui.mjs --check",
     "lint": "eslint src/ui/console",
     "test": "node --test \"test/**/*.test.mjs\"",
-    "verify": "npm run build && npm run lint && npm run snapshot:check && npm test",
+    "theme:write": "node scripts/theme-bend.mjs --write",
+    "theme:check": "node scripts/theme-bend.mjs --check",
+    "laws": "npm run theme:check && bend PROOF.bend",
+    "verify": "npm run build && npm run lint && npm run snapshot:check && npm run theme:check && npm test",
     "tg:commands": "node scripts/register-tg-commands.mjs"
   },
   "devDependencies": {

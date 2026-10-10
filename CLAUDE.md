@@ -40,3 +40,6 @@ viewer names.
 ## Checks
 
 `npm run verify` (build, lint, UI snapshot check, tests) must pass before you push.
+
+After changing theme tokens in `console.css`, run `npm run theme:write` then `npm run laws`. `bend PROOF.bend`
+must print ALL PROOFS CHECK: `LAWS.bend` holds both themes to WCAG AA and a matching `color-scheme`.
