@@ -218,6 +218,9 @@
         --text-large-title-lg: 40px;
     }
 
+    /* Native controls (file buttons, checkboxes, selects, scrollbars) follow color-scheme, not body.dark. */
+    :root:has(> body.dark) { color-scheme: dark; }
+
     body.dark {
         /* ============================================================
            Aqua v1.0 — dark. Elevated greys (#1C1C1E / #2C2C2E family),
