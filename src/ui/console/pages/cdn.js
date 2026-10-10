@@ -1,23 +1,62 @@
 import { html, render } from '../html.js';
 import { api } from '../api.js';
 import { confirm, on, toast, toastError, openModal } from '../ui.js';
-import { coloSplit, domainMs, latencyCell, sortByLatency } from './speed-lib.js';
+import { cfVerdict, coloSplit, domainMs, latencyCell, sortByLatency } from './speed-lib.js';
 
 const BANDWIDTH_BYTES = 10 * 1024 * 1024;
+const FAIL_TEXT = { off: '非 CF', none: '无解析' };
 
-// Any HTTP response resolves a no-cors fetch; DNS, TCP or TLS failure and the timeout reject.
+// The domain's A and AAAA answers from Cloudflare's DNS-over-HTTPS, or null when that lookup fails.
+async function resolveIps(domain) {
+    try {
+        const answers = await Promise.all(['A', 'AAAA'].map(async type => {
+            const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${type}`,
+                { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(4000) });
+            if (!res.ok) throw new Error(`DoH ${res.status}`);
+            return (await res.json()).Answer || [];
+        }));
+        return answers.flat().filter(a => a.type === 1 || a.type === 28).map(a => a.data);
+    } catch {
+        return null;
+    }
+}
+
+// Fallback when DoH fails: times a /cdn-cgi/trace request, where any HTTP response counts and an error fails.
 async function probe(domain, timeoutMs = 4000) {
     const start = performance.now();
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), timeoutMs);
-    try {
-        await fetch(`https://${domain}/cdn-cgi/trace?_=${Date.now()}`, { mode: 'no-cors', cache: 'no-store', signal: ctl.signal });
-        return { ms: Math.round(performance.now() - start), ok: true };
-    } catch {
-        return { ms: -1, ok: false };
-    } finally {
-        clearTimeout(timer);
+    const ok = await fetch(`https://${domain}/cdn-cgi/trace?_=${Date.now()}`, { mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
+        .then(() => true, () => false);
+    return ok ? { ms: Math.round(performance.now() - start), ok } : { ms: -1, ok };
+}
+
+// Best of three requests to a bare IPv4, or -1 on a timeout. Cloudflare has no certificate for an IP, so every
+// request ends at the TLS handshake. Each IP costs the same work, and no connection is left open to reuse.
+// ponytail: IPv4 only, since an IPv6 address this network cannot route fails at once and would look fastest.
+async function probeIp(ip, timeoutMs = 4000) {
+    let best = Infinity;
+    for (let i = 0; i < 3; i++) {
+        const start = performance.now();
+        const answered = await fetch(`https://${ip}/`, { mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
+            .then(() => true, err => err.name !== 'TimeoutError');
+        if (!answered) return -1;
+        best = Math.min(best, performance.now() - start);
     }
+    return Math.round(best);
+}
+
+// Probes every distinct IPv4 once. A domain counts as its slowest IP, since a viewer can land on any of them.
+async function testDomains(domains) {
+    const dnsByDomain = Object.fromEntries(await Promise.all(domains.map(async d => [d, await resolveIps(d)])));
+    const v4 = [...new Set(Object.values(dnsByDomain).flat().filter(ip => ip && !ip.includes(':')))];
+    const msByIp = Object.fromEntries(await Promise.all(v4.map(async ip => [ip, await probeIp(ip)])));
+    return Promise.all(domains.map(async domain => {
+        const ips = dnsByDomain[domain];
+        if (!ips) return { domain, ...await probe(domain), cf: null, ips };
+        const cf = cfVerdict(ips);
+        const times = ips.filter(ip => ip in msByIp).map(ip => msByIp[ip]);
+        const ok = cf === 'on' && times.length > 0 && !times.includes(-1);
+        return { domain, ms: ok ? Math.max(...times) : -1, ok, cf, ips };
+    }));
 }
 
 // Small modal form; resolves { domain, note } or null.
@@ -85,12 +124,13 @@ export function mount(root) {
         render($('tbody'), items.length ? sortByLatency(items, msOf, sortDir).map(it => {
             const ms = msOf(it);
             const isActive = dns.active && String(it.domain).toLowerCase() === dns.active;
-            const text = live[it.id] && !live[it.id].ok ? '失败' : ms == null ? '—' : undefined;
+            const run = live[it.id];
+            const text = run && !run.ok ? FAIL_TEXT[run.cf] ?? '失败' : ms == null ? '—' : undefined;
             return html`<tr class="${isActive ? 'cdn-active' : ''}">
                 <td class="cdn-dom"><span class="num">${it.domain}</span>${isActive ? html` <span class="sp-tag ok">生效中</span>` : ''}${it.builtin ? html` <span class="sp-tag">内置</span>` : ''}${ms != null && ms === best ? html` <span class="sp-tag acc">最快</span>` : ''}</td>
                 <td class="cdn-note wrap muted">${it.note || ''}</td>
                 <td class="cdn-en"><input type="checkbox" class="switch" data-change="toggle" data-id="${it.id}" ${it.enabled ? 'checked' : ''} aria-label="启用 ${it.domain}"></td>
-                <td class="cdn-lat">${latencyCell(ms, text)}</td>
+                <td class="cdn-lat" title="${run?.ips?.join(' ') || ''}">${latencyCell(ms, text)}</td>
                 <td class="r cdn-act">
                     ${isActive ? html`<span class="st"><i></i>当前线路</span>`
                         : html`<button type="button" class="btn sm" data-action="replace" data-domain="${it.domain}" ${dns.ready ? '' : 'disabled'}
@@ -139,8 +179,10 @@ export function mount(root) {
             try {
                 const data = await api('/api/optimized-domains');
                 items = data.items || [];
-                const measured = await Promise.all(items.filter(it => it.enabled).map(async it => ({ id: it.id, ...await probe(it.domain) })));
-                live = Object.fromEntries(measured.map(m => [m.id, { ms: m.ms, ok: m.ok }]));
+                const enabled = items.filter(it => it.enabled);
+                const results = await testDomains(enabled.map(it => it.domain));
+                const measured = enabled.map((it, i) => ({ id: it.id, ...results[i] }));
+                live = Object.fromEntries(measured.map(({ id, ...m }) => [id, m]));
                 sortDir = 'asc';
                 draw();
                 await api('/api/optimized-domains/speedtest', { method: 'POST', body: { items: measured.map(m => ({ id: m.id, ms: m.ms })) } })

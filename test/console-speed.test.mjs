@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    coloSplit, displayLatency, domainMs, extractDomains, extractTargets, fastest,
-    latencyBar, latencyGrade, recordType, sortByLatency,
+    cfVerdict, coloSplit, displayLatency, domainMs, extractDomains, extractTargets, fastest,
+    latencyBar, latencyGrade, parseIp, recordType, sortByLatency,
 } from '../src/ui/console/pages/speed-lib.js';
 
 test('extractTargets pulls IPv4, domains and bracketed IPv6 from pasted text, once each', () => {
@@ -62,4 +62,21 @@ test('domainMs prefers the live browser result over the saved one', () => {
 test('coloSplit shows the share per colo', () => {
     assert.equal(coloSplit([{ colo: 'KUL', n: 3 }, { colo: 'SIN', n: 1 }]), '过去 24 小时观众入口机房：KUL 75% · SIN 25%（4 次播放）');
     assert.equal(coloSplit([]), '过去 24 小时还没有观众入口机房记录');
+});
+
+test('parseIp reads IPv4 and IPv6 answers and rejects anything else', () => {
+    assert.deepEqual(parseIp('162.159.6.209'), { $: 'V4', a: 162, b: 159, c: 6, d: 209 });
+    assert.deepEqual(parseIp('2A06:98c1:3102::ac40:98f1'), { $: 'V6', a: 0x2a06, b: 0x98c1, c: 0x3102, d: 0, e: 0, f: 0, g: 0xac40, h: 0x98f1 });
+    assert.deepEqual(parseIp('::1'), { $: 'V6', a: 0, b: 0, c: 0, d: 0, e: 0, f: 0, g: 0, h: 1 });
+    for (const bad of ['256.1.1.1', '1.2.3', '1::2::3', '1:2:3:4:5:6:7:8:9', '1:2:3:4:5:6:7:8::', 'cfyx.aliyun.20237737.xyz.']) {
+        assert.equal(parseIp(bad), null, bad);
+    }
+});
+
+test('cfVerdict passes only domains whose every answer is a Cloudflare IP', () => {
+    assert.equal(cfVerdict(['172.64.154.211', '2606:4700:4406::ac40:9047']), 'on');
+    assert.equal(cfVerdict(['2a14:67c1:b589::1']), 'off');
+    assert.equal(cfVerdict(['172.64.154.211', '8.8.8.8']), 'off');
+    assert.equal(cfVerdict(['172.64.154.211', 'not-an-ip']), 'off');
+    assert.equal(cfVerdict([]), 'none');
 });

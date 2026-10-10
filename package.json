@@ -21,7 +21,8 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "bend:write": "node scripts/bend-tokens.mjs --write",
     "bend:check": "node scripts/bend-tokens.mjs --check",
-    "laws": "npm run bend:check && bend PROOF.bend",
+    "bend:mjs": "bend src/ui/console/cfip.bend -o src/ui/console/cfip.mjs",
+    "laws": "npm run bend:check && bend PROOF.bend && bend src/ui/console/cfip.bend -o \"${TMPDIR:-/tmp}/cfip.mjs\" && cmp \"${TMPDIR:-/tmp}/cfip.mjs\" src/ui/console/cfip.mjs",
     "verify": "npm run build && npm run lint && npm run snapshot:check && npm run bend:check && npm test",
     "tg:commands": "node scripts/register-tg-commands.mjs"
   },

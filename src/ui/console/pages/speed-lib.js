@@ -1,5 +1,6 @@
 // Pure helpers for the 测速 & DNS and 优选 CDN pages. No DOM, so test/console-speed.test.mjs can import them.
 import { html } from '../html.js';
+import Cfip from '../cfip.mjs';
 
 const IPV4 = /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b/g;
 const IPV6 = /(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}|(?:[A-F0-9]{1,4}:)*:[A-F0-9]{1,4}(?::[A-F0-9]{1,4})*/gi;
@@ -76,6 +77,33 @@ export const fastest = (rows, n) => rows.filter(r => r.ms != null && r.ms < PROB
 export function domainMs(item, live) {
     if (live) return live.ok ? live.ms : null;
     return typeof item.last_ms === 'number' && item.last_ms > 0 ? item.last_ms : null;
+}
+
+// An A or AAAA answer as cfip.bend's Addr, or null when it is not a plain address.
+export function parseIp(text) {
+    const s = String(text).trim().toLowerCase();
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(s)) {
+        const [a, b, c, d] = s.split('.').map(Number);
+        return [a, b, c, d].every(n => n <= 255) ? { $: 'V4', a, b, c, d } : null;
+    }
+    const halves = s.split('::');
+    if (halves.length > 2) return null;
+    const groups = halves.map(h => h ? h.split(':') : []);
+    const missing = 8 - groups[0].length - (groups[1]?.length ?? 0);
+    if (halves.length === 1 ? missing !== 0 : missing < 1) return null;
+    const all = halves.length === 1 ? groups[0] : [...groups[0], ...Array(missing).fill('0'), ...groups[1]];
+    if (!all.every(g => /^[0-9a-f]{1,4}$/.test(g))) return null;
+    const [a, b, c, d, e, f, g, h] = all.map(g => parseInt(g, 16));
+    return { $: 'V6', a, b, c, d, e, f, g, h };
+}
+
+// 'on' when every answer is a Cloudflare IP, 'off' when any is not, 'none' when there are no answers.
+// The rule lives in cfip.bend, where LAWS.bend proves it.
+export function cfVerdict(ips) {
+    const addrs = ips.map(parseIp);
+    if (addrs.includes(null)) return 'off';
+    const list = addrs.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' });
+    return { OnCloudflare: 'on', OffCloudflare: 'off', Unresolved: 'none' }[Cfip.verdict(list).$];
 }
 
 // Viewer entry colo split from /api/optimized-domains `colos`.

@@ -41,6 +41,9 @@ viewer names.
 
 `npm run verify` (build, lint, UI snapshot check, tests) must pass before you push.
 
+After changing `src/ui/console/cfip.bend` (the Cloudflare IP ranges and the 优选 CDN verdict), run `npm run bend:mjs`
+then `npm run laws`. The page imports the compiled `cfip.mjs`, and `laws` fails when it is stale.
+
 After changing theme tokens, `--side`, `.sec` padding or the mobile breakpoint in `console.css`, or the `.vw-grid` cell width in
 `viewers.css`, run `npm run bend:write` then `npm run laws`. `bend PROOF.bend`
 must print ALL PROOFS CHECK: `LAWS.bend` holds both themes to WCAG AA and a matching `color-scheme`, and
