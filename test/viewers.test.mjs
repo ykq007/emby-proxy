@@ -521,3 +521,10 @@ test('viewers cannot use a browser: login and token requests from a browser UA g
     assert.equal(seen.length, 0, 'nothing was sent upstream');
     assert.equal((await call('/emby/Users/U1/Views', { token })).status, 200, 'the same token still works from an app');
 });
+
+test('admin library list works behind a country allowlist', async () => {
+    __setConfigForTest({ countrySet: new Set(['MY']), routesMap: new Map([['node1', { prefix: 'node1', target: UP, mode: 'off', cache_img: 'on', custom_headers: '', keepalive_days: 0, viewers_enabled: 1 }]]) });
+    const r = await admin('GET', '/api/viewers/libraries?prefix=node1');
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual(r.body.libraries, [{ id: 'L1', name: 'Movies' }, { id: 'L2', name: 'Anime' }]);
+});
