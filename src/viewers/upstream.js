@@ -82,17 +82,20 @@ export async function dropNodeSessions(env, prefix) {
 }
 export function __resetUpstreamMemForTest() { MEM.clear(); }
 
-// 管理端用的临时会话（开关校验、媒体库列表）：登录 → fn(session) → 上游登出，不留设备。
+// 管理端用的临时会话（开关校验、媒体库列表）：登录 → fn(get, session) → 上游登出，不留设备。
+// get 直连上游，不走 proxyRequest：管理端请求不该过访客的国家白名单网关。
 export async function withTempSession(env, prefix, fn) {
     const ident = { client: 'Forward', device: 'Forward', deviceId: prefix + '-admin-check', version: '1.0.0', ua: '' };
     const s = await loginUpstream(env, prefix, ident);
     if (s.error) return { error: s.error };
-    try { return { result: fn ? await fn(s) : null }; }
+    const route = await dbFirst(env, `SELECT target, custom_headers FROM routes WHERE prefix = ?`, prefix);
+    const base = String(route?.target || '').split(',')[0].trim();
+    const headers = { ...identityHeaders(s.ident, s.token), ...parseCustomHeadersForProbe(route?.custom_headers) };
+    const get = (path) => fetchEmbyJsonWithFallback(base, ['/emby' + path, path], { headers, timeoutMs: 10000 });
+    try { return { result: fn ? await fn(get, s) : null }; }
     finally {
-        const route = await dbFirst(env, `SELECT target FROM routes WHERE prefix = ?`, prefix);
-        const base = String(route?.target || '').split(',')[0].trim();
         if (base) await fetchEmbyJsonWithFallback(base, ['/emby/Sessions/Logout', '/Sessions/Logout'],
-            { method: 'POST', headers: identityHeaders(s.ident, s.token), timeoutMs: 5000 }).catch(() => null);
+            { method: 'POST', headers, timeoutMs: 5000 }).catch(() => null);
     }
 }
 

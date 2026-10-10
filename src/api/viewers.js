@@ -9,8 +9,7 @@
 import { dbAll } from '../db/helpers.js';
 import { updateRouteColumns } from '../routing/route.js';
 import { listViewers, createViewer, updateViewer, deleteViewer, grantAccess, revokeAccess, nodeCapacity } from '../viewers/store.js';
-import { withTempSession, identityHeaders } from '../viewers/upstream.js';
-import { proxyRequest } from '../proxy/engine.js';
+import { withTempSession } from '../viewers/upstream.js';
 
 const ok = (extra) => Response.json({ success: true, ...extra });
 const fail = (error, status = 400) => Response.json({ success: false, error }, { status });
@@ -91,14 +90,10 @@ export async function handleViewers(request, env, ctx, url) {
         if (p === '/api/viewers/libraries' && m === 'GET') {
             const prefix = url.searchParams.get('prefix') || '';
             // 临时会话读取上游媒体库，读完即登出，不在上游留下设备。
-            const t = await withTempSession(env, prefix, async (up) => {
-                const viewsUrl = `${url.origin}/${prefix}/emby/Users/${up.userId}/Views`;
-                const r = await proxyRequest(new Request(viewsUrl, { headers: identityHeaders(up.ident, up.token) }), env, ctx, new URL(viewsUrl));
-                return { status: r.status, data: r.ok ? await r.json().catch(() => null) : null };
-            });
+            const t = await withTempSession(env, prefix, (get, up) => get(`/Users/${up.userId}/Views`));
             if (t.error) return fail('节点上游账号不可用：' + t.error, 503);
-            const data = t.result.data;
-            if (!data) return fail(`读取媒体库失败（HTTP ${t.result.status}）`, 502);
+            const data = t.result?.data;
+            if (!data) return fail(t.result?.unauthorized ? '读取媒体库失败：上游拒绝（401/403）' : '读取媒体库失败：上游无响应或返回异常', 502);
             return ok({ libraries: (data.Items || []).map(x => ({ id: String(x.Id), name: x.Name })) });
         }
         return new Response('Method not allowed', { status: 405 });
