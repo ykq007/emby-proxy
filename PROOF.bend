@@ -1,5 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
+import ./src/viewers/sync.bend as W
 
 # PROOF: the audit computes to an empty list.
 def Laws.dark_theme_meets_aa():
@@ -37,4 +38,50 @@ def Laws.range_edges_hold():
   {==}
 
 def Laws.v4_range_skips_v6():
+  {==}
+
+# PROOF: case analysis on the first answer, then on the resend and the re-login.
+def Laws.viewer_agrees_with_upstream(answers, relogged):
+  match answers:
+    case Nil{}:
+      {==}
+    case Con{a, rest}:
+      match a:
+        case W.Ok{}:
+          {==}
+        case W.Failed{}:
+          {==}
+        case W.Expired{}:
+          match rest:
+            case Nil{}:
+              {==}
+            case Con{b, _}:
+              match b:
+                case W.Ok{}:
+                  match relogged:
+                    case True{}:
+                      {==}
+                    case False{}:
+                      {==}
+                case W.Expired{}:
+                  match relogged:
+                    case True{}:
+                      {==}
+                    case False{}:
+                      {==}
+                case W.Failed{}:
+                  match relogged:
+                    case True{}:
+                      {==}
+                    case False{}:
+                      {==}
+
+# PROOF: each outcome computes to the stated constructor.
+def Laws.expired_token_write_lands():
+  {==}
+
+def Laws.write_is_resent_once():
+  {==}
+
+def Laws.failed_write_is_not_resent():
   {==}

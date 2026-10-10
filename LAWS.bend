@@ -4,6 +4,7 @@ import ./src/ui/console/theme.bend as T
 import ./src/ui/console/reflow.bend as R
 import ./src/ui/console/layout.bend as L
 import ./src/ui/console/cfip.bend as F
+import ./src/viewers/sync.bend as W
 
 # LAW: the dark theme declares color-scheme: dark and every pair in C.audit meets WCAG AA.
 law dark_theme_meets_aa:
@@ -50,3 +51,22 @@ law range_edges_hold:
 # LAW: an IPv6 address that starts with the bits of 172.64.0.0 (ac40::1) is not matched by the IPv4 range.
 law v4_range_skips_v6:
   {F.is_cf(F.V6{44096, 0, 0, 0, 0, 0, 0, 1}) == False{} : Bool}
+
+# LAW: whatever the upstream answers, a viewer's watch state holds a write exactly when the upstream
+# account does. Local watch state is never ahead of or behind the account a main-account client uses.
+law viewer_agrees_with_upstream:
+  for +answers: List<&2, W.Answer>
+  for relogged: Bool
+  {W.agree(W.sync(answers, relogged)) == True{} : Bool}
+
+# LAW: a write that meets an expired upstream token reaches the upstream and the viewer after re-login.
+law expired_token_write_lands:
+  {W.sync([W.Expired{}, W.Ok{}], True{}) == W.Outcome{True{}, True{}} : W.Outcome}
+
+# LAW: the proxy sends a write at most twice; a second 401 drops it on both sides.
+law write_is_resent_once:
+  {W.sync([W.Expired{}, W.Expired{}, W.Ok{}], True{}) == W.Outcome{False{}, False{}} : W.Outcome}
+
+# LAW: a write the upstream refused for another reason is not resent and is not stored.
+law failed_write_is_not_resent:
+  {W.sync([W.Failed{}, W.Ok{}], True{}) == W.Outcome{False{}, False{}} : W.Outcome}

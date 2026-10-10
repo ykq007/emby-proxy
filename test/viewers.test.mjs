@@ -17,7 +17,7 @@ import { createD1Sqlite } from './helpers/d1-sqlite.mjs';
 const ORIGIN = 'https://proxy.test';
 const UP = 'https://up.example';
 const UPTOK = 'UPSTREAM_TOKEN_123';
-let env; let seen; let restoreFetch; let upstreamLogins; let loginUas; let loginDevices; let logouts; let tokenDevice;
+let env; let expireNext = false; let seen; let restoreFetch; let upstreamLogins; let loginUas; let loginDevices; let logouts; let tokenDevice;
 const devOf = (req, u) => (/DeviceId="?([^",]+)/i.exec(req.headers.get('X-Emby-Authorization') || u.searchParams.get('X-Emby-Authorization') || '') || [])[1]
     || req.headers.get('X-Emby-Device-Id') || u.searchParams.get('DeviceId') || '';
 
@@ -37,6 +37,7 @@ function fakeUpstream(req) {
     }
     const tok = req.headers.get('X-Emby-Token') || u.searchParams.get('api_key') || u.searchParams.get('X-Emby-Token') || '';
     if (!tok.startsWith(UPTOK + '-')) return json({ message: 'bad token' }, 401);
+    if (expireNext) { expireNext = false; return json({ message: 'expired' }, 401); }
     const tokDev = tok.slice(UPTOK.length + 1);
     const reqDev = devOf(req, u);
     if (reqDev && reqDev !== tokDev) return json({ ErrorCode: 'invalid_token' }, 401);
@@ -312,6 +313,18 @@ test('watch history (SortBy=DatePlayed) is sorted, filtered and paged locally; u
     await call('/emby/Users/U1/Items?Filters=IsPlayed&ParentId=L1&SortBy=DatePlayed&Limit=2', { token: a.token });
     const up = new URL(seen.find(x => new URL(x.url).pathname === '/emby/Users/U1/Items').url).searchParams;
     assert.deepEqual([up.get('Ids').split(',').sort(), up.get('Limit')], [['e1', 'm1', 'm2', 'm3'], '2']);
+});
+
+test('a watch write that meets an expired upstream token reaches upstream after re-login and is stored', async () => {
+    const a = await makeViewer('alice');
+    for (const [path, body] of [['/emby/Sessions/Playing/Stopped', { ItemId: 'm2', PositionTicks: 950 }], ['/emby/Users/U1/FavoriteItems/m1', null]]) {
+        expireNext = true; seen = [];
+        const r = await call(path, { method: 'POST', token: a.token, body });
+        assert.equal(r.status < 300, true, `${path} answered ${r.status}`);
+        assert.equal(seen.filter(x => new URL(x.url).pathname === path).length, 2, `${path} sent twice`);
+    }
+    const row = env.DB.db.prepare(`SELECT played, is_favorite FROM watch_state WHERE viewer_id = ? AND item_id = ?`);
+    assert.deepEqual([{ ...row.get(a.id, 'm2') }, { ...row.get(a.id, 'm1') }].map(x => [x.played, x.is_favorite]), [[1, 0], [0, 1]]);
 });
 
 test('failed upstream write stores nothing locally', async () => {

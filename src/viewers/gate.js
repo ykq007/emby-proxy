@@ -13,6 +13,7 @@ import { rateLimitFixedWindow, resp429 } from '../db/rate-limit.js';
 import { TOKEN_PREFIX, resolveViewer, findViewerForLogin, verifyPassword, issueToken, revokeToken, changeOwnPassword, randomHex } from './store.js';
 import { clientIdentity, identityHeaders, getDeviceSession, loginDevice, dropDeviceSession } from './upstream.js';
 import { acquireSlot, heartbeatSlot, releaseSlot, holdSlot } from './limits.js';
+import Sync from './sync.mjs';
 import { recordPlayback, setUserData, applyUserData, overlayJson, localFilterRows, datePlayedPage, resumeIds, buildNextUp } from './watch.js';
 
 const E = '^\\/(?:emby\\/)?';
@@ -42,6 +43,10 @@ const DENIED = [
     [/./, re('System\\/(?:Restart|Shutdown)')],
     [/^(POST|DELETE)$/, re('(?:Plugins|Packages)(?:\\/.*)?')],
 ];
+
+const answer = (r) => ({ $: r.ok ? 'Ok' : r.status === 401 ? 'Expired' : 'Failed' });
+// 上游收下了这次写入，本地观看状态才跟着写。
+const landed = (r) => Sync.landed(answer(r)).viewer;
 
 const unauthorized = () => Response.json({ message: 'Unauthorized' }, { status: 401 });
 const browserBlocked = () => Response.json({ message: BROWSER_BLOCKED_MESSAGE }, { status: 403 });
@@ -103,16 +108,17 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         up = fresh;
     }
 
-    // 上游令牌失效 → 以同一设备身份重新登录；GET 可安全重放一次。
+    // 上游令牌失效 → 以同一设备身份重新登录，再发一次（401 说明上游没收下，任何方法都可安全重放）。
+    // 规则在 sync.bend，LAWS.bend 证明观看记录写入与上游账号一致。
     const send = async (req) => {
-        const retry = req.method === 'GET' ? req.clone() : null;
+        const retry = req.clone();
         let r = await opts.forward(swapToken(req, token, up.token));
-        if (r.status === 401) {
+        if (Sync.retry(answer(r))) {
             await dropDeviceSession(env, prefix, device);
             const fresh = await loginDevice(env, prefix, up.ident);
             if (!fresh.error) {
                 up = fresh;
-                if (retry) r = await opts.forward(swapToken(retry, token, up.token));
+                r = await opts.forward(swapToken(retry, token, up.token));
             }
         }
         return r;
@@ -153,7 +159,7 @@ export async function handleViewerRequest(request, env, ctx, opts) {
         const body = await readBody(request);
         const r = await send(request);
         const work = [kind === 'stopped' ? releaseSlot(env, s, device) : heartbeatSlot(env, s, device)];
-        if (r.ok) work.push(recordPlayback(env, s, kind, body, fetchItem));
+        if (landed(r)) work.push(recordPlayback(env, s, kind, body, fetchItem));
         const all = Promise.all(work).catch(e => console.log('viewer watch write failed:', e.message));
         if (ctx && ctx.waitUntil) ctx.waitUntil(all); else await all;
         return r;
@@ -228,7 +234,7 @@ export async function handleViewerRequest(request, env, ctx, opts) {
 
 // PlayedItems / FavoriteItems / UserData 写：上游成功后写本地，响应里的 UserData 换成本地状态。
 async function userDataWrite(v, r, itemId, flags, fetchItem) {
-    if (!r.ok) return r;
+    if (!landed(r)) return r;
     const row = await setUserData(v.env, v.s, itemId, flags, fetchItem);
     const ud = await r.clone().json().catch(() => null);
     if (!ud || typeof ud !== 'object') return r;
