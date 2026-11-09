@@ -96,7 +96,7 @@ export function keepaliveView(days, lastPlayedAt, nowSec = Math.floor(Date.now()
     const remain = lastPlayedAt + days * 86400 - nowSec;
     if (remain <= 0) return { text: `${days} 天 · 已超期`, warn: true };
     if (remain <= 86400) return { text: `${days} 天 · 余 ${Math.max(1, Math.ceil(remain / 3600))}h`, warn: true };
-    return { text: `${days} 天 · 余 ${Math.floor(remain / 86400)}d`, warn: false };
+    return { text: `${days} 天 · 余 ${Math.floor(remain / 86400)}d`, warn: remain <= 3 * 86400 };
 }
 
 export const splitTargets = s => String(s || '').split(/[\n,]/).map(t => t.trim().replace(/\/$/, '')).filter(Boolean);

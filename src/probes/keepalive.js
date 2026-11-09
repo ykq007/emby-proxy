@@ -2,13 +2,13 @@ import { dbAll } from '../db/helpers.js';
 import { notify } from '../tg/notifications.js';
 import { KEEPALIVE_SELECT, seedKeepaliveBaseline, markKeepaliveReminded } from '../routing/route.js';
 
+export const REMIND_LEAD_SEC = 3 * 86400;
+// The hourly cron can land a little early, so allow 30 minutes of slack on the daily gap.
+const REMIND_GAP_SEC = 86400 - 1800;
+
 export function shouldRemind(remaining, lastReminded, now) {
-    if (remaining > 86400) return false;
-    if (remaining <= 0) {
-        return (now - lastReminded) >= 86400;
-    }
-    // Use hour-bucket dedup: fire at most once per calendar hour regardless of cron jitter.
-    return Math.floor(lastReminded / 3600) !== Math.floor(now / 3600);
+    if (remaining > REMIND_LEAD_SEC) return false;
+    return (now - lastReminded) >= REMIND_GAP_SEC;
 }
 
 export async function maybeRemindKeepalive(env, now) {

@@ -214,3 +214,12 @@ test('notify: unknown kind throws', async () => {
     const env = makeKvEnv();
     await assert.rejects(() => notify(env, 'not-a-real-kind', {}, NOW), /unknown notification kind/);
 });
+
+test('renderKeepaliveReminderPayload: shows days when a day or more is left', () => {
+    const payload = renderKeepaliveReminderPayload('chat', [
+        { route: { prefix: 'a', public_alias: 'A', remark: '' }, remaining: 3 * 86400 },
+        { route: { prefix: 'b', public_alias: 'B', remark: '' }, remaining: 5 * 3600 },
+    ], 1_000_000);
+    assert.ok(payload.text.includes('还剩约 3 天'));
+    assert.ok(payload.text.includes('还剩约 5 小时'));
+});

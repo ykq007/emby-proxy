@@ -85,22 +85,30 @@ test('GET /Users → false (negative)', () => {
 
 const NOW = 1_000_000;
 
-test('remaining > 86400 → false', () => {
-    assert.equal(shouldRemind(86401, 0, NOW), false);
+test('more than 3 days left → no reminder', () => {
+    assert.equal(shouldRemind(3 * 86400 + 1, 0, NOW), false);
 });
 
-test('remaining = 43200 (12h), lastReminded 3600s ago → true', () => {
-    assert.equal(shouldRemind(43200, NOW - 3600, NOW), true);
+test('3 days left, never reminded → reminder', () => {
+    assert.equal(shouldRemind(3 * 86400, 0, NOW), true);
 });
 
-test('remaining = 43200, lastReminded 1800s ago → false (debounce 50min)', () => {
-    assert.equal(shouldRemind(43200, NOW - 1800, NOW), false);
+test('2 days left, reminded 24h ago → reminder', () => {
+    assert.equal(shouldRemind(2 * 86400, NOW - 86400, NOW), true);
 });
 
-test('remaining = -3600 (overdue), lastReminded 90000s ago → true', () => {
+test('12h left, reminded 3h ago → no reminder (once a day, not every hour)', () => {
+    assert.equal(shouldRemind(43200, NOW - 3 * 3600, NOW), false);
+});
+
+test('hourly cron 10 min early still sends the next daily reminder', () => {
+    assert.equal(shouldRemind(86400, NOW - (86400 - 600), NOW), true);
+});
+
+test('overdue, reminded 25h ago → reminder', () => {
     assert.equal(shouldRemind(-3600, NOW - 90000, NOW), true);
 });
 
-test('remaining = -3600, lastReminded 82800s ago → false (overdue debounce 86400s)', () => {
+test('overdue, reminded 23h ago → no reminder', () => {
     assert.equal(shouldRemind(-3600, NOW - 82800, NOW), false);
 });
