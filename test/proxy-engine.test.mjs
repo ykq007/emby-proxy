@@ -926,3 +926,20 @@ test('302 redirect to allowlisted host → Location NOT rewritten (direct passth
         restore();
     }
 });
+
+test('POST progress heartbeat reaches upstream with its body intact', async () => {
+    let upstreamBody = null;
+    const restore = stubFetch(async (req) => {
+        upstreamBody = await req.text();
+        return new Response(null, { status: 204 });
+    });
+    try {
+        const body = JSON.stringify({ IsPaused: true, PositionTicks: 42 });
+        const { response, ctx } = await callEngine('/myemby/Sessions/Playing/Progress', { method: 'POST', body });
+        await Promise.all(ctx._pending || []);
+        assert.equal(response.status, 204);
+        assert.equal(upstreamBody, body);
+    } finally {
+        restore();
+    }
+});

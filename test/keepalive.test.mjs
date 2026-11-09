@@ -7,76 +7,59 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { isPlaybackRequest } from '../src/proxy/engine.js';
+import { isRealPlayback, isUnpaused } from '../src/proxy/engine.js';
 import { shouldRemind } from '../src/probes/keepalive.js';
 
 // ---------------------------------------------------------------------------
-// isPlaybackRequest — path/method matching
+// isRealPlayback — only actual watching resets the keepalive window
 // ---------------------------------------------------------------------------
 
-test('POST /Sessions/Playing → true', () => {
-    assert.equal(isPlaybackRequest('/Sessions/Playing', 'POST'), true);
+const WATCHING = [
+    ['POST', '/Sessions/Playing'],
+    ['POST', '/emby/Sessions/Playing/Progress'],
+    ['GET', '/Videos/123/stream.mp4'],
+    ['GET', '/Audio/abc/stream'],
+    ['GET', '/Videos/abc/master.m3u8'],
+    ['GET', '/emby/Videos/abc/hls1/0.ts'],
+    ['GET', '/Videos/abc/segment-001.m4s'],
+];
+const NOT_WATCHING = [
+    ['GET', '/Items/x/PlaybackInfo'],
+    ['POST', '/emby/Items/x/PlaybackInfo'],
+    ['POST', '/Sessions/Playing/Stopped'],
+    ['POST', '/Sessions/Playing/Ping'],
+    ['GET', '/Videos/abc/Subtitles/1/0/Stream.srt'],
+    ['GET', '/Videos/abc/original'],
+    ['GET', '/Items/x/Download'],
+    ['GET', '/emby/Sync/Items'],
+    ['GET', '/Users'],
+    ['GET', '/Sessions'],
+    ['POST', '/Videos/123/stream'],
+];
+
+for (const [method, path] of WATCHING) {
+    test(`${method} ${path} → watching`, () => assert.equal(isRealPlayback(path, method), true));
+}
+for (const [method, path] of NOT_WATCHING) {
+    test(`${method} ${path} → not watching`, () => assert.equal(isRealPlayback(path, method), false));
+}
+
+const progress = body => new Request('https://p.example/Sessions/Playing/Progress', { method: 'POST', body });
+
+test('paused progress heartbeat → not watching', async () => {
+    assert.equal(await isUnpaused(progress(JSON.stringify({ IsPaused: true, PositionTicks: 1 }))), false);
 });
 
-test('POST /emby/Sessions/Playing/Progress → true', () => {
-    assert.equal(isPlaybackRequest('/emby/Sessions/Playing/Progress', 'POST'), true);
+test('unpaused progress heartbeat → watching', async () => {
+    assert.equal(await isUnpaused(progress(JSON.stringify({ IsPaused: false }))), true);
 });
 
-test('GET /Videos/123/stream.mp4 → true', () => {
-    assert.equal(isPlaybackRequest('/Videos/123/stream.mp4', 'GET'), true);
+test('progress body that is not JSON → watching (fail open, the play start already counted)', async () => {
+    assert.equal(await isUnpaused(progress('not json')), true);
 });
 
-test('GET /Audio/abc/stream → true', () => {
-    assert.equal(isPlaybackRequest('/Audio/abc/stream', 'GET'), true);
-});
-
-test('GET /Items/x/PlaybackInfo → true', () => {
-    assert.equal(isPlaybackRequest('/Items/x/PlaybackInfo', 'GET'), true);
-});
-
-test('GET /emby/Items/x/PlaybackInfo → true', () => {
-    assert.equal(isPlaybackRequest('/emby/Items/x/PlaybackInfo', 'GET'), true);
-});
-
-test('GET /Users → false', () => {
-    assert.equal(isPlaybackRequest('/Users', 'GET'), false);
-});
-
-test('GET /Sessions → false (no /Playing suffix)', () => {
-    assert.equal(isPlaybackRequest('/Sessions', 'GET'), false);
-});
-
-test('POST /Videos/123/stream → false (wrong method)', () => {
-    assert.equal(isPlaybackRequest('/Videos/123/stream', 'POST'), false);
-});
-
-// M2: new HLS/DASH/download patterns
-test('GET /Videos/abc/master.m3u8 → true', () => {
-    assert.equal(isPlaybackRequest('/Videos/abc/master.m3u8', 'GET'), true);
-});
-
-test('GET /emby/Videos/abc/hls1/0.ts → true', () => {
-    assert.equal(isPlaybackRequest('/emby/Videos/abc/hls1/0.ts', 'GET'), true);
-});
-
-test('GET /Videos/abc/segment-001.m4s → true', () => {
-    assert.equal(isPlaybackRequest('/Videos/abc/segment-001.m4s', 'GET'), true);
-});
-
-test('GET /Items/x/Download → true', () => {
-    assert.equal(isPlaybackRequest('/Items/x/Download', 'GET'), true);
-});
-
-test('GET /emby/Sync/Items → true', () => {
-    assert.equal(isPlaybackRequest('/emby/Sync/Items', 'GET'), true);
-});
-
-test('POST /Sessions/Playing/Stopped → true', () => {
-    assert.equal(isPlaybackRequest('/Sessions/Playing/Stopped', 'POST'), true);
-});
-
-test('GET /Users → false (negative)', () => {
-    assert.equal(isPlaybackRequest('/Users', 'GET'), false);
+test('no progress body to check (stream or play start) → watching', async () => {
+    assert.equal(await isUnpaused(null), true);
 });
 
 // ---------------------------------------------------------------------------
