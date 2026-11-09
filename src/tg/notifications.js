@@ -64,9 +64,9 @@ export function renderKeepaliveReminderPayload(chatId, toRemind, now) {
             const emoji = days > 3 ? '🚨' : '⚠️';
             lines.push(`${emoji} <b>${name}</b> — 已超期 ${days} 天`);
         } else {
-            const timeStr = remaining < 3600
-                ? Math.ceil(remaining / 60) + ' 分钟'
-                : Math.ceil(remaining / 3600) + ' 小时';
+            const timeStr = remaining < 3600 ? Math.ceil(remaining / 60) + ' 分钟'
+                : remaining < 86400 ? Math.ceil(remaining / 3600) + ' 小时'
+                : Math.round(remaining / 86400) + ' 天';
             lines.push(`⏰ <b>${name}</b> — 还剩约 ${timeStr}`);
         }
     }

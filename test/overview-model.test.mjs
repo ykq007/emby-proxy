@@ -61,6 +61,7 @@ test('slaGrade and keepaliveView', () => {
     assert.deepEqual(keepaliveView(7, now - 8 * 86400, now), { text: '7 天 · 已超期', warn: true });
     assert.deepEqual(keepaliveView(7, now - 7 * 86400 + 7200, now), { text: '7 天 · 余 2h', warn: true });
     assert.deepEqual(keepaliveView(7, now - 2 * 86400, now), { text: '7 天 · 余 5d', warn: false });
+    assert.deepEqual(keepaliveView(7, now - 4.5 * 86400, now), { text: '7 天 · 余 2d', warn: true });
 });
 
 test('moveBefore inserts before the new neighbour, or at the end', () => {
