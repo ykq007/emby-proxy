@@ -180,24 +180,34 @@ test('known prefix /myemby/foo → fetches https://upstream.example.com/foo, ret
 });
 
 // ---------------------------------------------------------------------------
-// 5. Direct passthrough: path starts with /https://
+// 5. Bare URL paths are not proxied; node-prefixed URL paths are
 // ---------------------------------------------------------------------------
 
-test('path /https://other.example.com/x → fetches that URL directly (no prefix lookup)', async () => {
+test('path /https://other.example.com/x → 404, never fetched', async () => {
     const capturedUrls = [];
     const restore = stubFetch(async (req) => {
         capturedUrls.push(typeof req === 'string' ? req : req.url);
         return new Response('direct-body', { status: 200 });
     });
     try {
-        // env with NO DB — the direct-path branch runs BEFORE any DB call
-        const { response } = await callEngine('/https://other.example.com/x', {}, { /* no DB */ });
-        assert.ok(
-            capturedUrls.some(u => u.includes('other.example.com/x')),
-            `expected other.example.com/x in fetch calls, got: ${capturedUrls}`
-        );
+        const { response } = await callEngine('/https://other.example.com/x');
+        assert.equal(response.status, 404);
+        assert.ok(!capturedUrls.some(u => u.includes('other.example.com')), `fetched: ${capturedUrls}`);
+    } finally {
+        restore();
+    }
+});
+
+test('path /myemby/https://cdn.example.com/v.mp4 → fetches that URL (rewritten redirect target)', async () => {
+    const capturedUrls = [];
+    const restore = stubFetch(async (req) => {
+        capturedUrls.push(typeof req === 'string' ? req : req.url);
+        return new Response('cdn-body', { status: 200 });
+    });
+    try {
+        const { response } = await callEngine('/myemby/https://cdn.example.com/v.mp4');
         assert.equal(response.status, 200);
-        assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+        assert.ok(capturedUrls.some(u => u.startsWith('https://cdn.example.com/v.mp4')), `fetched: ${capturedUrls}`);
     } finally {
         restore();
     }

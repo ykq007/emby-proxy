@@ -36,70 +36,57 @@ export async function proxyRequest(request, env, ctx, url) {
     // 真正的 header 拼装/额外计时只在 flag 开启时发生。
     const tStart = Date.now();
 
-    if (decodedPath.startsWith('/http://') || decodedPath.startsWith('/https://')) {
-        targetUrls = [decodedPath.substring(1)]; remainingPath = '';
-    } else {
-        const pathParts = decodedPath.split('/'); const prefix = pathParts[1];
-        if (!prefix) return new Response(`Not Found`, { status: 404 });
+    const pathParts = decodedPath.split('/'); const prefix = pathParts[1];
+    if (!prefix) return new Response(`Not Found`, { status: 404 });
 
-        try {
-            if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
-            const loaded = await getConfig(env);
-            config = loaded.config; cacheHit = loaded.cacheHit; d1Ms = loaded.loadMs;
-            if (!config.ok) throw (config.error || new Error('config load failed'));
-
-            const route = config.routesMap.get(prefix);
-            if (!route) {
-                // 代理层 Fail2ban：未知前缀 = 疑似扫描；超阈值 → 限流/封禁(复用 ip_bans)。
-                const scanIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip') || '';
-                const blocked = await guardPrefixScan(env, scanIp, Date.now());
-                if (blocked) return blocked;
-                return new Response(`404: Node not found`, { status: 404 });
-            }
-
-            currentMode = route.mode || 'off'; enableCache = (route.cache_img !== 'off');
-            matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
-            targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
-            customHeadersRaw = route.custom_headers || '';
-            viewersOn = !!route.viewers_enabled;
-
-            // 媒体计数鉴权已改为用户名/密码（AuthenticateByName），不再被动收割请求里的 token。
-
-            if (route.keepalive_days > 0 && isPlaybackRequest(remainingPath, request.method) && ctx && ctx.waitUntil) {
-                const nowSec = Math.floor(Date.now() / 1000);
-                const last = KEEPALIVE_MEM.get(prefix) || 0;
-                if (nowSec - last > 600) {
-                    KEEPALIVE_MEM.set(prefix, nowSec);
-                    ctx.waitUntil(touchKeepalivePlayed(env, prefix, nowSec));
-                }
-            }
-
-            // 真实播放信号才更新 last_play（UI「最后活跃」）。比上面保号触发更严格——
-            // 排除 PlaybackInfo 预检查，避免「点开但未播放」算成活跃。
-            if (isRealPlayback(remainingPath, request.method) && ctx && ctx.waitUntil) {
-                const nowSec = Math.floor(Date.now() / 1000);
-                const last = LASTPLAY_MEM.get(prefix) || 0;
-                if (nowSec - last > 60) {
-                    LASTPLAY_MEM.set(prefix, nowSec);
-                    const nowTime = formatBeijingTimestamp();
-                    ctx.waitUntil(touchLastPlay(env, prefix, nowTime));
-                }
-            }
-
-            if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
-        } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
-    }
-
-    if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
-
-    // 直传分支（/https://...）没有匹配路由，前面还没取过 config；这里补一次
-    // （命中缓存则零 D1 读），确保国家/防盗链网关对直传请求同样生效。
-    if (!config && env.DB) {
+    try {
+        if (!env.DB) return new Response(`404: Node not found (DB not bound)`, { status: 404 });
         const loaded = await getConfig(env);
         config = loaded.config; cacheHit = loaded.cacheHit; d1Ms = loaded.loadMs;
-    }
-    // 未绑定 DB 或加载失败：按失败即放行处理（countrySet/hotlinkSet 为 null）。
-    if (!config) config = { routesMap: null, countrySet: null, hotlinkSet: null, manualRedirectSet: new Set(), ok: false };
+        if (!config.ok) throw (config.error || new Error('config load failed'));
+
+        const route = config.routesMap.get(prefix);
+        if (!route) {
+            // 代理层 Fail2ban：未知前缀 = 疑似扫描；超阈值 → 限流/封禁(复用 ip_bans)。
+            const scanIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip') || '';
+            const blocked = await guardPrefixScan(env, scanIp, Date.now());
+            if (blocked) return blocked;
+            return new Response(`404: Node not found`, { status: 404 });
+        }
+
+        currentMode = route.mode || 'off'; enableCache = (route.cache_img !== 'off');
+        matchedPrefix = prefix; remainingPath = '/' + pathParts.slice(2).join('/');
+        targetUrls = route.target.split(',').map(s => s.trim()).filter(Boolean);
+        customHeadersRaw = route.custom_headers || '';
+        viewersOn = !!route.viewers_enabled;
+
+        // 媒体计数鉴权已改为用户名/密码（AuthenticateByName），不再被动收割请求里的 token。
+
+        if (route.keepalive_days > 0 && isPlaybackRequest(remainingPath, request.method) && ctx && ctx.waitUntil) {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const last = KEEPALIVE_MEM.get(prefix) || 0;
+            if (nowSec - last > 600) {
+                KEEPALIVE_MEM.set(prefix, nowSec);
+                ctx.waitUntil(touchKeepalivePlayed(env, prefix, nowSec));
+            }
+        }
+
+        // 真实播放信号才更新 last_play（UI「最后活跃」）。比上面保号触发更严格——
+        // 排除 PlaybackInfo 预检查，避免「点开但未播放」算成活跃。
+        if (isRealPlayback(remainingPath, request.method) && ctx && ctx.waitUntil) {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const last = LASTPLAY_MEM.get(prefix) || 0;
+            if (nowSec - last > 60) {
+                LASTPLAY_MEM.set(prefix, nowSec);
+                const nowTime = formatBeijingTimestamp();
+                ctx.waitUntil(touchLastPlay(env, prefix, nowTime));
+            }
+        }
+
+        if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
+    } catch (e) { return new Response("DB Error: " + e.message, { status: 500 }); }
+
+    if (targetUrls.length === 0) return new Response("404: Target empty", { status: 404 });
 
     const requestGateResponse = await applyRequestGate(request, env, config);
     if (requestGateResponse) return requestGateResponse;
