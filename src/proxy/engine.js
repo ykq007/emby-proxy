@@ -65,25 +65,9 @@ export async function proxyRequest(request, env, ctx, url) {
 
             // 媒体计数鉴权已改为用户名/密码（AuthenticateByName），不再被动收割请求里的 token。
 
-            if (route.keepalive_days > 0 && isPlaybackRequest(remainingPath, request.method) && ctx && ctx.waitUntil) {
-                const nowSec = Math.floor(Date.now() / 1000);
-                const last = KEEPALIVE_MEM.get(prefix) || 0;
-                if (nowSec - last > 600) {
-                    KEEPALIVE_MEM.set(prefix, nowSec);
-                    ctx.waitUntil(touchKeepalivePlayed(env, prefix, nowSec));
-                }
-            }
-
-            // 真实播放信号才更新 last_play（UI「最后活跃」）。比上面保号触发更严格——
-            // 排除 PlaybackInfo 预检查，避免「点开但未播放」算成活跃。
             if (isRealPlayback(remainingPath, request.method) && ctx && ctx.waitUntil) {
-                const nowSec = Math.floor(Date.now() / 1000);
-                const last = LASTPLAY_MEM.get(prefix) || 0;
-                if (nowSec - last > 60) {
-                    LASTPLAY_MEM.set(prefix, nowSec);
-                    const nowTime = formatBeijingTimestamp();
-                    ctx.waitUntil(touchLastPlay(env, prefix, nowTime));
-                }
+                const progress = PROGRESS_RE.test(remainingPath) ? request.clone() : null;
+                ctx.waitUntil(isUnpaused(progress).then(on => on && touchPlayback(env, route, prefix)));
             }
 
             if (remainingPath.startsWith('/http://') || remainingPath.startsWith('/https://')) { targetUrls = [remainingPath.substring(1)]; remainingPath = ''; }
@@ -165,28 +149,37 @@ export async function proxyRequest(request, env, ctx, url) {
     });
 }
 
-export function isPlaybackRequest(path, method) {
-    if (method === 'POST' && /^\/(?:emby\/)?Sessions\/Playing/i.test(path)) return true;
-    if (method !== 'GET') return false;
-    if (/^\/(?:emby\/)?(?:Videos|Audio)\/[^/]+\/stream/i.test(path)) return true;
-    if (/^\/(?:emby\/)?Items\/[^/]+\/PlaybackInfo/i.test(path)) return true;
-    if (/^\/(?:emby\/)?Videos\/[^/]+\/(?:master|main|live|playlist)\.m3u8/i.test(path)) return true;
-    if (/^\/(?:emby\/)?Videos\/[^/]+\/hls\d*\//i.test(path)) return true;
-    if (/^\/(?:emby\/)?Videos\/[^/]+\/.+\.(?:m3u8|ts|m4s|mp4)$/i.test(path)) return true;
-    if (/^\/(?:emby\/)?(?:Videos|Audio)\/[^/]+\/(?:Subtitles|original)/i.test(path)) return true;
-    if (/^\/(?:emby\/)?Items\/[^/]+\/Download/i.test(path)) return true;
-    if (/^\/(?:emby\/)?Sync\//i.test(path)) return true;
-    return false;
-}
+// Only signals that someone is actually watching: a play start, an unpaused
+// progress heartbeat, or a media stream. PlaybackInfo is sent when a details
+// page opens, and Stopped/Ping/Subtitles/Download/Sync are not playback, so
+// none of them may reset the keepalive window.
+const PROGRESS_RE = /^\/(?:emby\/)?Sessions\/Playing\/Progress$/i;
 
-// 严格子集：用户「确实在播」才返回 true。排除 PlaybackInfo（仅预检）、
-// Subtitles/Download/Sync（辅助流量）。用于 last_play 更新，保证 UI 准确。
 export function isRealPlayback(path, method) {
-    if (method === 'POST' && /^\/(?:emby\/)?Sessions\/Playing/i.test(path)) return true;
+    if (method === 'POST') return /^\/(?:emby\/)?Sessions\/Playing(?:\/Progress)?$/i.test(path);
     if (method !== 'GET') return false;
     if (/^\/(?:emby\/)?(?:Videos|Audio)\/[^/]+\/stream/i.test(path)) return true;
     if (/^\/(?:emby\/)?Videos\/[^/]+\/(?:master|main|live|playlist)\.m3u8/i.test(path)) return true;
     if (/^\/(?:emby\/)?Videos\/[^/]+\/hls\d*\//i.test(path)) return true;
     if (/^\/(?:emby\/)?Videos\/[^/]+\/.+\.(?:ts|m4s|mp4)$/i.test(path)) return true;
     return false;
+}
+
+export async function isUnpaused(progressRequest) {
+    if (!progressRequest) return true;
+    try { return (await progressRequest.json())?.IsPaused !== true; } catch (e) { return true; }
+}
+
+function touchPlayback(env, route, prefix) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const writes = [];
+    if (route.keepalive_days > 0 && nowSec - (KEEPALIVE_MEM.get(prefix) || 0) > 600) {
+        KEEPALIVE_MEM.set(prefix, nowSec);
+        writes.push(touchKeepalivePlayed(env, prefix, nowSec));
+    }
+    if (nowSec - (LASTPLAY_MEM.get(prefix) || 0) > 60) {
+        LASTPLAY_MEM.set(prefix, nowSec);
+        writes.push(touchLastPlay(env, prefix, formatBeijingTimestamp()));
+    }
+    return Promise.all(writes);
 }
